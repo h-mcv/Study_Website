@@ -2310,7 +2310,7 @@
                     .select("state, updated_at")
                     .eq("user_id", currentUser.id)
                     .maybeSingle();
-                if (error) { console.error("Cloud load failed:", error); return; }
+                if (error) { console.error("Cloud load failed:", error); cloudSyncFailed = true; render(); return; }
                 if (data) {
                     state = sanitizeState(data.state);
                     lastSyncedAt = new Date(data.updated_at);
