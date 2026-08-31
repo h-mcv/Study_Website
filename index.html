@@ -6064,7 +6064,7 @@
                 },
 
                 delete_event: {
-                    description: "Permanently remove a timetable event (all of its times). Get the id from read_app_state first.",
+                    description: "Permanently remove a timetable event and EVERY occurrence of it, including all future weeks if it repeats. Get the id from read_app_state first. Do NOT use this when the user only means one date (\"skip Friday's study block\", \"I can't make class on the 12th\", \"cancel this week's session\") — that is skip_event_occurrence, which cancels a single date and leaves the rest of the series untouched. Only use delete_event when the user wants the event gone entirely, going forward — if in doubt which they mean, ask.",
                     parameters: { type: "OBJECT", properties: { id: { type: "STRING" } }, required: ["id"] },
                     handler: (args) => {
                         const existing = event(args.id);
