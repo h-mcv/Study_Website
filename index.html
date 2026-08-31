@@ -2286,7 +2286,12 @@
             let cloudSyncFailed = false; // set when a push errors, so the UI can say so instead of silently lying.
 
             function signInWithGoogle() {
-                supabaseClient.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.href } });
+                // Strip any existing hash before handing this to Supabase: it appends its
+                // own "#access_token=..." fragment on the way back, and a URL that already
+                // ends in "#" turns that into "##access_token=...", which supabase-js can't
+                // parse — silently leaving the user signed out.
+                const redirectTo = window.location.origin + window.location.pathname + window.location.search;
+                supabaseClient.auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
             }
 
             async function signOutOfCloud() {
