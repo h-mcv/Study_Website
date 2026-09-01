@@ -2562,12 +2562,26 @@
             // Maps known Supabase Auth error messages to plain copy a student will actually
             // understand — falls back to the raw message for anything not recognised here
             // rather than hiding it, so a genuinely new failure mode is still visible.
+            // We're using Supabase's own built-in email sending (no custom SMTP provider
+            // configured) — fine at this app's current low signup volume, but it's rate-
+            // limited to only a handful of emails per hour, shared across every user, with
+            // no API to check remaining quota in advance. The best we can do reactively is
+            // remember locally once we've actually hit it, and skip straight to showing that
+            // (rather than a broken retry) for the next hour — see emailSendingOnCooldown().
+            const EMAIL_RATE_LIMIT_KEY = 'authEmailRateLimitedUntil';
+            function emailSendingOnCooldown() { const until = Number(localStorage.getItem(EMAIL_RATE_LIMIT_KEY) ||
+                    0); return until > Date.now() ? until : 0; }
+            function markEmailSendingRateLimited() { localStorage.setItem(EMAIL_RATE_LIMIT_KEY, String(Date.now() +
+                    60 * 60 * 1000)); }
+
             function friendlyAuthError(error) {
                 const msg = (error && error.message) || String(error);
                 if (/invalid login credentials/i.test(msg)) return 'Incorrect email or password.';
                 if (/already registered|user_already_exists/i.test(msg)) { authMode = 'signin';
                     return 'That email already has an account — sign in instead.'; }
-                if (/email not confirmed/i.test(msg)) return 'Check your inbox to confirm your email first — or use "Resend confirmation email" below.';
+                if (/email not confirmed/i.test(msg)) return 'Check your inbox to confirm your email first (check spam too) — or use "Resend confirmation email" below.';
+                if (/email rate limit|over_email_send_rate_limit/i.test(msg)) { markEmailSendingRateLimited();
+                    return "We've hit our email sending limit for the hour — try again later, or continue with Google instead."; }
                 if (/rate limit|429/i.test(msg)) return 'Too many attempts — try again in a minute.';
                 return msg;
             }
@@ -2580,6 +2594,12 @@
                     return; }
                 if (authMode === 'signup') { const confirm = document.getElementById('auth-confirm-password')?.value ||
                         ''; if (password !== confirm) { authError = "Passwords don't match.";
+                        renderLandingLayer();
+                        return; }
+                    // Signing up sends a confirmation email; signing in doesn't send anything,
+                    // so only the signup path needs to respect the cooldown.
+                    if (emailSendingOnCooldown()) { authError =
+                            "We've hit our email sending limit for the hour — try again later, or continue with Google instead.";
                         renderLandingLayer();
                         return; } }
                 authError = ''; authNotice = ''; authBusy = true;
@@ -2594,7 +2614,7 @@
                 if (authMode === 'signup' && !data.session) {
                     // Email confirmation is required and Supabase hasn't returned a session
                     // yet — nothing more to do until the user clicks the link in their inbox.
-                    authNotice = `Check ${email} for a confirmation link to finish signing up.`;
+                    authNotice = `Check ${email} for a confirmation link to finish signing up — check spam if you don't see it.`;
                     renderLandingLayer();
                     return; }
                 // A session now exists — onAuthStateChange picks this up and takes it from here.
@@ -2602,11 +2622,15 @@
 
             async function resendConfirmationEmail() {
                 const email = (document.getElementById('auth-email')?.value || '').trim(); if (!email) return;
+                if (emailSendingOnCooldown()) { authError =
+                        "We've hit our email sending limit for the hour — try again later, or continue with Google instead.";
+                    renderLandingLayer();
+                    return; }
                 authBusy = true;
                 renderLandingLayer();
                 const { error } = await supabaseClient.auth.resend({ type: 'signup', email });
                 authBusy = false;
-                authNotice = error ? '' : `Confirmation email resent to ${email}.`;
+                authNotice = error ? '' : `Confirmation email resent to ${email} — check spam if you don't see it.`;
                 authError = error ? friendlyAuthError(error) : '';
                 renderLandingLayer();
             }
@@ -2614,6 +2638,10 @@
             async function requestPasswordReset() {
                 const email = (document.getElementById('auth-email')?.value || '').trim(); if (!email) {
                     authError = 'Enter your email first.';
+                    renderLandingLayer();
+                    return; }
+                if (emailSendingOnCooldown()) { authError =
+                        "We've hit our email sending limit for the hour — try again later, or sign in with Google instead.";
                     renderLandingLayer();
                     return; }
                 authBusy = true; authError = '';
@@ -2624,7 +2652,7 @@
                 if (error) { authError = friendlyAuthError(error);
                     renderLandingLayer();
                     return; }
-                authNotice = `Check ${email} for a link to reset your password.`;
+                authNotice = `Check ${email} for a link to reset your password — check spam if you don't see it.`;
                 renderLandingLayer();
             }
 
@@ -5504,6 +5532,20 @@
 
             function renderAuthScreen() {
                 const isSignup = authMode === 'signup';
+                // Signing up sends a confirmation email; signing in doesn't send anything at
+                // all, so the email-sending cooldown only ever hides the signup form, never
+                // sign-in — there's nothing rate-limited about signing in with a password.
+                const cooldownUntil = isSignup ? emailSendingOnCooldown() : 0;
+                const emailFormHtml = cooldownUntil ?
+                    `<div class="auth-notice">Email sign-up is temporarily unavailable — we've hit our email sending limit for the hour. Try again after ${new Date(cooldownUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, or use Google above.</div>` :
+                    `<div class="auth-divider">or</div>
+                    <div class="form-grid">
+                        <div class="field"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com"></div>
+                        <div class="field"><label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="${isSignup ? 'new-password' : 'current-password'}" placeholder="${isSignup ? 'At least 6 characters' : 'Your password'}"></div>
+                        ${isSignup ? `<div class="field"><label for="auth-confirm-password">Confirm password</label><input id="auth-confirm-password" type="password" autocomplete="new-password"></div>` : ''}
+                        ${!isSignup ? `<div style="text-align:right;margin-top:-8px"><button type="button" data-action="auth-forgot-password" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;padding:0">Forgot password?</button></div>` : ''}
+                    </div>
+                    <button type="button" class="button primary" style="width:100%;margin-top:14px" data-action="auth-submit" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Please wait…' : (isSignup ? 'Sign up' : 'Sign in')}</button>`;
                 return `
                     <div class="auth-page">
                         <div class="brand-mark" style="margin-left:auto;margin-right:auto">✦</div>
@@ -5512,14 +5554,7 @@
                         ${authError ? `<div class="auth-error">${escape(authError)}${/confirm your email/i.test(authError) ? ` <button type="button" data-action="auth-resend-confirmation" style="background:none;border:none;color:inherit;text-decoration:underline;cursor:pointer;font:inherit;padding:0">Resend confirmation email</button>` : ''}</div>` : ''}
                         ${authNotice ? `<div class="auth-notice">${escape(authNotice)}</div>` : ''}
                         <button type="button" class="button" style="width:100%" data-action="sign-in-google">Continue with Google</button>
-                        <div class="auth-divider">or</div>
-                        <div class="form-grid">
-                            <div class="field"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com"></div>
-                            <div class="field"><label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="${isSignup ? 'new-password' : 'current-password'}" placeholder="${isSignup ? 'At least 6 characters' : 'Your password'}"></div>
-                            ${isSignup ? `<div class="field"><label for="auth-confirm-password">Confirm password</label><input id="auth-confirm-password" type="password" autocomplete="new-password"></div>` : ''}
-                            ${!isSignup ? `<div style="text-align:right;margin-top:-8px"><button type="button" data-action="auth-forgot-password" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;padding:0">Forgot password?</button></div>` : ''}
-                        </div>
-                        <button type="button" class="button primary" style="width:100%;margin-top:14px" data-action="auth-submit" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Please wait…' : (isSignup ? 'Sign up' : 'Sign in')}</button>
+                        ${emailFormHtml}
                         <div class="auth-switch">${isSignup ? 'Already have an account?' : "Don't have an account?"} <button type="button" data-action="auth-toggle-mode">${isSignup ? 'Sign in' : 'Sign up'}</button></div>
                     </div>`;
             }
@@ -5538,6 +5573,11 @@
                         </div>
                         <button type="button" class="button primary" style="width:100%;margin-top:14px" data-action="auth-submit-new-password" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Please wait…' : 'Set new password'}</button>
                     </div>`;
+                const cooldownUntil = emailSendingOnCooldown();
+                const resetFormHtml = cooldownUntil ?
+                    `<div class="auth-notice">Password reset emails are temporarily unavailable — we've hit our email sending limit for the hour. Try again after ${new Date(cooldownUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, or sign in with Google if that's how you originally signed up.</div>` :
+                    `<div class="form-grid"><div class="field"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com"></div></div>
+                    <button type="button" class="button primary" style="width:100%;margin-top:14px" data-action="auth-request-reset" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Please wait…' : 'Send reset link'}</button>`;
                 return `
                     <div class="auth-page">
                         <div class="brand-mark" style="margin-left:auto;margin-right:auto">✦</div>
@@ -5545,8 +5585,7 @@
                         <p class="small">Enter your email and we'll send you a link to reset your password.</p>
                         ${authError ? `<div class="auth-error">${escape(authError)}</div>` : ''}
                         ${authNotice ? `<div class="auth-notice">${escape(authNotice)}</div>` : ''}
-                        <div class="form-grid"><div class="field"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com"></div></div>
-                        <button type="button" class="button primary" style="width:100%;margin-top:14px" data-action="auth-request-reset" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Please wait…' : 'Send reset link'}</button>
+                        ${resetFormHtml}
                         <div class="auth-switch"><button type="button" data-action="landing-go-auth" data-mode="signin">Back to sign in</button></div>
                     </div>`;
             }
