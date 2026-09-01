@@ -1214,16 +1214,56 @@
             margin: 0 auto 26px;
             font-size: 16px;
         }
-        .landing-shot-placeholder {
-            border: 2px dashed var(--line);
+        /* Inert, decorative mockups of the real app screens (not screenshots — hand-built markup styled to
+           match, so there's nothing to keep in sync with actual product art and no click handlers to strip). */
+        .landing-mock {
+            border: 1px solid var(--line);
             border-radius: var(--radius);
             aspect-ratio: 16/10;
-            display: grid;
-            place-items: center;
-            color: var(--muted);
-            font-size: 13px;
-            background: var(--surface-2);
+            overflow: hidden;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text);
+            user-select: none;
+            pointer-events: none;
         }
+        .landing-mock-title { font-weight: 700; font-size: 14px; flex-shrink: 0; }
+        .landing-mock-sub { color: var(--muted); font-size: 11px; }
+        .landing-mock-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 11px;
+            border-radius: 10px;
+            background: var(--surface-2);
+            flex-shrink: 0;
+        }
+        .landing-mock-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+        .landing-mock-pill {
+            margin-left: auto;
+            font-size: 10px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .landing-mock-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; flex: 1; min-height: 0; }
+        .landing-mock-day { display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+        .landing-mock-day-label { font-size: 10px; color: var(--muted); text-align: center; margin-bottom: 2px; }
+        .landing-mock-block { border-radius: 6px; padding: 5px 6px; font-size: 9px; color: #fff; font-weight: 600; }
+        .landing-mock-chat { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; }
+        .landing-mock-bubble { max-width: 82%; padding: 9px 13px; border-radius: 14px; font-size: 11px; line-height: 1.4; }
+        .landing-mock-bubble.system { background: var(--surface-2); align-self: flex-start; }
+        .landing-mock-bubble.user { background: var(--primary); color: #fff; align-self: flex-end; }
+        .landing-mock-progress-track { height: 8px; flex-shrink: 0; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+        .landing-mock-progress-fill { height: 100%; background: var(--primary); border-radius: 999px; }
         .landing-feature {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -5579,22 +5619,79 @@
                             <h1>Study smarter, not just harder.</h1>
                             <p>A timetable, a study planner, and an AI study assistant built for Irish secondary school — Simple Study works out what to study and when, so you don't have to.</p>
                             <button type="button" class="button primary" style="padding:14px 28px;font-size:16px" data-action="landing-go-auth" data-mode="signup">Get started — it's free</button>
-                            <div class="landing-shot-placeholder" style="margin-top:32px">Screenshot: dashboard</div>
+                            <div class="landing-mock" style="margin-top:32px;max-width:520px;margin-left:auto;margin-right:auto">
+                                <div class="landing-mock-title">Good morning, Aoife 👋</div>
+                                <div class="landing-mock-sub">Tuesday · 6 classes today</div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#335CFF"></span>Maths<span class="landing-mock-sub" style="margin-left:2px">09:00</span></div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#E75866"></span>English<span class="landing-mock-sub" style="margin-left:2px">09:50</span></div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#1E83C7"></span>Physics<span class="landing-mock-sub" style="margin-left:2px">10:55</span><span class="landing-mock-pill" style="background:var(--warning-soft);color:var(--warning)">Test tomorrow</span></div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#2D9B6C"></span>Self study<span class="landing-mock-sub" style="margin-left:2px">17:00 · 75m</span></div>
+                            </div>
                         </section>
                         <section class="landing-feature">
-                            <div class="landing-shot-placeholder">Screenshot: timetable</div>
+                            <div class="landing-mock">
+                                <div class="landing-mock-title">This week</div>
+                                <div class="landing-mock-grid">
+                                    <div class="landing-mock-day"><div class="landing-mock-day-label">Mon</div>
+                                        <div class="landing-mock-block" style="background:#335CFF">Maths</div>
+                                        <div class="landing-mock-block" style="background:#E75866">English</div>
+                                        <div class="landing-mock-block" style="background:#1E83C7">Physics</div>
+                                        <div class="landing-mock-block" style="background:#2D9B6C">Study</div>
+                                    </div>
+                                    <div class="landing-mock-day"><div class="landing-mock-day-label">Tue</div>
+                                        <div class="landing-mock-block" style="background:#5E45CE">App. Maths</div>
+                                        <div class="landing-mock-block" style="background:#E38A27">Economics</div>
+                                        <div class="landing-mock-block" style="background:#1F8A7A">Supervised</div>
+                                    </div>
+                                    <div class="landing-mock-day"><div class="landing-mock-day-label">Wed</div>
+                                        <div class="landing-mock-block" style="background:#335CFF">Maths</div>
+                                        <div class="landing-mock-block" style="background:#4FB0A5">SPHE</div>
+                                        <div class="landing-mock-block" style="background:#D447A9">Spanish</div>
+                                    </div>
+                                    <div class="landing-mock-day"><div class="landing-mock-day-label">Thu</div>
+                                        <div class="landing-mock-block" style="background:#E38A27">Economics</div>
+                                        <div class="landing-mock-block" style="background:#E75866">English</div>
+                                        <div class="landing-mock-block" style="background:#8FAA31">Music</div>
+                                    </div>
+                                    <div class="landing-mock-day"><div class="landing-mock-day-label">Fri</div>
+                                        <div class="landing-mock-block" style="background:#1E83C7">Physics</div>
+                                        <div class="landing-mock-block" style="background:#C2564E">PE</div>
+                                        <div class="landing-mock-block" style="background:#D447A9">Spanish</div>
+                                    </div>
+                                </div>
+                            </div>
                             <div><h2>Your whole week, in one place</h2><p>Classes, activities, sleep, and study blocks — see exactly how your week is shaping up, and what's coming next.</p></div>
                         </section>
                         <section class="landing-feature">
-                            <div class="landing-shot-placeholder">Screenshot: study planner</div>
+                            <div class="landing-mock">
+                                <div class="landing-mock-title">Today's study plan</div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#335CFF"></span>Review: Quadratic equations<span class="landing-mock-pill">45m</span></div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#1E83C7"></span>Mechanics — forces<span class="landing-mock-pill">30m</span></div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#E38A27"></span>Elasticity of demand<span class="landing-mock-pill" style="background:var(--danger-soft);color:var(--danger)">Needs work</span></div>
+                                <div class="landing-mock-sub" style="margin-top:auto">Built automatically from your timetable, topics, and exams.</div>
+                            </div>
                             <div><h2>A study plan that adapts to you</h2><p>Simple Study works out how much self-study you should be doing — and what to actually study in each session — based on what's due, what needs review, and how exams are approaching.</p></div>
                         </section>
                         <section class="landing-feature">
-                            <div class="landing-shot-placeholder">Screenshot: Sparky chat</div>
+                            <div class="landing-mock">
+                                <div class="landing-mock-title">✦ Sparky</div>
+                                <div class="landing-mock-chat">
+                                    <div class="landing-mock-bubble system">Hi! You've got a Physics test Thursday — want me to add some extra review sessions this week?</div>
+                                    <div class="landing-mock-bubble user">Yes please, and move Friday's session to the evening</div>
+                                    <div class="landing-mock-bubble system">Done — added two 30-minute Physics reviews and moved Friday to 18:00 👍</div>
+                                </div>
+                            </div>
                             <div><h2>Sparky, your AI study assistant</h2><p>Ask Sparky to add a class, skip a session you can't make, or explain a topic — right from chat.</p></div>
                         </section>
                         <section class="landing-feature">
-                            <div class="landing-shot-placeholder">Screenshot: CAO planning</div>
+                            <div class="landing-mock">
+                                <div class="landing-mock-title">CAO points</div>
+                                <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:30px;font-weight:800;line-height:1">487</span><span class="landing-mock-sub">/ 500 target</span></div>
+                                <div class="landing-mock-progress-track"><div class="landing-mock-progress-fill" style="width:78%"></div></div>
+                                <div class="landing-mock-row"><span>Maths (H)</span><span class="landing-mock-pill">100</span></div>
+                                <div class="landing-mock-row"><span>English (H)</span><span class="landing-mock-pill">90</span></div>
+                                <div class="landing-mock-row"><span>Physics (H)</span><span class="landing-mock-pill">77</span></div>
+                            </div>
                             <div><h2>Track your CAO points</h2><p>See where you stand against your target, and how each exam and test moves the needle.</p></div>
                         </section>
                         ${statsSection}
