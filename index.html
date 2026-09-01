@@ -2863,7 +2863,8 @@
                 settings: { firstName: '', lastName: '', dob: '', yearGroup: '', termStart: '', termEnd: '',
                     theme: 'light', onboarded: false, sidebarMode: 'hover', studyEngineDisabled: false,
                     notificationsEnabled: false,
-                    studyPreferences: { intensity: '', pointsTarget: '', timeOfDay: '', weekendBalance: '', notes: '' } },
+                    studyPreferences: { intensity: '', pointsTarget: '', timeOfDay: '', weekendBalance: '',
+                        sessionLength: '', temporaryBoostUntil: '', notes: '' } },
                 subjects: [],
                 events: [],
                 tasks: [],
@@ -2888,6 +2889,7 @@
                 caoCourses: [], // { id, code, name, lastYearPoints, notes, order } — user-entered, not hardcoded (points/courses change every year)
                 examTasks: [], // { id, subjectId, taxonomyId, title, dueDate, type, milestones: [{id,label,dueDate,done,taskId}], notes, done }
                 lastNotificationCheck: '', // date string — at most one notification check per day
+                lastResultsCheck: '', // date string — cooldown so the "results below target" check-in doesn't nag repeatedly
                 week: weekStart(localDate())
             });
             let state = load();
@@ -3261,6 +3263,18 @@
             function weeksUntil(fromDate, toDate) { return Math.round((dateFrom(toDate) - dateFrom(fromDate)) /
                 (7 * 86400000)); }
 
+            // How many weeks out the single nearest upcoming exam/test sitting is, across every subject —
+            // unlike examUrgencyForSubject (which scores one subject's own priority), this drives the TOTAL
+            // weekly self-study target, so it only needs whichever sitting is soonest overall.
+            function nearestExamWeeksOut(date) { let best = null;
+                (state.exams || []).forEach(exam => { (exam.sittings || []).forEach(s => { if (!s.date || s.date <
+                            date) return; const w = weeksUntil(date, s.date); if (best === null || w < best)
+                        best = w; }); });
+                return best; }
+            const EXAM_RAMP_WEEKS = 3; // how many weeks out the exam-proximity bump starts ramping in
+            const EXAM_RAMP_MAX_BOOST = 0.15; // modest on purpose — intensity's own number is already the top of the researched range
+            const TEMP_BOOST_EXTRA = 0.15; // additional headroom granted by "push a bit harder for now" in the results check-in
+
             // Returns how strongly a subject's study time should be prioritised right now because of an
             // approaching exam — following the same ramp-up shape described in the user's study plan:
             // gradual increase starting ~5 weeks out for ordinary exams and ~9 weeks out for Mocks/the
@@ -3470,27 +3484,52 @@
                 return { triggered: count >= 2, reasons }; }
 
             function computeWeeklySelfStudyTarget(week) { const sp = state.settings.studyPreferences || {};
+                // Intensity's own number (see baseByIntensity) IS the researched-correct self-study target —
+                // it's documented as sitting on top of whatever supervised study exists, not sharing a combined
+                // ceiling with it. An earlier version capped self+supervised together at 900min/15h, which
+                // contradicted that and meant a single skipped supervised session could silently unlock hours
+                // of "compensating" self-study. There's no such ceiling any more — only the bounded adjustments
+                // below, which are all individually modest.
                 const baseByIntensity = { light: 240, moderate: 480, intense: 750 },
-                    usedDefaultIntensity = !sp.intensity; let base = baseByIntensity[sp.intensity] || 480,
-                    adjustmentFactor = 0, trajectoryNote = null; if (['5th', '6th'].includes(state.settings
-                        .yearGroup) && sp.pointsTarget) { const targetMid = pointsTargetMidpoint(sp.pointsTarget),
+                    usedDefaultIntensity = !sp.intensity, base = baseByIntensity[sp.intensity] || 480;
+                let trajectoryNote = null, caoFactor = 0; if (['5th', '6th'].includes(state.settings.yearGroup) &&
+                    sp.pointsTarget) { const targetMid = pointsTargetMidpoint(sp.pointsTarget),
                         current = mostRecentCaoTrajectory(); if (targetMid != null && current != null) { const gap =
                             targetMid - current; // asymmetric on purpose: falling short can push the target up
                             // more than exceeding it pulls the target down, since under-preparing for a real
                             // exam is a worse failure mode than a slightly lighter week once already ahead.
-                            adjustmentFactor = Math.max(-0.2, Math.min(0.4, gap / 500));
+                            caoFactor = Math.max(-0.2, Math.min(0.4, gap / 500));
                         trajectoryNote = { gap, current, targetMid }; } }
-                let target = base * (1 + adjustmentFactor); // Ericsson-grounded ceiling/floor — see header comment
+                // Any upward adjustment (the exam-proximity bump below; the CAO factor above already carries
+                // its own asymmetric shape) is gated on the user genuinely keeping up with what's already
+                // scheduled — pushing more study on someone who isn't even completing the current target is
+                // counterproductive. "Barely hitting" reads as ratio >= 0.9, the same bar the downward
+                // calibration below uses to trigger, not "comfortably ahead."
+                const ratio = week ? historicalSelfStudyCompletionRatio(week) : null,
+                    hittingGoals = ratio == null || ratio >= 0.9;
+                // A modest, late-arriving bump as a real exam/test approaches — deliberately smaller and
+                // shorter-fused than the CAO factor (which reflects sustained underperformance, not one week's
+                // timetable), since intensity's base number is already the top of the researched range.
+                let examProximityNote = null, examFactor = 0; if (hittingGoals && week) { const weeksOut =
+                        nearestExamWeeksOut(week); if (weeksOut != null && weeksOut >= 0 && weeksOut <=
+                        EXAM_RAMP_WEEKS) { examFactor = EXAM_RAMP_MAX_BOOST * (1 - weeksOut / EXAM_RAMP_WEEKS);
+                        examProximityNote = { weeksOut }; } }
+                // A user-requested temporary override ("push a bit harder for now" from the results check-in)
+                // rather than a permanent ceiling change — expires on its own once the date passes.
+                const boostActive = !!(sp.temporaryBoostUntil && week && sp.temporaryBoostUntil >= week),
+                    adjustmentFactor = Math.max(-0.2, Math.min(0.4 + (boostActive ? TEMP_BOOST_EXTRA : 0),
+                        caoFactor + examFactor));
+                let target = base * (1 + adjustmentFactor);
                 // Calibrate to the user's own track record (the "outside view"/reference-class-forecasting
                 // correction for the planning fallacy — Kahneman & Tversky; Buehler et al. 1994 showed linking
                 // past experience to a prediction is what actually removes the bias). This is a principled
                 // extension of well-established theory rather than a directly validated technique in its own
                 // right, so it's applied gently (floored at 0.5x, not allowed to spiral a rough patch toward
                 // zero) and always surfaced in the summary rather than silently baked in.
-                let calibrationNote = null; if (week) { const ratio = historicalSelfStudyCompletionRatio(week); if (
-                        ratio != null && ratio < 0.9) { const calibration = Math.max(0.5, ratio);
-                        target *= calibration;
-                        calibrationNote = { ratio, calibration }; } }
+                let calibrationNote = null; if (ratio != null && ratio < 0.9) { const calibration = Math.max(0.5,
+                        ratio);
+                    target *= calibration;
+                    calibrationNote = { ratio, calibration }; }
                 // Protect sleep before allocating study time (AASM 2016 consensus: 8-10h/night for ages 13-18;
                 // Walker & Stickgold: consolidation — the actual process spaced repetition depends on — happens
                 // during sleep, so piling on study time during a sleep-deprived week is self-defeating, not
@@ -3499,18 +3538,12 @@
                 let sleepNote = null; if (week) { const avgSleep = computeAverageSleepHours(week); if (avgSleep !=
                         null && avgSleep < 7) { target *= 0.75;
                         sleepNote = { avgSleep, recommended: 8 }; } }
-                // The 900-min ceiling is grounded in Ericsson's deliberate-practice research bounding TOTAL
-                // focused study time, not self-study specifically — applying it to self-study alone let the
-                // target keep demanding more self-study regardless of how much supervised study already existed
-                // that week, which is what caused self-study to keep expanding to fill every remaining free
-                // slot. Room left under the ceiling is computed against self+supervised combined, and the
-                // 120-min floor is only applied when there's realistically room left for it — if supervised
-                // study alone already meets or exceeds the ceiling, the target genuinely goes toward zero rather
-                // than forcing more study onto an already-full week.
-                const supervisedMinutes = week ? plannedSupervisedMinutes(week) : 0,
-                    ceilingRoom = Math.max(0, 900 - supervisedMinutes);
-                target = Math.min(target, ceilingRoom); if (ceilingRoom >= 120) target = Math.max(120, target);
-                target = Math.round(target / 15) * 15;
+                // Ease into the first week of the school year rather than expecting a full self-study load from
+                // day one.
+                let firstWeekNote = null; if (week && state.settings.termStart && weekStart(state.settings
+                        .termStart) === week) { target *= 0.5;
+                    firstWeekNote = true; }
+                target = Math.max(120, Math.round(target / 15) * 15);
                 const stretchMinutes = target;
                 // Two-tier core/stretch goal (Locke & Latham goal-setting theory supports specific, difficult
                 // targets — that's what "stretch" is — but goals set beyond reach collapse motivation once
@@ -3520,8 +3553,8 @@
                 // floored at 90 minutes so it's never trivially small.
                 const coreMinutes = Math.max(90, Math.round(stretchMinutes * 0.7 / 15) * 15);
                 return { targetMinutes: stretchMinutes, coreMinutes, stretchMinutes, usedDefaultIntensity,
-                    adjustmentFactor, trajectoryNote, sleepNote, calibrationNote, supervisedMinutes,
-                    ceilingCapped: ceilingRoom < 900 }; }
+                    adjustmentFactor, trajectoryNote, sleepNote, calibrationNote, examProximityNote,
+                    firstWeekNote, boostActive }; }
 
             function plannedSelfStudyMinutes(week) { return range(week, 7).reduce((total, date) => total +
                     segmentsForDate(date).filter(x => x.event.type === 'study' && x.event.studyKind !==
@@ -3567,16 +3600,26 @@
             // Finds a free slot, preferring ones that match the user's stated time-of-day / weekday-weekend
             // preferences rather than just the chronologically first opening — a soft preference, not a hard
             // filter, so a slot is still found even if no preferred-time opening exists.
-            function findPreferredSlot(minutesNeeded, excludeDates) { const sp = state.settings.studyPreferences ||
-                    {}, length = Math.max(15, Number(minutesNeeded || DEFAULT_SESSION_MIN)); const candidates = [];
+            // True for the user's actual birthday this year — kept free of auto-placed self-study, matching
+            // what onboarding already promises when it asks for a date of birth.
+            function isBirthday(date) { return !!(state.settings.dob && state.settings.dob.slice(5) === date
+                .slice(5)); }
+
+            function findPreferredSlot(minutesNeeded, excludeDates, preferDates) { const sp = state.settings
+                    .studyPreferences || {}, length = Math.max(15, Number(minutesNeeded ||
+                    DEFAULT_SESSION_MIN)); const candidates = [];
                 for (let offset = 0; offset < 14; offset++) { const date = addDays(localDate(), offset); if ((
-                        excludeDates || []).includes(date)) continue; const day = mondayIndex(date),
-                        isWeekend = day >= 5;
+                        excludeDates || []).includes(date) || isBirthday(date)) continue; const day = mondayIndex(
+                        date), isWeekend = day >= 5;
                     freeIntervals(date).forEach(([a, b]) => { if (b - a < length) return; let score = 0; if (sp
                             .weekendBalance === 'weekday' && !isWeekend) score += 2; if (sp.weekendBalance ===
                             'weekend' && isWeekend) score += 2; if (sp.timeOfDay === 'morning' && a < 720) score +=
                             2; if (sp.timeOfDay === 'afternoon' && a >= 720 && a < 1020) score += 2; if (sp
                             .timeOfDay === 'evening' && a >= 1020) score += 2;
+                        // Someone who prefers "one or two longer sessions" over several short ones scattered
+                        // through the week gets a strong bonus for landing on a date already used this run, so
+                        // separate subjects cluster onto the same day or two instead of spreading out.
+                        if ((preferDates || []).includes(date)) score += 5;
                         score -= offset * 0.1; // mild preference for sooner over later, all else equal
                         candidates.push({ date, start: a, end: a + length, score }); }); }
                 candidates.sort((a, b) => b.score - a.score);
@@ -3594,14 +3637,14 @@
                         note: 'Automatic study planning is turned off in Settings.' };
                 const today = localDate(), week = weekStart(today);
                 const { coreMinutes, stretchMinutes, usedDefaultIntensity, adjustmentFactor, trajectoryNote,
-                        sleepNote, calibrationNote, supervisedMinutes, ceilingCapped } = computeWeeklySelfStudyTarget(
-                    week),
+                        sleepNote, calibrationNote, examProximityNote, firstWeekNote, boostActive } =
+                    computeWeeklySelfStudyTarget(week),
                     currentMinutes = plannedSelfStudyMinutes(week),
                     metCore = currentMinutes >= coreMinutes,
                     gap = stretchMinutes - currentMinutes, THRESHOLD = 30;
                 const summary = { targetMinutes: stretchMinutes, coreMinutes, stretchMinutes, currentMinutes, gap,
                     metCore, usedDefaultIntensity, adjustmentFactor, trajectoryNote, sleepNote, calibrationNote,
-                    supervisedMinutes, ceilingCapped, added: [], removed: [], note: '' };
+                    examProximityNote, firstWeekNote, boostActive, added: [], removed: [], note: '' };
                 // Three cases: below core (add, working toward the ambitious stretch tier), between core and
                 // (roughly) stretch (stop — core being met is genuine success, not "almost there"), or
                 // substantially over even the stretch tier (still worth gently trimming back).
@@ -3612,6 +3655,13 @@
                 if (gap > 0) { const shares = computeSubjectNeedShares(today); if (!shares.length) { summary.note =
                             'No exam subjects to plan for yet.';
                         return summary; }
+                    // A single-session cap of 90 min suits someone happy with several shorter blocks through
+                    // the week (diminishing returns past ~60-90 min for any one sitting). Someone who'd rather
+                    // have one or two longer sessions instead gets a higher per-session cap AND has later
+                    // subjects clustered onto whichever date(s) are already used this run, instead of the
+                    // default behaviour of actively spreading different subjects across different days.
+                    const sp = state.settings.studyPreferences || {}, preferLong = sp.sessionLength === 'long',
+                        sessionCap = preferLong ? 180 : 90;
                     shares.sort((a, b) => b.need - a.need); let remaining = gap; const usedDates = [];
                     shares.forEach(row => { if (remaining < 15) return; const allocated = Math.min(remaining, Math
                             .max(15, Math.round(gap * row.share / 15) * 15)); if (allocated < 15) return;
@@ -3620,12 +3670,13 @@
                             e.autoGenerated && e.subjectId === row.subjectId && e.date && e.date >= today && e.date <
                             weekEnd); let placed = null; if (existingAuto) { const slot = existingAuto.slots[0],
                             currentLen = duration(slot.start, slot.end),
-                            extendBy = Math.min(allocated, 90 - currentLen); // single-session cap — session length itself has diminishing returns past ~60-90 min
+                            extendBy = Math.min(allocated, sessionCap - currentLen);
                         if (extendBy >= 15) { slot.end = fmtHM(mins(slot.start) + currentLen + extendBy);
                             placed = { subject: row.subject, minutes: extendBy, date: existingAuto.date,
                                 extended: true };
-                            remaining -= extendBy; } } if (!placed) { const sessionLen = Math.min(allocated, 90),
-                            slot = findPreferredSlot(sessionLen, usedDates); if (slot) { state.events.push({
+                            remaining -= extendBy; } } if (!placed) { const sessionLen = Math.min(allocated,
+                            sessionCap), slot = findPreferredSlot(sessionLen, preferLong ? null : usedDates,
+                            preferLong ? usedDates : null); if (slot) { state.events.push({
                                 id: uid(), type: 'study', studyKind: 'self', skippable: true, autoGenerated: true,
                                 name: `${row.subject.name} self study`, subjectId: row.subjectId, color: STUDY_COLOR,
                                 inSchool: false,
@@ -3666,8 +3717,14 @@
                 const calibrationLine = summary.calibrationNote ?
                     `<p class="small">You've completed about ${Math.round(summary.calibrationNote.ratio*100)}% of scheduled self-study over the last two weeks, so this week's target was scaled to something more realistic based on that — not a hard rule, just a best guess from your own track record.</p>` :
                     '';
-                const ceilingLine = summary.ceilingCapped ?
-                    `<p class="small">You've already got ${fmtMins(summary.supervisedMinutes||0)} of supervised study this week, so the self-study target was scaled back to keep total study time within a sensible weekly limit.</p>` :
+                const examProximityLine = summary.examProximityNote ?
+                    `<p class="small">An exam is ${summary.examProximityNote.weeksOut===0?'this week':`${summary.examProximityNote.weeksOut} week${summary.examProximityNote.weeksOut===1?'':'s'} out`}, so this week's target was nudged up a little.</p>` :
+                    '';
+                const firstWeekLine = summary.firstWeekNote ?
+                    `<p class="small">First week of term — this week's target was eased back to make the ramp back into things less jarring.</p>` :
+                    '';
+                const boostLine = summary.boostActive ?
+                    `<p class="small">Temporarily studying a bit harder than usual, as agreed in a recent check-in.</p>` :
                     '';
                 const row = (p) => `<div class="topic-row"><span>${escape(p.subject.name)}</span><span class="small">${p.minutes>=0?'+':''}${fmtMins(Math.abs(p.minutes))}${p.extended?' (extended)':''} · ${fmtDate(p.date)}</span></div>`,
                     addedList = summary.added.length ? `<div style="margin-top:14px"><h3>Added</h3><div class="list">${summary.added.map(row).join('')}</div></div>` :
@@ -3675,7 +3732,7 @@
                     removedList = summary.removed.length ? `<div style="margin-top:14px"><h3>Trimmed</h3><div class="list">${summary.removed.map(p=>row({...p,minutes:-p.minutes})).join('')}</div></div>` :
                     '';
                 return modalShell('Self-study plan updated',
-                    `<div class="event-detail"><div style="text-align:center;padding:20px;background:var(--surface-2);border-radius:14px;margin-bottom:14px"><div class="small">This week's self study${summary.metCore?' · core goal met ✓':''}</div><h2 style="margin-top:6px">${fmtMins(summary.currentMinutes)}</h2><div class="small" style="margin-top:2px">core ${fmtMins(summary.coreMinutes)} · stretch ${fmtMins(summary.stretchMinutes)}</div></div>${trajectoryLine}${sleepLine}${calibrationLine}${ceilingLine}<p class="small">${escape(summary.note)}</p>${addedList}${removedList}${summary.usedDefaultIntensity?'<p class="small" style="margin-top:10px">Using a default estimate since study preferences haven\'t been set yet.</p>':''}</div>`,
+                    `<div class="event-detail"><div style="text-align:center;padding:20px;background:var(--surface-2);border-radius:14px;margin-bottom:14px"><div class="small">This week's self study${summary.metCore?' · core goal met ✓':''}</div><h2 style="margin-top:6px">${fmtMins(summary.currentMinutes)}</h2><div class="small" style="margin-top:2px">core ${fmtMins(summary.coreMinutes)} · stretch ${fmtMins(summary.stretchMinutes)}</div></div>${trajectoryLine}${examProximityLine}${boostLine}${sleepLine}${firstWeekLine}${calibrationLine}<p class="small">${escape(summary.note)}</p>${addedList}${removedList}${summary.usedDefaultIntensity?'<p class="small" style="margin-top:10px">Using a default estimate since study preferences haven\'t been set yet.</p>':''}</div>`,
                     `<button class="button primary" data-action="close-modal">Got it</button>`,
                     true); }
 
@@ -4181,6 +4238,7 @@
                 maybeAutoCheckSelfStudy();
                 maybeNudgeBackup();
                 maybeCheckBurnout();
+                maybeCheckResultsGap();
                 maybeSendNotifications();
             }
 
@@ -4209,6 +4267,24 @@
                 save();
                 burnoutCheckReasons = reasons;
                 startMascotTour('burnoutCheck'); }
+
+            // Only fires for 5th/6th years with a points target set (the only cohort with a quantified
+            // "wanted vs. actual" result to compare against). Gated on the CAO gap alone being >= 200 points —
+            // exactly the point at which computeWeeklySelfStudyTarget's own CAO factor saturates at its +40%
+            // cap — so this only surfaces once self-study is already at the normal maximum for the user's
+            // intensity AND results are still substantially behind, matching what was asked for. Skipped
+            // entirely while a temporary boost is already active, so agreeing once doesn't get immediately
+            // re-asked.
+            function maybeCheckResultsGap() { if (!state.settings.onboarded || mascotTour) return;
+                if (!['5th', '6th'].includes(state.settings.yearGroup) || !state.settings.studyPreferences
+                    .pointsTarget) return;
+                if (state.lastResultsCheck && ageInDays(state.lastResultsCheck) < 10) return;
+                const week = weekStart(localDate()), { trajectoryNote, boostActive } =
+                    computeWeeklySelfStudyTarget(week);
+                if (boostActive || !trajectoryNote || trajectoryNote.gap < 200) return;
+                state.lastResultsCheck = localDate();
+                save();
+                startMascotTour('resultsCheckIn'); }
 
             // Genuinely important things only, at most once a day — a test/exam tomorrow, or (6th years) a CAO
             // hard deadline within 2 days. Deliberately not a general-purpose reminder system.
@@ -5149,6 +5225,7 @@
           ${showPoints?`<div class="field" style="margin-top:14px"><label>Points you're hoping for</label><div class="type-picker">${['Under 300','300–399','400–499','500–599','600+'].map(r=>`<button type="button" class="type-option ${sp.pointsTarget===r?'selected':''}" data-action="studyprefs-pick" data-field="pointsTarget" data-value="${r}" style="min-height:44px">${r}</button>`).join('')}</div></div>`:''}
           <div class="field" style="margin-top:14px"><label>When do you focus best?</label>${chipGroup('timeOfDay',[['morning','Morning'],['afternoon','Afternoon'],['evening','Evening'],['flexible','No strong preference']])}</div>
           <div class="field" style="margin-top:14px"><label>Weekday vs weekend</label>${chipGroup('weekendBalance',[['weekday','More on weekdays, lighter weekends'],['weekend','More on weekends, lighter weekdays'],['even','Spread evenly']])}</div>
+          <div class="field" style="margin-top:14px"><label>Session length</label>${chipGroup('sessionLength',[['short','Several shorter sessions through the week'],['long','One or two longer sessions'],['flexible','No strong preference']])}</div>
           <div class="field" style="margin-top:14px"><label for="studyprefs-notes">Anything else?</label><textarea id="studyprefs-notes" placeholder="e.g. I'd rather study late on Saturday and keep Sunday free">${escape(sp.notes||'')}</textarea></div>
           </div>`,
                     `<button class="button" data-action="close-modal">Cancel</button><button class="button primary" data-action="save-study-preferences">Save</button>`,
@@ -6539,7 +6616,7 @@ Study blocks come in two kinds: self study (studyKind 'self', skippable: true, t
 
 There's also a separate, fully automatic self-study planner (the Dashboard's "Refresh self-study plan" button, plus a roughly-hourly background check) that adjusts self-study block volume on its own using a deterministic formula — not you — based on study preferences, CAO trajectory, exam proximity, and topic/result data. It only ever touches blocks it created itself (never anything the user or you placed by hand). If asked how much self-study is scheduled or why a self-study block appeared/changed on its own, mention that system exists and point to the refresh button rather than trying to explain or override its reasoning yourself — you don't have visibility into its internal scoring. The user can turn this whole system off in Settings ("Automatic study planning") if they'd rather use the app as a plain timetable — when it's off, both this planner and the Study/Dashboard content-filling engine stop suggesting anything, auto_plan will refuse, and study blocks stay empty for the user to fill in themselves. Respect that choice if they mention it; don't push them to turn it back on.
 
-The user can set study preferences (settings.studyPreferences, visible via read_app_state): intensity (light/moderate/intense — roughly light ~3-5h/week, moderate ~6-10h/week, intense ~10-15h+/week of self-directed study, on top of any supervised study blocks), pointsTarget (only meaningful for 5th/6th years), timeOfDay (morning/afternoon/evening/flexible), weekendBalance (weekday/weekend/even), and a freeform notes field the user can use for anything that doesn't fit a dropdown (e.g. "I'd rather study late on Saturday and keep Sunday free") — treat notes as genuine context to factor in, not just decoration. When you create or suggest self-directed study blocks, use these to guide how much total weekly study to suggest and which free times to prefer; don't feel obliged to hit an exact number, just let the preferences steer you sensibly. If the preferences are all empty, use open_study_preferences_form to offer the user a chance to set them rather than guessing.
+The user can set study preferences (settings.studyPreferences, visible via read_app_state): intensity (light/moderate/intense — 4h/8h/12.5h a week of self-directed study respectively, on top of any supervised study blocks, each nudged a little further by exam proximity or a lagging CAO trajectory — see the self-study planner notes below), pointsTarget (only meaningful for 5th/6th years), timeOfDay (morning/afternoon/evening/flexible), weekendBalance (weekday/weekend/even), sessionLength (short/long/flexible — whether the user prefers several shorter self-study sessions through the week or one or two longer ones; when it's 'long', prefer suggesting fewer, longer blocks rather than lots of short scattered ones), and a freeform notes field the user can use for anything that doesn't fit a dropdown (e.g. "I'd rather study late on Saturday and keep Sunday free") — treat notes as genuine context to factor in, not just decoration. When you create or suggest self-directed study blocks, use these to guide how much total weekly study to suggest and which free times to prefer; don't feel obliged to hit an exact number, just let the preferences steer you sensibly. If the preferences are all empty, use open_study_preferences_form to offer the user a chance to set them rather than guessing.
 
 When the user has just finished onboarding and their timetable is empty, you'll be prompted internally to start a guided setup conversation — this is the first message they'll see, so keep it warm and brief. Ask plainly whether they have a photo of their class timetable (or exam timetable) to send, or would rather build it by hand — this is a genuine two-way choice, not a [CONFIRM] yes/no. Then:
 - If they have a photo: wait for them to attach it, then follow the normal photo confirmation flow above. Once everything from the photo is added, proactively ask if anything's missing that wasn't in the photo — sleep schedule, meals, activities/clubs/sports, or a supervised study block — and add whatever they describe.
@@ -6836,6 +6913,23 @@ If the user asks about how to study or study methods generally, answer from your
                         ] },
                     { id: 'ease-off', pose: 'break', text: "That's completely fair — you can lower your study intensity anytime from Settings, and it's worth remembering: consistent rest is what actually makes spaced repetition work, not fighting through it. Take it a bit easier this week.",
                         continueLabel: 'Thanks', next: null }
+                ],
+                resultsCheckIn: [
+                    { id: 'check-in', pose: 'thinking', text: () =>
+                        `Hey ${state.settings.firstName||'there'} — a quick check-in. Self-study has been at its normal maximum for a while now, but your CAO trajectory is still tracking well behind your target. Want to push a bit harder for a few weeks, or would a more realistic goal make more sense?`,
+                        choices: [
+                            { label: 'Push a bit harder for a few weeks', action: () => { state.settings
+                                    .studyPreferences.temporaryBoostUntil = weekStart(addDays(localDate(), 21));
+                                save();
+                                return 'push-harder'; } },
+                            { label: 'Help me set a more realistic goal', action: () => { openModal(
+                                    'study-preferences');
+                                return 'goal-wait'; } }
+                        ] },
+                    { id: 'push-harder', pose: 'celebrate', text: "Done — a bit more self-study room for the next few weeks, easing back on its own after that. Tap \"Refresh self-study plan\" on the Dashboard to see it reflected.",
+                        continueLabel: 'Thanks', next: null },
+                    { id: 'goal-wait', pose: 'idle', text: "Take your time — tap below once you've updated things.",
+                        continueLabel: "I'm done", next: null }
                 ],
                 setup: [
                     { id: 'welcome', pose: 'wave', text: () =>
