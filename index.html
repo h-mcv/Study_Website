@@ -1176,6 +1176,187 @@
         .modal-layer.open {
             display: grid;
         }
+        #landing-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 30;
+            background: var(--bg);
+            overflow-y: auto;
+        }
+        .landing-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px var(--main-px);
+        }
+        .landing-nav .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+        }
+        .landing-wrap {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 0 var(--main-px) 60px;
+        }
+        .landing-hero {
+            text-align: center;
+            padding: 40px 0 20px;
+        }
+        .landing-hero h1 {
+            font-size: clamp(28px, 5vw, 44px);
+            margin: 18px 0 10px;
+        }
+        .landing-hero p {
+            color: var(--muted);
+            max-width: 480px;
+            margin: 0 auto 26px;
+            font-size: 16px;
+        }
+        .landing-shot-placeholder {
+            border: 2px dashed var(--line);
+            border-radius: var(--radius);
+            aspect-ratio: 16/10;
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+            font-size: 13px;
+            background: var(--surface-2);
+        }
+        .landing-feature {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 36px;
+            align-items: center;
+            padding: 46px 0;
+            border-top: 1px solid var(--line);
+        }
+        .landing-feature:nth-of-type(even) > :first-child {
+            order: 2;
+        }
+        .landing-feature h2 {
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+        .landing-feature p {
+            color: var(--muted);
+        }
+        .landing-stats {
+            padding: 46px 0;
+            border-top: 1px solid var(--line);
+        }
+        .landing-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .landing-stat-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+        .landing-stat-card canvas {
+            width: 100%;
+            height: 60px;
+            margin-top: 10px;
+        }
+        .landing-cta-band {
+            text-align: center;
+            padding: 50px 0;
+            border-top: 1px solid var(--line);
+        }
+        .landing-footer {
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+            padding: 20px 0 40px;
+        }
+        .landing-footer button {
+            background: none;
+            border: none;
+            color: var(--muted);
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 13px;
+            padding: 0;
+        }
+        .auth-page {
+            max-width: 380px;
+            margin: 40px auto;
+            padding: 0 var(--main-px);
+        }
+        .auth-page .brand-mark {
+            margin: 4px auto 15px;
+            width: 46px;
+            height: 46px;
+            border-radius: 15px;
+            font-size: 22px;
+        }
+        .auth-page h1 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        .auth-page > p.small {
+            text-align: center;
+            margin-bottom: 22px;
+        }
+        .auth-error, .auth-notice {
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+        .auth-error {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+        .auth-notice {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            margin: 18px 0;
+        }
+        .auth-divider::before, .auth-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--line);
+        }
+        .auth-switch {
+            text-align: center;
+            margin-top: 18px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .auth-switch button {
+            background: none;
+            border: none;
+            color: var(--primary);
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0;
+        }
+        .privacy-page {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 40px var(--main-px) 60px;
+        }
+        .privacy-page h2 {
+            margin: 28px 0 8px;
+        }
+        .privacy-page p, .privacy-page li {
+            color: var(--muted);
+        }
         .modal {
             width: min(680px, 100%);
             max-height: calc(100vh - 36px);
@@ -2211,6 +2392,7 @@
 </head>
 <body>
     <div id="app"></div>
+    <div id="landing-layer" class="hidden" aria-hidden="true"></div>
     <div id="modal-layer" class="modal-layer" aria-hidden="true"></div>
     <div id="picker-popover" class="picker-popover hidden"></div>
     <div id="toast" class="toast" role="status"></div>
@@ -2280,6 +2462,28 @@
             const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_hd3Z4PmSaitxalL-M7rQbQ_jtu7AFra";
             const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
+            // A brand-new visitor is someone with neither local app data nor a persisted
+            // Supabase session on this browser — existing local-guest users and anyone
+            // who has ever signed in before always skip straight into the app, exactly as
+            // before this feature existed. A password-recovery link ALWAYS shows the
+            // landing layer (in reset-password mode) regardless of any of that, since the
+            // recovery token itself establishes a session the moment supabase-js parses
+            // it — without this override that session would otherwise immediately skip
+            // straight past the "set a new password" step. A plain OAuth-callback return
+            // trip is the opposite case: never show landing there, even for a first-time
+            // signup, since supabase-js hasn't finished writing the session yet at this
+            // exact point in the script and onAuthStateChange (below) takes it from here.
+            const isRecovery = /type=recovery/.test(window.location.hash);
+            const hasOAuthCallback = /access_token=/.test(window.location.hash) && !isRecovery;
+            const hasSupabaseSession = Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k));
+            let showLanding = isRecovery || (!hasOAuthCallback && !localStorage.getItem(STORE) && !hasSupabaseSession);
+            let landingScreen = isRecovery ? 'reset-password' : 'marketing'; // 'marketing' | 'auth' | 'reset-password' | 'privacy'
+            let authMode = 'signup';     // 'signup' | 'signin'
+            let authError = '', authNotice = '', authBusy = false;
+            let landingStats = undefined; // undefined = not fetched yet, null = fetched/insufficient, object = has data
+            let viewingPrivacyFromApp = false; // true when an already-signed-in/local user opened Privacy from Settings, rather than being a brand-new visitor
+            if (showLanding) fetchLandingStatsOnce();
+
             let currentUser = null;      // Supabase auth user, or null when signed out (guest/local-only mode).
             let cloudSyncTimer = null;   // debounce handle for pushStateToCloud().
             let lastSyncedAt = null;     // Date of the last successful cloud write, shown in the account UI.
@@ -2339,10 +2543,124 @@
                 cloudSyncTimer = setTimeout(doPush, 1500);
             }
 
+            // Pre-auth aggregate stats for the landing page ("this app helps students study
+            // more regularly and get better marks"), computed entirely server-side and
+            // gated on a minimum sample size — see supabase/migrations/0003_landing_stats.sql.
+            // Called once at boot when showLanding is true; landingStats stays null (hidden)
+            // until the RPC actually returns something, so the section only ever appears
+            // once there's genuinely enough data to say something honest.
+            function fetchLandingStatsOnce() {
+                if (landingStats !== undefined) return;
+                landingStats = null;
+                supabaseClient.rpc('landing_stats').then(({ data, error }) => {
+                    if (error) { console.error('landing_stats failed:', error); return; }
+                    landingStats = data && data.sufficientData ? data : null;
+                    if (showLanding) renderLandingLayer();
+                });
+            }
+
+            // Maps known Supabase Auth error messages to plain copy a student will actually
+            // understand — falls back to the raw message for anything not recognised here
+            // rather than hiding it, so a genuinely new failure mode is still visible.
+            function friendlyAuthError(error) {
+                const msg = (error && error.message) || String(error);
+                if (/invalid login credentials/i.test(msg)) return 'Incorrect email or password.';
+                if (/already registered|user_already_exists/i.test(msg)) { authMode = 'signin';
+                    return 'That email already has an account — sign in instead.'; }
+                if (/email not confirmed/i.test(msg)) return 'Check your inbox to confirm your email first — or use "Resend confirmation email" below.';
+                if (/rate limit|429/i.test(msg)) return 'Too many attempts — try again in a minute.';
+                return msg;
+            }
+
+            async function submitAuthForm() {
+                const email = (document.getElementById('auth-email')?.value || '').trim(),
+                    password = document.getElementById('auth-password')?.value || '';
+                if (!email || !password) { authError = 'Enter both an email and a password.';
+                    renderLandingLayer();
+                    return; }
+                if (authMode === 'signup') { const confirm = document.getElementById('auth-confirm-password')?.value ||
+                        ''; if (password !== confirm) { authError = "Passwords don't match.";
+                        renderLandingLayer();
+                        return; } }
+                authError = ''; authNotice = ''; authBusy = true;
+                renderLandingLayer();
+                const { data, error } = authMode === 'signup' ?
+                    await supabaseClient.auth.signUp({ email, password }) :
+                    await supabaseClient.auth.signInWithPassword({ email, password });
+                authBusy = false;
+                if (error) { authError = friendlyAuthError(error);
+                    renderLandingLayer();
+                    return; }
+                if (authMode === 'signup' && !data.session) {
+                    // Email confirmation is required and Supabase hasn't returned a session
+                    // yet — nothing more to do until the user clicks the link in their inbox.
+                    authNotice = `Check ${email} for a confirmation link to finish signing up.`;
+                    renderLandingLayer();
+                    return; }
+                // A session now exists — onAuthStateChange picks this up and takes it from here.
+            }
+
+            async function resendConfirmationEmail() {
+                const email = (document.getElementById('auth-email')?.value || '').trim(); if (!email) return;
+                authBusy = true;
+                renderLandingLayer();
+                const { error } = await supabaseClient.auth.resend({ type: 'signup', email });
+                authBusy = false;
+                authNotice = error ? '' : `Confirmation email resent to ${email}.`;
+                authError = error ? friendlyAuthError(error) : '';
+                renderLandingLayer();
+            }
+
+            async function requestPasswordReset() {
+                const email = (document.getElementById('auth-email')?.value || '').trim(); if (!email) {
+                    authError = 'Enter your email first.';
+                    renderLandingLayer();
+                    return; }
+                authBusy = true; authError = '';
+                renderLandingLayer();
+                const redirectTo = window.location.origin + window.location.pathname + window.location.search;
+                const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+                authBusy = false;
+                if (error) { authError = friendlyAuthError(error);
+                    renderLandingLayer();
+                    return; }
+                authNotice = `Check ${email} for a link to reset your password.`;
+                renderLandingLayer();
+            }
+
+            // The page a reset-email link lands back on: Supabase puts a recovery session
+            // in place via the URL hash, so this just sets a new password on it directly —
+            // no separate "verify the token" step needed, supabase-js already did that.
+            async function submitNewPassword() {
+                const password = document.getElementById('auth-new-password')?.value || '',
+                    confirm = document.getElementById('auth-new-password-confirm')?.value || '';
+                if (password.length < 6) { authError = 'Password must be at least 6 characters.';
+                    renderLandingLayer();
+                    return; }
+                if (password !== confirm) { authError = "Passwords don't match.";
+                    renderLandingLayer();
+                    return; }
+                authBusy = true; authError = '';
+                renderLandingLayer();
+                const { error } = await supabaseClient.auth.updateUser({ password });
+                authBusy = false;
+                if (error) { authError = friendlyAuthError(error);
+                    renderLandingLayer();
+                    return; }
+                authNotice = 'Password updated — signing you in…';
+                showLanding = false;
+                render();
+            }
+
             supabaseClient.auth.onAuthStateChange((_event, session) => {
                 const wasSignedIn = !!currentUser;
                 currentUser = session?.user ?? null;
-                if (currentUser && !wasSignedIn) loadCloudState();
+                // A password-recovery link establishes a real session the moment
+                // supabase-js parses it, but the user still needs to see the "set a new
+                // password" screen first — submitNewPassword() clears showLanding itself
+                // once that's actually done, rather than here.
+                if (currentUser && !wasSignedIn) { if (landingScreen !== 'reset-password') showLanding = false;
+                    loadCloudState(); }
                 else if (!currentUser && wasSignedIn) render();
             });
 
@@ -4015,7 +4333,7 @@
                 const syncNote = cloudSyncFailed ? 'Last sync attempt failed — check your connection.' :
                     lastSyncedAt ? `Synced ${lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` :
                     'Syncing…';
-                return `<div class="settings-row"><div><strong>Account & sync</strong><span class="small">Signed in as ${escape(currentUser.email || '')}. ${syncNote}</span></div><button class="button" data-action="sign-out-google">Sign out</button></div>`;
+                return `<div class="settings-row"><div><strong>Account & sync</strong><span class="small">Signed in as ${escape(currentUser.email || '')}. ${syncNote}</span></div></div>`;
             }
 
             function navButton(id, icon, label) { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}"><b>${icon}</b><span>${label}</span></button>`; }
@@ -5109,7 +5427,190 @@
                 render();
                 toast("Cleared last year's timetable — set this year's term dates in Settings whenever you're ready."); }
 
-            function render() { updateAiChatGateUI(); document.body.classList.toggle('dark', state.settings.theme === 'dark'); if (view ===
+            // ----------------------------------------------------------------------------------
+            // Landing layer: the marketing page, auth screen, password-reset screen, and privacy
+            // page shown to brand-new visitors before they ever reach the real app. Existing
+            // local-guest users and anyone already signed in never see any of this — see
+            // `showLanding` at the top of this script for exactly how that's decided.
+            // ----------------------------------------------------------------------------------
+
+            function renderLandingLayer() {
+                const layer = document.getElementById('landing-layer');
+                if (landingScreen === 'auth') layer.innerHTML = renderAuthScreen();
+                else if (landingScreen === 'reset-password') layer.innerHTML = renderResetPasswordScreen();
+                else if (landingScreen === 'privacy') layer.innerHTML = renderPrivacyPage();
+                else layer.innerHTML = renderMarketingPage();
+                layer.scrollTop = 0;
+                if (landingScreen === 'marketing' && landingStats) requestAnimationFrame(drawLandingStatsCharts);
+            }
+
+            function renderMarketingPage() {
+                const stats = landingStats;
+                const statsSection = stats ? `
+                    <section class="landing-stats">
+                        <h2 style="text-align:center;font-size:26px">Why it works</h2>
+                        <p class="small" style="text-align:center;max-width:520px;margin:8px auto 0">Real, fully anonymised numbers from students using Simple Study — never any one person's details, only aggregates, and only once enough students have used it for long enough to say something meaningful.</p>
+                        <div class="landing-stats-grid">
+                            ${stats.regularity ? `<div class="landing-stat-card"><strong style="font-size:26px">${stats.regularity.pctUsersImproved}%</strong><div>of students study more regularly a few weeks in than when they started</div><canvas id="landing-stat-regularity" width="240" height="60"></canvas><span class="small">Based on ${stats.regularity.usersAnalyzed} students' study logs so far.</span></div>` : ''}
+                            ${stats.marks ? `<div class="landing-stat-card"><strong style="font-size:26px">${stats.marks.pctUsersImproved}%</strong><div>of students see their results improve over time</div><canvas id="landing-stat-marks" width="240" height="60"></canvas><span class="small">Based on ${stats.marks.usersAnalyzed} students' logged results.</span></div>` : ''}
+                        </div>
+                    </section>` : '';
+                return `
+                    <nav class="landing-nav">
+                        <div class="brand"><span class="brand-mark">✦</span> Simple Study</div>
+                        <button type="button" class="button" data-action="landing-go-auth" data-mode="signin">Sign in</button>
+                    </nav>
+                    <div class="landing-wrap">
+                        <section class="landing-hero">
+                            <h1>Study smarter, not just harder.</h1>
+                            <p>A timetable, a study planner, and an AI study assistant built for Irish secondary school — Simple Study works out what to study and when, so you don't have to.</p>
+                            <button type="button" class="button primary" style="padding:14px 28px;font-size:16px" data-action="landing-go-auth" data-mode="signup">Get started — it's free</button>
+                            <div class="landing-shot-placeholder" style="margin-top:32px">Screenshot: dashboard</div>
+                        </section>
+                        <section class="landing-feature">
+                            <div class="landing-shot-placeholder">Screenshot: timetable</div>
+                            <div><h2>Your whole week, in one place</h2><p>Classes, activities, sleep, and study blocks — see exactly how your week is shaping up, and what's coming next.</p></div>
+                        </section>
+                        <section class="landing-feature">
+                            <div class="landing-shot-placeholder">Screenshot: study planner</div>
+                            <div><h2>A study plan that adapts to you</h2><p>Simple Study works out how much self-study you should be doing — and what to actually study in each session — based on what's due, what needs review, and how exams are approaching.</p></div>
+                        </section>
+                        <section class="landing-feature">
+                            <div class="landing-shot-placeholder">Screenshot: Sparky chat</div>
+                            <div><h2>Sparky, your AI study assistant</h2><p>Ask Sparky to add a class, skip a session you can't make, or explain a topic — right from chat.</p></div>
+                        </section>
+                        <section class="landing-feature">
+                            <div class="landing-shot-placeholder">Screenshot: CAO planning</div>
+                            <div><h2>Track your CAO points</h2><p>See where you stand against your target, and how each exam and test moves the needle.</p></div>
+                        </section>
+                        ${statsSection}
+                        <section class="landing-cta-band">
+                            <h2 style="margin-bottom:14px">Ready to get started?</h2>
+                            <button type="button" class="button primary" style="padding:14px 28px;font-size:16px" data-action="landing-go-auth" data-mode="signup">Get started — it's free</button>
+                        </section>
+                    </div>
+                    <footer class="landing-footer">Simple Study · <button type="button" data-action="landing-go-privacy">Privacy</button></footer>`;
+            }
+
+            function drawLandingStatsCharts() {
+                const stats = landingStats; if (!stats) return;
+                if (stats.regularity) drawLineChart('landing-stat-regularity', [{ color: '#2E63F6', points: [
+                    { x: 0, y: 1 }, { x: 1, y: stats.regularity.avgIncreasePct >= 0 ?
+                        1 + stats.regularity.avgIncreasePct / 100 : Math.max(0.1, 1 + stats.regularity
+                            .avgIncreasePct / 100) } ] }], { yMin: 0 });
+                if (stats.marks) drawLineChart('landing-stat-marks', [{ color: '#16845b', points: [
+                    { x: 0, y: 0 }, { x: 1, y: stats.marks.avgPointsGained } ] }]);
+            }
+
+            function renderAuthScreen() {
+                const isSignup = authMode === 'signup';
+                return `
+                    <div class="auth-page">
+                        <div class="brand-mark" style="margin-left:auto;margin-right:auto">✦</div>
+                        <h1>${isSignup ? 'Create your account' : 'Welcome back'}</h1>
+                        <p class="small">${isSignup ? 'Free — takes less than a minute.' : 'Sign in to pick up where you left off.'}</p>
+                        ${authError ? `<div class="auth-error">${escape(authError)}${/confirm your email/i.test(authError) ? ` <button type="button" data-action="auth-resend-confirmation" style="background:none;border:none;color:inherit;text-decoration:underline;cursor:pointer;font:inherit;padding:0">Resend confirmation email</button>` : ''}</div>` : ''}
+                        ${authNotice ? `<div class="auth-notice">${escape(authNotice)}</div>` : ''}
+                        <button type="button" class="button" style="width:100%" data-action="sign-in-google">Continue with Google</button>
+                        <div class="auth-divider">or</div>
+                        <div class="form-grid">
+                            <div class="field"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com"></div>
+                            <div class="field"><label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="${isSignup ? 'new-password' : 'current-password'}" placeholder="${isSignup ? 'At least 6 characters' : 'Your password'}"></div>
+                            ${isSignup ? `<div class="field"><label for="auth-confirm-password">Confirm password</label><input id="auth-confirm-password" type="password" autocomplete="new-password"></div>` : ''}
+                            ${!isSignup ? `<div style="text-align:right;margin-top:-8px"><button type="button" data-action="auth-forgot-password" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;padding:0">Forgot password?</button></div>` : ''}
+                        </div>
+                        <button type="button" class="button primary" style="width:100%;margin-top:14px" data-action="auth-submit" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Please wait…' : (isSignup ? 'Sign up' : 'Sign in')}</button>
+                        <div class="auth-switch">${isSignup ? 'Already have an account?' : "Don't have an account?"} <button type="button" data-action="auth-toggle-mode">${isSignup ? 'Sign in' : 'Sign up'}</button></div>
+                    </div>`;
+            }
+
+            function renderResetPasswordScreen() {
+                if (isRecovery) return `
+                    <div class="auth-page">
+                        <div class="brand-mark" style="margin-left:auto;margin-right:auto">✦</div>
+                        <h1>Set a new password</h1>
+                        <p class="small">Choose a new password for your account.</p>
+                        ${authError ? `<div class="auth-error">${escape(authError)}</div>` : ''}
+                        ${authNotice ? `<div class="auth-notice">${escape(authNotice)}</div>` : ''}
+                        <div class="form-grid">
+                            <div class="field"><label for="auth-new-password">New password</label><input id="auth-new-password" type="password" autocomplete="new-password" placeholder="At least 6 characters"></div>
+                            <div class="field"><label for="auth-new-password-confirm">Confirm new password</label><input id="auth-new-password-confirm" type="password" autocomplete="new-password"></div>
+                        </div>
+                        <button type="button" class="button primary" style="width:100%;margin-top:14px" data-action="auth-submit-new-password" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Please wait…' : 'Set new password'}</button>
+                    </div>`;
+                return `
+                    <div class="auth-page">
+                        <div class="brand-mark" style="margin-left:auto;margin-right:auto">✦</div>
+                        <h1>Reset your password</h1>
+                        <p class="small">Enter your email and we'll send you a link to reset your password.</p>
+                        ${authError ? `<div class="auth-error">${escape(authError)}</div>` : ''}
+                        ${authNotice ? `<div class="auth-notice">${escape(authNotice)}</div>` : ''}
+                        <div class="form-grid"><div class="field"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com"></div></div>
+                        <button type="button" class="button primary" style="width:100%;margin-top:14px" data-action="auth-request-reset" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Please wait…' : 'Send reset link'}</button>
+                        <div class="auth-switch"><button type="button" data-action="landing-go-auth" data-mode="signin">Back to sign in</button></div>
+                    </div>`;
+            }
+
+            // Written accurately against what the app actually does (checked against the real
+            // auth/storage/analytics code, not generic boilerplate). This is a good-faith
+            // description of practices, not a substitute for real legal review — the user base
+            // is largely minors, so Irish/EU data-protection law (GDPR, including Article 8's
+            // rules on children's consent) applies, and this should be reviewed by someone
+            // GDPR-familiar before being relied on as an actual compliance document.
+            function renderPrivacyPage() {
+                const backLink = viewingPrivacyFromApp ?
+                    `<button type="button" class="button" data-action="close-privacy-from-app">Close</button>` :
+                    `<button type="button" class="button" data-action="landing-go-marketing">← Back</button>`;
+                return `
+                    <div class="privacy-page">
+                        <div class="row" style="justify-content:space-between;align-items:center">
+                            <div class="brand"><span class="brand-mark">✦</span> Simple Study</div>
+                            ${backLink}
+                        </div>
+                        <h1 style="margin-top:24px">Privacy</h1>
+                        <p class="small">Last updated ${fmtDate(localDate())}. This explains what Simple Study collects, why, and how you can control it.</p>
+
+                        <h2>What we collect</h2>
+                        <ul>
+                            <li><strong>Account info:</strong> your email address, and — if you sign in with Google — the name and profile picture Google shares with us.</li>
+                            <li><strong>App data:</strong> everything you put into the app to make it work for you — your name, year group, and date of birth if you give it; your timetable, tasks, study preferences, exams and results; and anything you tell Sparky, the AI study assistant.</li>
+                            <li><strong>Basic usage analytics:</strong> anonymised, aggregated information about how the app is used (via PostHog), and technical error reports if something breaks (via Sentry) — neither is used to identify you personally.</li>
+                        </ul>
+
+                        <h2>Where it's stored</h2>
+                        <p>Your app data lives in our database (hosted by Supabase), locked so only your signed-in account can ever read or write it, plus a local copy in your browser so the app still works offline. If you never sign in, your data only ever lives in your own browser and isn't sent anywhere.</p>
+
+                        <h2>Who else sees it, and why</h2>
+                        <ul>
+                            <li><strong>Google</strong> — only if you choose to sign in with Google, to verify who you are.</li>
+                            <li><strong>Our AI providers</strong> (Google Gemini, and occasionally Groq or OpenRouter as a backup if Gemini is unavailable) — process your messages to Sparky and the relevant parts of your app data needed to answer you, only when you use the AI assistant.</li>
+                            <li><strong>Resend</strong> — sends account emails (like confirming your email address or resetting your password).</li>
+                            <li><strong>PostHog and Sentry</strong> — as above, anonymised analytics and error monitoring.</li>
+                        </ul>
+                        <p>We never sell your data, and we don't use it for advertising.</p>
+
+                        <h2>Your data, your control</h2>
+                        <p>You can export a full backup of your data as a file at any time from Settings. If you'd like your account and data deleted, contact us at <strong>[contact email]</strong> and we'll take care of it.</p>
+
+                        <h2>If you're under 16</h2>
+                        <p>Simple Study is built for secondary school students, many of whom are under 16. Under Irish and EU data protection law, if you're under 16 you should have a parent or guardian's permission before creating an account.</p>
+
+                        <h2>Questions</h2>
+                        <p>Contact us at <strong>[contact email]</strong> with any questions about your data.</p>
+                    </div>`;
+            }
+
+            function render() { const landingLayer = document.getElementById('landing-layer'),
+                    aiChatWidgetEl = document.getElementById('ai-chat-widget'); if (showLanding ||
+                    viewingPrivacyFromApp) {
+                    landingLayer.classList.remove('hidden');
+                    landingLayer.setAttribute('aria-hidden', 'false');
+                    aiChatWidgetEl.classList.add('hidden');
+                    renderLandingLayer();
+                    return; } landingLayer.classList.add('hidden');
+                landingLayer.setAttribute('aria-hidden', 'true');
+                aiChatWidgetEl.classList.remove('hidden');
+                updateAiChatGateUI(); document.body.classList.toggle('dark', state.settings.theme === 'dark'); if (view ===
                     'dashboard') { renderDashboard(); } else if (view === 'tasks') { document.getElementById('app')
                     .innerHTML = renderTasks(); } else if (view === 'study') { document.getElementById('app')
                     .innerHTML = renderStudy(); } else if (view === 'classes') { document.getElementById('app')
@@ -5255,6 +5756,8 @@
           <div class="settings-row"><div><strong>Backup your data</strong><span class="small">${backupNote} An Export is the only way to get everything back if you switch browsers or devices, or this browser's storage ever gets cleared.</span></div><div class="row"><button class="button" data-action="export-data">Export backup</button><label class="button">Import backup<input id="import-data" type="file" accept="application/json" class="hidden"></label></div></div>
           <div class="settings-row"><div><strong>Sample data</strong><span class="small">Fills in a full week of classes, activities, and study — handy for testing.</span></div><button class="button" data-action="sample-data">Add sample week</button></div>
           <div class="settings-row"><div><strong>Start over</strong><span class="small">This clears only Simple Study's saved data.</span></div><button class="button danger" data-action="reset-data">Reset</button></div>
+          <div class="settings-row"><div><strong>Privacy</strong><span class="small">What we collect and why.</span></div><button class="button" data-action="open-privacy">View</button></div>
+          ${currentUser?`<div class="settings-row"><div><strong>Sign out</strong><span class="small">You can always sign back in with the same account.</span></div><button class="button" data-action="sign-out-google">Sign out</button></div>`:''}
         </div>`,
                     `<button class="button primary" data-action="save-settings">Save settings</button>`); }
 
@@ -7102,8 +7605,42 @@ If the user asks about how to study or study methods generally, answer from your
             // End of AI integration
             // --------------------------------------------------------------------------
 
+            // Enter-to-submit on the landing auth/reset-password forms — those fields are
+            // destroyed and recreated on every render (same as the rest of the app's
+            // innerHTML-replacement pattern), so this listens on the stable #landing-layer
+            // parent instead of attaching/detaching a listener per render.
+            document.getElementById('landing-layer').addEventListener('keydown', e => {
+                if (e.key !== 'Enter') return;
+                if (e.target.matches('#auth-email, #auth-password, #auth-confirm-password')) submitAuthForm();
+                else if (e.target.matches('#auth-new-password, #auth-new-password-confirm')) submitNewPassword();
+            });
+
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
-                const a = b.dataset.action; if (a === 'start-study-mode') { startStudyMode();
+                const a = b.dataset.action; if (a === 'landing-go-auth') { landingScreen = 'auth';
+                    authMode = b.dataset.mode || 'signup';
+                    authError = ''; authNotice = '';
+                    renderLandingLayer();
+                    return; } if (a === 'landing-go-marketing') { landingScreen = 'marketing';
+                    renderLandingLayer();
+                    return; } if (a === 'landing-go-privacy') { landingScreen = 'privacy';
+                    renderLandingLayer();
+                    return; } if (a === 'open-privacy') { viewingPrivacyFromApp = true;
+                    landingScreen = 'privacy';
+                    render();
+                    return; } if (a === 'close-privacy-from-app') { viewingPrivacyFromApp = false;
+                    render();
+                    return; } if (a === 'auth-toggle-mode') { authMode = authMode === 'signup' ? 'signin' :
+                        'signup';
+                    authError = ''; authNotice = '';
+                    renderLandingLayer();
+                    return; } if (a === 'auth-submit') { submitAuthForm();
+                    return; } if (a === 'auth-forgot-password') { landingScreen = 'reset-password';
+                    authError = ''; authNotice = '';
+                    renderLandingLayer();
+                    return; } if (a === 'auth-request-reset') { requestPasswordReset();
+                    return; } if (a === 'auth-submit-new-password') { submitNewPassword();
+                    return; } if (a === 'auth-resend-confirmation') { resendConfirmationEmail();
+                    return; } if (a === 'start-study-mode') { startStudyMode();
                     return; } if (a === 'sm-minimize') { studyModeMinimize();
                     return; } if (a === 'sm-restore') { studyModeRestore();
                     return; } if (a === 'sm-advance') { studyModeAdvance();
