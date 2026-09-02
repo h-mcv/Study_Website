@@ -1908,7 +1908,7 @@
         }
         #spotify-widget {
             position: fixed;
-            top: 20px;
+            top: 60px;
             left: 24px;
             z-index: 201;
             background: var(--surface);
@@ -1928,39 +1928,33 @@
             padding: 4px 2px;
         }
         #spotify-widget .spotify-loading { color: var(--muted); padding: 4px 2px; }
-        #spotify-widget .spotify-picker {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        #spotify-widget .spotify-picker select {
-            max-width: 160px;
-            font-size: 13px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 4px 6px;
-            background: var(--surface);
-            color: var(--text);
-        }
-        #spotify-widget .spotify-picker button {
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            width: 26px;
-            height: 26px;
-            cursor: pointer;
-        }
         #spotify-widget .spotify-now-playing {
             display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 270px;
+        }
+        #spotify-widget .spotify-np-info {
+            display: flex;
             align-items: center;
             gap: 8px;
-            max-width: 320px;
+            width: 100%;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            text-align: left;
+            font: inherit;
+            color: inherit;
         }
         #spotify-widget .spotify-now-playing img,
-        #spotify-widget .spotify-art-placeholder {
-            width: 32px;
-            height: 32px;
+        #spotify-widget .spotify-art-placeholder,
+        #spotify-widget .spotify-panel-row img,
+        #spotify-widget .spotify-panel-row-btn img,
+        #spotify-widget .spotify-panel-row .spotify-art-placeholder,
+        #spotify-widget .spotify-panel-row-btn .spotify-art-placeholder {
+            width: 34px;
+            height: 34px;
             border-radius: 6px;
             object-fit: cover;
             flex-shrink: 0;
@@ -1974,7 +1968,7 @@
         }
         #spotify-widget .spotify-meta {
             min-width: 0;
-            max-width: 120px;
+            flex: 1;
         }
         #spotify-widget .spotify-track {
             font-weight: 700;
@@ -1989,21 +1983,134 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        #spotify-widget .spotify-expand-arrow {
+            color: var(--muted);
+            font-size: 10px;
+            flex-shrink: 0;
+        }
+        #spotify-widget .spotify-bottom-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
         #spotify-widget .spotify-controls {
             display: flex;
             gap: 2px;
+            flex-shrink: 0;
         }
         #spotify-widget .spotify-controls button {
             background: none;
             border: none;
             cursor: pointer;
-            font-size: 15px;
+            font-size: 17px;
             color: var(--text);
-            padding: 2px 4px;
+            padding: 4px 5px;
         }
-        #spotify-widget input[type="range"] {
-            width: 60px;
+        #spotify-widget .spotify-volume {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 28px;
         }
+        #spotify-widget .spotify-vol-bar {
+            width: 6px;
+            height: 100%;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: flex-end;
+        }
+        #spotify-widget .spotify-vol-bar span {
+            display: block;
+            width: 100%;
+            border-radius: 2px 2px 0 0;
+            background: var(--line);
+        }
+        #spotify-widget .spotify-vol-bar.filled span,
+        #spotify-widget .spotify-vol-bar:hover span { background: var(--primary); }
+        #spotify-widget .spotify-panel {
+            width: 270px;
+            margin-top: 4px;
+        }
+        #spotify-widget .spotify-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 4px;
+        }
+        #spotify-widget .spotify-panel-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1;
+        }
+        #spotify-widget .spotify-panel-list {
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        #spotify-widget .spotify-panel-row-btn {
+            display: block;
+            width: 100%;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px 4px;
+            border-radius: 8px;
+            text-align: left;
+            font: inherit;
+            color: inherit;
+        }
+        #spotify-widget .spotify-panel-row-btn:hover { background: var(--surface-2); }
+        #spotify-widget .spotify-panel-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 4px;
+            border-radius: 8px;
+        }
+        #spotify-widget .spotify-panel-row-btn .spotify-panel-row { padding: 0; }
+        #spotify-widget .spotify-panel-row.current { background: var(--primary-soft); }
+        #spotify-widget .spotify-panel-row.skipped { opacity: .45; }
+        #spotify-widget .spotify-row-text {
+            min-width: 0;
+            flex: 1;
+        }
+        #spotify-widget .spotify-row-name {
+            font-weight: 600;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #spotify-widget .spotify-row-sub {
+            font-size: 11px;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #spotify-widget .spotify-row-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 13px;
+            padding: 4px;
+            flex-shrink: 0;
+        }
+        #spotify-widget .spotify-row-btn:hover { color: var(--text); }
         .mascot-highlight {
             outline: 3px solid var(--primary);
             outline-offset: 3px;
@@ -2729,8 +2836,12 @@
             let spotifyPlayer = null;             // Spotify.Player instance, created lazily on first play
             let spotifyDeviceId = null;
             let spotifyPlaylists = null;          // cached list for this page load, fetched once when needed
-            let spotifyWidget = { loadingPlaylists: false, connecting: false, chosenUri: null, chosenName: null,
-                track: null, isPlaying: false, volume: 50 };
+            const SPOTIFY_VOLUME_STEPS = 15;      // discrete presets rather than a fiddly free-drag slider
+            function spotifyBlankWidgetState() { return { loadingPlaylists: false, connecting: false,
+                pickerOpen: false, chosenUri: null, chosenName: null, chosenId: null, track: null,
+                isPlaying: false, volume: 50, queueOpen: false, playlistTracks: null, loadingTracks: false,
+                skippedUris: new Set() }; }
+            let spotifyWidget = spotifyBlankWidgetState();
 
             function spotifyConnected() { return !!spotifyAuth; }
 
@@ -2749,8 +2860,7 @@
                 localStorage.removeItem(SPOTIFY_AUTH_KEY);
                 if (spotifyPlayer) { spotifyPlayer.disconnect(); spotifyPlayer = null; }
                 spotifyDeviceId = null; spotifyPlaylists = null;
-                spotifyWidget = { loadingPlaylists: false, connecting: false, chosenUri: null, chosenName: null,
-                    track: null, isPlaying: false, volume: 50 };
+                spotifyWidget = spotifyBlankWidgetState();
             }
 
             function spotifyRandomString(len) {
@@ -2896,7 +3006,8 @@
                 spotifyWidget.loadingPlaylists = true; renderSpotifyWidget();
                 try {
                     const data = await spotifyApi('/me/playlists?limit=50');
-                    spotifyPlaylists = (data.items || []).map(p => ({ uri: p.uri, name: p.name }));
+                    spotifyPlaylists = (data.items || []).map(p => ({ id: p.id, uri: p.uri, name: p.name,
+                        image: p.images?.[p.images.length - 1]?.url || p.images?.[0]?.url }));
                 } catch (e) { console.error('Spotify playlist fetch failed:', e);
                     toast("Couldn't load your Spotify playlists.");
                     spotifyPlaylists = []; }
@@ -2921,10 +3032,16 @@
                         player.addListener('player_state_changed', st => { if (!st) return;
                             spotifyWidget.isPlaying = !st.paused;
                             const t = st.track_window?.current_track;
-                            spotifyWidget.track = t ? { name: t.name,
+                            spotifyWidget.track = t ? { uri: t.uri, name: t.name,
                                 artist: (t.artists || []).map(a => a.name).join(', '),
                                 image: t.album?.images?.[t.album.images.length - 1]?.url } : null;
-                            renderSpotifyWidget(); });
+                            // "Removing" a track (spotifyToggleSkip) can't actually delete it from
+                            // Spotify's queue -- there's no API for that -- so this is the
+                            // practical equivalent: the moment playback reaches it, skip straight
+                            // past it instead. The queue panel (if open) just re-renders to move
+                            // the "now playing" highlight -- the tracklist itself doesn't change.
+                            if (t && spotifyWidget.skippedUris.has(t.uri)) spotifyPlayer.nextTrack();
+                            else renderSpotifyWidget(); });
                         player.connect();
                         spotifyPlayer = player;
                     };
@@ -2932,22 +3049,122 @@
                 });
             }
 
-            async function spotifyPlayPlaylist(uri, name) {
-                spotifyWidget.connecting = true; renderSpotifyWidget();
+            async function spotifyPlayPlaylist(uri, name, id) {
+                spotifyWidget.pickerOpen = false; spotifyWidget.connecting = true; renderSpotifyWidget();
                 try {
                     await spotifyInitPlayer();
                     await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, { method: 'PUT',
                         body: JSON.stringify({ context_uri: uri }) });
-                    spotifyWidget.chosenUri = uri; spotifyWidget.chosenName = name;
+                    spotifyWidget.chosenUri = uri; spotifyWidget.chosenName = name; spotifyWidget.chosenId = id;
+                    spotifyWidget.playlistTracks = null; spotifyWidget.queueOpen = false;
+                    spotifyWidget.skippedUris = new Set();
                 } catch (e) { console.error('Spotify playback failed:', e);
                     toast(/premium/i.test(e.message) ? e.message : "Couldn't start that playlist — try again."); }
                 spotifyWidget.connecting = false; renderSpotifyWidget();
+            }
+
+            function spotifyTogglePicker() {
+                spotifyWidget.pickerOpen = !spotifyWidget.pickerOpen;
+                if (spotifyWidget.pickerOpen) spotifyLoadPlaylists();
+                renderSpotifyWidget();
+            }
+
+            // The full ordered tracklist of the playing playlist -- used for the "Up
+            // next" panel instead of Spotify's own /me/player/queue endpoint, which is
+            // read-only, doesn't reliably reflect shuffle, and offers no way to jump to
+            // an arbitrary entry. Capped at 300 tracks (3 pages), plenty for a study
+            // playlist. `force` re-fetches even if already cached (used after edits
+            // elsewhere aren't a thing here, but kept for a manual refresh path).
+            async function spotifyLoadPlaylistTracks(playlistId, force) {
+                if (spotifyWidget.loadingTracks || (spotifyWidget.playlistTracks && !force)) return;
+                spotifyWidget.loadingTracks = true; renderSpotifyWidget();
+                try {
+                    let tracks = [], path =
+                        `/playlists/${playlistId}/tracks?limit=100&fields=next,items(track(uri,name,artists(name),album(images)))`;
+                    for (let page = 0; page < 3 && path; page++) {
+                        const data = await spotifyApi(path);
+                        tracks.push(...(data.items || []).filter(it => it.track && it.track.uri).map(it => ({
+                            uri: it.track.uri, name: it.track.name,
+                            artist: (it.track.artists || []).map(a => a.name).join(', '),
+                            image: it.track.album?.images?.[it.track.album.images.length - 1]?.url })));
+                        path = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+                    }
+                    spotifyWidget.playlistTracks = tracks;
+                } catch (e) { console.error('Spotify tracklist fetch failed:', e);
+                    toast("Couldn't load that playlist's tracks."); }
+                spotifyWidget.loadingTracks = false; renderSpotifyWidget();
+            }
+
+            function spotifyToggleQueue() {
+                spotifyWidget.queueOpen = !spotifyWidget.queueOpen;
+                if (spotifyWidget.queueOpen && spotifyWidget.chosenId) spotifyLoadPlaylistTracks(
+                    spotifyWidget.chosenId);
+                renderSpotifyWidget();
+            }
+
+            // Jumps playback straight to a chosen track within the playing playlist --
+            // a real, reliably-supported action (unlike reordering an arbitrary queue,
+            // which Spotify's API has no endpoint for), so this is what "move something
+            // up next" actually means here.
+            async function spotifyPlayTrackNow(uri) {
+                try {
+                    await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, { method: 'PUT',
+                        body: JSON.stringify({ context_uri: spotifyWidget.chosenUri, offset: { uri } }) });
+                } catch (e) { console.error('Spotify jump failed:', e);
+                    toast("Couldn't jump to that track — try again."); }
+            }
+
+            // Spotify has no API to remove a track from the queue either, so this marks
+            // it locally instead -- the player_state_changed listener above skips it
+            // automatically the moment playback would reach it. Doesn't touch the real
+            // playlist; click again to undo.
+            function spotifyToggleSkip(uri) {
+                if (spotifyWidget.skippedUris.has(uri)) spotifyWidget.skippedUris.delete(uri);
+                else spotifyWidget.skippedUris.add(uri);
+                renderSpotifyWidget();
             }
 
             function spotifyToggle() { spotifyPlayer?.togglePlay(); }
             function spotifyNext() { spotifyPlayer?.nextTrack(); }
             function spotifyPrev() { spotifyPlayer?.previousTrack(); }
             function spotifySetVolume(v) { spotifyWidget.volume = v; spotifyPlayer?.setVolume(v / 100); }
+            function spotifySetVolumeLevel(level) { spotifySetVolume(Math.round(level / (SPOTIFY_VOLUME_STEPS - 1) *
+                    100));
+                renderSpotifyWidget(); }
+
+            function spotifyPanelRowHtml(image, title, subtitle, attrs) {
+                return `<div class="spotify-panel-row"${attrs || ''}>${image?`<img src="${image}" alt="">`:'<div class="spotify-art-placeholder">🎵</div>'}<div class="spotify-row-text"><div class="spotify-row-name">${escape(title)}</div>${subtitle?`<div class="spotify-row-sub">${escape(subtitle)}</div>`:''}</div></div>`;
+            }
+
+            function spotifyPickerPanelHtml() {
+                let body;
+                if (spotifyWidget.loadingPlaylists || !spotifyPlaylists) body =
+                    '<div class="spotify-loading">Loading playlists…</div>';
+                else if (!spotifyPlaylists.length) body =
+                    '<div class="spotify-loading">No Spotify playlists found.</div>';
+                else body = spotifyPlaylists.map(p =>
+                    `<button type="button" class="spotify-panel-row-btn" data-action="spotify-play-selected" data-uri="${escape(p.uri)}" data-id="${escape(p.id)}" data-name="${escape(p.name)}">${spotifyPanelRowHtml(p.image,p.name)}</button>`)
+                    .join('');
+                return `<div class="spotify-panel"><div class="spotify-panel-header"><span>Your playlists</span><button type="button" class="spotify-panel-close" data-action="spotify-toggle-picker" aria-label="Close">×</button></div><div class="spotify-panel-list">${body}</div></div>`;
+            }
+
+            function spotifyQueuePanelHtml() {
+                let body;
+                if (spotifyWidget.loadingTracks && !spotifyWidget.playlistTracks) body =
+                    '<div class="spotify-loading">Loading tracks…</div>';
+                else if (!spotifyWidget.playlistTracks || !spotifyWidget.playlistTracks.length) body =
+                    '<div class="spotify-loading">Couldn\'t find any tracks.</div>';
+                else body = spotifyWidget.playlistTracks.map(t => { const isCurrent = spotifyWidget.track &&
+                        spotifyWidget.track.uri === t.uri, skipped = spotifyWidget.skippedUris.has(t.uri);
+                    return `<div class="spotify-panel-row ${isCurrent?'current':''} ${skipped?'skipped':''}">${t.image?`<img src="${t.image}" alt="">`:'<div class="spotify-art-placeholder">🎵</div>'}<div class="spotify-row-text"><div class="spotify-row-name">${escape(t.name)}</div><div class="spotify-row-sub">${escape(t.artist)}</div></div><button type="button" class="spotify-row-btn" data-action="spotify-play-track" data-uri="${escape(t.uri)}" aria-label="Play now" title="Play now">▶</button><button type="button" class="spotify-row-btn" data-action="spotify-toggle-skip" data-uri="${escape(t.uri)}" aria-label="${skipped?'Undo skip':'Skip this track'}" title="${skipped?'Undo skip':'Skip this track'}">${skipped?'↺':'✕'}</button></div>`; })
+                    .join('');
+                return `<div class="spotify-panel spotify-queue-panel"><div class="spotify-panel-header"><span>Up next</span><button type="button" class="spotify-panel-close" data-action="spotify-toggle-queue" aria-label="Close">×</button></div><div class="spotify-panel-list">${body}</div></div>`;
+            }
+
+            function spotifyVolumeBarsHtml() {
+                const level = Math.round(spotifyWidget.volume / 100 * (SPOTIFY_VOLUME_STEPS - 1));
+                return `<div class="spotify-volume" role="slider" aria-label="Volume" aria-valuenow="${spotifyWidget.volume}">${Array.from({length:SPOTIFY_VOLUME_STEPS}).map((_,i)=>`<button type="button" class="spotify-vol-bar ${i<=level?'filled':''}" data-action="spotify-set-volume-bar" data-level="${i}" aria-label="Volume ${Math.round(i/(SPOTIFY_VOLUME_STEPS-1)*100)}%"><span style="height:${8+i*1.3}px"></span></button>`).join('')}</div>`;
+            }
 
             // Mirrors visibility to the Study Mode overlay itself (hidden while
             // minimized to the PIP, same as the overlay) rather than tracking its own
@@ -2962,21 +3179,16 @@
                 }
                 if (spotifyWidget.chosenUri) {
                     const t = spotifyWidget.track;
-                    el.innerHTML = `<div class="spotify-now-playing">${t?.image?`<img src="${t.image}" alt="">`:'<div class="spotify-art-placeholder">🎵</div>'}<div class="spotify-meta"><div class="spotify-track">${t?escape(t.name):escape(spotifyWidget.chosenName)}</div><div class="spotify-artist">${t?escape(t.artist):''}</div></div><div class="spotify-controls"><button type="button" data-action="spotify-prev" aria-label="Previous track">⏮</button><button type="button" data-action="spotify-toggle" aria-label="${spotifyWidget.isPlaying?'Pause':'Play'}">${spotifyWidget.isPlaying?'⏸':'▶'}</button><button type="button" data-action="spotify-next" aria-label="Next track">⏭</button></div><input type="range" id="spotify-volume" min="0" max="100" value="${spotifyWidget.volume}" aria-label="Volume"></div>`;
+                    el.innerHTML = `<div class="spotify-now-playing"><button type="button" class="spotify-np-info" data-action="spotify-toggle-queue">${t?.image?`<img src="${t.image}" alt="">`:'<div class="spotify-art-placeholder">🎵</div>'}<div class="spotify-meta"><div class="spotify-track">${t?escape(t.name):escape(spotifyWidget.chosenName)}</div><div class="spotify-artist">${t?escape(t.artist):''}</div></div><span class="spotify-expand-arrow">${spotifyWidget.queueOpen?'▲':'▼'}</span></button><div class="spotify-bottom-row"><div class="spotify-controls"><button type="button" data-action="spotify-prev" aria-label="Previous track">⏮</button><button type="button" data-action="spotify-toggle" aria-label="${spotifyWidget.isPlaying?'Pause':'Play'}">${spotifyWidget.isPlaying?'⏸':'▶'}</button><button type="button" data-action="spotify-next" aria-label="Next track">⏭</button></div>${spotifyVolumeBarsHtml()}</div></div>${spotifyWidget.queueOpen?spotifyQueuePanelHtml():''}`;
                     return;
                 }
                 if (spotifyWidget.connecting) { el.innerHTML = '<div class="spotify-loading">Connecting…</div>';
                     return; }
-                if (!spotifyPlaylists) { spotifyLoadPlaylists();
-                    el.innerHTML = '<div class="spotify-loading">🎵 Loading playlists…</div>';
-                    return; }
-                if (spotifyWidget.loadingPlaylists) { el.innerHTML =
-                        '<div class="spotify-loading">🎵 Loading playlists…</div>';
-                    return; }
-                if (!spotifyPlaylists.length) { el.innerHTML =
-                        '<div class="spotify-loading">No Spotify playlists found.</div>';
-                    return; }
-                el.innerHTML = `<div class="spotify-picker"><select id="spotify-playlist-select">${spotifyPlaylists.map(p=>`<option value="${escape(p.uri)}">${escape(p.name)}</option>`).join('')}</select><button type="button" data-action="spotify-play-selected" aria-label="Play playlist">▶</button></div>`;
+                if (!spotifyWidget.pickerOpen) {
+                    el.innerHTML = '<button type="button" class="spotify-connect-btn" data-action="spotify-toggle-picker">🎵 Choose a playlist</button>';
+                    return;
+                }
+                el.innerHTML = spotifyPickerPanelHtml();
             }
 
             // Pre-auth aggregate stats for the landing page ("this app helps students study
@@ -8772,9 +8984,13 @@ If the user asks about how to study or study methods generally, answer from your
                     return; } if (a === 'sm-finish-early') { studyModeFinishEarly();
                     return; } if (a === 'spotify-connect') { spotifyConnect();
                     return; } if (a === 'spotify-disconnect') { spotifyDisconnect();
-                    return; } if (a === 'spotify-play-selected') { const sel = document.getElementById(
-                        'spotify-playlist-select'); if (!sel) return; const p = spotifyPlaylists.find(x => x.uri ===
-                        sel.value); if (p) spotifyPlayPlaylist(p.uri, p.name);
+                    return; } if (a === 'spotify-toggle-picker') { spotifyTogglePicker();
+                    return; } if (a === 'spotify-play-selected') { spotifyPlayPlaylist(b.dataset.uri, b.dataset
+                    .name, b.dataset.id);
+                    return; } if (a === 'spotify-toggle-queue') { spotifyToggleQueue();
+                    return; } if (a === 'spotify-play-track') { spotifyPlayTrackNow(b.dataset.uri);
+                    return; } if (a === 'spotify-toggle-skip') { spotifyToggleSkip(b.dataset.uri);
+                    return; } if (a === 'spotify-set-volume-bar') { spotifySetVolumeLevel(Number(b.dataset.level));
                     return; } if (a === 'spotify-toggle') { spotifyToggle();
                     return; } if (a === 'spotify-prev') { spotifyPrev();
                     return; } if (a === 'spotify-next') { spotifyNext();
@@ -9336,8 +9552,7 @@ If the user asks about how to study or study methods generally, answer from your
                     .value;
                     renderModal(); const input = document.getElementById('search-input'); if (input) { input
                         .focus();
-                        input.setSelectionRange(input.value.length, input.value.length); } } if (e.target.id ===
-                    'spotify-volume') spotifySetVolume(Number(e.target.value)); });
+                        input.setSelectionRange(input.value.length, input.value.length); } } });
             document.addEventListener('change', e => { if (e.target.id === 'setting-theme') { state.settings.theme =
                     e.target.checked ? 'dark' : 'light';
                     document.body.classList.toggle('dark', state.settings.theme === 'dark');
