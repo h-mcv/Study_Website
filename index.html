@@ -1680,7 +1680,10 @@
         /* AI Chatbot Floating Widget */
         #mascot-widget {
             position: fixed;
-            z-index: 60;
+            /* Above #study-mode-overlay (200) and #study-mode-pip (150) too — Study Mode's full-screen
+               overlay used to completely hide Sparky behind it during the tour's study-mode chapter, since
+               it's a plain opaque full-screen layer sitting above the mascot's old z-index of 60. */
+            z-index: 210;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -8278,7 +8281,15 @@ If the user asks about how to study or study methods generally, answer from your
                 // above the modal layer) so a step can point at something inside a modal's own content — the
                 // fixed bottom-left fallback below is only for when the target genuinely isn't on screen.
                 const target = (step && step.target) ? document.querySelector(step.target) : null; if (target) {
-                    target.classList.add('mascot-highlight'); const rect = target.getBoundingClientRect(),
+                    target.classList.add('mascot-highlight');
+                    // Bring the target into view FIRST — pointing at an element the user would have to
+                    // scroll to see is just pointing at wherever that element happens to sit in the
+                    // document, not at anything actually on screen. 'instant' (not 'smooth') so the
+                    // getBoundingClientRect() read right below reflects the final scrolled position rather
+                    // than landing mid-animation — the exact bug that was already fixed for the widget's own
+                    // position transition.
+                    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+                    const rect = target.getBoundingClientRect(),
                         GAP = 16,
                         // The widget's own current footprint (bubble text length varies a lot now that
                         // steps say a lot more) — a hardcoded guess here is exactly what let the character
