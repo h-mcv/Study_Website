@@ -2007,6 +2007,15 @@
             color: var(--text);
             padding: 4px 5px;
         }
+        #spotify-widget .spotify-change-btn {
+            font-size: 13px !important;
+            color: var(--muted) !important;
+            margin-left: 2px;
+            padding-left: 8px !important;
+            border-left: 1px solid var(--line) !important;
+        }
+        #spotify-widget .spotify-change-btn.active,
+        #spotify-widget .spotify-change-btn:hover { color: var(--primary) !important; }
         #spotify-widget .spotify-volume {
             display: flex;
             align-items: flex-end;
@@ -3065,7 +3074,7 @@
 
             function spotifyTogglePicker() {
                 spotifyWidget.pickerOpen = !spotifyWidget.pickerOpen;
-                if (spotifyWidget.pickerOpen) spotifyLoadPlaylists();
+                if (spotifyWidget.pickerOpen) { spotifyWidget.queueOpen = false; spotifyLoadPlaylists(); }
                 renderSpotifyWidget();
             }
 
@@ -3097,8 +3106,8 @@
 
             function spotifyToggleQueue() {
                 spotifyWidget.queueOpen = !spotifyWidget.queueOpen;
-                if (spotifyWidget.queueOpen && spotifyWidget.chosenId) spotifyLoadPlaylistTracks(
-                    spotifyWidget.chosenId);
+                if (spotifyWidget.queueOpen) { spotifyWidget.pickerOpen = false;
+                    if (spotifyWidget.chosenId) spotifyLoadPlaylistTracks(spotifyWidget.chosenId); }
                 renderSpotifyWidget();
             }
 
@@ -3179,7 +3188,9 @@
                 }
                 if (spotifyWidget.chosenUri) {
                     const t = spotifyWidget.track;
-                    el.innerHTML = `<div class="spotify-now-playing"><button type="button" class="spotify-np-info" data-action="spotify-toggle-queue">${t?.image?`<img src="${t.image}" alt="">`:'<div class="spotify-art-placeholder">🎵</div>'}<div class="spotify-meta"><div class="spotify-track">${t?escape(t.name):escape(spotifyWidget.chosenName)}</div><div class="spotify-artist">${t?escape(t.artist):''}</div></div><span class="spotify-expand-arrow">${spotifyWidget.queueOpen?'▲':'▼'}</span></button><div class="spotify-bottom-row"><div class="spotify-controls"><button type="button" data-action="spotify-prev" aria-label="Previous track">⏮</button><button type="button" data-action="spotify-toggle" aria-label="${spotifyWidget.isPlaying?'Pause':'Play'}">${spotifyWidget.isPlaying?'⏸':'▶'}</button><button type="button" data-action="spotify-next" aria-label="Next track">⏭</button></div>${spotifyVolumeBarsHtml()}</div></div>${spotifyWidget.queueOpen?spotifyQueuePanelHtml():''}`;
+                    const panel = spotifyWidget.queueOpen ? spotifyQueuePanelHtml() : spotifyWidget.pickerOpen ?
+                        spotifyPickerPanelHtml() : '';
+                    el.innerHTML = `<div class="spotify-now-playing"><button type="button" class="spotify-np-info" data-action="spotify-toggle-queue">${t?.image?`<img src="${t.image}" alt="">`:'<div class="spotify-art-placeholder">🎵</div>'}<div class="spotify-meta"><div class="spotify-track">${t?escape(t.name):escape(spotifyWidget.chosenName)}</div><div class="spotify-artist">${t?escape(t.artist):''}</div></div><span class="spotify-expand-arrow">${spotifyWidget.queueOpen?'▲':'▼'}</span></button><div class="spotify-bottom-row"><div class="spotify-controls"><button type="button" data-action="spotify-prev" aria-label="Previous track">⏮</button><button type="button" data-action="spotify-toggle" aria-label="${spotifyWidget.isPlaying?'Pause':'Play'}">${spotifyWidget.isPlaying?'⏸':'▶'}</button><button type="button" data-action="spotify-next" aria-label="Next track">⏭</button><button type="button" class="spotify-change-btn ${spotifyWidget.pickerOpen?'active':''}" data-action="spotify-toggle-picker" aria-label="Change playlist" title="Change playlist">⇄</button></div>${spotifyVolumeBarsHtml()}</div></div>${panel}`;
                     return;
                 }
                 if (spotifyWidget.connecting) { el.innerHTML = '<div class="spotify-loading">Connecting…</div>';
