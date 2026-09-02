@@ -6,11 +6,12 @@
     <meta name="theme-color" content="#2E63F6">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://eu.i.posthog.com https://eu-assets.i.posthog.com https://js-de.sentry-cdn.com;
+        script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://eu.i.posthog.com https://eu-assets.i.posthog.com https://js-de.sentry-cdn.com https://sdk.scdn.co;
         style-src 'self' 'unsafe-inline';
-        img-src 'self' data: blob: https://*.googleusercontent.com;
+        img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com;
         font-src 'self' data:;
-        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io;
+        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com;
+        frame-src 'self' https://sdk.scdn.co;
         object-src 'none';
         base-uri 'self';
         form-action 'self';
@@ -1905,6 +1906,104 @@
             color: var(--muted);
             margin-top: 2px;
         }
+        #spotify-widget {
+            position: fixed;
+            top: 20px;
+            left: 24px;
+            z-index: 201;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            box-shadow: 0 6px 18px rgba(20, 40, 95, .14);
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+        #spotify-widget.hidden { display: none; }
+        #spotify-widget .spotify-connect-btn {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 13px;
+            cursor: pointer;
+            padding: 4px 2px;
+        }
+        #spotify-widget .spotify-loading { color: var(--muted); padding: 4px 2px; }
+        #spotify-widget .spotify-picker {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #spotify-widget .spotify-picker select {
+            max-width: 160px;
+            font-size: 13px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 4px 6px;
+            background: var(--surface);
+            color: var(--text);
+        }
+        #spotify-widget .spotify-picker button {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            width: 26px;
+            height: 26px;
+            cursor: pointer;
+        }
+        #spotify-widget .spotify-now-playing {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 320px;
+        }
+        #spotify-widget .spotify-now-playing img,
+        #spotify-widget .spotify-art-placeholder {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        #spotify-widget .spotify-art-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface-2);
+            font-size: 15px;
+        }
+        #spotify-widget .spotify-meta {
+            min-width: 0;
+            max-width: 120px;
+        }
+        #spotify-widget .spotify-track {
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #spotify-widget .spotify-artist {
+            font-size: 11px;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #spotify-widget .spotify-controls {
+            display: flex;
+            gap: 2px;
+        }
+        #spotify-widget .spotify-controls button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            color: var(--text);
+            padding: 2px 4px;
+        }
+        #spotify-widget input[type="range"] {
+            width: 60px;
+        }
         .mascot-highlight {
             outline: 3px solid var(--primary);
             outline-offset: 3px;
@@ -2425,6 +2524,14 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script>
+        // The SDK below calls this itself the moment it finishes loading — often before our
+        // own inline script (at the end of <body>) has run — so it must already exist here.
+        // spotifyInitPlayer() (later in the app) overwrites this with the real handler if it
+        // hasn't fired yet, or calls straight into window.Spotify if it already has.
+        window.onSpotifyWebPlaybackSDKReady = function() {};
+    </script>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script>
         !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}p||((p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",p.onerror=function(){p=null},(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r));var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="al ol ll init Il Rl Tl Ml Ol za El Dl Sl capture getExtension Pl nl Hl calculateEventProperties Bl register register_once register_for_session unregister unregister_for_session Vl Cl zl getFeatureFlag getFeatureFlagPayload getFeatureFlagResult getAllFeatureFlags isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync Gl identify setPersonProperties unsetPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset Zl shutdown setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Ul ql createPersonProfile setInternalOrTestUser Wl ul hl opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing $l debug Ua Jn getPageViewId captureTraceFeedback captureTraceMetric bl".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
         posthog.init('phc_kAm3rQf7UJXuLXxBaAwfTsQpWyFqfgbsqotu2XTu4nGJ', {
             api_host: 'https://eu.i.posthog.com',
@@ -2459,6 +2566,7 @@
     <!-- Study Mode -->
     <div id="study-mode-overlay" class="hidden"></div>
     <div id="study-mode-pip" class="hidden"></div>
+    <div id="spotify-widget" class="hidden"></div>
     <div id="print-area"></div>
 
     <!-- AI Assistant UI -->
@@ -2600,6 +2708,275 @@
                 };
                 if (immediate) return doPush();
                 cloudSyncTimer = setTimeout(doPush, 1500);
+            }
+
+            // ------------------------------------------------------------------
+            // Optional Spotify integration for Study Mode: a tiny "play music while
+            // you study" widget. Uses Authorization Code + PKCE (no client secret —
+            // this is a static site with nowhere safe to keep one) and the Web
+            // Playback SDK, which turns this browser tab itself into a Spotify Connect
+            // device so playback works even if nothing else is already playing.
+            // Requires Spotify Premium (a Web Playback SDK limitation, not ours).
+            // Tokens are device-local only (plain localStorage, never synced to
+            // Supabase) since they're not part of a student's study data.
+            // ------------------------------------------------------------------
+            const SPOTIFY_CLIENT_ID = '3077d4b8c7f74fb4a7c3f8680dd36a8a';
+            const SPOTIFY_REDIRECT_URI = window.location.origin + window.location.pathname;
+            const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state playlist-read-private playlist-read-collaborative';
+            const SPOTIFY_AUTH_KEY = 'simple-study-spotify-auth';
+
+            let spotifyAuth = loadSpotifyAuth();  // { access_token, refresh_token, expires_at } or null
+            let spotifyPlayer = null;             // Spotify.Player instance, created lazily on first play
+            let spotifyDeviceId = null;
+            let spotifyPlaylists = null;          // cached list for this page load, fetched once when needed
+            let spotifyWidget = { loadingPlaylists: false, connecting: false, chosenUri: null, chosenName: null,
+                track: null, isPlaying: false, volume: 50 };
+
+            function spotifyConnected() { return !!spotifyAuth; }
+
+            function loadSpotifyAuth() { try { return JSON.parse(localStorage.getItem(SPOTIFY_AUTH_KEY)); }
+                catch { return null; } }
+
+            function saveSpotifyAuth(tokenResponse) {
+                spotifyAuth = { access_token: tokenResponse.access_token,
+                    refresh_token: tokenResponse.refresh_token || spotifyAuth?.refresh_token,
+                    expires_at: Date.now() + tokenResponse.expires_in * 1000 - 60000 };
+                localStorage.setItem(SPOTIFY_AUTH_KEY, JSON.stringify(spotifyAuth));
+            }
+
+            function clearSpotifyAuth() {
+                spotifyAuth = null;
+                localStorage.removeItem(SPOTIFY_AUTH_KEY);
+                if (spotifyPlayer) { spotifyPlayer.disconnect(); spotifyPlayer = null; }
+                spotifyDeviceId = null; spotifyPlaylists = null;
+                spotifyWidget = { loadingPlaylists: false, connecting: false, chosenUri: null, chosenName: null,
+                    track: null, isPlaying: false, volume: 50 };
+            }
+
+            function spotifyRandomString(len) {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let s = ''; crypto.getRandomValues(new Uint8Array(len)).forEach(n => s += chars[n % chars.length]);
+                return s;
+            }
+
+            async function spotifyCodeChallenge(verifier) {
+                const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+                return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_')
+                    .replace(/=+$/, '');
+            }
+
+            async function spotifyConnect() {
+                const verifier = spotifyRandomString(64), state2 = spotifyRandomString(16);
+                sessionStorage.setItem('spotify_verifier', verifier);
+                sessionStorage.setItem('spotify_state', state2);
+                const challenge = await spotifyCodeChallenge(verifier);
+                const params = new URLSearchParams({ client_id: SPOTIFY_CLIENT_ID, response_type: 'code',
+                    redirect_uri: SPOTIFY_REDIRECT_URI, scope: SPOTIFY_SCOPES, code_challenge_method: 'S256',
+                    code_challenge: challenge, state: state2 });
+                window.location.href = `https://accounts.spotify.com/authorize?${params}`;
+            }
+
+            function spotifyDisconnect() {
+                if (currentUser) supabaseClient.from('spotify_tokens').delete().eq('user_id', currentUser.id)
+                    .then(({ error }) => { if (error) console.error('Spotify cloud token delete failed:', error); });
+                clearSpotifyAuth();
+                toast('Disconnected from Spotify.');
+                render();
+                renderModal();
+            }
+
+            // Lets a signed-in student connect Spotify once and have it already be
+            // there next time they open the app on another device — the refresh token
+            // is the only thing that needs to travel, since a fresh access token is
+            // always derived from it locally. Only ever stores/reads this student's own
+            // row (RLS-enforced, see 0004_spotify_tokens.sql) — same protection as
+            // every other piece of their account data.
+            function spotifySyncTokenToCloud(refreshToken) {
+                if (!currentUser || !refreshToken) return;
+                supabaseClient.from('spotify_tokens')
+                    .upsert({ user_id: currentUser.id, refresh_token: refreshToken, updated_at: new Date()
+                        .toISOString() })
+                    .then(({ error }) => { if (error) console.error('Spotify cloud token sync failed:', error); });
+            }
+
+            // A fresh Spotify connect can complete before Supabase has finished
+            // restoring the signed-in session on this same page load (both fire off
+            // async work right after boot) — retry briefly rather than silently
+            // dropping the sync. If sign-in genuinely never resolves (a guest, or a
+            // slow/failed session restore), spotifySyncOnSignIn() below still catches
+            // this the next time they actually do sign in.
+            function spotifySyncTokenToCloudWhenReady(refreshToken, attempt = 0) {
+                if (currentUser) { spotifySyncTokenToCloud(refreshToken); return; }
+                if (attempt >= 5) return;
+                setTimeout(() => spotifySyncTokenToCloudWhenReady(refreshToken, attempt + 1), 500);
+            }
+
+            // Runs once right after sign-in resolves (fresh sign-in, or an
+            // already-signed-in user's session restoring at boot) — reconciles
+            // whichever side has something the other doesn't, favoring whatever
+            // this device already has connected over blindly overwriting it.
+            async function spotifySyncOnSignIn() {
+                if (!currentUser) return;
+                const { data, error } = await supabaseClient.from('spotify_tokens').select('refresh_token')
+                    .eq('user_id', currentUser.id).maybeSingle();
+                if (error) { console.error('Spotify cloud token load failed:', error); return; }
+                if (data && !spotifyConnected()) {
+                    spotifyAuth = { access_token: null, refresh_token: data.refresh_token, expires_at: 0 };
+                    localStorage.setItem(SPOTIFY_AUTH_KEY, JSON.stringify(spotifyAuth));
+                    render(); renderModal(); renderSpotifyWidget();
+                } else if (!data && spotifyConnected()) {
+                    spotifySyncTokenToCloud(spotifyAuth.refresh_token);
+                }
+            }
+
+            // Picks up the ?code=&state= redirect trip back from Spotify. Uses the query
+            // string rather than a hash so it can't collide with Supabase's own
+            // hash-based Google OAuth callback handling above.
+            async function handleSpotifyCallback() {
+                const params = new URLSearchParams(window.location.search);
+                const code = params.get('code'), returnedState = params.get('state'), error = params.get('error');
+                if (!code && !error) return;
+                const savedState = sessionStorage.getItem('spotify_state'),
+                    verifier = sessionStorage.getItem('spotify_verifier');
+                sessionStorage.removeItem('spotify_state'); sessionStorage.removeItem('spotify_verifier');
+                history.replaceState({}, '', window.location.origin + window.location.pathname +
+                    window.location.hash);
+                if (error || !code || !returnedState || returnedState !== savedState) {
+                    if (error !== 'access_denied') toast("Couldn't connect Spotify — please try again.");
+                    return;
+                }
+                try {
+                    const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({ grant_type: 'authorization_code', code,
+                            redirect_uri: SPOTIFY_REDIRECT_URI, client_id: SPOTIFY_CLIENT_ID,
+                            code_verifier: verifier }) });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error_description || data.error);
+                    saveSpotifyAuth(data);
+                    spotifySyncTokenToCloudWhenReady(data.refresh_token);
+                    toast('Spotify connected 🎵');
+                    render();
+                } catch (e) { console.error('Spotify token exchange failed:', e);
+                    toast("Couldn't connect Spotify — please try again."); }
+            }
+
+            async function spotifyEnsureToken() {
+                if (!spotifyAuth) return null;
+                if (Date.now() < spotifyAuth.expires_at) return spotifyAuth.access_token;
+                try {
+                    const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({ grant_type: 'refresh_token',
+                            refresh_token: spotifyAuth.refresh_token, client_id: SPOTIFY_CLIENT_ID }) });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error_description || data.error);
+                    saveSpotifyAuth(data);
+                    // Spotify only sends a new refresh_token when it actually rotates one
+                    // (uncommon) — only worth a cloud write in that case.
+                    if (data.refresh_token) spotifySyncTokenToCloudWhenReady(data.refresh_token);
+                    return spotifyAuth.access_token;
+                } catch (e) { console.error('Spotify token refresh failed:', e); clearSpotifyAuth(); return null; }
+            }
+
+            async function spotifyApi(path, options = {}) {
+                const token = await spotifyEnsureToken();
+                if (!token) throw new Error('Not connected to Spotify.');
+                const res = await fetch(`https://api.spotify.com/v1${path}`, { ...options,
+                    headers: { ...(options.headers || {}), 'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json' } });
+                if (res.status === 204) return null;
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(data?.error?.message || 'Spotify request failed');
+                return data;
+            }
+
+            async function spotifyLoadPlaylists() {
+                if (spotifyWidget.loadingPlaylists || spotifyPlaylists) return;
+                spotifyWidget.loadingPlaylists = true; renderSpotifyWidget();
+                try {
+                    const data = await spotifyApi('/me/playlists?limit=50');
+                    spotifyPlaylists = (data.items || []).map(p => ({ uri: p.uri, name: p.name }));
+                } catch (e) { console.error('Spotify playlist fetch failed:', e);
+                    toast("Couldn't load your Spotify playlists.");
+                    spotifyPlaylists = []; }
+                spotifyWidget.loadingPlaylists = false; renderSpotifyWidget();
+            }
+
+            // Lazily creates the in-tab Spotify Connect device the first time it's needed,
+            // so a connected-but-not-yet-playing student never has a hidden player running.
+            function spotifyInitPlayer() {
+                if (spotifyPlayer) return Promise.resolve(spotifyPlayer);
+                return new Promise((resolve, reject) => {
+                    const create = () => {
+                        const player = new Spotify.Player({ name: 'Simple Study',
+                            getOAuthToken: cb => spotifyEnsureToken().then(cb), volume: spotifyWidget.volume / 100 });
+                        player.addListener('ready', ({ device_id }) => { spotifyDeviceId = device_id;
+                            resolve(player); });
+                        player.addListener('initialization_error', ({ message }) => reject(new Error(message)));
+                        player.addListener('authentication_error', ({ message }) => { clearSpotifyAuth();
+                            reject(new Error(message)); });
+                        player.addListener('account_error', () => reject(new Error(
+                            'Spotify Premium is required to play music here.')));
+                        player.addListener('player_state_changed', st => { if (!st) return;
+                            spotifyWidget.isPlaying = !st.paused;
+                            const t = st.track_window?.current_track;
+                            spotifyWidget.track = t ? { name: t.name,
+                                artist: (t.artists || []).map(a => a.name).join(', '),
+                                image: t.album?.images?.[t.album.images.length - 1]?.url } : null;
+                            renderSpotifyWidget(); });
+                        player.connect();
+                        spotifyPlayer = player;
+                    };
+                    if (window.Spotify) create(); else window.onSpotifyWebPlaybackSDKReady = create;
+                });
+            }
+
+            async function spotifyPlayPlaylist(uri, name) {
+                spotifyWidget.connecting = true; renderSpotifyWidget();
+                try {
+                    await spotifyInitPlayer();
+                    await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, { method: 'PUT',
+                        body: JSON.stringify({ context_uri: uri }) });
+                    spotifyWidget.chosenUri = uri; spotifyWidget.chosenName = name;
+                } catch (e) { console.error('Spotify playback failed:', e);
+                    toast(/premium/i.test(e.message) ? e.message : "Couldn't start that playlist — try again."); }
+                spotifyWidget.connecting = false; renderSpotifyWidget();
+            }
+
+            function spotifyToggle() { spotifyPlayer?.togglePlay(); }
+            function spotifyNext() { spotifyPlayer?.nextTrack(); }
+            function spotifyPrev() { spotifyPlayer?.previousTrack(); }
+            function spotifySetVolume(v) { spotifyWidget.volume = v; spotifyPlayer?.setVolume(v / 100); }
+
+            // Mirrors visibility to the Study Mode overlay itself (hidden while
+            // minimized to the PIP, same as the overlay) rather than tracking its own
+            // flag, so it can't drift out of sync with the page it's meant to sit on.
+            function renderSpotifyWidget() {
+                const el = document.getElementById('spotify-widget');
+                if (!studyModeSession || studyModeSession.pipMode) { el.classList.add('hidden'); return; }
+                el.classList.remove('hidden');
+                if (!spotifyConnected()) {
+                    el.innerHTML = '<button type="button" class="spotify-connect-btn" data-action="spotify-connect">🎵 Play music while you study</button>';
+                    return;
+                }
+                if (spotifyWidget.chosenUri) {
+                    const t = spotifyWidget.track;
+                    el.innerHTML = `<div class="spotify-now-playing">${t?.image?`<img src="${t.image}" alt="">`:'<div class="spotify-art-placeholder">🎵</div>'}<div class="spotify-meta"><div class="spotify-track">${t?escape(t.name):escape(spotifyWidget.chosenName)}</div><div class="spotify-artist">${t?escape(t.artist):''}</div></div><div class="spotify-controls"><button type="button" data-action="spotify-prev" aria-label="Previous track">⏮</button><button type="button" data-action="spotify-toggle" aria-label="${spotifyWidget.isPlaying?'Pause':'Play'}">${spotifyWidget.isPlaying?'⏸':'▶'}</button><button type="button" data-action="spotify-next" aria-label="Next track">⏭</button></div><input type="range" id="spotify-volume" min="0" max="100" value="${spotifyWidget.volume}" aria-label="Volume"></div>`;
+                    return;
+                }
+                if (spotifyWidget.connecting) { el.innerHTML = '<div class="spotify-loading">Connecting…</div>';
+                    return; }
+                if (!spotifyPlaylists) { spotifyLoadPlaylists();
+                    el.innerHTML = '<div class="spotify-loading">🎵 Loading playlists…</div>';
+                    return; }
+                if (spotifyWidget.loadingPlaylists) { el.innerHTML =
+                        '<div class="spotify-loading">🎵 Loading playlists…</div>';
+                    return; }
+                if (!spotifyPlaylists.length) { el.innerHTML =
+                        '<div class="spotify-loading">No Spotify playlists found.</div>';
+                    return; }
+                el.innerHTML = `<div class="spotify-picker"><select id="spotify-playlist-select">${spotifyPlaylists.map(p=>`<option value="${escape(p.uri)}">${escape(p.name)}</option>`).join('')}</select><button type="button" data-action="spotify-play-selected" aria-label="Play playlist">▶</button></div>`;
             }
 
             // Pre-auth aggregate stats for the landing page ("this app helps students study
@@ -2747,7 +3124,8 @@
                 // password" screen first — submitNewPassword() clears showLanding itself
                 // once that's actually done, rather than here.
                 if (currentUser && !wasSignedIn) { if (landingScreen !== 'reset-password') showLanding = false;
-                    loadCloudState(); } // clears cloudResolutionPending itself once the fetch settles
+                    loadCloudState(); // clears cloudResolutionPending itself once the fetch settles
+                    spotifySyncOnSignIn(); }
                 else if (!currentUser && wasSignedIn) render();
                 else if (!currentUser && !wasSignedIn) { cloudResolutionPending = false; // a cached session token
                     render(); } // turned out not to restore a real session — nothing left to wait for
@@ -4503,6 +4881,13 @@
                 return `<div class="settings-row"><div><strong>Account & sync</strong><span class="small">Signed in as ${escape(currentUser.email || '')}. ${syncNote}</span></div></div>`;
             }
 
+            function spotifySettingsRowHtml() {
+                if (!spotifyConnected()) return `<div class="settings-row"><div><strong>Spotify</strong><span class="small">Connect your account to play a playlist while you study, with quiet controls at the top of the Study Mode page. Requires Spotify Premium.${currentUser?'':' Sign in with Google first if you want this to carry over to your other devices too.'}</span></div><button class="button" data-action="spotify-connect">Connect Spotify</button></div>`;
+                const carryOverNote = currentUser ? "It'll carry over automatically if you sign in on another device." :
+                    "This only applies on this device — sign in with Google to have it carry over to others too.";
+                return `<div class="settings-row"><div><strong>Spotify</strong><span class="small">Connected — a playlist picker will show up next time you start Study Mode. ${carryOverNote}</span></div><button class="button danger" data-action="spotify-disconnect">Disconnect</button></div>`;
+            }
+
             function navButton(id, icon, label) { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}"><b>${icon}</b><span>${label}</span></button>`; }
 
             function header(title, description, tools = '') { return `<div class="page-header"><div><h1>${title}</h1><p class="muted">${description}</p></div><div class="toolbar">${tools}</div></div>`; }
@@ -5399,6 +5784,7 @@
                 studyModeTickHandle = null;
                 document.getElementById('study-mode-overlay').classList.add('hidden');
                 document.getElementById('study-mode-pip').classList.add('hidden');
+                document.getElementById('spotify-widget').classList.add('hidden');
                 if (s.log.length || s.overallRating) { state.studySessionLog.push({ id: uid(), date: s.date,
                         overallRating: s.overallRating || null, itemCount: s.log.length,
                         isSupervised: s.isSupervised });
@@ -5412,17 +5798,20 @@
                 studyModeSession.pipMode = true;
                 studyModeSession.lastForegroundAt = Date.now();
                 document.getElementById('study-mode-overlay').classList.add('hidden');
-                renderStudyModePip(); }
+                renderStudyModePip();
+                renderSpotifyWidget(); }
 
             function studyModeRestore() { if (!studyModeSession) return;
                 studyModeSession.pipMode = false;
                 studyModeSession.lastForegroundAt = Date.now();
                 document.getElementById('study-mode-pip').classList.add('hidden');
-                renderStudyModeOverlay(); }
+                renderStudyModeOverlay();
+                renderSpotifyWidget(); }
 
             function enterStudyModeView() { if (!studyModeTickHandle) studyModeTickHandle = setInterval(
                     studyModeTick, 1000);
-                renderStudyModeOverlay(); }
+                renderStudyModeOverlay();
+                renderSpotifyWidget(); }
 
             // Drives both the live countdown while in the foreground and the "you've drifted off" nudge while
             // minimized to the PIP — checked, not fired every tick, so it's one gentle toast every couple of
@@ -5811,6 +6200,7 @@
                         <ul>
                             <li><strong>Account info:</strong> your email address, and — if you sign in with Google — the name and profile picture Google shares with us.</li>
                             <li><strong>App data:</strong> everything you put into the app to make it work for you — your name, year group, and date of birth if you give it; your timetable, tasks, study preferences, exams and results; and anything you tell Sparky, the AI study assistant.</li>
+                            <li><strong>Spotify connection:</strong> only if you choose to connect Spotify in Settings — a token that lets the app control playback on your behalf, so it can carry over to your other devices without you signing in to Spotify again each time. We never see your Spotify password, and this is entirely optional.</li>
                             <li><strong>Basic usage analytics:</strong> anonymised, aggregated information about how the app is used (via PostHog), and technical error reports if something breaks (via Sentry) — neither is used to identify you personally.</li>
                         </ul>
 
@@ -5820,6 +6210,7 @@
                         <h2>Who else sees it, and why</h2>
                         <ul>
                             <li><strong>Google</strong> — only if you choose to sign in with Google, to verify who you are.</li>
+                            <li><strong>Spotify</strong> — only if you choose to connect it, to play music during Study Mode.</li>
                             <li><strong>Our AI providers</strong> (Google Gemini, and occasionally Groq or OpenRouter as a backup if Gemini is unavailable) — process your messages to Sparky and the relevant parts of your app data needed to answer you, only when you use the AI assistant.</li>
                             <li><strong>Resend</strong> — sends account emails (like confirming your email address or resetting your password).</li>
                             <li><strong>PostHog and Sentry</strong> — as above, anonymised analytics and error monitoring.</li>
@@ -5993,6 +6384,7 @@
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Sidebar</strong><span class="small">How the sidebar behaves.</span></div><div class="row">${[['hover','Expand on hover'],['expanded','Always expanded'],['collapsed','Always collapsed']].map(([m,l])=>`<button type="button" class="button ${((s.sidebarMode||'hover')===m)?'primary':'ghost'}" data-action="set-sidebar-mode" data-mode="${m}">${l}</button>`).join('')}</div></div>
           <div class="settings-row"><div><strong>Study preferences</strong><span class="small">How much and when you'd like to study.</span></div><button class="button" data-action="open-study-preferences">Edit</button></div>
           <div class="settings-row"><div><strong>Automatic study planning</strong><span class="small">When off, this is just a timetable — study blocks stay empty for you to fill in, and no self-study time gets added automatically.</span></div><label class="switch-row"><input id="setting-study-engine" type="checkbox" ${s.studyEngineDisabled?'':'checked'}> Let the planner decide what and how much to study</label></div>
+          ${spotifySettingsRowHtml()}
           <div class="settings-row"><div><strong>Notifications</strong><span class="small">Only for genuinely important things — a test tomorrow, a CAO hard deadline in the next couple of days. Nothing more frequent than that.</span></div><label class="switch-row"><input id="setting-notifications" type="checkbox" ${s.notificationsEnabled?'checked':''}> Enable browser notifications</label></div>
           <div class="settings-row"><div><strong>Backup your data</strong><span class="small">${backupNote} An Export is the only way to get everything back if you switch browsers or devices, or this browser's storage ever gets cleared.</span></div><div class="row"><button class="button" data-action="export-data">Export backup</button><label class="button">Import backup<input id="import-data" type="file" accept="application/json" class="hidden"></label></div></div>
           <div class="settings-row"><div><strong>Sample data</strong><span class="small">Fills in a full week of classes, activities, and study — handy for testing.</span></div><button class="button" data-action="sample-data">Add sample week</button></div>
@@ -8378,6 +8770,14 @@ If the user asks about how to study or study methods generally, answer from your
                         studyModeReplan();
                         renderStudyModeOverlay(); }
                     return; } if (a === 'sm-finish-early') { studyModeFinishEarly();
+                    return; } if (a === 'spotify-connect') { spotifyConnect();
+                    return; } if (a === 'spotify-disconnect') { spotifyDisconnect();
+                    return; } if (a === 'spotify-play-selected') { const sel = document.getElementById(
+                        'spotify-playlist-select'); if (!sel) return; const p = spotifyPlaylists.find(x => x.uri ===
+                        sel.value); if (p) spotifyPlayPlaylist(p.uri, p.name);
+                    return; } if (a === 'spotify-toggle') { spotifyToggle();
+                    return; } if (a === 'spotify-prev') { spotifyPrev();
+                    return; } if (a === 'spotify-next') { spotifyNext();
                     return; } if (a === 'sm-toggle-countdown') { if (studyModeSession) studyModeSession
                     .countdownRevealed = !studyModeSession.countdownRevealed;
                     renderStudyModeOverlay();
@@ -8936,7 +9336,8 @@ If the user asks about how to study or study methods generally, answer from your
                     .value;
                     renderModal(); const input = document.getElementById('search-input'); if (input) { input
                         .focus();
-                        input.setSelectionRange(input.value.length, input.value.length); } } });
+                        input.setSelectionRange(input.value.length, input.value.length); } } if (e.target.id ===
+                    'spotify-volume') spotifySetVolume(Number(e.target.value)); });
             document.addEventListener('change', e => { if (e.target.id === 'setting-theme') { state.settings.theme =
                     e.target.checked ? 'dark' : 'light';
                     document.body.classList.toggle('dark', state.settings.theme === 'dark');
@@ -9028,6 +9429,7 @@ If the user asks about how to study or study methods generally, answer from your
             document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (openPicker) { closePicker();
                         return; } if (!['onboarding', 'year-rollover'].includes(modal?.kind)) closeModal(); } });
             render();
+            handleSpotifyCallback();
         })();
     </script>
 </body>
