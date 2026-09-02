@@ -6646,6 +6646,65 @@
                             result: mockResult('H', 4, 65) }
                     ] });
 
+                // Two earlier mocks (an improving trend over ~5 months) plus two more past tests, so Insights
+                // has enough real breadth to draw its trend/scatter charts instead of showing its "log a
+                // couple more results" empty states. Each subject/date/percent below also drives a backfilled
+                // block of already-logged study time in the 3 weeks before it (studyTimeVsResultData's window),
+                // roughly scaled to that result — none of this needs to look seamless elsewhere in the app
+                // (these logged sessions aren't tied to real timetable blocks), it only has to add up right for
+                // Insights.
+                const mockBStart = addDays(wk, -82), mockBEnd = addDays(wk, -78),
+                    mockCStart = addDays(wk, -152), mockCEnd = addDays(wk, -148),
+                    physicsTestDate = addDays(wk, -35), englishTestDate = addDays(wk, -60),
+                    buildMock = (start, end, rows) => ({ id: uid(), assessmentType: 'exam', kind: 'mock', name: '',
+                        start, end, sittings: rows.map(([name, level, band, percent]) => ({ subjectId: s(name).id,
+                            date: start, time: '09:30', topics: [], topicsUnknown: true,
+                            result: { markingType: 'lc', level, band, percent, percentUnknown: false,
+                                recordedDate: end } })) }),
+                    buildTest = (name, date, result) => ({ id: uid(), assessmentType: 'test', kind: 'test',
+                        name, start: date, end: date, sittings: [{ subjectId: s(name).id, date,
+                            time: classTimeOnDate(s(name).id, date) || '09:00', topics: [], topicsUnknown: true,
+                            result: { ...result, recordedDate: date } }] }),
+                    mockBRows = [['Maths', 'H', 4, 66], ['Applied Maths', 'H', 5, 60], ['Physics', 'H', 6, 52],
+                        ['English', 'H', 3, 76], ['Economics', 'H', 4, 68], ['Spanish', 'O', 3, 75],
+                        ['Music', 'H', 5, 58]],
+                    mockCRows = [['Maths', 'H', 5, 60], ['Applied Maths', 'H', 6, 54], ['Physics', 'H', 7, 46],
+                        ['English', 'H', 4, 68], ['Economics', 'H', 5, 60], ['Spanish', 'O', 4, 66],
+                        ['Music', 'H', 6, 50]];
+                state.exams.push(buildMock(mockBStart, mockBEnd, mockBRows));
+                state.exams.push(buildMock(mockCStart, mockCEnd, mockCRows));
+                state.exams.push(buildTest('Physics', physicsTestDate, { markingType: 'letter', letter: 'B',
+                    percent: 82, percentUnknown: false }));
+                state.exams.push(buildTest('English', englishTestDate, { markingType: 'letter', letter: 'A',
+                    percent: 90, percentUnknown: false }));
+
+                // Spreads `totalMinutes` of already-logged study time for one subject across a handful of
+                // sessions in the 3 weeks before `throughDate` — a fixed total (scaled to how that result
+                // turned out) with only the session-by-session chunking/spacing randomised, so the
+                // study-time-vs-results scatter shows a real (if loose, as the page itself says) upward trend
+                // rather than pure noise.
+                const backfillStudyMinutes = (name, throughDate, totalMinutes) => { const subjId = s(name).id; let
+                        remaining = totalMinutes, dayOffset = -(2 + Math.floor(Math.random() * 3));
+                    while (remaining > 0 && dayOffset > -21) { const chunk = Math.min(remaining, 30 + Math.floor(
+                            Math.random() * 61)), d = addDays(throughDate, dayOffset);
+                        state.studyPlans[d] = state.studyPlans[d] || { blocks: [] };
+                        state.studyPlans[d].blocks.push({ blockEventId: 'hist-' + uid(), blockSlotId: uid(),
+                            start: 1020, end: 1020 + chunk, items: [{ id: uid(), subjectId: subjId,
+                                label: `${name} — ${studyMethodFor(subject(subjId))}`, minutes: chunk,
+                                kind: 'balance', logged: true, loggedLabel: `${name} revision`, taskId: '',
+                                topicId: '', classTopicId: '', examName: '' }] });
+                        remaining -= chunk;
+                        dayOffset -= 2 + Math.floor(Math.random() * 3); } };
+                const mockRows = [['Maths', 'H', 3, 74], ['Applied Maths', 'H', 4, 68], ['Physics', 'H', 5, 58],
+                    ['English', 'H', 2, 85], ['Economics', 'H', 3, 76], ['Spanish', 'O', 2, 84],
+                    ['Music', 'H', 4, 65]];
+                [...mockRows, ...mockBRows, ...mockCRows].forEach(([name, , , percent], i) => {
+                    const end = i < 7 ? mockEnd : i < 14 ? mockBEnd : mockCEnd;
+                    backfillStudyMinutes(name, end, Math.round(percent * 3.5)); });
+                backfillStudyMinutes('Economics', addDays(wk, -5), Math.round(72 * 3.5));
+                backfillStudyMinutes('Physics', physicsTestDate, Math.round(82 * 3.5));
+                backfillStudyMinutes('English', englishTestDate, Math.round(90 * 3.5));
+
                 save();
 
                 // Historical study data — generate and log a couple of past study blocks so study history/patterns
