@@ -1684,8 +1684,12 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: top 0.4s ease, left 0.4s ease, right 0.4s ease, bottom 0.4s ease, opacity 0.3s ease,
-                transform 0.3s ease;
+            /* No transition on top/left/right/bottom: positionMascotWidget reads getBoundingClientRect() right
+               after setting them (both for overlap-avoidance and for which way the character should point),
+               and a live transition means that read lands mid-animation — effectively still the OLD position
+               — which was silently feeding wrong-direction poses into resolveMascotPose on every navigation to
+               a new step. An instant snap here also just reads as more responsive between different pages. */
+            transition: opacity 0.3s ease, transform 0.3s ease;
             pointer-events: none;
         }
         #mascot-widget.hidden {
@@ -7096,12 +7100,22 @@
                 },
 
                 show_mascot_tour: {
-                    description: "Show the user a visual, on-screen guide instead of explaining in chat — closes the chat panel and has the mascot walk them through it, pointing at the actual button or page involved. Use this whenever the user asks how to do something in the app that matches one of the available tours, rather than typing out step-by-step instructions yourself. 'how-add-class': adding a class on the Timetable page. 'how-add-exam': adding a test or exam. 'how-study-preferences': opens the study preferences form. 'how-class-topics': adding what's being covered in a class on the Classes page. 'full-tour': a full walkthrough of every page and feature in the app (Dashboard, Timetable, Classes, Tests & Exams, Study, Tasks, Insights, Sparky's Closet, Settings, this chat) using a temporary example week so there's always something real to point at — use this for broad requests like 'show me around', 'give me a tour', or 'how does this whole thing work'. It never touches the user's real data: everything is restored automatically once it ends.",
-                    parameters: { type: "OBJECT", properties: { tourId: { type: "STRING", enum: ["how-add-class", "how-add-exam", "how-study-preferences", "how-class-topics", "full-tour"] } }, required: ["tourId"] },
+                    description: "Show the user a visual, on-screen guide instead of explaining in chat — closes the chat panel and has the mascot walk them through it, pointing at and opening the actual thing involved (including real creation forms/wizards, with every field and checkbox explained). Use this whenever the user asks how to do something that matches one of the available tours, rather than typing out step-by-step instructions yourself. 'full-tour': the entire site, page by page, using a temporary example week so there's always something real to point at — use for broad requests like 'show me around' or 'how does this whole thing work'. Everything else below is one chapter of that same tour, replayable on its own (same temporary-data approach) for a narrower request — e.g. 'how do I add a class' -> tour-add-event, 'how do results work' -> tour-log-result, 'show me study mode' -> tour-study-mode, 'show me the classes page again' -> tour-classes. Legacy narrow how-tos ('how-add-class', 'how-add-exam', 'how-study-preferences', 'how-class-topics') point at the real page instead and don't use temporary data — prefer the matching tour-* chapter when one exists, since it goes into far more depth. Nothing here ever touches the user's real data: temporary-data tours restore everything automatically once they end.",
+                    parameters: { type: "OBJECT", properties: { tourId: { type: "STRING", enum: ["full-tour",
+                        "tour-dashboard", "tour-timetable", "tour-add-event", "tour-classes", "tour-subject-detail",
+                        "tour-add-task", "tour-tests", "tour-add-exam", "tour-log-result", "tour-study",
+                        "tour-topic-review", "tour-study-mode", "tour-tasks", "tour-insights", "tour-closet",
+                        "tour-cao", "tour-settings", "tour-chat", "how-add-class", "how-add-exam",
+                        "how-study-preferences", "how-class-topics"] } }, required: ["tourId"] },
                     handler: (args) => {
-                        if (!MASCOT_TOURS[args.tourId]) return { error: `Unknown tour. Valid tours: ${Object.keys(MASCOT_TOURS).filter(k => k.startsWith("how-") || k === "full-tour").join(", ")}` };
-                        aiChatPanel.classList.add("hidden"); if (args.tourId === "full-tour") startDemoTour(false);
-                        else startMascotTour(args.tourId);
+                        if (args.tourId === "full-tour") { aiChatPanel.classList.add("hidden"); startDemoTour(false);
+                            return { success: true }; } if (FULL_TOUR_PLAYLIST.includes(args.tourId)) {
+                            aiChatPanel.classList.add("hidden");
+                            startDemoTour(false, [args.tourId]);
+                            return { success: true }; }
+                        if (!MASCOT_TOURS[args.tourId]) return { error: `Unknown tour. Valid tours: ${Object.keys(MASCOT_TOURS).filter(k => k.startsWith("how-")).concat(FULL_TOUR_PLAYLIST, "full-tour").join(", ")}` };
+                        aiChatPanel.classList.add("hidden");
+                        startMascotTour(args.tourId);
                         return { success: true };
                     }
                 },
@@ -7436,8 +7450,8 @@ If the user asks about how to study or study methods generally, answer from your
             document.getElementById('sparky-recall-img').src = MASCOT_ICON_IMG;
             document.documentElement.style.setProperty('--mascot-avatar-url', `url("${MASCOT_ICON_IMG}")`);
             applyMascotColorTheme();
-            document.getElementById('mascot-close').addEventListener('click', () => { if (mascotTour &&
-                    mascotTour.tourId === 'full-tour') endDemoTour(); else endMascotTour();
+            document.getElementById('mascot-close').addEventListener('click', () => { if (demoModeActive)
+                    endDemoTour(); else endMascotTour();
                 maybeShowSparkyRecall(); });
             document.getElementById('sparky-recall').addEventListener('click', () => { document.getElementById(
                     'sparky-recall').classList.add('hidden');
@@ -7652,7 +7666,7 @@ If the user asks about how to study or study methods generally, answer from your
 
             // Bump this whenever 'full-tour' changes meaningfully — anyone whose settings.tourVersion is behind
             // this gets re-offered it (tourBannerHtml, below), even if they already completed an older version.
-            const CURRENT_TOUR_VERSION = 2;
+            const CURRENT_TOUR_VERSION = 3;
 
             const MASCOT_TOURS = {
                 burnoutCheck: [
@@ -7771,111 +7785,267 @@ If the user asks about how to study or study methods generally, answer from your
                         text: "Tap a subject tile to open it, then add what's currently being covered in class — that's what I use to plan your study sessions.",
                         continueLabel: 'Got it', next: null }
                 ],
-                // The full guided site tour — started via startDemoTour(), never directly via startMascotTour(),
-                // since it depends on that function's sample-data swap. Every step auto-advances on its own
-                // (see autoAdvanceMs handling in renderMascot) with no button at all — nothing to click, so it
-                // can just be watched — except the branching/finishing steps below, which need a real decision.
-                'full-tour': [
+                // The full guided site tour is a PLAYLIST of these separately-registered chapters (see
+                // FULL_TOUR_PLAYLIST / buildFullTourPlaylist, and startDemoTour/mascotNext's playlist-advance
+                // logic) rather than one giant array — so the exact same content plays back-to-back for the
+                // full walkthrough, or stands alone when replayed for a narrower "show me X" request. Every
+                // narration-only step auto-advances on its own (autoAdvanceMs, handled in renderMascot) with no
+                // button — nothing to click — except branching/finishing steps, which need a real decision.
+                'tour-welcome': [
                     { id: 'ft-welcome', pose: 'wave', autoAdvanceMs: 9500,
                         text: () => `Hi ${state.settings.firstName||'there'}! I'm Sparky — let me show you around properly. I've filled in an example week so there's something real to look at on every page; none of it is saved, and your own planner is untouched underneath.`,
-                        next: 'ft-dashboard' },
+                        next: null }
+                ],
+                'tour-dashboard': [
                     { id: 'ft-dashboard', pose: 'point', target: '[data-view="dashboard"]', autoAdvanceMs: 9000,
-                        onEnter: () => { view = 'dashboard';
+                        onEnter: () => { closeModal();
+                            view = 'dashboard';
                             render(); },
                         text: "This is your Dashboard — your real week, adapting automatically to holidays and exam periods, with homework flagged right on the classes it's due for.",
-                        next: 'ft-timetable' },
+                        next: null }
+                ],
+                'tour-timetable': [
                     { id: 'ft-timetable', pose: 'point', target: '[data-action="open-event-form"]',
-                        autoAdvanceMs: 10500, onEnter: () => { view = 'timetable';
+                        autoAdvanceMs: 10500, onEnter: () => { closeModal();
+                            view = 'timetable';
                             render(); },
-                        text: "The Timetable is your normal weekly pattern. Tap the ＋ to add a class, activity, sleep, meal, or study block — set which days and times it happens, and whether it's a one-off or repeats every week.",
-                        next: 'ft-classes-intro' },
+                        text: "The Timetable is your normal weekly pattern — classes, sleep, meals, activities, study blocks, all in one weekly grid. Tap the ＋ any time to add or edit something. Let's actually open it.",
+                        next: null }
+                ],
+                // Opens the real, generic Add Event form and walks through how the type you pick changes which
+                // fields show, and exactly what a few non-obvious checkboxes actually do underneath — not just
+                // what their label says, since a couple of them do more than they look like they do.
+                'tour-add-event': [
+                    { id: 'ft-event-open', pose: 'point', target: '[data-action="set-event-type"]',
+                        autoAdvanceMs: 10500, onEnter: () => { view = 'timetable';
+                            render();
+                            openModal('event-form', { event: null }); },
+                        text: "This is the Add Event form — the same one for every type of thing on your timetable. Pick a type up here and the fields below change to match it.",
+                        next: 'ft-event-study' },
+                    { id: 'ft-event-study', pose: 'point', target: '[data-action="set-study-kind"]',
+                        autoAdvanceMs: 11500, onEnter: () => { modal.event = { ...modal.event, type: 'study',
+                                studyKind: 'self' };
+                            renderModal(); },
+                        text: "Pick Study and you get this choice: Self study can be skipped or moved, and is the only kind the auto-planner ever adds, extends, or clears out of the way to hit your weekly target. Supervised study — like a compulsory study hall — always happens, and I'll never touch it or offer to skip a single day of it.",
+                        next: 'ft-event-inschool' },
+                    { id: 'ft-event-inschool', pose: 'point', target: '#event-school', autoAdvanceMs: 11000,
+                        onEnter: () => { modal.event = { ...modal.event, type: 'activity' };
+                            renderModal(); },
+                        text: '"This happens in school" only shows up for Activities and Study blocks, and it matters: tick it and that event automatically disappears on any day you mark as a holiday or day off — same as a class would — instead of still showing up.',
+                        next: 'ft-event-examsubject' },
+                    { id: 'ft-event-examsubject', pose: 'point', target: '#event-exam-subject',
+                        autoAdvanceMs: 12000, onEnter: () => { modal.event = { ...modal.event, type: 'class' };
+                            renderModal(); },
+                        text: "For a Class, \"This is an exam subject\" is on by default — uncheck it for things like SPHE or PE. Homework for it still counts as normal, but its topics get left out of auto-filled study time, since there's no exam to prepare for.",
+                        next: 'ft-event-repeat' },
+                    { id: 'ft-event-repeat', pose: 'point', target: '#event-weekly', autoAdvanceMs: 10500,
+                        text: "Repeat weekly is on by default — turn it off for a single one-off dated session instead of every week. Either way, the day-and-time chips below are where you set exactly when it happens, with room for more than one time if it needs it.",
+                        next: null }
+                ],
+                'tour-classes': [
                     { id: 'ft-classes-intro', pose: 'point', target: '[data-action="open-subject-detail"]',
-                        autoAdvanceMs: 9000, onEnter: () => { view = 'classes';
+                        autoAdvanceMs: 9000, onEnter: () => { closeModal();
+                            view = 'classes';
                             render(); },
                         text: "Classes is where every subject lives, colour-coded to match your timetable. Each tile shows how many topics are currently being learned. Let's open one.",
-                        next: 'ft-subject-overview' },
+                        next: null }
+                ],
+                // The subject's own page — deliberately several steps, since it's one of the biggest single
+                // pages in the app and used to only ever get a single glance in this tour.
+                'tour-subject-detail': [
                     { id: 'ft-subject-overview', pose: 'point', target: '.performance-summary-card',
-                        autoAdvanceMs: 10500, onEnter: () => { const s = state.subjects.find(x => x.name ===
-                                'Maths'); if (s) openSubjectDetail(s.id, 'overview'); },
+                        autoAdvanceMs: 10500, onEnter: () => { closeModal(); const s = state.subjects.find(x => x
+                                .name === 'Maths'); if (s) openSubjectDetail(s.id, 'overview'); },
                         text: "This is a subject's own page. Overview shows how it's actually going — grades so far, and a plain-English read on what study time here is currently focused on.",
                         next: 'ft-subject-topics' },
-                    { id: 'ft-subject-topics', pose: 'point', target: '.topic-row', autoAdvanceMs: 11000,
+                    { id: 'ft-subject-topics', pose: 'point', target: '.topic-row', autoAdvanceMs: 11500,
                         onEnter: () => { const s = state.subjects.find(x => x.name === 'Maths'); if (s)
                                 openSubjectDetail(s.id, 'topics'); },
-                        text: "The Topics tab actually drives your study plan — add whatever's currently being taught in class, mark it done once it's covered, and I'll bring it back for spaced review automatically.",
+                        text: "The Topics tab actually drives your study plan — add whatever's currently being taught in class, mark it done once it's covered, and I'll bring it back for spaced review automatically. \"Learning\" topics get worked into today's plan right away; \"Done\" ones come back on their own schedule.",
                         next: 'ft-subject-ratings' },
-                    { id: 'ft-subject-ratings', pose: 'point', target: '.topic-rating-btn', autoAdvanceMs: 9500,
+                    { id: 'ft-subject-ratings', pose: 'point', target: '.topic-rating-btn', autoAdvanceMs: 10000,
                         onEnter: () => { const s = state.subjects.find(x => x.name === 'Maths'); if (s)
                                 openSubjectDetail(s.id, 'topics'); },
-                        text: "Once a topic's done, rate how it went — 🟢 good, 🟡 okay, 🔴 needs work. Weak topics get prioritised sooner; solid ones get reviewed less often.",
+                        text: "Once a topic's done, rate how it actually went — 🟢 good, 🟡 okay, 🔴 needs work. This traffic light is what really drives the schedule: a 🔴 topic gets prioritised sooner and reviewed more often, a 🟢 one gets left alone for longer.",
                         next: 'ft-subject-pastpapers' },
                     { id: 'ft-subject-pastpapers', pose: 'point', target: '.past-paper-row', autoAdvanceMs: 9500,
                         onEnter: () => { const s = state.subjects.find(x => x.name === 'Maths'); if (s)
                                 openSubjectDetail(s.id, 'pastpapers'); },
                         text: 'Past Papers lets you tick off each year as you go and log a result the same way you would a real exam — it all feeds the same study plan.',
-                        next: 'ft-tests-intro' },
-                    { id: 'ft-tests-intro', pose: 'point', target: '[data-action="add-exam"]', autoAdvanceMs: 9500,
-                        onEnter: () => { view = 'tests-exams';
+                        next: null }
+                ],
+                // Opens the real Add Task form and covers both checkboxes that actually change behaviour —
+                // "Can submit online" and "Important" — plus how the Type picker itself gates other fields.
+                'tour-add-task': [
+                    { id: 'ft-task-open', pose: 'point', target: '#task-type', autoAdvanceMs: 11000,
+                        onEnter: () => { closeModal();
+                            openModal('task-form', { task: null }); },
+                        text: 'This is Add Task. Type matters more than it looks: pick Project (or a legacy Test) and an "Important" checkbox appears below that Homework never shows.',
+                        next: 'ft-task-online' },
+                    { id: 'ft-task-online', pose: 'point', target: '#task-online', autoAdvanceMs: 12000,
+                        text: "\"Can submit online\" changes when I actually treat it as due: checked, it's due end-of-day; unchecked, it's due at the start of the subject's first class that day. That directly changes the free-time \"cushion\" shown on every task — an online submission always looks less urgent for the same deadline.",
+                        next: 'ft-task-important' },
+                    { id: 'ft-task-important', pose: 'point', target: '#task-important', autoAdvanceMs: 11500,
+                        onEnter: () => { document.getElementById('task-type').value = 'project';
+                            document.getElementById('task-type').dispatchEvent(new Event('input',
+                                { bubbles: true })); },
+                        text: '"Important" (shown for Projects) gives it a real edge in the auto study-planner\'s scoring, on top of changing the little indicator dot next to it everywhere it\'s listed — so use it for things that are genuinely graded or high-stakes, not everything.',
+                        next: null }
+                ],
+                'tour-tests': [
+                    { id: 'ft-tests-intro', pose: 'point', target: '[data-action="add-exam"]', autoAdvanceMs: 10500,
+                        onEnter: () => { closeModal();
+                            view = 'tests-exams';
                             render(); },
-                        text: "Tests & Exams holds everything you're being assessed on. Add a quick class test, or a full exam period — each subject in it gets its own day and time.",
-                        next: 'ft-tests-results' },
-                    { id: 'ft-tests-results', pose: 'point', target: '[data-action="open-exam-schedule"]',
-                        autoAdvanceMs: 10500,
-                        text: "Once results are in, log them here — like this mock exam. Per-topic marking automatically updates those topics' ratings back on the subject page, and CAO points get worked out for you.",
-                        next: 'ft-study-intro' },
-                    { id: 'ft-study-intro', pose: 'point', target: '[data-action="start-log"]', autoAdvanceMs: 10000,
-                        onEnter: () => { view = 'study';
+                        text: "Tests & Exams holds everything you're being assessed on: quick class Tests, full Exam periods, and — further down — Exam Tasks for coursework, portfolios, and projects that run over weeks rather than sitting on one day.",
+                        next: null }
+                ],
+                // Walks the real exam wizard: the test-vs-exam fork, then jumps straight into a populated
+                // per-subject sitting step (exactly what real use of "Next" would build up to) so the tour
+                // doesn't have to fake clicking through every subject one at a time to show what it looks like.
+                'tour-add-exam': [
+                    { id: 'ft-exam-fork', pose: 'point', target: '[data-action="examwizard-pick-type"]',
+                        autoAdvanceMs: 10500, onEnter: () => { closeModal();
+                            view = 'tests-exams';
+                            render();
+                            startExamWizard(null); },
+                        text: 'First choice: a single Test (one subject, one day) or a full Exam (several subjects, each with their own day and time — Christmas, Summer, a Mock, or the real state exams).',
+                        next: 'ft-exam-sitting' },
+                    { id: 'ft-exam-sitting', pose: 'point', target: '#examwizard-sitting-date',
+                        autoAdvanceMs: 12000, onEnter: () => { const subs = examSubjectsList().map(s => s.id);
+                            // 'christmas' (not 'mock'/'jc'/'lc') so the topics section actually renders —
+                            // topics genuinely don't apply to a mock or state exam, which is worth keeping
+                            // real here even though it means this can't just reuse whatever kind was clicked
+                            // in the previous, real step.
+                            examWizard = { step: 3, assessmentType: 'exam', kind: 'christmas', name: '', start:
+                                    addDays(localDate(), 10), end: addDays(localDate(), 14), examSubjects: subs,
+                                subjectIndex: 0, sittings: [], pendingTopics: [] };
+                            renderModal(); },
+                        text: "Pick an exam kind and a date range once, then it steps you through your subjects one at a time — each gets its own day and time here, since real exam timetables rarely put every subject on the same day.",
+                        next: 'ft-exam-topics' },
+                    { id: 'ft-exam-topics', pose: 'point', target: '.examwizard-topic-check, #examwizard-topics-unknown',
+                        autoAdvanceMs: 11500,
+                        text: "For a test or a Christmas/Summer exam (not a state exam or mock, where this doesn't apply), you can tick exactly which topics it covers — that's what lets me mark individual topics right or wrong once the result's in. No idea yet? \"Unknown\" covers that honestly instead of guessing.",
+                        next: null }
+                ],
+                // Uses the mock exam's existing full result to show the marking-type picker, and the separate
+                // Economics test (which has real per-topic marks) to show topic-level marking specifically.
+                'tour-log-result': [
+                    { id: 'ft-result-marking', pose: 'point', target: '#result-marking-type', autoAdvanceMs: 11500,
+                        onEnter: () => { closeModal();
+                            view = 'tests-exams';
+                            render(); const maths = state.subjects.find(x => x.name === 'Maths'),
+                                mock = state.exams.find(x => x.kind === 'mock'); if (maths && mock) openExamResult(
+                                mock.id, maths.id); },
+                        text: 'Entering a result: pick how it was marked — Leaving Cert (Higher/Ordinary + band), Junior Cycle grade, or a plain letter grade — then the percent. CAO points get worked out from this automatically wherever that applies.',
+                        next: 'ft-result-topics' },
+                    { id: 'ft-result-topics', pose: 'point', target: '[data-action="result-set-topic"]',
+                        autoAdvanceMs: 12500, onEnter: () => { closeModal(); const econ = state.subjects.find(x =>
+                                x.name === 'Economics'), test = state.exams.find(x => x.kind === 'test' && x
+                                .name === 'Economics'); if (econ && test) openExamResult(test.id, econ.id); },
+                        text: "When a sitting has topics attached, like this test, you mark each one right, mixed, or wrong right here — and that instantly updates that topic's traffic-light rating back on the subject page. No separate step needed.",
+                        next: null }
+                ],
+                'tour-study': [
+                    { id: 'ft-study-intro', pose: 'point', target: '[data-action="start-log"]',
+                        autoAdvanceMs: 10500, onEnter: () => { closeModal();
+                            view = 'study';
                             render(); },
-                        text: 'The Study page is exactly what to study today, built automatically from your timetable, topics, and how close your exams are — no planning required.',
-                        next: 'ft-study-mode' },
-                    { id: 'ft-study-mode', pose: 'point', target: '[data-action="start-study-mode"]',
-                        autoAdvanceMs: 9500,
-                        text: 'Start Study Mode to run through it hands-free — a focus timer that steps through each item in order and logs it as you go.',
-                        next: 'ft-tasks-intro' },
+                        text: 'The Study page is exactly what to study today, built automatically from your timetable, topics, and how close your exams are — no planning required. "Log this" marks an item done and schedules its next spaced review.',
+                        next: null }
+                ],
+                // Honest about difficultyRatings actually being a personal log only today, not something the
+                // scheduler reads — the on-screen copy is optimistic about "future study," so the tour
+                // shouldn't repeat that claim as if it were true.
+                'tour-topic-review': [
+                    { id: 'ft-topic-review', pose: 'point', target: '[data-action="topic-rate-difficulty"]',
+                        autoAdvanceMs: 12000, onEnter: () => { closeModal(); const t = state.classTopics.find(x =>
+                                x.label === 'Mechanics — forces'); if (t) openModal('topic-detail', { topicId: t
+                                    .id }); },
+                        text: 'Tapping a topic anywhere it shows up opens this — its full history, and an optional "how challenging was it" check-in. That\'s a personal record for you to look back on, kept separate from the 🟢🟡🔴 rating that actually drives scheduling.',
+                        next: null }
+                ],
+                // Uses the safe, time-independent unscheduled entry point rather than the real "Start Study
+                // Mode" button, which depends on a block covering the actual current time of day — this stays
+                // deterministic regardless of when the tour is run. silentlyEndTourStudyMode (called from
+                // endDemoTour, and defensively at the top of the next chapter's onEnter below) cleans up the
+                // running timer/overlay — the real studyModeFinish() isn't used here since it always pops a
+                // "session summary" modal, which would be a strange non-sequitur mid-tour.
+                'tour-study-mode': [
+                    { id: 'ft-studymode-start', pose: 'point', target: '.sm-stage-title', autoAdvanceMs: 11000,
+                        onEnter: () => { closeModal();
+                            silentlyEndTourStudyMode();
+                            startUnscheduledStudyMode(45); },
+                        text: 'Start Study Mode to run through your plan hands-free — a focus timer that steps through each item in turn, in chunks with short breaks between them, so it never asks for more unbroken focus than is realistic.',
+                        next: 'ft-studymode-advance' },
+                    { id: 'ft-studymode-advance', pose: 'point', target: '[data-action="sm-advance"]',
+                        autoAdvanceMs: 11500,
+                        text: "Next moves you on whenever you're ready — early or late, no penalty. Running over just offers +10 minutes instead of cutting you off, and you can minimise to a small floating timer if you need to switch away for a moment without losing your place.",
+                        next: null }
+                ],
+                'tour-tasks': [
                     { id: 'ft-tasks-intro', pose: 'point', target: '[data-action="open-task-form"]',
-                        autoAdvanceMs: 9000, onEnter: () => { view = 'tasks';
+                        autoAdvanceMs: 9500, onEnter: () => { silentlyEndTourStudyMode();
+                            closeModal();
+                            view = 'tasks';
                             render(); },
                         text: "Tasks is your homework and project list, grouped by when it's due.",
                         next: 'ft-tasks-cushion' },
-                    { id: 'ft-tasks-cushion', pose: 'point', target: '.side-note', autoAdvanceMs: 10000,
-                        text: "Each task's pill shows its cushion — how much genuinely free time you have left before it's due, once everything else already planned is accounted for.",
-                        next: 'ft-insights' },
+                    { id: 'ft-tasks-cushion', pose: 'point', target: '.side-note', autoAdvanceMs: 10500,
+                        text: "Each task's pill shows its cushion — how much genuinely free time you have left before it's due, once everything else already planned is accounted for. That's the number \"Can submit online\" and a task's due time directly change, back on the Add Task form.",
+                        next: null }
+                ],
+                'tour-insights': [
                     { id: 'ft-insights', pose: 'point', target: '[data-view="insights"]', autoAdvanceMs: 9500,
-                        onEnter: () => { view = 'insights';
+                        onEnter: () => { closeModal();
+                            view = 'insights';
                             render(); },
                         text: 'Insights turns your own logged data into trends — your CAO trajectory over time, how each subject is tracking, and study time versus results.',
-                        next: 'ft-closet' },
+                        next: null }
+                ],
+                'tour-closet': [
                     { id: 'ft-closet', pose: 'point', target: '.closet-tile', autoAdvanceMs: 9000,
-                        onEnter: () => { view = 'closet';
+                        onEnter: () => { closeModal();
+                            view = 'closet';
                             render(); },
                         text: "Sparky's Closet — you earn coins for logged study time and spend them on new looks for me and new colour themes.",
-                        next: () => state.settings.yearGroup === '6th' ? 'ft-cao' : 'ft-settings-profile' },
+                        next: null }
+                ],
+                'tour-cao': [
                     { id: 'ft-cao', pose: 'point', target: '[data-view="cao"]', autoAdvanceMs: 9500,
-                        onEnter: () => { view = 'cao';
+                        onEnter: () => { closeModal();
+                            view = 'cao';
                             render(); },
                         text: "Since you're in 6th year, there's also CAO Planning — your points total against your target, best-six worked out for you, and how each result moves it.",
-                        next: 'ft-settings-profile' },
-                    { id: 'ft-settings-profile', pose: 'point', target: '#setting-first-name', autoAdvanceMs: 9000,
-                        onEnter: () => { openModal('settings'); },
+                        next: null }
+                ],
+                'tour-settings': [
+                    { id: 'ft-settings-profile', pose: 'point', target: '#setting-first-name', autoAdvanceMs: 9500,
+                        onEnter: () => { closeModal();
+                            openModal('settings'); },
                         text: "Settings holds your profile — name, year, and term dates, which is how I know what counts as a holiday.",
                         next: 'ft-settings-preferences' },
                     { id: 'ft-settings-preferences', pose: 'point', target: '[data-action="open-study-preferences"]',
-                        autoAdvanceMs: 10500,
+                        autoAdvanceMs: 11000,
                         text: 'Study preferences is how much you want to study overall, when you focus best, weekday-vs-weekend balance, and whether you prefer several short sessions or one or two longer ones.',
                         next: 'ft-settings-account' },
                     { id: 'ft-settings-account', pose: 'point', target: '[data-action="sign-in-google"]',
-                        autoAdvanceMs: 9000,
+                        autoAdvanceMs: 9500,
                         text: "Account & sync — sign in with Google and everything here syncs to the cloud, so it's there on any device you open it on.",
                         next: 'ft-settings-backup' },
                     { id: 'ft-settings-backup', pose: 'point', target: '[data-action="export-data"]',
                         autoAdvanceMs: 9500,
                         text: "Export backup saves everything to a file you can import again later — worth doing every so often even if you're signed in.",
-                        next: 'ft-chat' },
+                        next: null }
+                ],
+                'tour-chat': [
                     { id: 'ft-chat', pose: 'point', target: '#ai-chat-input', autoAdvanceMs: 9500,
                         onEnter: () => { closeModal();
                             aiChatPanel.classList.remove('hidden'); },
                         text: "And that's me! Ask me to add or change things, explain your plan, or show you this tour again any time — just type it here.",
-                        next: 'ft-finish' },
+                        next: null }
+                ],
+                'tour-finish': [
                     { id: 'ft-finish', pose: 'celebrate', onEnter: () => { aiChatPanel.classList.add('hidden');
                             view = 'timetable';
                             render(); },
@@ -7885,20 +8055,41 @@ If the user asks about how to study or study methods generally, answer from your
                 ]
             };
 
-            // Starts the full guided tour with a temporary example week swapped in — isOnboarding controls what
-            // happens when the tour ends (see endDemoTour). Never touches localStorage/the cloud: save() no-ops
-            // for the whole duration (demoModeActive), and the exact pre-tour state is restored byte-for-byte
-            // when it finishes, whether that's a brand-new user (nothing to restore but their basic-info
-            // settings) or an existing user with a real timetable already built.
-            function startDemoTour(isOnboarding) {
+            // Order of the full site walkthrough — each entry is a MASCOT_TOURS key above. 'tour-cao' is
+            // filtered out for non-6th-years by buildFullTourPlaylist(), not removed here, so the array stays
+            // the single source of truth for both the full walkthrough and the show_mascot_tour chat tool's
+            // list of individually-replayable chapters.
+            const FULL_TOUR_PLAYLIST = ['tour-welcome', 'tour-dashboard', 'tour-timetable', 'tour-add-event',
+                'tour-classes', 'tour-subject-detail', 'tour-add-task', 'tour-tests', 'tour-add-exam',
+                'tour-log-result', 'tour-study', 'tour-topic-review', 'tour-study-mode', 'tour-tasks',
+                'tour-insights', 'tour-closet', 'tour-cao', 'tour-settings', 'tour-chat', 'tour-finish'];
+
+            // The full onboarding walkthrough is a PLAYLIST of separately-registered chapter tours (each its
+            // own MASCOT_TOURS entry, e.g. 'tour-timetable', 'tour-add-event') rather than one giant array, so
+            // the exact same chapter content can either play back-to-back here or be replayed on its own later
+            // (see startDemoTour's playlist param, used by the chat tool and the "show me X again" path).
+            // Conditional chapters (CAO Planning) are filtered out up front rather than skipped step-by-step.
+            function buildFullTourPlaylist() { return FULL_TOUR_PLAYLIST.filter(id => id !== 'tour-cao' ||
+                    state.settings.yearGroup === '6th'); }
+
+            // Starts a guided tour with a temporary example week swapped in. `playlist` is the ordered list of
+            // chapter tourIds to play (defaults to the whole site walkthrough); pass a single-item array to
+            // replay just one chapter. isOnboarding controls what happens when the tour ends (see endDemoTour).
+            // Never touches localStorage/the cloud: save() no-ops for the whole duration (demoModeActive), and
+            // the exact pre-tour state is restored byte-for-byte when it finishes, whether that's a brand-new
+            // user (nothing to restore but their basic-info settings) or an existing user with a real
+            // timetable already built.
+            function startDemoTour(isOnboarding, playlist) {
                 preTourSnapshot = JSON.parse(JSON.stringify(state));
                 demoModeActive = true;
                 state.events = []; state.tasks = []; state.exams = []; state.subjects = []; state.classTopics = [];
                 state.topics = []; state.holidays = []; state.studyPlans = {};
                 view = 'dashboard';
                 generateSampleData();
-                startMascotTour('full-tour');
-                mascotTour.context = { isOnboarding };
+                const list = playlist && playlist.length ? playlist : buildFullTourPlaylist();
+                mascotTour = { tourId: list[0], index: 0, context: { isOnboarding, playlist: list,
+                        playlistPos: 0 } };
+                enterCurrentMascotStep();
             }
 
             // Restores the real (or, mid-onboarding, still-empty) state the demo tour temporarily replaced, then
@@ -7906,6 +8097,10 @@ If the user asks about how to study or study methods generally, answer from your
             // user's own planner is back (anyone who asked for the tour later).
             function endDemoTour() {
                 const isOnboarding = !!(mascotTour && mascotTour.context && mascotTour.context.isOnboarding);
+                // Study Mode's session/timer live outside `state` (module-level closures), so swapping `state`
+                // back below wouldn't stop a ticking demo session or its overlay on its own — see
+                // silentlyEndTourStudyMode's own comment for why the real studyModeFinish() isn't used here.
+                silentlyEndTourStudyMode();
                 if (preTourSnapshot) { state = preTourSnapshot;
                     preTourSnapshot = null; }
                 demoModeActive = false;
@@ -7916,6 +8111,18 @@ If the user asks about how to study or study methods generally, answer from your
                     render();
                     toast("That was example data — you're back to your own planner!"); }
             }
+
+            // A demoed Study Mode session (tour-study-mode) needs cleaning up whenever the tour moves past
+            // that chapter or ends early — but the real studyModeFinish() always pops open a "session summary"
+            // modal, which would be a jarring non-sequitur mid-tour. This does the same interval/DOM cleanup
+            // silently, with no summary and no session-log entry (there's nothing genuine to log anyway).
+            function silentlyEndTourStudyMode() { if (!studyModeSession) return;
+                clearInterval(studyModeTickHandle);
+                studyModeTickHandle = null;
+                document.getElementById('study-mode-overlay').classList.add('hidden');
+                document.getElementById('study-mode-pip').classList.add('hidden');
+                studyModeSession = null;
+                studyModePendingRatingTopic = null; }
 
             function currentMascotStep() { if (!mascotTour) return null; const steps = MASCOT_TOURS[mascotTour
                     .tourId]; return steps ? steps[mascotTour.index] : null; }
@@ -7928,7 +8135,7 @@ If the user asks about how to study or study methods generally, answer from your
             function goToMascotStep(tourId, stepId) { const steps = MASCOT_TOURS[tourId]; if (!steps) { endMascotTour();
                     return; } const index = steps.findIndex(s => s.id === stepId); if (index === -1) {
                     endMascotTour();
-                    return; } // preserve context (e.g. startDemoTour's isOnboarding flag) across step transitions
+                    return; } // preserve context (e.g. startDemoTour's isOnboarding/playlist) across transitions
                 mascotTour = { tourId, index, context: mascotTour && mascotTour.context };
                 enterCurrentMascotStep(); }
 
@@ -7937,9 +8144,20 @@ If the user asks about how to study or study methods generally, answer from your
                 renderMascot(); }
 
             function mascotNext() { const step = currentMascotStep(); if (!step) return;
-                const dest = typeof step.next === 'function' ? step.next() : step.next; if (!dest) { endMascotTour();
+                const dest = typeof step.next === 'function' ? step.next() : step.next;
+                if (dest) { goToMascotStep(mascotTour.tourId, dest);
                     return; }
-                goToMascotStep(mascotTour.tourId, dest); }
+                // This chapter's out of steps — move on to the next chapter in the playlist, if there is one
+                // (this is what lets the same chapter content serve both the full walkthrough and a solo
+                // replay: a solo replay is just a one-item playlist, so it naturally falls through to the
+                // demoModeActive branch below instead).
+                const ctx = mascotTour.context; if (ctx && ctx.playlist && ctx.playlistPos < ctx.playlist.length -
+                    1) { ctx.playlistPos++;
+                    mascotTour = { tourId: ctx.playlist[ctx.playlistPos], index: 0, context: ctx };
+                    enterCurrentMascotStep();
+                    return; } if (demoModeActive) { endDemoTour();
+                    return; }
+                endMascotTour(); }
 
             function endMascotTour() { mascotTour = null;
                 clearTimeout(mascotAutoAdvanceTimer);
@@ -7978,14 +8196,17 @@ If the user asks about how to study or study methods generally, answer from your
                 positionMascotWidget(step); }
 
             // Picks which of the 7 pointing sprites actually matches the mascot's real on-screen position
-            // relative to its target, computed after layout rather than guessed per-step, so it stays correct
-            // even when positionMascotWidget has to flip the widget to the other side of the target to fit the
-            // viewport. Falls back to the step's own pose (or idle) when there's nothing to point at.
-            function resolveMascotPose(step, widget, target) {
-                if (step.pose !== 'point') return step.pose || 'idle'; if (!target) return 'idle';
-                const wr = widget.getBoundingClientRect(), tr = target.getBoundingClientRect(),
-                    dx = (tr.left + tr.width / 2) - (wr.left + wr.width / 2),
-                    dy = (tr.top + tr.height / 2) - (wr.top + wr.height / 2),
+            // relative to its target. Uses the character IMAGE's own rect, not the whole widget (bubble +
+            // image stacked in a column) — the bubble can be much wider/taller than the character and sits
+            // above it, so the combined widget rect's center is nowhere near where the character actually is
+            // and pointing math based on it reads as wrong far more often than it reads as right. Falls back
+            // to the step's own pose (or idle) when there's nothing to point at.
+            function resolveMascotPose(step, target) {
+                if (step.pose !== 'point' || !target) return step.pose || 'idle';
+                const img = document.getElementById('mascot-img'), ir = img.getBoundingClientRect(),
+                    tr = target.getBoundingClientRect(),
+                    dx = (tr.left + tr.width / 2) - (ir.left + ir.width / 2),
+                    dy = (tr.top + tr.height / 2) - (ir.top + ir.height / 2),
                     adx = Math.abs(dx), ady = Math.abs(dy);
                 if (adx < ady * 0.4) return dy < 0 ? 'pointUp' : (dx <= 0 ? 'pointDownLeft' : 'pointDownRight');
                 if (ady < adx * 0.4) return dx < 0 ? 'pointLeft' : 'pointRight';
@@ -7997,11 +8218,26 @@ If the user asks about how to study or study methods generally, answer from your
                 // Targets are looked up regardless of whether a modal is open (mascot-widget's z-index sits
                 // above the modal layer) so a step can point at something inside a modal's own content — the
                 // fixed bottom-left fallback below is only for when the target genuinely isn't on screen.
-                const target = (step && step.target) ? document.querySelector(step.target) : null; if (
-                    target) { target.classList.add('mascot-highlight'); const rect = target.getBoundingClientRect();
-                    let top = rect.bottom + 14, left = rect.left; if (top + 240 > window.innerHeight) top = Math.max(
-                        10, rect.top - 240); if (left + 260 > window.innerWidth) left = window.innerWidth - 270; if (
-                        left < 10) left = 10;
+                const target = (step && step.target) ? document.querySelector(step.target) : null; if (target) {
+                    target.classList.add('mascot-highlight'); const rect = target.getBoundingClientRect(),
+                        GAP = 16,
+                        // The widget's own current footprint (bubble text length varies a lot now that
+                        // steps say a lot more) — a hardcoded guess here is exactly what let the character
+                        // end up standing on top of the very thing it was meant to be pointing at, whenever
+                        // the real bubble turned out taller than the guess.
+                        ww = widget.offsetWidth || 250, wh = widget.offsetHeight || 240,
+                        spaceBelow = window.innerHeight - rect.bottom, spaceAbove = rect.top;
+                    // Whichever side is picked, the clamp below only ever pushes the widget FURTHER from the
+                    // target (off the edge of the viewport in the worst case, which just clips it a little) —
+                    // never back toward it. Clamping both directions against the viewport (the previous
+                    // approach) could slide a tall bubble back down on top of a target near the middle of a
+                    // short viewport whenever neither side had a full GAP's clearance to spare, which is
+                    // exactly the "standing on top of the thing it's pointing at" bug this exists to prevent.
+                    let top; if (spaceBelow >= wh + GAP || spaceBelow >= spaceAbove) top = Math.max(10, rect
+                        .bottom + GAP);
+                    else top = Math.min(window.innerHeight - wh - 10, rect.top - wh - GAP);
+                    let left = rect.left + rect.width / 2 - ww / 2; // centered on the target, not left-pinned
+                    left = Math.max(10, Math.min(left, window.innerWidth - ww - 10));
                     widget.style.top = top + 'px';
                     widget.style.left = left + 'px';
                     widget.style.bottom = 'auto';
@@ -8012,7 +8248,7 @@ If the user asks about how to study or study methods generally, answer from your
                     widget.style.left = 'auto';
                     widget.style.bottom = '104px';
                     widget.style.right = '24px'; }
-                document.getElementById('mascot-img').src = MASCOT_POSES[resolveMascotPose(step, widget, target)] ||
+                document.getElementById('mascot-img').src = MASCOT_POSES[resolveMascotPose(step, target)] ||
                     MASCOT_POSES.idle; }
 
             // Called once onboarding finishes — starts the mascot's guided setup tour.
