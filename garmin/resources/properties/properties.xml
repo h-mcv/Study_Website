@@ -1,0 +1,7 @@
+<properties>
+    <!-- Holds the pairing code the student pastes in via Garmin Connect
+         Mobile's native "App Settings" screen. SimpleStudyApp.onSettingsChanged()
+         exchanges it for a durable watch token the moment it changes, then
+         it's never read again until a re-pair (see ScheduleStore.mc). -->
+    <property id="pairingCode" type="string">""</property>
+</properties>

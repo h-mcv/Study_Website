@@ -1,0 +1,30 @@
+<iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
+    <!--
+      The `id` below is a placeholder GUID, not a real Garmin-issued app ID.
+      Sideloading for personal testing works fine with it as-is. Only once
+      you register this app on the Connect IQ Developer Portal (needed
+      before any Connect IQ Store submission) does Garmin assign a real ID
+      -- replace this value with that one at that point, and from then on
+      the VS Code Monkey C extension can usually keep it in sync for you.
+      See garmin/README.md.
+    -->
+    <iq:application
+        id="9d3b2e6a-5b7a-4d8a-9b8b-000000000001"
+        type="widget"
+        name="@Strings.AppName"
+        entry="SimpleStudyApp"
+        launcherIcon="@Drawables.LauncherIcon"
+        minSdkVersion="4.2.0">
+        <iq:products>
+            <iq:product id="venu3s"/>
+        </iq:products>
+        <iq:permissions>
+            <iq:uses-permission id="Communications"/>
+            <iq:uses-permission id="Background"/>
+        </iq:permissions>
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+        <iq:barrels/>
+    </iq:application>
+</iq:manifest>

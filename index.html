@@ -5111,6 +5111,61 @@
                 return `<div class="settings-row"><div><strong>Spotify</strong><span class="small">Connected — a playlist picker will show up next time you start Study Mode. ${carryOverNote}</span></div><button class="button danger" data-action="spotify-disconnect">Disconnect</button></div>`;
             }
 
+            // Pairing a Garmin watch has no OAuth/browser step on the watch side —
+            // instead a short-lived code is generated here (while already signed
+            // in, in a normal browser) and typed into the watch app's own
+            // Settings screen in Garmin Connect Mobile, which exchanges it for a
+            // durable token server-side. See supabase/functions/watch-pair and
+            // garmin/README.md for the full flow.
+            let garminPairing = null; // { code, expiresAt } — set right after generating a fresh code
+            let garminWatchCount = null; // null = not checked yet; checked lazily the first time the row renders
+
+            function garminSettingsRowHtml() {
+                if (!currentUser) {
+                    return `<div class="settings-row"><div><strong>Garmin Watch</strong><span class="small">Sign in with Google to pair a Garmin watch (Venu 3S) and see today's schedule on your wrist.</span></div></div>`;
+                }
+                if (garminWatchCount === null) garminRefreshWatchStatus();
+                if (garminPairing) {
+                    const expires = new Date(garminPairing.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return `<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px"><div><strong>Garmin Watch</strong><span class="small">On your watch: Garmin Connect app &gt; My Watch &gt; Simple Study &gt; App Settings, and enter this code. Expires ${expires}.</span></div><div style="font-size:28px;font-weight:800;letter-spacing:4px;text-align:center">${escape(garminPairing.code)}</div><button class="button" data-action="garmin-generate-code">Generate a new code</button></div>`;
+                }
+                if (garminWatchCount > 0) {
+                    return `<div class="settings-row"><div><strong>Garmin Watch</strong><span class="small">A watch is paired and can see today's schedule.</span></div><button class="button danger" data-action="garmin-disconnect">Disconnect</button></div>`;
+                }
+                return `<div class="settings-row"><div><strong>Garmin Watch</strong><span class="small">Show today's schedule — current class and what's next — on a Garmin Venu 3S.</span></div><button class="button" data-action="garmin-generate-code">Pair a watch</button></div>`;
+            }
+
+            async function garminRefreshWatchStatus() {
+                if (!currentUser) return;
+                const { count, error } = await supabaseClient.from('watch_tokens').select('token_hash', { count: 'exact', head: true });
+                garminWatchCount = error ? 0 : (count ?? 0);
+                renderModal();
+            }
+
+            async function garminGenerateCode() {
+                if (!currentUser) return;
+                try {
+                    const { data, error } = await supabaseClient.functions.invoke('watch-pair', { body: {} });
+                    if (error) { let detail = error.message || 'Could not generate a pairing code.';
+                        try { detail = (await error.context.json())?.error || detail; } catch {}
+                        throw new Error(detail); }
+                    garminPairing = { code: data.code, expiresAt: data.expiresAt };
+                } catch (err) {
+                    toast(err.message || 'Could not generate a pairing code.');
+                }
+                renderModal();
+            }
+
+            async function garminDisconnect() {
+                if (!currentUser) return;
+                const { error } = await supabaseClient.from('watch_tokens').delete().eq('user_id', currentUser.id);
+                if (error) { toast('Could not disconnect: ' + error.message); return; }
+                garminWatchCount = 0;
+                garminPairing = null;
+                toast('Garmin watch disconnected.');
+                renderModal();
+            }
+
             function navButton(id, icon, label) { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}"><b>${icon}</b><span>${label}</span></button>`; }
 
             function header(title, description, tools = '') { return `<div class="page-header"><div><h1>${title}</h1><p class="muted">${description}</p></div><div class="toolbar">${tools}</div></div>`; }
@@ -6424,6 +6479,7 @@
                             <li><strong>Account info:</strong> your email address, and — if you sign in with Google — the name and profile picture Google shares with us.</li>
                             <li><strong>App data:</strong> everything you put into the app to make it work for you — your name, year group, and date of birth if you give it; your timetable, tasks, study preferences, exams and results; and anything you tell Sparky, the AI study assistant.</li>
                             <li><strong>Spotify connection:</strong> only if you choose to connect Spotify in Settings — a token that lets the app control playback on your behalf, so it can carry over to your other devices without you signing in to Spotify again each time. We never see your Spotify password, and this is entirely optional.</li>
+                            <li><strong>Garmin watch pairing:</strong> only if you choose to pair a Garmin watch in Settings — we generate a short-lived pairing code, and once the watch uses it, an opaque access token so the watch app can fetch your schedule directly (we never see anything about your Garmin account itself, and Garmin never sees your Simple Study data). The watch only ever receives that day's schedule — event names, times, colours, and types — nothing else from your account. Entirely optional, and you can disconnect it from Settings at any time.</li>
                             <li><strong>Basic usage analytics:</strong> anonymised, aggregated information about how the app is used (via PostHog), and technical error reports if something breaks (via Sentry) — neither is used to identify you personally.</li>
                         </ul>
 
@@ -6434,6 +6490,7 @@
                         <ul>
                             <li><strong>Google</strong> — only if you choose to sign in with Google, to verify who you are.</li>
                             <li><strong>Spotify</strong> — only if you choose to connect it, to play music during Study Mode.</li>
+                            <li><strong>Garmin</strong> — only if you choose to pair a watch, since requests from the watch app pass over Bluetooth through Garmin Connect Mobile on your phone to reach us. Garmin doesn't store your schedule data on its own servers as part of this.</li>
                             <li><strong>Our AI providers</strong> (Google Gemini, and occasionally Groq or OpenRouter as a backup if Gemini is unavailable) — process your messages to Sparky and the relevant parts of your app data needed to answer you, only when you use the AI assistant.</li>
                             <li><strong>Resend</strong> — sends account emails (like confirming your email address or resetting your password).</li>
                             <li><strong>PostHog and Sentry</strong> — as above, anonymised analytics and error monitoring.</li>
@@ -6608,6 +6665,7 @@
           <div class="settings-row"><div><strong>Study preferences</strong><span class="small">How much and when you'd like to study.</span></div><button class="button" data-action="open-study-preferences">Edit</button></div>
           <div class="settings-row"><div><strong>Automatic study planning</strong><span class="small">When off, this is just a timetable — study blocks stay empty for you to fill in, and no self-study time gets added automatically.</span></div><label class="switch-row"><input id="setting-study-engine" type="checkbox" ${s.studyEngineDisabled?'':'checked'}> Let the planner decide what and how much to study</label></div>
           ${spotifySettingsRowHtml()}
+          ${garminSettingsRowHtml()}
           <div class="settings-row"><div><strong>Notifications</strong><span class="small">Only for genuinely important things — a test tomorrow, a CAO hard deadline in the next couple of days. Nothing more frequent than that.</span></div><label class="switch-row"><input id="setting-notifications" type="checkbox" ${s.notificationsEnabled?'checked':''}> Enable browser notifications</label></div>
           <div class="settings-row"><div><strong>Backup your data</strong><span class="small">${backupNote} An Export is the only way to get everything back if you switch browsers or devices, or this browser's storage ever gets cleared.</span></div><div class="row"><button class="button" data-action="export-data">Export backup</button><label class="button">Import backup<input id="import-data" type="file" accept="application/json" class="hidden"></label></div></div>
           <div class="settings-row"><div><strong>Sample data</strong><span class="small">Fills in a full week of classes, activities, and study — handy for testing.</span></div><button class="button" data-action="sample-data">Add sample week</button></div>
@@ -8995,6 +9053,8 @@ If the user asks about how to study or study methods generally, answer from your
                     return; } if (a === 'sm-finish-early') { studyModeFinishEarly();
                     return; } if (a === 'spotify-connect') { spotifyConnect();
                     return; } if (a === 'spotify-disconnect') { spotifyDisconnect();
+                    return; } if (a === 'garmin-generate-code') { garminGenerateCode();
+                    return; } if (a === 'garmin-disconnect') { garminDisconnect();
                     return; } if (a === 'spotify-toggle-picker') { spotifyTogglePicker();
                     return; } if (a === 'spotify-play-selected') { spotifyPlayPlaylist(b.dataset.uri, b.dataset
                     .name, b.dataset.id);

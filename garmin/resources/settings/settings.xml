@@ -1,0 +1,5 @@
+<settings>
+    <setting propertyKey="@Properties.pairingCode" title="@Strings.PairingCodeTitle">
+        <settingConfig type="alphaNumeric" maxLength="6"/>
+    </setting>
+</settings>
