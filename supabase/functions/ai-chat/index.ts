@@ -6,6 +6,16 @@
 // (candidates[0].content.parts), so the client's existing tool-calling loop
 // needs no changes beyond calling this function instead of Gemini directly.
 //
+// An optional `preferProvider: "groq"` field lets a caller ask for Groq
+// first instead of Gemini, for text-only tasks where Gemini's specific
+// quality isn't needed — this exists so features that call this function a
+// lot (the language word-bank/essay-marking tools) can spend Groq's
+// separate, larger free quota instead of Gemini's shared and much scarcer
+// one. It's ignored (Gemini always goes first) whenever the request
+// includes an image, since Groq/OpenRouter can't do vision at all — see
+// hasImage() below. If Groq fails or isn't configured, Gemini/OpenRouter
+// are still tried as fallback, same as ever.
+//
 // This is also the only place the AI provider keys exist — they're read
 // from env (`supabase secrets set ...`), never shipped to the browser.
 //
@@ -44,7 +54,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await authClient.auth.getUser();
     if (!user) return jsonResponse({ error: "Sign in with Google to use the AI Study Assistant." }, 401);
 
-    const { contents, systemInstruction, tools } = await req.json();
+    const { contents, systemInstruction, tools, preferProvider } = await req.json();
     if (!Array.isArray(contents) || !contents.length) {
       return jsonResponse({ error: "Missing 'contents'." }, 400);
     }
@@ -54,24 +64,29 @@ Deno.serve(async (req) => {
     const groqKey = Deno.env.get("GROQ_API_KEY");
     const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
 
-    const attempts: Array<() => Promise<unknown>> = [];
+    const geminiAttempts: Array<() => Promise<unknown>> = [];
     if (geminiKey) {
-      attempts.push(() =>
+      geminiAttempts.push(() =>
         callGemini(usesVision ? GEMINI_MODEL_VISION : GEMINI_MODEL_TEXT, contents, systemInstruction, tools, geminiKey));
       if (!usesVision) {
-        attempts.push(() => callGemini(GEMINI_MODEL_TEXT_FALLBACK, contents, systemInstruction, tools, geminiKey));
+        geminiAttempts.push(() => callGemini(GEMINI_MODEL_TEXT_FALLBACK, contents, systemInstruction, tools, geminiKey));
       }
     }
-    // Vision (photo) messages only go through Gemini — Groq/OpenRouter
-    // image-input translation is deliberately out of scope here.
+    // Vision (photo) messages only go through Gemini — Groq/OpenRouter image-input translation is
+    // deliberately out of scope here, so preferProvider is meaningless (and ignored) once an image is present.
+    const groqAttempts: Array<() => Promise<unknown>> = [];
     if (!usesVision && groqKey) {
-      attempts.push(() =>
+      groqAttempts.push(() =>
         callOpenAiCompatible("https://api.groq.com/openai/v1/chat/completions", GROQ_MODEL, contents, systemInstruction, tools, groqKey));
     }
+    const openrouterAttempts: Array<() => Promise<unknown>> = [];
     if (!usesVision && openrouterKey) {
-      attempts.push(() =>
+      openrouterAttempts.push(() =>
         callOpenAiCompatible("https://openrouter.ai/api/v1/chat/completions", OPENROUTER_MODEL, contents, systemInstruction, tools, openrouterKey));
     }
+    const attempts = !usesVision && preferProvider === "groq"
+      ? [...groqAttempts, ...geminiAttempts, ...openrouterAttempts]
+      : [...geminiAttempts, ...groqAttempts, ...openrouterAttempts];
 
     if (!attempts.length) {
       return jsonResponse({ error: usesVision ? "No vision-capable provider configured." : "No AI provider configured." }, 500);

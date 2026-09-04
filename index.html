@@ -5951,10 +5951,18 @@
             // with no history and no tool declarations, and expect a plain text (aiTextOnce) or JSON
             // (aiJsonOnce) reply. Every prompt built below explicitly asks for "ONLY compact JSON" —
             // aiJsonOnce/parseAiJson tolerate the model wrapping it in a markdown code fence anyway.
-            async function aiTextOnce(systemPrompt, parts) {
+            // Llama 3.3 70B (Groq's free model) officially supports English, German, French, Italian,
+            // Portuguese, Hindi, Spanish, and Thai — notably NOT Irish. Gemini has real (if imperfect)
+            // Irish support and is what Google actively invests in for low-resource languages, so Irish
+            // (and every other language subject not in this list) always stays on Gemini; only the
+            // languages Llama is actually trained for get routed to Groq's separate, larger free quota.
+            const GROQ_ELIGIBLE_TAXONOMY_IDS = new Set(['spanish', 'french', 'german', 'italian']);
+            function preferredProviderFor(s) { return GROQ_ELIGIBLE_TAXONOMY_IDS.has(s?.taxonomyId) ? 'groq' : undefined; }
+
+            async function aiTextOnce(systemPrompt, parts, preferProvider) {
                 if (!currentUser) throw new Error('Sign in with Google to use this AI feature.');
                 const { data, error } = await supabaseClient.functions.invoke('ai-chat', {
-                    body: { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: systemPrompt }] } }
+                    body: { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: systemPrompt }] }, preferProvider }
                 });
                 if (error) { let detail = error.message || 'AI request failed.';
                     try { detail = (await error.context.json())?.error || detail; } catch {}
@@ -5974,7 +5982,7 @@
                 if (first !== -1 && last > first) { try { return JSON.parse(cleaned.slice(first, last + 1)); } catch {} }
                 throw new Error("Couldn't understand the AI's response — try again.");
             }
-            async function aiJsonOnce(systemPrompt, parts) { return parseAiJson(await aiTextOnce(systemPrompt, parts)); }
+            async function aiJsonOnce(systemPrompt, parts, preferProvider) { return parseAiJson(await aiTextOnce(systemPrompt, parts, preferProvider)); }
 
             function fileToDataUrl(file) { return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -6035,7 +6043,7 @@
                     const sys = `You help an Irish secondary school student find entries in their own ${s.name} vocabulary/phrase bank that best match an English meaning they're thinking of, even when the wording is quite different (e.g. searching "I think that" should surface a saved entry meaning "I would say that", since it serves the same purpose in an essay). Only choose ids from the exact list given — never invent phrases. Order best match first. Reply with ONLY compact JSON: {"ids": ["id1", "id2", ...up to 5], "note": "one short sentence, or empty string if there's a good match"}. If nothing is a reasonable match, return an empty ids array and a brief note saying so.`;
                     const list = bank.map(v => ({ id: v.id, phrase: v.phrase, english: v.english }));
                     const userText = `English meaning the student is searching for: "${query}"\n\nTheir current bank:\n${JSON.stringify(list)}`;
-                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    const result = await aiJsonOnce(sys, [{ text: userText }], preferredProviderFor(s));
                     const ids = Array.isArray(result.ids) ? result.ids.filter(id => bank.some(v => v.id === id)) : [];
                     vocabSearchResults = { ids, note: result.note || '' };
                 } catch (err) { toast(err.message || 'Search failed.'); vocabSearchResults = null; }
@@ -6048,7 +6056,7 @@
                     const s = subject(entry.subjectId);
                     const sys = `You help an Irish secondary school student vary the ${s.name} they use in essays. Given one ${s.name} phrase and its English meaning, give 3 to 5 genuinely different ways to express essentially the same meaning in ${s.name}, the way it's actually taught in Irish secondary schools (not a stiff literal translation) — different wording/structure, not trivial variants. Reply with ONLY compact JSON: {"items": [{"phrase": "...", "english": "..."}]}.`;
                     const userText = `Original ${s.name} phrase: "${entry.phrase}" (meaning: "${entry.english}"). Give alternatives.`;
-                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    const result = await aiJsonOnce(sys, [{ text: userText }], preferredProviderFor(s));
                     const items = (Array.isArray(result.items) ? result.items : []).filter(i => i && i.phrase && i.english);
                     vocabAlternatives = { forId: entry.id, items };
                     if (!items.length) toast("Couldn't come up with alternatives for that one.");
@@ -6076,19 +6084,396 @@
                 save();
             }
 
+            // --------------------------------------------------------------------------------------
+            // Local (no-AI) conjugation engines for Spanish, French, German, and Irish.
+            // Every AI conjugation call costs shared quota (see ensureVerbConjugations below), so for these
+            // four languages regular-verb forms are generated from known suffix rules and the ~20-40 most
+            // common irregular verbs are hand-tabulated, verified against Wiktionary's Irish conjugation
+            // tables (bí/abair/déan/téigh/faigh/feic) and standard school-grammar patterns for the others.
+            // AI is only ever asked about a verb these engines don't recognise. Each conjugate*() returns
+            // { irregular, note, forms: [{pronoun, form}] } or null (meaning "ask the AI instead").
+            // --------------------------------------------------------------------------------------
+
+            // ---- Spanish -----------------------------------------------------------------------------
+            const ES_PRONOUNS = ['yo', 'tú', 'él / ella / usted', 'nosotros', 'vosotros', 'ellos / ellas / ustedes'];
+            const ES_ENDINGS = {
+                present: { ar: ['o','as','a','amos','áis','an'], er: ['o','es','e','emos','éis','en'], ir: ['o','es','e','imos','ís','en'] },
+                preterite: { ar: ['é','aste','ó','amos','asteis','aron'], er: ['í','iste','ió','imos','isteis','ieron'], ir: ['í','iste','ió','imos','isteis','ieron'] },
+                imperfect: { ar: ['aba','abas','aba','ábamos','abais','aban'], er: ['ía','ías','ía','íamos','íais','ían'], ir: ['ía','ías','ía','íamos','íais','ían'] },
+                future: ['é','ás','á','emos','éis','án'],
+                conditional: ['ía','ías','ía','íamos','íais','ían'],
+                subjunctive: { ar: ['e','es','e','emos','éis','en'], er: ['a','as','a','amos','áis','an'], ir: ['a','as','a','amos','áis','an'] }
+            };
+            // Common stem-changing verbs (still "regular" grammatically, just a vowel shift in stressed stems).
+            // Change applies to present-tense/subjunctive persons yo/tú/él/ellos (idx 0,1,2,5), never nosotros/vosotros.
+            // "-ir" verbs additionally take a reduced version of the change in the preterite él/ellos forms (idx 2,5).
+            const ES_STEM_CHANGES = { pensar:'e-ie', cerrar:'e-ie', empezar:'e-ie', comenzar:'e-ie', entender:'e-ie', perder:'e-ie', querer:'e-ie',
+                preferir:'e-ie:ir', sentir:'e-ie:ir', mentir:'e-ie:ir', divertir:'e-ie:ir',
+                poder:'o-ue', volver:'o-ue', contar:'o-ue', encontrar:'o-ue', recordar:'o-ue', mostrar:'o-ue', costar:'o-ue', jugar:'u-ue',
+                dormir:'o-ue:ir', morir:'o-ue:ir',
+                pedir:'e-i:ir', servir:'e-i:ir', repetir:'e-i:ir', seguir:'e-i:ir', vestir:'e-i:ir', conseguir:'e-i:ir' };
+            function esChangeVowel(stem, change, forcePreteriteReduced) {
+                const [pair] = change.split(':'); const [from, to] = pair.split('-');
+                const reduced = forcePreteriteReduced ? (from === 'e' ? 'i' : 'u') : to;
+                const idx = stem.lastIndexOf(from); if (idx === -1) return stem;
+                return stem.slice(0, idx) + reduced + stem.slice(idx + from.length);
+            }
+            // Irregular verbs: only the pieces that actually deviate from the regular pattern are stored —
+            // present/preterite/subjPresent are given in full (6 forms, ES_PRONOUNS order) since irregular
+            // verbs' forms aren't reliably derivable; imperfect/future/conditional/participle are omitted
+            // (meaning "derive regularly") unless the verb is one of the few true exceptions.
+            const ES_IRREGULAR_VERBS = {
+                ser: { present:['soy','eres','es','somos','sois','son'], preterite:['fui','fuiste','fue','fuimos','fuisteis','fueron'], imperfect:['era','eras','era','éramos','erais','eran'], subjPresent:['sea','seas','sea','seamos','seáis','sean'] },
+                estar: { present:['estoy','estás','está','estamos','estáis','están'], preterite:['estuve','estuviste','estuvo','estuvimos','estuvisteis','estuvieron'], subjPresent:['esté','estés','esté','estemos','estéis','estén'] },
+                ir: { present:['voy','vas','va','vamos','vais','van'], preterite:['fui','fuiste','fue','fuimos','fuisteis','fueron'], imperfect:['iba','ibas','iba','íbamos','ibais','iban'], subjPresent:['vaya','vayas','vaya','vayamos','vayáis','vayan'], participle:'ido' },
+                haber: { present:['he','has','ha','hemos','habéis','han'], preterite:['hube','hubiste','hubo','hubimos','hubisteis','hubieron'], futureStem:'habr', subjPresent:['haya','hayas','haya','hayamos','hayáis','hayan'] },
+                tener: { present:['tengo','tienes','tiene','tenemos','tenéis','tienen'], preterite:['tuve','tuviste','tuvo','tuvimos','tuvisteis','tuvieron'], futureStem:'tendr', subjPresent:['tenga','tengas','tenga','tengamos','tengáis','tengan'] },
+                hacer: { present:['hago','haces','hace','hacemos','hacéis','hacen'], preterite:['hice','hiciste','hizo','hicimos','hicisteis','hicieron'], futureStem:'har', subjPresent:['haga','hagas','haga','hagamos','hagáis','hagan'], participle:'hecho' },
+                poder: { present:['puedo','puedes','puede','podemos','podéis','pueden'], preterite:['pude','pudiste','pudo','pudimos','pudisteis','pudieron'], futureStem:'podr', subjPresent:['pueda','puedas','pueda','podamos','podáis','puedan'] },
+                querer: { present:['quiero','quieres','quiere','queremos','queréis','quieren'], preterite:['quise','quisiste','quiso','quisimos','quisisteis','quisieron'], futureStem:'querr', subjPresent:['quiera','quieras','quiera','queramos','queráis','quieran'] },
+                decir: { present:['digo','dices','dice','decimos','decís','dicen'], preterite:['dije','dijiste','dijo','dijimos','dijisteis','dijeron'], futureStem:'dir', subjPresent:['diga','digas','diga','digamos','digáis','digan'], participle:'dicho' },
+                venir: { present:['vengo','vienes','viene','venimos','venís','vienen'], preterite:['vine','viniste','vino','vinimos','vinisteis','vinieron'], futureStem:'vendr', subjPresent:['venga','vengas','venga','vengamos','vengáis','vengan'] },
+                dar: { present:['doy','das','da','damos','dais','dan'], preterite:['di','diste','dio','dimos','disteis','dieron'], subjPresent:['dé','des','dé','demos','deis','den'] },
+                ver: { present:['veo','ves','ve','vemos','veis','ven'], preterite:['vi','viste','vio','vimos','visteis','vieron'], imperfect:['veía','veías','veía','veíamos','veíais','veían'], subjPresent:['vea','veas','vea','veamos','veáis','vean'], participle:'visto' },
+                saber: { present:['sé','sabes','sabe','sabemos','sabéis','saben'], preterite:['supe','supiste','supo','supimos','supisteis','supieron'], futureStem:'sabr', subjPresent:['sepa','sepas','sepa','sepamos','sepáis','sepan'] },
+                poner: { present:['pongo','pones','pone','ponemos','ponéis','ponen'], preterite:['puse','pusiste','puso','pusimos','pusisteis','pusieron'], futureStem:'pondr', subjPresent:['ponga','pongas','ponga','pongamos','pongáis','pongan'], participle:'puesto' },
+                salir: { present:['salgo','sales','sale','salimos','salís','salen'], futureStem:'saldr', subjPresent:['salga','salgas','salga','salgamos','salgáis','salgan'] },
+                traer: { present:['traigo','traes','trae','traemos','traéis','traen'], preterite:['traje','trajiste','trajo','trajimos','trajisteis','trajeron'], subjPresent:['traiga','traigas','traiga','traigamos','traigáis','traigan'] },
+                oír: { present:['oigo','oyes','oye','oímos','oís','oyen'], preterite:['oí','oíste','oyó','oímos','oísteis','oyeron'], subjPresent:['oiga','oigas','oiga','oigamos','oigáis','oigan'] },
+                conocer: { present:['conozco','conoces','conoce','conocemos','conocéis','conocen'], subjPresent:['conozca','conozcas','conozca','conozcamos','conozcáis','conozcan'] },
+                salir2: null, // placeholder never referenced — keeps table shape obvious when scanning
+                venir2: null,
+                caer: { present:['caigo','caes','cae','caemos','caéis','caen'], preterite:['caí','caíste','cayó','caímos','caísteis','cayeron'], subjPresent:['caiga','caigas','caiga','caigamos','caigáis','caigan'], participle:'caído' }
+            };
+            delete ES_IRREGULAR_VERBS.salir2; delete ES_IRREGULAR_VERBS.venir2;
+            const ES_IRREGULAR_PARTICIPLES = { escribir:'escrito', romper:'roto', volver:'vuelto', abrir:'abierto', cubrir:'cubierto', morir:'muerto', resolver:'resuelto', descubrir:'descubierto', imprimir:'impreso' };
+            function conjugateSpanish(infRaw, tenseId) {
+                const inf = infRaw.trim().toLowerCase();
+                const cls = inf.endsWith('ar') ? 'ar' : inf.endsWith('er') ? 'er' : inf.endsWith('ir') ? 'ir' : null;
+                if (!cls) return null;
+                const stem = inf.slice(0, -2);
+                const irr = ES_IRREGULAR_VERBS[inf] || null;
+                const stemChange = ES_STEM_CHANGES[inf];
+                const buildRegular = (endings) => Array.from({ length: 6 }, (_, i) =>
+                    (stemChange && [0,1,2,5].includes(i) ? esChangeVowel(stem, stemChange, false) : stem) + endings[i]);
+                let forms, irregular = false, note = '';
+                if (tenseId === 'present') { forms = irr?.present || buildRegular(ES_ENDINGS.present[cls]); irregular = !!irr?.present; }
+                else if (tenseId === 'preterite') {
+                    if (irr?.preterite) { forms = irr.preterite; irregular = true; }
+                    else { forms = ES_ENDINGS.preterite[cls].map((end, i) => (cls === 'ir' && stemChange && stemChange.endsWith(':ir') && [2,5].includes(i) ? esChangeVowel(stem, stemChange, true) : stem) + end); }
+                }
+                else if (tenseId === 'imperfect') { forms = irr?.imperfect || ES_ENDINGS.imperfect[cls].map(e => stem + e); irregular = !!irr?.imperfect; }
+                else if (tenseId === 'future' || tenseId === 'conditional') {
+                    const futStem = irr?.futureStem || inf;
+                    forms = ES_ENDINGS[tenseId].map(e => futStem + e); irregular = !!irr?.futureStem;
+                }
+                else if (tenseId === 'subjunctive') { forms = irr?.subjPresent || buildRegular(ES_ENDINGS.subjunctive[cls]); irregular = !!irr?.subjPresent; }
+                else if (tenseId === 'perfect' || tenseId === 'pluperfect') {
+                    const haberForms = tenseId === 'perfect' ? ES_IRREGULAR_VERBS.haber.present : ['había','habías','había','habíamos','habíais','habían'];
+                    const participle = irr?.participle || ES_IRREGULAR_PARTICIPLES[inf] || (stem + (cls === 'ar' ? 'ado' : 'ido'));
+                    forms = haberForms.map(h => `${h} ${participle}`);
+                    irregular = !!(irr?.participle || ES_IRREGULAR_PARTICIPLES[inf]);
+                } else return null;
+                if (irregular) note = 'Irregular verb — see the table for its actual forms.';
+                else if (stemChange) note = `Stem-changing verb (${stemChange.split(':')[0]}) in the stressed forms.`;
+                return { irregular: irregular || !!stemChange, note, forms: forms.map((form, i) => ({ pronoun: ES_PRONOUNS[i], form })) };
+            }
+
+            // ---- French -------------------------------------------------------------------------------
+            const FR_PRONOUNS = ['je', 'tu', 'il / elle / on', 'nous', 'vous', 'ils / elles'];
+            const FR_ENDINGS = {
+                er: ['e','es','e','ons','ez','ent'],
+                ir2: ['is','is','it','issons','issez','issent'], // "2nd group" -ir verbs (finir-type) — the default for -ir
+                re: ['s','s','','ons','ez','ent'],
+                future: ['ai','as','a','ons','ez','ont'],
+                imperfect: ['ais','ais','ait','ions','iez','aient'],
+                subjunctive: ['e','es','e','ions','iez','ent']
+            };
+            // "3rd group" -ir verbs that use -re-style endings on a truncated stem (partir → pars, not partis).
+            const FR_IR3_VERBS = { partir:1, sortir:1, dormir:1, sentir:1, servir:1, mentir:1 };
+            // The classic 16 être-verbs (+ their obvious compounds) — everything else defaults to avoir.
+            const FR_ETRE_VERBS = { aller:1, venir:1, arriver:1, partir:1, entrer:1, rentrer:1, sortir:1, monter:1, descendre:1,
+                naître:1, mourir:1, retourner:1, tomber:1, rester:1, passer:1, devenir:1, revenir:1 };
+            const FR_IRREGULAR_VERBS = {
+                être: { present:['suis','es','est','sommes','êtes','sont'], imperfectStem:'ét', futureStem:'ser', participle:'été', auxiliary:'avoir', subjPresent:['sois','sois','soit','soyons','soyez','soient'] },
+                avoir: { present:['ai','as','a','avons','avez','ont'], futureStem:'aur', participle:'eu', auxiliary:'avoir', subjPresent:['aie','aies','ait','ayons','ayez','aient'] },
+                aller: { present:['vais','vas','va','allons','allez','vont'], futureStem:'ir', participle:'allé', auxiliary:'être', subjPresent:['aille','ailles','aille','allions','alliez','aillent'] },
+                faire: { present:['fais','fais','fait','faisons','faites','font'], futureStem:'fer', participle:'fait', auxiliary:'avoir', subjPresent:['fasse','fasses','fasse','fassions','fassiez','fassent'] },
+                pouvoir: { present:['peux','peux','peut','pouvons','pouvez','peuvent'], futureStem:'pourr', participle:'pu', auxiliary:'avoir', subjPresent:['puisse','puisses','puisse','puissions','puissiez','puissent'] },
+                vouloir: { present:['veux','veux','veut','voulons','voulez','veulent'], futureStem:'voudr', participle:'voulu', auxiliary:'avoir', subjPresent:['veuille','veuilles','veuille','voulions','vouliez','veuillent'] },
+                devoir: { present:['dois','dois','doit','devons','devez','doivent'], futureStem:'devr', participle:'dû', auxiliary:'avoir' },
+                savoir: { present:['sais','sais','sait','savons','savez','savent'], futureStem:'saur', participle:'su', auxiliary:'avoir', subjPresent:['sache','saches','sache','sachions','sachiez','sachent'] },
+                voir: { present:['vois','vois','voit','voyons','voyez','voient'], futureStem:'verr', participle:'vu', auxiliary:'avoir' },
+                venir: { present:['viens','viens','vient','venons','venez','viennent'], futureStem:'viendr', participle:'venu', auxiliary:'être' },
+                tenir: { present:['tiens','tiens','tient','tenons','tenez','tiennent'], futureStem:'tiendr', participle:'tenu', auxiliary:'avoir' },
+                prendre: { present:['prends','prends','prend','prenons','prenez','prennent'], participle:'pris', auxiliary:'avoir' },
+                mettre: { present:['mets','mets','met','mettons','mettez','mettent'], participle:'mis', auxiliary:'avoir' },
+                dire: { present:['dis','dis','dit','disons','dites','disent'], participle:'dit', auxiliary:'avoir' },
+                écrire: { present:['écris','écris','écrit','écrivons','écrivez','écrivent'], participle:'écrit', auxiliary:'avoir' },
+                lire: { present:['lis','lis','lit','lisons','lisez','lisent'], participle:'lu', auxiliary:'avoir' },
+                connaître: { present:['connais','connais','connaît','connaissons','connaissez','connaissent'], participle:'connu', auxiliary:'avoir' },
+                boire: { present:['bois','bois','boit','buvons','buvez','boivent'], participle:'bu', auxiliary:'avoir' },
+                courir: { present:['cours','cours','court','courons','courez','courent'], futureStem:'courr', participle:'couru', auxiliary:'avoir' }
+            };
+            // "3rd group" -ir verbs (partir-type) drop their final stem consonant in je/tu/il: partir → stem
+            // "part", reduced "par" → pars/pars/part/partons/partez/partent.
+            function frBuildFromIr3(stem) { const reduced = stem.slice(0, -1);
+                return [reduced+'s', reduced+'s', reduced+'t', stem+'ons', stem+'ez', stem+'ent']; }
+            function conjugateFrench(infRaw, tenseId) {
+                const inf = infRaw.trim().toLowerCase();
+                const irr = FR_IRREGULAR_VERBS[inf];
+                let cls = null, stem = null, presentForms = null, isIr3 = false;
+                if (irr) { presentForms = irr.present; }
+                else if (FR_IR3_VERBS[inf] && inf.endsWith('ir')) { isIr3 = true; stem = inf.slice(0, -2); presentForms = frBuildFromIr3(stem); }
+                else if (inf.endsWith('er')) { cls = 'er'; stem = inf.slice(0, -2); presentForms = FR_ENDINGS.er.map(e => stem + e); }
+                else if (inf.endsWith('ir')) { cls = 'ir2'; stem = inf.slice(0, -2); presentForms = FR_ENDINGS.ir2.map(e => stem + e); }
+                else if (inf.endsWith('re')) { cls = 're'; stem = inf.slice(0, -2); presentForms = FR_ENDINGS.re.map(e => stem + e); }
+                else return null;
+                const nousStem = presentForms[3].replace(/ons$/, '');
+                const ilsStem = presentForms[5].replace(/ent$/, '');
+                const futureStem = irr?.futureStem || (cls === 're' ? inf.slice(0, -1) : inf);
+                const auxiliary = irr?.auxiliary || (FR_ETRE_VERBS[inf] ? 'être' : 'avoir');
+                const participle = irr?.participle || (cls === 'er' ? stem + 'é' : cls === 'ir2' || isIr3 ? stem + 'i' : stem + 'u');
+                let forms, irregular = !!irr, note = irr ? 'Irregular verb — see the table for its actual forms.' : '';
+                if (tenseId === 'present') forms = presentForms;
+                else if (tenseId === 'imperfect') { const st = irr?.imperfectStem || nousStem; forms = FR_ENDINGS.imperfect.map(e => st + e); }
+                else if (tenseId === 'future') forms = FR_ENDINGS.future.map(e => futureStem + e);
+                else if (tenseId === 'conditional') forms = FR_ENDINGS.imperfect.map(e => futureStem + e);
+                else if (tenseId === 'subjunctive') {
+                    if (irr?.subjPresent) forms = irr.subjPresent;
+                    else forms = FR_ENDINGS.subjunctive.map((e, i) => ([3,4].includes(i) ? nousStem : ilsStem) + e);
+                }
+                else if (tenseId === 'perfect' || tenseId === 'pluperfect') {
+                    const auxForms = auxiliary === 'être'
+                        ? (tenseId === 'perfect' ? ['suis','es','est','sommes','êtes','sont'] : ['étais','étais','était','étions','étiez','étaient'])
+                        : (tenseId === 'perfect' ? FR_IRREGULAR_VERBS.avoir.present : FR_ENDINGS.imperfect.map(e => 'av' + e));
+                    // Gender isn't determined by grammatical person alone (tu/vous/nous can be either), so every
+                    // être-verb person just shows the optional agreement rather than guessing a gender.
+                    const agreement = auxiliary === 'être' ? ['(e)','(e)','(e)','(e)s','(e)s','(e)s'] : ['','','','','',''];
+                    forms = auxForms.map((a, i) => `${a} ${participle}${agreement[i]}`);
+                    irregular = irregular || auxiliary === 'être';
+                    if (auxiliary === 'être' && !note) note = 'Takes être, not avoir — the participle agrees with the subject.';
+                } else return null;
+                return { irregular, note, forms: forms.map((form, i) => ({ pronoun: FR_PRONOUNS[i], form })) };
+            }
+
+            // ---- German -------------------------------------------------------------------------------
+            const DE_PRONOUNS = ['ich', 'du', 'er / sie / es', 'wir', 'ihr', 'sie / Sie'];
+            // Strong/irregular verbs: duEr overrides the du/er present forms when the stem vowel changes
+            // (e.g. sehen → siehst/sieht); ichOverride additionally overrides ich (only wissen needs this
+            // among common verbs). preteriteStem + participle are always irregular for a strong verb.
+            const DE_STRONG_VERBS = {
+                sein: { present:['bin','bist','ist','sind','seid','sind'], preteriteStem:'war', preteriteEndings:['','st','','en','t','en'], participle:'gewesen', auxiliary:'sein', subjunctiveI:['sei','sei(e)st','sei','seien','seiet','seien'] },
+                haben: { present:['habe','hast','hat','haben','habt','haben'], preteriteStem:'hatte', preteriteEndings:['','st','','n','t','n'], participle:'gehabt', auxiliary:'haben' },
+                werden: { present:['werde','wirst','wird','werden','werdet','werden'], preteriteStem:'wurde', preteriteEndings:['','st','','n','t','n'], participle:'geworden', auxiliary:'sein' },
+                gehen: { preteriteStem:'ging', participle:'gegangen', auxiliary:'sein' },
+                kommen: { preteriteStem:'kam', participle:'gekommen', auxiliary:'sein' },
+                sehen: { duEr:['siehst','sieht'], preteriteStem:'sah', participle:'gesehen', auxiliary:'haben' },
+                geben: { duEr:['gibst','gibt'], preteriteStem:'gab', participle:'gegeben', auxiliary:'haben' },
+                nehmen: { duEr:['nimmst','nimmt'], preteriteStem:'nahm', participle:'genommen', auxiliary:'haben' },
+                sprechen: { duEr:['sprichst','spricht'], preteriteStem:'sprach', participle:'gesprochen', auxiliary:'haben' },
+                essen: { duEr:['isst','isst'], preteriteStem:'aß', participle:'gegessen', auxiliary:'haben' },
+                fahren: { duEr:['fährst','fährt'], preteriteStem:'fuhr', participle:'gefahren', auxiliary:'sein' },
+                lesen: { duEr:['liest','liest'], preteriteStem:'las', participle:'gelesen', auxiliary:'haben' },
+                tragen: { duEr:['trägst','trägt'], preteriteStem:'trug', participle:'getragen', auxiliary:'haben' },
+                laufen: { duEr:['läufst','läuft'], preteriteStem:'lief', participle:'gelaufen', auxiliary:'sein' },
+                helfen: { duEr:['hilfst','hilft'], preteriteStem:'half', participle:'geholfen', auxiliary:'haben' },
+                finden: { preteriteStem:'fand', participle:'gefunden', auxiliary:'haben' },
+                halten: { duEr:['hältst','hält'], preteriteStem:'hielt', participle:'gehalten', auxiliary:'haben' },
+                lassen: { duEr:['lässt','lässt'], preteriteStem:'ließ', participle:'gelassen', auxiliary:'haben' },
+                wissen: { ichOverride:'weiß', duEr:['weißt','weiß'], preteriteStem:'wusste', preteriteEndings:['','st','','n','t','n'], participle:'gewusst', auxiliary:'haben' },
+                bleiben: { preteriteStem:'blieb', participle:'geblieben', auxiliary:'sein' },
+                schreiben: { preteriteStem:'schrieb', participle:'geschrieben', auxiliary:'haben' },
+                treffen: { duEr:['triffst','trifft'], preteriteStem:'traf', participle:'getroffen', auxiliary:'haben' },
+                ziehen: { preteriteStem:'zog', participle:'gezogen', auxiliary:'haben' },
+                waschen: { duEr:['wäschst','wäscht'], preteriteStem:'wusch', participle:'gewaschen', auxiliary:'haben' },
+                singen: { preteriteStem:'sang', participle:'gesungen', auxiliary:'haben' },
+                sitzen: { preteriteStem:'saß', participle:'gesessen', auxiliary:'haben' },
+                stehen: { preteriteStem:'stand', participle:'gestanden', auxiliary:'haben' },
+                schlafen: { duEr:['schläfst','schläft'], preteriteStem:'schlief', participle:'geschlafen', auxiliary:'haben' },
+                rufen: { preteriteStem:'rief', participle:'gerufen', auxiliary:'haben' }
+            };
+            // Modal verbs: ich/er share one irregular stem with no ending; wir/ihr/sie use the plain
+            // infinitive stem regularly; the preterite is, unusually, WEAK (regular -te endings, no umlaut).
+            const DE_MODAL_VERBS = {
+                können: { ichEr:'kann', du:'kannst', preteriteStem:'konn', participle:'gekonnt' },
+                müssen: { ichEr:'muss', du:'musst', preteriteStem:'muss', participle:'gemusst' },
+                dürfen: { ichEr:'darf', du:'darfst', preteriteStem:'durf', participle:'gedurft' },
+                sollen: { ichEr:'soll', du:'sollst', preteriteStem:'soll', participle:'gesollt' },
+                wollen: { ichEr:'will', du:'willst', preteriteStem:'woll', participle:'gewollt' },
+                mögen: { ichEr:'mag', du:'magst', preteriteStem:'moch', participle:'gemocht' }
+            };
+            // Weak (regular) present/preterite endings; a stem ending in d/t (or most consonant+n/m clusters)
+            // gets a linking -e- before a consonant-initial ending, e.g. arbeiten → du arbeitest.
+            function deNeedsLinkingE(stem) { return /[dt]$/.test(stem); }
+            function deWeakPresent(stem) { const e = deNeedsLinkingE(stem) ? 'e' : '';
+                return [stem+'e', stem+e+'st', stem+e+'t', stem+'en', stem+e+'t', stem+'en']; }
+            function deWeakPreterite(stem) { const e = deNeedsLinkingE(stem) ? 'e' : '';
+                return [stem+e+'te', stem+e+'test', stem+e+'te', stem+e+'ten', stem+e+'tet', stem+e+'ten']; }
+            function conjugateGerman(infRaw, tenseId) {
+                const inf = infRaw.trim().toLowerCase();
+                if (!inf.endsWith('n')) return null; // every German infinitive ends in -en/-n
+                const stem = inf.replace(/e?n$/, '');
+                const modal = DE_MODAL_VERBS[inf];
+                const strong = DE_STRONG_VERBS[inf];
+                let present, preterite, participle, auxiliary = 'haben', irregular = false, note = '';
+                if (modal) {
+                    present = [modal.ichEr, modal.du, modal.ichEr, stem+'en', stem+'t', stem+'en'];
+                    preterite = deWeakPreterite(modal.preteriteStem);
+                    participle = modal.participle; irregular = true;
+                    note = 'Modal verb — irregular in the present, but takes regular (weak) endings in the simple past.';
+                } else if (strong) {
+                    present = strong.present || [strong.ichOverride||stem+'e', (strong.duEr?strong.duEr[0]:stem+'st'), (strong.duEr?strong.duEr[1]:stem+'t'), stem+'en', stem+'t', stem+'en'];
+                    preterite = strong.preteriteEndings ? strong.preteriteEndings.map(e => strong.preteriteStem+e) : (() => { const p = strong.preteriteStem;
+                        return [p,p+'st',p,p+'en',p+'t',p+'en']; })();
+                    participle = strong.participle; auxiliary = strong.auxiliary; irregular = true;
+                    note = 'Strong (irregular) verb — vowel changes in the simple past' + (participle.startsWith('ge')?' and past participle.':'.');
+                } else {
+                    present = deWeakPresent(stem);
+                    preterite = deWeakPreterite(stem);
+                    participle = 'ge' + stem + 't';
+                }
+                let forms;
+                if (tenseId === 'present') forms = present;
+                else if (tenseId === 'preterite') forms = preterite;
+                else if (tenseId === 'future') { const w = DE_STRONG_VERBS.werden.present; forms = w.map(f => `${f} ${inf}`); }
+                else if (tenseId === 'conditional') { const w = ['würde','würdest','würde','würden','würdet','würden']; forms = w.map(f => `${f} ${inf}`); }
+                else if (tenseId === 'subjunctive') { // Konjunktiv I, used for reported speech
+                    forms = strong?.subjunctiveI || [stem+'e', stem+'est', stem+'e', stem+'en', stem+'et', stem+'en'];
+                }
+                else if (tenseId === 'perfect' || tenseId === 'pluperfect') {
+                    const auxForms = auxiliary === 'sein'
+                        ? (tenseId === 'perfect' ? DE_STRONG_VERBS.sein.present : ['war','warst','war','waren','wart','waren'])
+                        : (tenseId === 'perfect' ? DE_STRONG_VERBS.haben.present : DE_STRONG_VERBS.haben.preteriteEndings.map(e => DE_STRONG_VERBS.haben.preteriteStem + e));
+                    forms = auxForms.map(a => `${a} ${participle}`);
+                } else return null;
+                return { irregular, note, forms: forms.map((form, i) => ({ pronoun: DE_PRONOUNS[i], form })) };
+            }
+
+            // ---- Irish --------------------------------------------------------------------------------
+            // Coverage is deliberately narrower than the other three languages: all 11 irregular verbs
+            // (verified against Wiktionary's Irish conjugation tables) plus regular "1st conjugation"
+            // (short, non -aigh/-igh/-áil) verbs. 2nd-conjugation (-aigh/-igh) and syncopating verbs
+            // (oscail, inis, labhair, imir, etc.) are deliberately left to the AI rather than risking a
+            // confidently-wrong table for a pattern this engine isn't fully sure of.
+            const IR_PRONOUNS = ['mé', 'tú', 'sé', 'sí', 'muid', 'sibh', 'siad'];
+            const IR_IRREGULAR_VERBS = {
+                'bí': { present:['tá mé','tá tú','tá sé','tá sí','táimid','tá sibh','tá siad'], past:['bhí mé','bhí tú','bhí sé','bhí sí','bhíomar','bhí sibh','bhí siad'],
+                    'habitual-past':['bhínn','bhíteá','bhíodh sé','bhíodh sí','bhímis','bhíodh sibh','bhídís'], future:['beidh mé','beidh tú','beidh sé','beidh sí','beimid','beidh sibh','beidh siad'],
+                    conditional:['bheinn','bheifeá','bheadh sé','bheadh sí','bheimis','bheadh sibh','bheidís'] },
+                abair: { present:['deirim','deir tú','deir sé','deir sí','deirimid','deir sibh','deir siad'], past:['dúirt mé','dúirt tú','dúirt sé','dúirt sí','dúramar','dúirt sibh','dúirt siad'],
+                    'habitual-past':['deirinn','deirteá','deireadh sé','deireadh sí','deirimis','deireadh sibh','deiridís'], future:['déarfaidh mé','déarfaidh tú','déarfaidh sé','déarfaidh sí','déarfaimid','déarfaidh sibh','déarfaidh siad'],
+                    conditional:['déarfainn','déarfá','déarfadh sé','déarfadh sí','déarfaimis','déarfadh sibh','déarfaidís'] },
+                beir: { present:['beirim','beireann tú','beireann sé','beireann sí','beirimid','beireann sibh','beireann siad'], past:['rug mé','rug tú','rug sé','rug sí','rugamar','rug sibh','rug siad'],
+                    'habitual-past':['bheirinn','bheirteá','bheireadh sé','bheireadh sí','bheirimis','bheireadh sibh','bheiridís'], future:['béarfaidh mé','béarfaidh tú','béarfaidh sé','béarfaidh sí','béarfaimid','béarfaidh sibh','béarfaidh siad'],
+                    conditional:['béarfainn','béarfá','béarfadh sé','béarfadh sí','béarfaimis','béarfadh sibh','béarfaidís'] },
+                clois: { present:['cloisim','cloiseann tú','cloiseann sé','cloiseann sí','cloisimid','cloiseann sibh','cloiseann siad'], past:['chuala mé','chuala tú','chuala sé','chuala sí','chualamar','chuala sibh','chuala siad'],
+                    'habitual-past':['chloisinn','chloisteá','chloiseadh sé','chloiseadh sí','chloisimis','chloiseadh sibh','chloisidís'], future:['cloisfidh mé','cloisfidh tú','cloisfidh sé','cloisfidh sí','cloisfimid','cloisfidh sibh','cloisfidh siad'],
+                    conditional:['chloisfinn','chloisfeá','chloisfeadh sé','chloisfeadh sí','chloisfimis','chloisfeadh sibh','chloisfidís'] },
+                déan: { present:['déanaim','déanann tú','déanann sé','déanann sí','déanaimid','déanann sibh','déanann siad'], past:['rinne mé','rinne tú','rinne sé','rinne sí','rinneamar','rinne sibh','rinne siad'],
+                    'habitual-past':['dhéanainn','dhéantá','dhéanadh sé','dhéanadh sí','dhéanaimis','dhéanadh sibh','dhéanaidís'], future:['déanfaidh mé','déanfaidh tú','déanfaidh sé','déanfaidh sí','déanfaimid','déanfaidh sibh','déanfaidh siad'],
+                    conditional:['dhéanfainn','dhéanfá','dhéanfadh sé','dhéanfadh sí','dhéanfaimis','dhéanfadh sibh','dhéanfaidís'] },
+                faigh: { present:['faighim','faigheann tú','faigheann sé','faigheann sí','faighimid','faigheann sibh','faigheann siad'], past:['fuair mé','fuair tú','fuair sé','fuair sí','fuaireamar','fuair sibh','fuair siad'],
+                    'habitual-past':["d'fhaighinn","d'fhaighteá","d'fhaigheadh sé","d'fhaigheadh sí","d'fhaighimis","d'fhaigheadh sibh","d'fhaighidís"], future:['gheobhaidh mé','gheobhaidh tú','gheobhaidh sé','gheobhaidh sí','gheobhaimid','gheobhaidh sibh','gheobhaidh siad'],
+                    conditional:['gheobhainn','gheofá','gheobhadh sé','gheobhadh sí','gheobhaimis','gheobhadh sibh','gheobhaidís'] },
+                feic: { present:['feicim','feiceann tú','feiceann sé','feiceann sí','feicimid','feiceann sibh','feiceann siad'], past:['chonaic mé','chonaic tú','chonaic sé','chonaic sí','chonaiceamar','chonaic sibh','chonaic siad'],
+                    'habitual-past':["d'fheicinn","d'fheicteá","d'fheiceadh sé","d'fheiceadh sí","d'fheicimis","d'fheiceadh sibh","d'fheicidís"], future:['feicfidh mé','feicfidh tú','feicfidh sé','feicfidh sí','feicfimid','feicfidh sibh','feicfidh siad'],
+                    conditional:["d'fheicfinn","d'fheicfeá","d'fheicfeadh sé","d'fheicfeadh sí","d'fheicfimis","d'fheicfeadh sibh","d'fheicfidís"] },
+                ith: { present:['ithim','itheann tú','itheann sé','itheann sí','ithimid','itheann sibh','itheann siad'], past:["d'ith mé","d'ith tú","d'ith sé","d'ith sí","d'itheamar","d'ith sibh","d'ith siad"],
+                    'habitual-past':["d'ithinn","d'iteá","d'itheadh sé","d'itheadh sí","d'ithimis","d'itheadh sibh","d'ithidís"], future:['íosfaidh mé','íosfaidh tú','íosfaidh sé','íosfaidh sí','íosfaimid','íosfaidh sibh','íosfaidh siad'],
+                    conditional:["d'íosfainn","d'íosfá","d'íosfadh sé","d'íosfadh sí","d'íosfaimis","d'íosfadh sibh","d'íosfaidís"] },
+                tabhair: { present:['tugaim','tugann tú','tugann sé','tugann sí','tugaimid','tugann sibh','tugann siad'], past:['thug mé','thug tú','thug sé','thug sí','thugamar','thug sibh','thug siad'],
+                    'habitual-past':['thugainn','thugtá','thugadh sé','thugadh sí','thugaimis','thugadh sibh','thugaidís'], future:['tabharfaidh mé','tabharfaidh tú','tabharfaidh sé','tabharfaidh sí','tabharfaimid','tabharfaidh sibh','tabharfaidh siad'],
+                    conditional:['thabharfainn','thabharfá','thabharfadh sé','thabharfadh sí','thabharfaimis','thabharfadh sibh','thabharfaidís'] },
+                tar: { present:['tagaim','tagann tú','tagann sé','tagann sí','tagaimid','tagann sibh','tagann siad'], past:['tháinig mé','tháinig tú','tháinig sé','tháinig sí','thángamar','tháinig sibh','tháinig siad'],
+                    'habitual-past':['thagainn','thagtá','thagadh sé','thagadh sí','thagaimis','thagadh sibh','thagaidís'], future:['tiocfaidh mé','tiocfaidh tú','tiocfaidh sé','tiocfaidh sí','tiocfaimid','tiocfaidh sibh','tiocfaidh siad'],
+                    conditional:['thiocfainn','thiocfá','thiocfadh sé','thiocfadh sí','thiocfaimis','thiocfadh sibh','thiocfaidís'] },
+                téigh: { present:['téim','téann tú','téann sé','téann sí','téimid','téann sibh','téann siad'], past:['chuaigh mé','chuaigh tú','chuaigh sé','chuaigh sí','chuamar','chuaigh sibh','chuaigh siad'],
+                    'habitual-past':['théinn','théiteá','théadh sé','théadh sí','théimis','théadh sibh','théidís'], future:['rachaidh mé','rachaidh tú','rachaidh sé','rachaidh sí','rachaimid','rachaidh sibh','rachaidh siad'],
+                    conditional:['rachainn','rachfá','rachadh sé','rachadh sí','rachaimis','rachadh sibh','rachaidís'] },
+                cluin: null // alternate spelling of clois, handled below
+            };
+            IR_IRREGULAR_VERBS.cluin = IR_IRREGULAR_VERBS.clois;
+            // Regular "1st conjugation" endings, confirmed against déan (broad) and feic (slender) above —
+            // those two irregular verbs happen to use fully regular endings, only their past-tense stems differ.
+            const IR_REGULAR_ENDINGS = {
+                broad: { present:['aim','ann tú','ann sé','ann sí','aimid','ann sibh','ann siad'], pastPlural:'amar',
+                    'habitual-past':['ainn','tá','adh sé','adh sí','aimis','adh sibh','aidís'],
+                    future:['faidh mé','faidh tú','faidh sé','faidh sí','faimid','faidh sibh','faidh siad'],
+                    conditional:['fainn','fá','fadh sé','fadh sí','faimis','fadh sibh','faidís'] },
+                slender: { present:['im','eann tú','eann sé','eann sí','imid','eann sibh','eann siad'], pastPlural:'eamar',
+                    'habitual-past':['inn','teá','eadh sé','eadh sí','imis','eadh sibh','idís'],
+                    future:['fidh mé','fidh tú','fidh sé','fidh sí','fimid','fidh sibh','fidh siad'],
+                    conditional:['finn','feá','feadh sé','feadh sí','fimis','feadh sibh','fidís'] }
+            };
+            // Verbs that would otherwise look like simple 1st-conjugation verbs to the classifier below but
+            // are actually 2nd-conjugation/syncopating (e.g. labhair → labhraím, not "labhairim") — excluded
+            // rather than risking a confidently wrong table.
+            const IR_EXCLUDED_VERBS = { imir:1, inis:1, labhair:1, oscail:1, ceangail:1, eitil:1, freagair:1, aithin:1, cosain:1, tarraing:1, tomhais:1, iompair:1, foghlaim:1 };
+            function irLenite(word) {
+                const first = word[0].toLowerCase();
+                if ('aeiouáéíóú'.includes(first)) return "d'" + word;
+                if (first === 'f') return "d'fh" + word.slice(1);
+                if ('lnr'.includes(first)) return word;
+                if (first === 's') { const second = (word[1] || '').toLowerCase();
+                    return 'cfmptlnrs'.includes(second) ? word : 'sh' + word.slice(1); }
+                const h = { b:'bh', c:'ch', d:'dh', g:'gh', m:'mh', p:'ph', t:'th' }[first];
+                return h ? h + word.slice(1) : word;
+            }
+            function irIsBroad(root) {
+                const plain = root.toLowerCase().replace(/[áéíóú]/g, c => ({á:'a',é:'e',í:'i',ó:'o',ú:'u'}[c]));
+                for (let i = plain.length - 1; i >= 0; i--) if ('aeiou'.includes(plain[i])) return 'aou'.includes(plain[i]);
+                return true;
+            }
+            function conjugateIrish(rootRaw, tenseId) {
+                const root = rootRaw.trim().toLowerCase();
+                const irr = IR_IRREGULAR_VERBS[root];
+                if (irr) { const forms = irr[tenseId]; if (!forms) return null;
+                    return { irregular: true, note: 'Irregular verb — see the table for its actual forms.', forms: forms.map((form, i) => ({ pronoun: IR_PRONOUNS[i], form })) }; }
+                if (IR_EXCLUDED_VERBS[root] || /(aigh|igh|áil|ail)$/.test(root)) return null;
+                const broad = irIsBroad(root);
+                const set = IR_REGULAR_ENDINGS[broad ? 'broad' : 'slender'];
+                let forms;
+                if (tenseId === 'present') forms = set.present.map(e => root + e);
+                else if (tenseId === 'past') { const len = irLenite(root);
+                    forms = [`${len} mé`,`${len} tú`,`${len} sé`,`${len} sí`, len + set.pastPlural, `${len} sibh`,`${len} siad`]; }
+                else if (tenseId === 'habitual-past') { const len = irLenite(root); forms = set['habitual-past'].map(e => len + e); }
+                else if (tenseId === 'future') forms = set.future.map(e => root + e);
+                else if (tenseId === 'conditional') { const len = irLenite(root); forms = set.conditional.map(e => len + e); }
+                else return null;
+                return { irregular: false, note: '', forms: forms.map((form, i) => ({ pronoun: IR_PRONOUNS[i], form })) };
+            }
+
+            function localConjugate(taxonomyId, infinitive, tenseId) {
+                if (taxonomyId === 'spanish') return conjugateSpanish(infinitive, tenseId);
+                if (taxonomyId === 'french') return conjugateFrench(infinitive, tenseId);
+                if (taxonomyId === 'german') return conjugateGerman(infinitive, tenseId);
+                if (taxonomyId === 'irish') return conjugateIrish(infinitive, tenseId);
+                return null;
+            }
+
             async function ensureVerbConjugations(verb) {
                 const s = subject(verb.subjectId);
                 const learned = learnedTensesFor(verb.subjectId);
                 const catalog = tensesForSubject(s);
                 const need = learned.filter(tid => !verb.conjugations || !verb.conjugations[tid]);
                 if (!need.length) return;
+                verb.conjugations = verb.conjugations || {};
+                // Try the local, no-AI engine (see "Local conjugation engines" above) for each tense first —
+                // it's instant, doesn't touch the shared AI quota, and for the verbs it covers is more
+                // reliable than an AI-generated table (no hallucination risk). Only what it can't resolve
+                // (an unrecognised verb, a tense outside its coverage, or a non-covered language) goes to AI.
+                const stillNeed = [];
+                need.forEach(tid => { const local = localConjugate(s.taxonomyId, verb.infinitive, tid);
+                    if (local) verb.conjugations[tid] = local; else stillNeed.push(tid); });
+                if (Object.keys(verb.conjugations).length) save();
+                if (!stillNeed.length) { renderModal(); return; }
                 verbConjLoading = true; renderModal();
                 try {
-                    const tenseList = need.map(tid => catalog.find(t => t.id === tid)).filter(Boolean);
+                    const tenseList = stillNeed.map(tid => catalog.find(t => t.id === tid)).filter(Boolean);
                     const sys = `You produce ${s.name} verb conjugation tables for an Irish secondary school student. For the given verb and each requested tense, give every person/number form actually taught for that tense in ${s.name} (use the subject pronoun/marker exactly as normally taught in ${s.name} itself for each row, e.g. "yo/tú/él/ella/usted/nosotros/vosotros/ellos" for Spanish, "mé/tú/sé/sí/muid/sibh/siad" for Irish). Clearly flag whether the verb is irregular in that tense (irregular: true/false) with a short plain-English note on what's irregular about it, or an empty note if regular. Reply with ONLY compact JSON: {"tenses": [{"tenseId": "...", "irregular": true, "note": "...", "forms": [{"pronoun": "...", "form": "..."}]}]}.`;
                     const userText = `Verb: "${verb.infinitive}" (English: "${verb.english}"). Tenses needed (id: label): ${tenseList.map(t => `${t.id}: ${t.label}`).join(', ')}.`;
-                    const result = await aiJsonOnce(sys, [{ text: userText }]);
-                    verb.conjugations = verb.conjugations || {};
+                    const result = await aiJsonOnce(sys, [{ text: userText }], preferredProviderFor(s));
                     (Array.isArray(result.tenses) ? result.tenses : []).forEach(t => { if (t && t.tenseId) verb.conjugations[t.tenseId] =
                         { irregular: !!t.irregular, note: t.note || '', forms: Array.isArray(t.forms) ? t.forms.filter(f => f && f.pronoun && f.form) : [] }; });
                     save();
@@ -6108,7 +6493,7 @@
                     const sys = `You help an Irish secondary school student find entries in their own ${s.name} verb bank that best match an English meaning they're thinking of, even when the exact wording differs but the sense is close. Only choose ids from the exact list given — never invent verbs. Order best match first. Reply with ONLY compact JSON: {"ids": ["id1", ...up to 5], "note": "one short sentence, or empty string"}.`;
                     const list = bank.map(v => ({ id: v.id, infinitive: v.infinitive, english: v.english }));
                     const userText = `English meaning the student is searching for: "${query}"\n\nTheir current verb bank:\n${JSON.stringify(list)}`;
-                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    const result = await aiJsonOnce(sys, [{ text: userText }], preferredProviderFor(s));
                     const ids = Array.isArray(result.ids) ? result.ids.filter(id => bank.some(v => v.id === id)) : [];
                     verbSearchResults = { ids, note: result.note || '' };
                 } catch (err) { toast(err.message || 'Search failed.'); verbSearchResults = null; }
@@ -6121,7 +6506,7 @@
                     const s = subject(entry.subjectId);
                     const sys = `You help an Irish secondary school student vary the verbs they use in ${s.name} essays. Given one ${s.name} verb's infinitive and its English meaning, give 3 to 5 other ${s.name} verbs (infinitive form) with a similar or related meaning that a student at this level would plausibly want as an alternative. Reply with ONLY compact JSON: {"items": [{"infinitive": "...", "english": "..."}]}.`;
                     const userText = `Original ${s.name} verb: "${entry.infinitive}" (English: "${entry.english}"). Give alternatives.`;
-                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    const result = await aiJsonOnce(sys, [{ text: userText }], preferredProviderFor(s));
                     const items = (Array.isArray(result.items) ? result.items : []).filter(i => i && i.infinitive && i.english);
                     verbAlternatives = { forId: entry.id, items };
                     if (!items.length) toast("Couldn't come up with alternatives for that one.");
@@ -6158,7 +6543,9 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 parts.push({ text: text ? `Essay:\n${text}` : 'Mark the essay shown in the attached photo.' });
                 essayMarking = true; essayResult = null; render();
                 try {
-                    const result = await aiJsonOnce(sys, parts);
+                    // preferredProviderFor is harmless to pass even in photo mode — the edge function
+                    // ignores it whenever the request actually contains an image (vision always needs Gemini).
+                    const result = await aiJsonOnce(sys, parts, preferredProviderFor(s));
                     essayResult = {
                         subjectId, topicIds: [...essayTopicIds], date: localDate(), inputMode: essayInputMode,
                         text: result.transcript || text,
