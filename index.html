@@ -2720,6 +2720,8 @@
         (() => {
             'use strict';
             const STORE = 'simple-study-v1';
+            const STORE_UPDATED_AT = STORE + ':updatedAt'; // when `state` was last changed locally — lets
+            // loadCloudState() tell a stale cloud row from a genuinely newer one instead of always trusting the cloud.
 
             // ------------------------------------------------------------------
             // Supabase: auth (Google sign-in) + cloud sync.
@@ -2785,9 +2787,14 @@
             }
 
             // Runs once right after sign-in (or on page load, for an already-signed-in
-            // user). Cloud data wins if it exists; otherwise this is someone's very
-            // first sign-in, so their existing local data is seeded up to the cloud
-            // rather than being silently replaced by nothing.
+            // user). Whichever side was touched more recently wins: if this device has
+            // local edits newer than the cloud row (e.g. a debounced write hadn't landed
+            // yet when the page was reloaded or navigated away from), pushing those up
+            // instead of pulling the older cloud copy down is what stops a reload/back
+            // from silently erasing recent changes. Otherwise cloud data wins, since it's
+            // more recent than whatever's local; and if there's no cloud row at all, this
+            // is someone's very first sign-in, so local data is seeded up rather than
+            // being silently replaced by nothing.
             async function loadCloudState() {
                 const { data, error } = await supabaseClient
                     .from("study_state")
@@ -2798,9 +2805,16 @@
                     cloudResolutionPending = false;
                     render(); return; }
                 if (data) {
-                    state = sanitizeState(data.state);
-                    lastSyncedAt = new Date(data.updated_at);
-                    localStorage.setItem(STORE, JSON.stringify(state));
+                    const localUpdatedAt = Number(localStorage.getItem(STORE_UPDATED_AT)) || 0;
+                    const cloudUpdatedAt = new Date(data.updated_at).getTime();
+                    if (localUpdatedAt > cloudUpdatedAt) {
+                        await pushStateToCloud(true);
+                    } else {
+                        state = sanitizeState(data.state);
+                        lastSyncedAt = new Date(data.updated_at);
+                        localStorage.setItem(STORE, JSON.stringify(state));
+                        localStorage.setItem(STORE_UPDATED_AT, String(cloudUpdatedAt));
+                    }
                 } else {
                     await pushStateToCloud(true);
                 }
@@ -2825,6 +2839,17 @@
                 if (immediate) return doPush();
                 cloudSyncTimer = setTimeout(doPush, 1500);
             }
+
+            // A debounced write still mid-flight when the tab is reloaded, backed out of,
+            // or closed never reaches the cloud, leaving a stale cloud row that
+            // loadCloudState() would otherwise adopt on the next load. Firing the pending
+            // push immediately as soon as the page is about to go away (visibilitychange
+            // fires reliably before unload, including for back/forward and reloads —
+            // pagehide is a backstop for cases it misses) closes that window.
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' &&
+                cloudSyncTimer) { clearTimeout(cloudSyncTimer); cloudSyncTimer = null; pushStateToCloud(true); } });
+            window.addEventListener('pagehide', () => { if (cloudSyncTimer) { clearTimeout(cloudSyncTimer);
+                cloudSyncTimer = null; pushStateToCloud(true); } });
 
             // ------------------------------------------------------------------
             // Optional Spotify integration for Study Mode: a tiny "play music while
@@ -4005,7 +4030,8 @@
             // While a demo/preview tour has temporarily swapped in sample data (see startDemoTour), nothing
             // gets persisted — not to localStorage, not to the cloud — no matter what triggers a save, so a
             // crash or stray click mid-tour can never leave demo content in place of someone's real data.
-            function save() { if (demoModeActive) return; localStorage.setItem(STORE, JSON.stringify(state)); pushStateToCloud(); }
+            function save() { if (demoModeActive) return; localStorage.setItem(STORE, JSON.stringify(state));
+                localStorage.setItem(STORE_UPDATED_AT, String(Date.now())); pushStateToCloud(); }
 
             function toast(message) { if (demoModeActive) return; const el = document.getElementById('toast');
                 el.textContent = message;
