@@ -964,6 +964,24 @@
             font-size: 15px;
             padding: 2px 4px;
         }
+        .tense-check-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 6px 14px;
+        }
+        .conj-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .conj-table td {
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--line);
+        }
+        .conj-table td:first-child {
+            color: var(--muted);
+            width: 40%;
+        }
         .end-day {
             border-top-color: var(--danger);
             border-top-style: dashed;
@@ -3928,6 +3946,10 @@
                 examTasks: [], // { id, subjectId, taxonomyId, title, dueDate, type, milestones: [{id,label,dueDate,done,taskId}], notes, done }
                 lastNotificationCheck: '', // date string — at most one notification check per day
                 lastResultsCheck: '', // date string — cooldown so the "results below target" check-in doesn't nag repeatedly
+                wordbankVocab: [], // { id, subjectId, phrase, english, addedDate, source: 'manual'|'photo'|'suggested' } — language subjects' vocab/phrase bank
+                wordbankVerbs: [], // { id, subjectId, infinitive, english, addedDate, source, conjugations: { [tenseId]: { irregular, note, forms: [{pronoun, form}] } } }
+                wordbankLearnedTenses: {}, // { [subjectId]: [tenseId, ...] } — which tenses the student has said they've learnt so far
+                essayMarks: [], // { id, subjectId, topicIds: [], date, inputMode, text, overallComment, rating: 'good'|'ok'|'bad', spelling: [], grammar: [], suggestions: [] }
                 week: weekStart(localDate())
             });
             let state = load();
@@ -3957,7 +3979,34 @@
             let examResultDraft = null; // { markingType, percentUnknown } — just enough to know which fields to show
             let pastPaperResultDraft = null; // same shape, for the separate past-papers result form
             let selectedSubjectId = null; // which subject the 'subject-detail' page (a real page now, not a modal) is showing
-            let subjectDetailSection = 'overview'; // 'overview' | 'topics' | 'pastpapers' — internal sidebar within that page
+            let subjectDetailSection = 'overview'; // 'overview' | 'topics' | 'pastpapers' | 'wordbank' | 'essaymarking' — internal sidebar within that page
+
+            // ---- Word Bank (vocab + verbs) & Essay Marking UI state — see the "Word Bank & Essay Marking"
+            // section further down for the data/AI functions these drive. Kept as plain module-level state like
+            // the rest of the app's transient UI state (editingTopicId, examWizard, etc.) rather than in `state`,
+            // since none of it needs to survive a reload.
+            let wordBankTab = 'vocab'; // 'vocab' | 'verbs' — sub-tab within the Word Bank page
+            let vocabSort = 'english'; // 'english' | 'phrase'
+            let vocabSearchQuery = '';
+            let vocabSearchResults = null; // { ids: [...], note } from the last AI search, or null if none run yet
+            let vocabSearchLoading = false;
+            let vocabOcrDraft = null; // { subjectId, items: [{phrase, english, include}] } — pending review after a photo import, or null
+            let vocabOcrLoading = false;
+            let vocabAlternatives = null; // { forId, items: [{phrase, english}] } — last "generate alternatives" result
+            let vocabAltLoading = false;
+            let verbSort = 'english'; // 'english' | 'infinitive'
+            let verbSearchQuery = '';
+            let verbSearchResults = null;
+            let verbSearchLoading = false;
+            let verbAlternatives = null; // { forId, items: [{infinitive, english}] }
+            let verbAltLoading = false;
+            let verbConjLoading = false; // true while a conjugation-table AI call for the open verb-detail modal is in flight
+            let essayInputMode = 'text'; // 'text' | 'photo'
+            let essayText = '';
+            let essayPhoto = null; // { mimeType, data, dataUrl, name }
+            let essayTopicIds = [];
+            let essayMarking = false; // true while the AI marking call is in flight
+            let essayResult = null; // unsaved draft result from the last marking call, shown for review before saving
 
             // Navigates to a subject's own page, closing any open modal first (this can be triggered from inside
             // one, e.g. topic-detail's "back" button or after saving a past-paper result).
@@ -4017,7 +4066,11 @@
                     studySessionLog: Array.isArray(saved.studySessionLog) ? saved.studySessionLog : [],
                     longestStudyStreak: typeof saved.longestStudyStreak === 'number' ? saved.longestStudyStreak : 0,
                     caoCourses: Array.isArray(saved.caoCourses) ? saved.caoCourses : [],
-                    examTasks: Array.isArray(saved.examTasks) ? saved.examTasks : [] };
+                    examTasks: Array.isArray(saved.examTasks) ? saved.examTasks : [],
+                    wordbankVocab: Array.isArray(saved.wordbankVocab) ? saved.wordbankVocab : [],
+                    wordbankVerbs: Array.isArray(saved.wordbankVerbs) ? saved.wordbankVerbs : [],
+                    wordbankLearnedTenses: saved.wordbankLearnedTenses && typeof saved.wordbankLearnedTenses === 'object' ? saved.wordbankLearnedTenses : {},
+                    essayMarks: Array.isArray(saved.essayMarks) ? saved.essayMarks : [] };
             }
 
             function load() {
@@ -5820,7 +5873,11 @@
                                 .year === year);
                             return `<div class="past-paper-row ${paper?'done':''}" data-action="open-past-paper-choice" data-subject="${s.id}" data-year="${year}"><span>${paper?'✓ ':''}${year}</span><span class="small">${paper?resultLabel(paper.result)+(paper.result.percent!=null?` · ${paper.result.percent}%`:''):'Not done'}</span></div>`; };
                         content =
-                            `<p class="small" style="margin-bottom:12px">Tick off past papers as you do them, and log a result the same way you would for a real exam — it feeds into the same study planning as everything else.</p><div>${years.map(row).join('')}</div>`; } } else { const summary =
+                            `<p class="small" style="margin-bottom:12px">Tick off past papers as you do them, and log a result the same way you would for a real exam — it feeds into the same study planning as everything else.</p><div>${years.map(row).join('')}</div>`; } } else if (section === 'wordbank') {
+                    content = renderWordBank(s);
+                } else if (section === 'essaymarking') {
+                    content = renderEssayMarking(s);
+                } else { const summary =
                     subjectPerformanceSummary(s.id);
                     content =
                         `<div class="performance-summary-card ${summary.level}" data-action="open-subject-performance" data-subject="${s.id}"><div><strong>${summary.label}</strong><div class="small" style="margin-top:2px">${escape(summary.reasons[0]||'')}</div></div><span>›</span></div>
@@ -5828,11 +5885,12 @@
           <div style="margin-top:18px"><h3>What study is currently focused on</h3><p class="small">${subjectStudyFocusSummary(s.id)}</p></div>`; }
 
                 const navBtn = (id, label) => `<button type="button" class="${section===id?'active':''}" data-action="subject-section" data-section="${id}">${label}</button>`;
+                const isLang = isLanguageSubject(s);
                 return appFrame(`<div class="page">
         <button type="button" class="subject-page-back" data-action="nav-classes">← Back to Classes</button>
         ${header(escape(s.name), `${CATEGORY_LABELS[s.category]||'Other'}${s.examSubject===false?' · not an exam subject':''}`,'')}
         <div class="subject-page-layout">
-          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}</div>
+          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}</div>
           <div>${content}</div>
         </div>
         </div>`); }
@@ -5851,6 +5909,448 @@
         </div>`,
                     `<button class="button" data-action="close-modal">Close</button>`,
                     true); }
+
+            // --------------------------------------------------------------------------
+            // Word Bank & Essay Marking — a per-subject vocab/verb bank plus AI essay
+            // marking, shown only on language subjects (not English — see isLanguageSubject).
+            // All the AI calls below go through the same `ai-chat` Edge Function the chat
+            // widget uses (see "AI Chatbot Integration" further down for why: no API key
+            // ever lives in this file), just as single-shot requests with no tool-calling
+            // and no conversation history, via aiTextOnce/aiJsonOnce.
+            // --------------------------------------------------------------------------
+
+            function isLanguageSubject(s) { return !!s && s.category === 'language' && s.taxonomyId !== 'english'; }
+
+            const DEFAULT_LANGUAGE_TENSES = [
+                { id: 'present', label: 'Present' },
+                { id: 'preterite', label: 'Preterite / Simple past' },
+                { id: 'imperfect', label: 'Imperfect' },
+                { id: 'future', label: 'Future' },
+                { id: 'conditional', label: 'Conditional' },
+                { id: 'perfect', label: 'Perfect (compound past)' },
+                { id: 'pluperfect', label: 'Pluperfect' },
+                { id: 'subjunctive', label: 'Present subjunctive' }
+            ];
+            // Irish doesn't map cleanly onto the above (no perfect/pluperfect/subjunctive as
+            // separate school-taught tenses, and the habitual past is its own distinct tense) —
+            // give it its own catalog, named the way it's actually taught.
+            const IRISH_LANGUAGE_TENSES = [
+                { id: 'present', label: 'Aimsir Láithreach (Present)' },
+                { id: 'past', label: 'Aimsir Chaite (Past)' },
+                { id: 'habitual-past', label: 'Aimsir Ghnáthchaite (Habitual past)' },
+                { id: 'future', label: 'Aimsir Fháistineach (Future)' },
+                { id: 'conditional', label: 'Modh Coinníollach (Conditional)' },
+                { id: 'imperative', label: 'Modh Ordaitheach (Imperative)' }
+            ];
+            const LANGUAGE_TENSES_BY_TAXONOMY = { irish: IRISH_LANGUAGE_TENSES };
+            function tensesForSubject(s) { return LANGUAGE_TENSES_BY_TAXONOMY[s?.taxonomyId] || DEFAULT_LANGUAGE_TENSES; }
+            function tenseLabel(s, tenseId) { return (tensesForSubject(s).find(t => t.id === tenseId) || {}).label || tenseId; }
+
+            // ---- Generic one-shot AI call helpers ----------------------------------------------------
+            // Unlike the chat widget's callGemini()/processUserPrompt(), these send a single user turn
+            // with no history and no tool declarations, and expect a plain text (aiTextOnce) or JSON
+            // (aiJsonOnce) reply. Every prompt built below explicitly asks for "ONLY compact JSON" —
+            // aiJsonOnce/parseAiJson tolerate the model wrapping it in a markdown code fence anyway.
+            async function aiTextOnce(systemPrompt, parts) {
+                if (!currentUser) throw new Error('Sign in with Google to use this AI feature.');
+                const { data, error } = await supabaseClient.functions.invoke('ai-chat', {
+                    body: { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: systemPrompt }] } }
+                });
+                if (error) { let detail = error.message || 'AI request failed.';
+                    try { detail = (await error.context.json())?.error || detail; } catch {}
+                    throw new Error(detail); }
+                if (data?.error) throw new Error(data.error);
+                const candidate = data?.candidates?.[0];
+                const text = candidate?.content?.parts?.map(p => p.text || '').join('') || '';
+                if (!text.trim()) throw new Error("The AI didn't return a usable response — try again.");
+                return text;
+            }
+            function parseAiJson(text) {
+                const cleaned = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+                try { return JSON.parse(cleaned); } catch {}
+                const firstObj = cleaned.indexOf('{'), firstArr = cleaned.indexOf('[');
+                const first = firstObj === -1 ? firstArr : (firstArr === -1 ? firstObj : Math.min(firstObj, firstArr));
+                const last = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
+                if (first !== -1 && last > first) { try { return JSON.parse(cleaned.slice(first, last + 1)); } catch {} }
+                throw new Error("Couldn't understand the AI's response — try again.");
+            }
+            async function aiJsonOnce(systemPrompt, parts) { return parseAiJson(await aiTextOnce(systemPrompt, parts)); }
+
+            function fileToDataUrl(file) { return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Could not read that file.'));
+                reader.readAsDataURL(file); }); }
+
+            // ---- Vocab / phrase bank -------------------------------------------------------------
+            function vocabFor(subjectId) { return state.wordbankVocab.filter(v => v.subjectId === subjectId); }
+
+            function addVocabEntry(subjectId, phrase, english, source) {
+                phrase = (phrase || '').trim(); english = (english || '').trim();
+                if (!phrase || !english) return null;
+                const entry = { id: uid(), subjectId, phrase, english, addedDate: localDate(), source: source || 'manual' };
+                state.wordbankVocab.push(entry);
+                save();
+                return entry;
+            }
+
+            async function runVocabOcr(subjectId, file) {
+                if (!file.type.startsWith('image/')) { toast('Please choose an image file.'); return; }
+                let dataUrl; try { dataUrl = await fileToDataUrl(file); } catch (err) { toast(err.message); return; }
+                vocabOcrLoading = true; render();
+                try {
+                    const s = subject(subjectId);
+                    const sys = `You read a photo of an Irish secondary school student's handwritten or printed notes for ${s.name}. Extract every ${s.name} word or phrase paired with its English meaning that you can find, however it's laid out (a list, two columns, a table, mixed in with other notes). Only include a pair when you're reasonably confident of both sides. Reply with ONLY compact JSON: {"items": [{"phrase": "the ${s.name} text exactly as written", "english": "its English meaning"}, ...]}. If nothing usable is found, reply {"items": []}.`;
+                    const result = await aiJsonOnce(sys, [
+                        { inlineData: { mimeType: file.type, data: dataUrl.split(',')[1] } },
+                        { text: 'Extract the vocabulary from this photo of notes.' }
+                    ]);
+                    const items = (Array.isArray(result.items) ? result.items : [])
+                        .filter(i => i && i.phrase && i.english)
+                        .map(i => ({ phrase: String(i.phrase).trim(), english: String(i.english).trim(), include: true }));
+                    if (!items.length) toast("Couldn't find any phrases in that photo — try a clearer picture.");
+                    vocabOcrDraft = { subjectId, items };
+                } catch (err) { toast(err.message || 'Could not read that photo.'); }
+                vocabOcrLoading = false; render();
+            }
+
+            function confirmVocabOcrDraft() {
+                if (!vocabOcrDraft) return;
+                const included = vocabOcrDraft.items.filter(i => i.include && i.phrase.trim() && i.english.trim());
+                included.forEach(i => addVocabEntry(vocabOcrDraft.subjectId, i.phrase, i.english, 'photo'));
+                toast(included.length ? `Added ${included.length} phrase${included.length === 1 ? '' : 's'} from the photo.` : 'Nothing was added.');
+                vocabOcrDraft = null;
+                render();
+            }
+
+            async function runVocabSearch(subjectId, query) {
+                query = (query || '').trim();
+                vocabSearchQuery = query;
+                if (!query) { vocabSearchResults = null; render(); return; }
+                const bank = vocabFor(subjectId);
+                if (!bank.length) { vocabSearchResults = { ids: [], note: 'Your bank is empty — add some phrases first.' }; render(); return; }
+                vocabSearchLoading = true; render();
+                try {
+                    const s = subject(subjectId);
+                    const sys = `You help an Irish secondary school student find entries in their own ${s.name} vocabulary/phrase bank that best match an English meaning they're thinking of, even when the wording is quite different (e.g. searching "I think that" should surface a saved entry meaning "I would say that", since it serves the same purpose in an essay). Only choose ids from the exact list given — never invent phrases. Order best match first. Reply with ONLY compact JSON: {"ids": ["id1", "id2", ...up to 5], "note": "one short sentence, or empty string if there's a good match"}. If nothing is a reasonable match, return an empty ids array and a brief note saying so.`;
+                    const list = bank.map(v => ({ id: v.id, phrase: v.phrase, english: v.english }));
+                    const userText = `English meaning the student is searching for: "${query}"\n\nTheir current bank:\n${JSON.stringify(list)}`;
+                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    const ids = Array.isArray(result.ids) ? result.ids.filter(id => bank.some(v => v.id === id)) : [];
+                    vocabSearchResults = { ids, note: result.note || '' };
+                } catch (err) { toast(err.message || 'Search failed.'); vocabSearchResults = null; }
+                vocabSearchLoading = false; render();
+            }
+
+            async function runVocabAlternatives(entry) {
+                vocabAltLoading = true; vocabAlternatives = { forId: entry.id, items: [] }; renderModal();
+                try {
+                    const s = subject(entry.subjectId);
+                    const sys = `You help an Irish secondary school student vary the ${s.name} they use in essays. Given one ${s.name} phrase and its English meaning, give 3 to 5 genuinely different ways to express essentially the same meaning in ${s.name}, the way it's actually taught in Irish secondary schools (not a stiff literal translation) — different wording/structure, not trivial variants. Reply with ONLY compact JSON: {"items": [{"phrase": "...", "english": "..."}]}.`;
+                    const userText = `Original ${s.name} phrase: "${entry.phrase}" (meaning: "${entry.english}"). Give alternatives.`;
+                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    const items = (Array.isArray(result.items) ? result.items : []).filter(i => i && i.phrase && i.english);
+                    vocabAlternatives = { forId: entry.id, items };
+                    if (!items.length) toast("Couldn't come up with alternatives for that one.");
+                } catch (err) { toast(err.message || 'Could not generate alternatives.'); vocabAlternatives = { forId: entry.id, items: [] }; }
+                vocabAltLoading = false; renderModal();
+            }
+
+            // ---- Verb bank -------------------------------------------------------------------------
+            function verbsFor(subjectId) { return state.wordbankVerbs.filter(v => v.subjectId === subjectId); }
+            function learnedTensesFor(subjectId) { return state.wordbankLearnedTenses[subjectId] || []; }
+
+            function addVerbEntry(subjectId, infinitive, english, source) {
+                infinitive = (infinitive || '').trim(); english = (english || '').trim();
+                if (!infinitive || !english) return null;
+                const entry = { id: uid(), subjectId, infinitive, english, addedDate: localDate(), source: source || 'manual', conjugations: {} };
+                state.wordbankVerbs.push(entry);
+                save();
+                return entry;
+            }
+
+            function toggleLearnedTense(subjectId, tenseId, on) {
+                const cur = new Set(state.wordbankLearnedTenses[subjectId] || []);
+                if (on) cur.add(tenseId); else cur.delete(tenseId);
+                state.wordbankLearnedTenses[subjectId] = Array.from(cur);
+                save();
+            }
+
+            async function ensureVerbConjugations(verb) {
+                const s = subject(verb.subjectId);
+                const learned = learnedTensesFor(verb.subjectId);
+                const catalog = tensesForSubject(s);
+                const need = learned.filter(tid => !verb.conjugations || !verb.conjugations[tid]);
+                if (!need.length) return;
+                verbConjLoading = true; renderModal();
+                try {
+                    const tenseList = need.map(tid => catalog.find(t => t.id === tid)).filter(Boolean);
+                    const sys = `You produce ${s.name} verb conjugation tables for an Irish secondary school student. For the given verb and each requested tense, give every person/number form actually taught for that tense in ${s.name} (use the subject pronoun/marker exactly as normally taught in ${s.name} itself for each row, e.g. "yo/tú/él/ella/usted/nosotros/vosotros/ellos" for Spanish, "mé/tú/sé/sí/muid/sibh/siad" for Irish). Clearly flag whether the verb is irregular in that tense (irregular: true/false) with a short plain-English note on what's irregular about it, or an empty note if regular. Reply with ONLY compact JSON: {"tenses": [{"tenseId": "...", "irregular": true, "note": "...", "forms": [{"pronoun": "...", "form": "..."}]}]}.`;
+                    const userText = `Verb: "${verb.infinitive}" (English: "${verb.english}"). Tenses needed (id: label): ${tenseList.map(t => `${t.id}: ${t.label}`).join(', ')}.`;
+                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    verb.conjugations = verb.conjugations || {};
+                    (Array.isArray(result.tenses) ? result.tenses : []).forEach(t => { if (t && t.tenseId) verb.conjugations[t.tenseId] =
+                        { irregular: !!t.irregular, note: t.note || '', forms: Array.isArray(t.forms) ? t.forms.filter(f => f && f.pronoun && f.form) : [] }; });
+                    save();
+                } catch (err) { toast(err.message || 'Could not generate conjugations.'); }
+                verbConjLoading = false; renderModal();
+            }
+
+            async function runVerbSearch(subjectId, query) {
+                query = (query || '').trim();
+                verbSearchQuery = query;
+                if (!query) { verbSearchResults = null; render(); return; }
+                const bank = verbsFor(subjectId);
+                if (!bank.length) { verbSearchResults = { ids: [], note: 'Your bank is empty — add some verbs first.' }; render(); return; }
+                verbSearchLoading = true; render();
+                try {
+                    const s = subject(subjectId);
+                    const sys = `You help an Irish secondary school student find entries in their own ${s.name} verb bank that best match an English meaning they're thinking of, even when the exact wording differs but the sense is close. Only choose ids from the exact list given — never invent verbs. Order best match first. Reply with ONLY compact JSON: {"ids": ["id1", ...up to 5], "note": "one short sentence, or empty string"}.`;
+                    const list = bank.map(v => ({ id: v.id, infinitive: v.infinitive, english: v.english }));
+                    const userText = `English meaning the student is searching for: "${query}"\n\nTheir current verb bank:\n${JSON.stringify(list)}`;
+                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    const ids = Array.isArray(result.ids) ? result.ids.filter(id => bank.some(v => v.id === id)) : [];
+                    verbSearchResults = { ids, note: result.note || '' };
+                } catch (err) { toast(err.message || 'Search failed.'); verbSearchResults = null; }
+                verbSearchLoading = false; render();
+            }
+
+            async function runVerbAlternatives(entry) {
+                verbAltLoading = true; verbAlternatives = { forId: entry.id, items: [] }; renderModal();
+                try {
+                    const s = subject(entry.subjectId);
+                    const sys = `You help an Irish secondary school student vary the verbs they use in ${s.name} essays. Given one ${s.name} verb's infinitive and its English meaning, give 3 to 5 other ${s.name} verbs (infinitive form) with a similar or related meaning that a student at this level would plausibly want as an alternative. Reply with ONLY compact JSON: {"items": [{"infinitive": "...", "english": "..."}]}.`;
+                    const userText = `Original ${s.name} verb: "${entry.infinitive}" (English: "${entry.english}"). Give alternatives.`;
+                    const result = await aiJsonOnce(sys, [{ text: userText }]);
+                    const items = (Array.isArray(result.items) ? result.items : []).filter(i => i && i.infinitive && i.english);
+                    verbAlternatives = { forId: entry.id, items };
+                    if (!items.length) toast("Couldn't come up with alternatives for that one.");
+                } catch (err) { toast(err.message || 'Could not generate alternatives.'); verbAlternatives = { forId: entry.id, items: [] }; }
+                verbAltLoading = false; renderModal();
+            }
+
+            // ---- Essay marking -----------------------------------------------------------------------
+            async function runEssayMarking(subjectId) {
+                const s = subject(subjectId);
+                const text = essayText.trim();
+                if (essayInputMode === 'photo' ? !essayPhoto : !text) { toast(essayInputMode === 'photo' ? 'Attach a photo of your essay first.' : 'Write your essay first.'); return; }
+                // Guard against stale topic ids left over from a draft started on a different subject's essay page.
+                essayTopicIds = essayTopicIds.filter(id => { const t = state.classTopics.find(x => x.id === id); return t && t.subjectId === subjectId; });
+                const vocabList = vocabFor(subjectId).slice(0, 200).map(v => `${v.phrase} = ${v.english}`);
+                const verbList = verbsFor(subjectId).slice(0, 200).map(v => `${v.infinitive} = ${v.english}`);
+                const topics = essayTopicIds.map(id => state.classTopics.find(t => t.id === id)).filter(Boolean).map(t => t.label);
+                const sys = `You are an experienced Irish secondary school ${s.name} teacher marking a student's ${s.name} essay/composition (Junior or Leaving Certificate level, written or oral-prep style writing). Do the following:
+1. If given a photo, carefully transcribe the essay text first — make a best effort on unclear words rather than skipping them.
+2. List spelling and accent/diacritic mistakes in the ${s.name} text, each with the correction.
+3. List grammar mistakes (agreement, conjugation, gender, word order, etc.), each with the correction and a short plain-English explanation.
+4. Look at the vocabulary, phrases, and verb tenses actually used, and point out places where a more interesting, varied, or more advanced alternative could have been used instead — prefer suggesting entries from the student's OWN saved word bank below when one genuinely fits, but you may also suggest other natural alternatives a school student at this level would be taught. For each, give the original snippet, the suggested replacement, and a short reason it's an improvement (e.g. more advanced tense, more natural phrasing, avoids repetition).
+5. Give a short overall comment (2-4 sentences) on how the essay reads overall.
+6. Give an overall traffic-light rating — "good" (strong, ready to use in the exam), "ok" (solid but with clear room to improve), or "bad" (needs real work) — based on accuracy and range of language, not length.
+
+The student's saved word bank for this subject (prefer suggesting from here first, if relevant):
+Phrases: ${vocabList.join('; ') || '(none saved yet)'}
+Verbs: ${verbList.join('; ') || '(none saved yet)'}
+${topics.length ? `This essay is for the topic(s): ${topics.join(', ')}.` : "This essay isn't tied to a specific topic."}
+
+Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text — transcribed from the photo if one was given, otherwise just echo the original text back", "overallComment": "...", "rating": "good", "spelling": [{"mistake": "...", "correction": "..."}], "grammar": [{"mistake": "...", "correction": "...", "explanation": "..."}], "suggestions": [{"original": "...", "suggestion": "...", "reason": "..."}]}`;
+                const parts = [];
+                if (essayInputMode === 'photo' && essayPhoto) parts.push({ inlineData: { mimeType: essayPhoto.mimeType, data: essayPhoto.data } });
+                parts.push({ text: text ? `Essay:\n${text}` : 'Mark the essay shown in the attached photo.' });
+                essayMarking = true; essayResult = null; render();
+                try {
+                    const result = await aiJsonOnce(sys, parts);
+                    essayResult = {
+                        subjectId, topicIds: [...essayTopicIds], date: localDate(), inputMode: essayInputMode,
+                        text: result.transcript || text,
+                        overallComment: result.overallComment || '',
+                        rating: ['good', 'ok', 'bad'].includes(result.rating) ? result.rating : 'ok',
+                        spelling: (Array.isArray(result.spelling) ? result.spelling : []).filter(x => x && x.mistake),
+                        grammar: (Array.isArray(result.grammar) ? result.grammar : []).filter(x => x && x.mistake),
+                        suggestions: (Array.isArray(result.suggestions) ? result.suggestions : []).filter(x => x && x.original)
+                    };
+                } catch (err) { toast(err.message || 'Could not mark that essay.'); }
+                essayMarking = false; render();
+            }
+
+            function saveEssayResult() {
+                if (!essayResult) return;
+                const entry = { id: uid(), ...essayResult, createdAt: Date.now() };
+                state.essayMarks.push(entry);
+                entry.topicIds.forEach(tid => { const t = state.classTopics.find(x => x.id === tid); if (t) t.rating = entry.rating; });
+                save();
+                toast('Saved to essay history.' + (entry.topicIds.length ? ' The topic traffic light was updated too.' : ''));
+                essayResult = null; essayText = ''; essayPhoto = null; essayTopicIds = []; essayInputMode = 'text';
+                render();
+            }
+
+            function discardEssayResult() { essayResult = null; render(); }
+
+            // ---- Rendering: Word Bank page ------------------------------------------------------------
+            function renderWordBank(s) {
+                const tabBtn = (id, label) => `<button type="button" class="button ${wordBankTab===id?'primary':'ghost'}" data-action="wordbank-tab" data-tab="${id}">${label}</button>`;
+                return `<div class="row" style="margin-bottom:14px;gap:8px">${tabBtn('vocab','Vocab & Phrases')}${tabBtn('verbs','Verbs')}</div>${wordBankTab==='verbs'?renderVerbBank(s):renderVocabBank(s)}`;
+            }
+
+            function renderVocabBank(s) {
+                if (vocabOcrDraft && vocabOcrDraft.subjectId === s.id) return renderVocabOcrDraft();
+                const bank = vocabFor(s.id).slice().sort((a, b) => (vocabSort === 'phrase' ? a.phrase : a.english)
+                    .localeCompare(vocabSort === 'phrase' ? b.phrase : b.english));
+                const row = (v) => `<div class="topic-row" data-action="open-vocab-detail" data-id="${v.id}" style="cursor:pointer"><div><strong>${escape(v.phrase)}</strong><div class="small">${escape(v.english)}</div></div><button type="button" class="button ghost danger" data-action="delete-vocab" data-id="${v.id}" aria-label="Delete" title="Delete" onclick="event.stopPropagation()">🗑</button></div>`;
+                const searchBlock = vocabSearchResults ? (() => {
+                    const matches = vocabSearchResults.ids.map(id => bank.find(v => v.id === id)).filter(Boolean);
+                    return `<div class="alert" style="margin-top:10px">${vocabSearchResults.note ? escape(vocabSearchResults.note) : `Best match${matches.length===1?'':'es'} for "${escape(vocabSearchQuery)}":`}${matches.length ? `<div class="list" style="margin-top:8px">${matches.map(row).join('')}</div>` : ''}</div>`;
+                })() : '';
+                return `<div class="form-grid">
+          <input type="text" id="vocab-phrase-input" class="field" placeholder="${escape(s.name)} phrase">
+          <input type="text" id="vocab-english-input" class="field" placeholder="English meaning">
+          <button type="button" class="button primary span-2" data-action="add-vocab" data-subject="${s.id}">+ Add phrase</button>
+        </div>
+        <div class="row" style="margin-top:10px;gap:8px;align-items:center">
+          <input type="file" id="vocab-ocr-file" accept="image/*" class="hidden" data-subject="${s.id}">
+          <button type="button" class="button ghost" data-action="pick-vocab-photo" ${vocabOcrLoading?'disabled':''}>${vocabOcrLoading?'Reading photo…':'📷 Import from a photo'}</button>
+        </div>
+        <div class="row" style="margin-top:16px;gap:8px">
+          <input type="text" id="vocab-search-input" placeholder="Search in English, e.g. 'I think that'" value="${escape(vocabSearchQuery)}" style="flex:1">
+          <button type="button" class="button" data-action="vocab-search" data-subject="${s.id}" ${vocabSearchLoading?'disabled':''}>${vocabSearchLoading?'Searching…':'Search'}</button>
+          ${vocabSearchResults?`<button type="button" class="button ghost" data-action="vocab-search-clear">Clear</button>`:''}
+        </div>
+        ${searchBlock}
+        <div class="row" style="margin-top:16px;gap:8px;align-items:center">
+          <span class="small">Sort by</span>
+          <button type="button" class="button ${vocabSort==='english'?'primary':'ghost'}" data-action="vocab-sort" data-sort="english">English</button>
+          <button type="button" class="button ${vocabSort==='phrase'?'primary':'ghost'}" data-action="vocab-sort" data-sort="phrase">${escape(s.name)}</button>
+        </div>
+        <div class="list" style="margin-top:10px">${bank.length?bank.map(row).join(''):'<p class="empty">No phrases saved yet — add one above, or import a photo of your notes.</p>'}</div>`;
+            }
+
+            function renderVocabOcrDraft() {
+                const d = vocabOcrDraft;
+                const row = (item, i) => `<div class="topic-row"><input type="checkbox" data-action="vocab-ocr-toggle" data-index="${i}" ${item.include?'checked':''}><input type="text" data-action="vocab-ocr-edit-phrase" data-index="${i}" value="${escape(item.phrase)}" style="flex:1"><input type="text" data-action="vocab-ocr-edit-english" data-index="${i}" value="${escape(item.english)}" style="flex:1"></div>`;
+                return `<p class="small">Review what was found in your photo — untick or edit anything that's wrong, then confirm.</p>
+        <div class="list" style="margin-top:10px">${d.items.length?d.items.map(row).join(''):'<p class="empty">Nothing was found in that photo.</p>'}</div>
+        <div class="row" style="margin-top:14px;gap:8px">
+          <button type="button" class="button primary" data-action="vocab-ocr-confirm">Add ticked phrases</button>
+          <button type="button" class="button ghost" data-action="vocab-ocr-cancel">Cancel</button>
+        </div>`;
+            }
+
+            function vocabDetailModal(entryId) {
+                const v = state.wordbankVocab.find(x => x.id === entryId);
+                if (!v) return modalShell('Phrase', '<p class="empty">This entry no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
+                const alt = vocabAlternatives && vocabAlternatives.forId === entryId ? vocabAlternatives : null;
+                const altRow = (item, i) => `<div class="topic-row"><div><strong>${escape(item.phrase)}</strong><div class="small">${escape(item.english)}</div></div><button type="button" class="button ghost" data-action="vocab-add-alt" data-index="${i}">+ Add</button></div>`;
+                return modalShell(escape(v.phrase),
+                    `<div class="event-detail"><p class="small" style="margin-top:-4px">${escape(v.english)}</p>
+          <button type="button" class="button" style="margin-top:14px" data-action="vocab-alternatives" data-id="${v.id}" ${vocabAltLoading?'disabled':''}>${vocabAltLoading?'Thinking…':'✨ Generate alternatives'}</button>
+          ${alt?`<div style="margin-top:14px"><h3>Alternatives</h3><div class="list" style="margin-top:8px">${alt.items.length?alt.items.map(altRow).join(''):'<p class="empty">No alternatives came back — try again.</p>'}</div></div>`:''}
+        </div>`,
+                    `<button class="button ghost danger" data-action="delete-vocab" data-id="${v.id}">Delete</button><button class="button" data-action="close-modal">Close</button>`);
+            }
+
+            // ---- Rendering: Verb bank -------------------------------------------------------------
+            function renderVerbBank(s) {
+                const catalog = tensesForSubject(s), learned = new Set(learnedTensesFor(s.id));
+                const bank = verbsFor(s.id).slice().sort((a, b) => (verbSort === 'infinitive' ? a.infinitive : a.english)
+                    .localeCompare(verbSort === 'infinitive' ? b.infinitive : b.english));
+                const row = (v) => `<div class="topic-row" data-action="open-verb-detail" data-id="${v.id}" style="cursor:pointer"><div><strong>${escape(v.infinitive)}</strong><div class="small">${escape(v.english)}</div></div><button type="button" class="button ghost danger" data-action="delete-verb" data-id="${v.id}" aria-label="Delete" title="Delete" onclick="event.stopPropagation()">🗑</button></div>`;
+                const searchBlock = verbSearchResults ? (() => {
+                    const matches = verbSearchResults.ids.map(id => bank.find(v => v.id === id)).filter(Boolean);
+                    return `<div class="alert" style="margin-top:10px">${verbSearchResults.note ? escape(verbSearchResults.note) : `Best match${matches.length===1?'':'es'} for "${escape(verbSearchQuery)}":`}${matches.length ? `<div class="list" style="margin-top:8px">${matches.map(row).join('')}</div>` : ''}</div>`;
+                })() : '';
+                return `<div style="margin-bottom:16px"><h3>Tenses learnt so far</h3><p class="small">Tick off tenses as your class covers them — this is what shows up in each verb's table below.</p>
+          <div class="tense-check-grid" style="margin-top:8px">${catalog.map(t=>`<label class="switch-row"><input type="checkbox" data-action="toggle-tense" data-subject="${s.id}" data-tense="${t.id}" ${learned.has(t.id)?'checked':''}> ${escape(t.label)}</label>`).join('')}</div>
+        </div>
+        <div class="form-grid">
+          <input type="text" id="verb-infinitive-input" class="field" placeholder="Infinitive, e.g. hablar">
+          <input type="text" id="verb-english-input" class="field" placeholder="English meaning, e.g. to speak">
+          <button type="button" class="button primary span-2" data-action="add-verb" data-subject="${s.id}">+ Add verb</button>
+        </div>
+        <div class="row" style="margin-top:16px;gap:8px">
+          <input type="text" id="verb-search-input" placeholder="Search in English, e.g. 'to go'" value="${escape(verbSearchQuery)}" style="flex:1">
+          <button type="button" class="button" data-action="verb-search" data-subject="${s.id}" ${verbSearchLoading?'disabled':''}>${verbSearchLoading?'Searching…':'Search'}</button>
+          ${verbSearchResults?`<button type="button" class="button ghost" data-action="verb-search-clear">Clear</button>`:''}
+        </div>
+        ${searchBlock}
+        <div class="row" style="margin-top:16px;gap:8px;align-items:center">
+          <span class="small">Sort by</span>
+          <button type="button" class="button ${verbSort==='english'?'primary':'ghost'}" data-action="verb-sort" data-sort="english">English</button>
+          <button type="button" class="button ${verbSort==='infinitive'?'primary':'ghost'}" data-action="verb-sort" data-sort="infinitive">Infinitive</button>
+        </div>
+        <div class="list" style="margin-top:10px">${bank.length?bank.map(row).join(''):'<p class="empty">No verbs saved yet — add one above.</p>'}</div>`;
+            }
+
+            function verbDetailModal(entryId) {
+                const v = state.wordbankVerbs.find(x => x.id === entryId);
+                if (!v) return modalShell('Verb', '<p class="empty">This entry no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
+                const s = subject(v.subjectId), catalog = tensesForSubject(s), learned = learnedTensesFor(v.subjectId);
+                const alt = verbAlternatives && verbAlternatives.forId === entryId ? verbAlternatives : null;
+                const altRow = (item, i) => `<div class="topic-row"><div><strong>${escape(item.infinitive)}</strong><div class="small">${escape(item.english)}</div></div><button type="button" class="button ghost" data-action="verb-add-alt" data-index="${i}">+ Add</button></div>`;
+                const tenseBlock = (tid) => { const label = tenseLabel(s, tid), data = v.conjugations && v.conjugations[tid];
+                    if (!data) return `<div class="card section" style="margin-top:10px"><strong>${escape(label)}</strong><p class="small">Not generated yet.</p></div>`;
+                    return `<div class="card section" style="margin-top:10px"><strong>${escape(label)}</strong> ${data.irregular?`<span class="pill bad">Irregular</span>`:`<span class="pill good">Regular</span>`}
+            ${data.note?`<p class="small" style="margin-top:4px">${escape(data.note)}</p>`:''}
+            <table class="conj-table" style="margin-top:8px">${data.forms.map(f=>`<tr><td>${escape(f.pronoun)}</td><td>${escape(f.form)}</td></tr>`).join('')}</table>
+          </div>`; };
+                return modalShell(escape(v.infinitive),
+                    `<div class="event-detail"><p class="small" style="margin-top:-4px">${escape(v.english)}</p>
+          <button type="button" class="button" style="margin-top:14px" data-action="verb-alternatives" data-id="${v.id}" ${verbAltLoading?'disabled':''}>${verbAltLoading?'Thinking…':'✨ Generate alternatives'}</button>
+          ${alt?`<div style="margin-top:14px"><h3>Alternatives</h3><div class="list" style="margin-top:8px">${alt.items.length?alt.items.map(altRow).join(''):'<p class="empty">No alternatives came back — try again.</p>'}</div></div>`:''}
+          <div style="margin-top:16px"><h3>Conjugation ${verbConjLoading?'<span class="small">(loading…)</span>':''}</h3>
+          ${learned.length?learned.map(tenseBlock).join(''):'<p class="empty">Tick off some tenses on the Verbs page first.</p>'}
+          </div>
+        </div>`,
+                    `<button class="button ghost danger" data-action="delete-verb" data-id="${v.id}">Delete</button><button class="button" data-action="close-modal">Close</button>`, true);
+            }
+
+            // ---- Rendering: Essay Marking page -----------------------------------------------------
+            function renderEssayMarking(s) {
+                if (essayResult && essayResult.subjectId === s.id) return renderEssayResult(s);
+                const topics = state.classTopics.filter(t => t.subjectId === s.id);
+                const history = state.essayMarks.filter(e => e.subjectId === s.id).slice().sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+                const ratingPill = (r) => `<span class="pill ${r==='good'?'good':r==='bad'?'bad':'warn'}">${r==='good'?'Good':r==='bad'?'Needs work':'OK'}</span>`;
+                return `<p class="small">Type your essay, or attach a photo of it, and the AI will check spelling, grammar, and suggest richer vocab/verbs/tenses from your own word bank.</p>
+        ${topics.length?`<div style="margin-top:14px"><h3>Topic (optional)</h3><div class="tense-check-grid" style="margin-top:8px">${topics.map(t=>`<label class="switch-row"><input type="checkbox" data-action="toggle-essay-topic" data-topic="${t.id}" ${essayTopicIds.includes(t.id)?'checked':''}> ${escape(t.label)}</label>`).join('')}</div></div>`:''}
+        <div class="row" style="margin-top:16px;gap:8px">
+          <button type="button" class="button ${essayInputMode==='text'?'primary':'ghost'}" data-action="essay-mode" data-mode="text">Type it</button>
+          <button type="button" class="button ${essayInputMode==='photo'?'primary':'ghost'}" data-action="essay-mode" data-mode="photo">Attach a photo</button>
+        </div>
+        ${essayInputMode==='text'?`<textarea id="essay-text-input" placeholder="Write or paste your essay here..." style="margin-top:10px;min-height:200px;width:100%">${escape(essayText)}</textarea>`:
+          `<div style="margin-top:10px"><input type="file" id="essay-photo-file" accept="image/*" class="hidden"><button type="button" class="button ghost" data-action="pick-essay-photo">📷 ${essayPhoto?'Change photo':'Choose a photo'}</button>${essayPhoto?`<div class="ai-chat-attachment" style="margin-top:10px;border:1px solid var(--line);border-radius:11px;display:flex;align-items:center;gap:8px;padding:8px"><img src="${essayPhoto.dataUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:6px" alt="Attached essay photo"><span class="small">${escape(essayPhoto.name)}</span></div>`:''}</div>`}
+        <button type="button" class="button primary" style="margin-top:14px" data-action="mark-essay" data-subject="${s.id}" ${essayMarking?'disabled':''}>${essayMarking?'Marking…':'Mark my work'}</button>
+        ${history.length?`<div style="margin-top:24px"><h3>History</h3><div class="list" style="margin-top:8px">${history.map(e=>`<div class="topic-row" data-action="view-essay-history" data-id="${e.id}" style="cursor:pointer"><div><strong>${fmtDate(e.date)}</strong><div class="small">${e.topicIds.length?e.topicIds.map(tid=>state.classTopics.find(t=>t.id===tid)?.label).filter(Boolean).join(', '):'No topic'}</div></div>${ratingPill(e.rating)}</div>`).join('')}</div></div>`:''}`;
+            }
+
+            function renderEssayResult(s) {
+                const r = essayResult;
+                const ratingPill = (rt) => `<span class="pill ${rt==='good'?'good':rt==='bad'?'bad':'warn'}">${rt==='good'?'Good':rt==='bad'?'Needs work':'OK'}</span>`;
+                return `<div class="card section">
+          <div class="row" style="justify-content:space-between;align-items:center"><h3>Result</h3>${ratingPill(r.rating)}</div>
+          <p style="margin-top:8px">${escape(r.overallComment)}</p>
+        </div>
+        ${r.spelling.length?`<div style="margin-top:16px"><h3>Spelling & accents</h3><div class="list" style="margin-top:8px">${r.spelling.map(x=>`<div class="topic-row"><span>${escape(x.mistake)}</span><span>→ ${escape(x.correction)}</span></div>`).join('')}</div></div>`:''}
+        ${r.grammar.length?`<div style="margin-top:16px"><h3>Grammar</h3><div class="list" style="margin-top:8px">${r.grammar.map(x=>`<div class="topic-row" style="align-items:flex-start;flex-direction:column"><div><strong>${escape(x.mistake)}</strong> → ${escape(x.correction)}</div><div class="small">${escape(x.explanation||'')}</div></div>`).join('')}</div></div>`:''}
+        ${r.suggestions.length?`<div style="margin-top:16px"><h3>Ways to make it more interesting</h3><div class="list" style="margin-top:8px">${r.suggestions.map(x=>`<div class="topic-row" style="align-items:flex-start;flex-direction:column"><div><strong>${escape(x.original)}</strong> → ${escape(x.suggestion)}</div><div class="small">${escape(x.reason||'')}</div></div>`).join('')}</div></div>`:''}
+        <div class="row" style="margin-top:18px;gap:8px">
+          <button type="button" class="button primary" data-action="save-essay-result">Save to history</button>
+          <button type="button" class="button ghost" data-action="discard-essay-result">Discard</button>
+        </div>`;
+            }
+
+            function essayHistoryModal(entryId) {
+                const e = state.essayMarks.find(x => x.id === entryId);
+                if (!e) return modalShell('Essay', '<p class="empty">This entry no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
+                const ratingPill = (rt) => `<span class="pill ${rt==='good'?'good':rt==='bad'?'bad':'warn'}">${rt==='good'?'Good':rt==='bad'?'Needs work':'OK'}</span>`;
+                const topicLabels = e.topicIds.map(tid => state.classTopics.find(t=>t.id===tid)?.label).filter(Boolean);
+                return modalShell(`Essay — ${fmtDate(e.date)}`,
+                    `<div class="event-detail">
+          <div class="row" style="justify-content:space-between;align-items:center">${topicLabels.length?`<span class="small">${escape(topicLabels.join(', '))}</span>`:'<span class="small">No topic</span>'}${ratingPill(e.rating)}</div>
+          <p style="margin-top:10px">${escape(e.overallComment)}</p>
+          ${e.spelling.length?`<div style="margin-top:14px"><h3>Spelling & accents</h3><div class="list" style="margin-top:8px">${e.spelling.map(x=>`<div class="topic-row"><span>${escape(x.mistake)}</span><span>→ ${escape(x.correction)}</span></div>`).join('')}</div></div>`:''}
+          ${e.grammar.length?`<div style="margin-top:14px"><h3>Grammar</h3><div class="list" style="margin-top:8px">${e.grammar.map(x=>`<div class="topic-row" style="align-items:flex-start;flex-direction:column"><div><strong>${escape(x.mistake)}</strong> → ${escape(x.correction)}</div><div class="small">${escape(x.explanation||'')}</div></div>`).join('')}</div></div>`:''}
+          ${e.suggestions.length?`<div style="margin-top:14px"><h3>Ways to make it more interesting</h3><div class="list" style="margin-top:8px">${e.suggestions.map(x=>`<div class="topic-row" style="align-items:flex-start;flex-direction:column"><div><strong>${escape(x.original)}</strong> → ${escape(x.suggestion)}</div><div class="small">${escape(x.reason||'')}</div></div>`).join('')}</div></div>`:''}
+        </div>`,
+                    `<button class="button ghost danger" data-action="delete-essay-history" data-id="${e.id}">Delete</button><button class="button" data-action="close-modal">Close</button>`, true);
+            }
 
             function renderStudy() {
                 const plan = ensureStudyPlan(studyViewDate);
@@ -6617,7 +7117,10 @@
                     modal.subjectId); if (
                     modal.kind === 'study-mode-fallback') return layer.innerHTML = studyModeFallbackModal(); if (
                     modal.kind === 'study-mode-summary') return layer.innerHTML = studyModeSummaryModal(modal); if (
-                    modal.kind === 'info') return layer.innerHTML = infoModal(modal.topic); }
+                    modal.kind === 'info') return layer.innerHTML = infoModal(modal.topic); if (
+                    modal.kind === 'vocab-detail') return layer.innerHTML = vocabDetailModal(modal.entryId); if (
+                    modal.kind === 'verb-detail') return layer.innerHTML = verbDetailModal(modal.entryId); if (
+                    modal.kind === 'essay-history') return layer.innerHTML = essayHistoryModal(modal.entryId); }
 
             const INFO_TEXT = {
                 cushion: { title: 'How the workload check works', body: 'Your "cushion" is how much free time you have left before a task is due, after earlier deadlines have already claimed their share. Negative means you\'re realistically short on time; under two hours is tight; more than that is comfortable.' },
@@ -9645,11 +10148,73 @@ If the user asks about how to study or study methods generally, answer from your
                         closeModal();
                         render();
                         toast('Your planner was reset.'); } } });
+
+            // ---- Word Bank & Essay Marking click actions — a separate delegated listener (rather than one
+            // more branch in the huge dispatcher above) since this feature is self-contained. Data mutation
+            // + save()/render() follow the exact same pattern as the rest of the app's action handlers.
+            document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
+                const a = b.dataset.action;
+                if (a === 'wordbank-tab') { wordBankTab = b.dataset.tab; vocabSearchResults = null; verbSearchResults = null; render(); }
+                else if (a === 'add-vocab') { const phrase = document.getElementById('vocab-phrase-input')?.value,
+                        english = document.getElementById('vocab-english-input')?.value;
+                    if (!phrase?.trim() || !english?.trim()) { toast('Fill in both the phrase and its English meaning.'); return; }
+                    addVocabEntry(b.dataset.subject, phrase, english, 'manual'); toast('Added to your bank.'); render(); }
+                else if (a === 'delete-vocab') { state.wordbankVocab = state.wordbankVocab.filter(v => v.id !== b.dataset.id);
+                    save(); if (modal?.kind === 'vocab-detail' && modal.entryId === b.dataset.id) closeModal(); else render(); }
+                else if (a === 'open-vocab-detail') { vocabAlternatives = null; openModal('vocab-detail', { entryId: b.dataset.id }); }
+                else if (a === 'pick-vocab-photo') document.getElementById('vocab-ocr-file')?.click();
+                else if (a === 'vocab-search') runVocabSearch(b.dataset.subject, document.getElementById('vocab-search-input')?.value);
+                else if (a === 'vocab-search-clear') { vocabSearchQuery = ''; vocabSearchResults = null; render(); }
+                else if (a === 'vocab-sort') { vocabSort = b.dataset.sort; render(); }
+                else if (a === 'vocab-ocr-confirm') confirmVocabOcrDraft();
+                else if (a === 'vocab-ocr-cancel') { vocabOcrDraft = null; render(); }
+                else if (a === 'vocab-alternatives') { const v = state.wordbankVocab.find(x => x.id === b.dataset.id); if (v) runVocabAlternatives(v); }
+                else if (a === 'vocab-add-alt') { const item = vocabAlternatives?.items[Number(b.dataset.index)], v = state.wordbankVocab.find(x => x.id === vocabAlternatives.forId);
+                    if (item && v) { addVocabEntry(v.subjectId, item.phrase, item.english, 'suggested'); toast('Added to your bank.'); } }
+                else if (a === 'add-verb') { const infinitive = document.getElementById('verb-infinitive-input')?.value,
+                        english = document.getElementById('verb-english-input')?.value;
+                    if (!infinitive?.trim() || !english?.trim()) { toast('Fill in both the infinitive and its English meaning.'); return; }
+                    addVerbEntry(b.dataset.subject, infinitive, english, 'manual'); toast('Added to your bank.'); render(); }
+                else if (a === 'delete-verb') { state.wordbankVerbs = state.wordbankVerbs.filter(v => v.id !== b.dataset.id);
+                    save(); if (modal?.kind === 'verb-detail' && modal.entryId === b.dataset.id) closeModal(); else render(); }
+                else if (a === 'open-verb-detail') { verbAlternatives = null; const v = state.wordbankVerbs.find(x => x.id === b.dataset.id);
+                    openModal('verb-detail', { entryId: b.dataset.id }); if (v) ensureVerbConjugations(v); }
+                else if (a === 'verb-search') runVerbSearch(b.dataset.subject, document.getElementById('verb-search-input')?.value);
+                else if (a === 'verb-search-clear') { verbSearchQuery = ''; verbSearchResults = null; render(); }
+                else if (a === 'verb-sort') { verbSort = b.dataset.sort; render(); }
+                else if (a === 'verb-alternatives') { const v = state.wordbankVerbs.find(x => x.id === b.dataset.id); if (v) runVerbAlternatives(v); }
+                else if (a === 'verb-add-alt') { const item = verbAlternatives?.items[Number(b.dataset.index)], v = state.wordbankVerbs.find(x => x.id === verbAlternatives.forId);
+                    if (item && v) { addVerbEntry(v.subjectId, item.infinitive, item.english, 'suggested'); toast('Added to your bank.'); } }
+                else if (a === 'essay-mode') { essayInputMode = b.dataset.mode; render(); }
+                else if (a === 'pick-essay-photo') document.getElementById('essay-photo-file')?.click();
+                else if (a === 'mark-essay') { essayText = document.getElementById('essay-text-input')?.value || essayText; runEssayMarking(b.dataset.subject); }
+                else if (a === 'save-essay-result') saveEssayResult();
+                else if (a === 'discard-essay-result') discardEssayResult();
+                else if (a === 'view-essay-history') openModal('essay-history', { entryId: b.dataset.id });
+                else if (a === 'delete-essay-history') { state.essayMarks = state.essayMarks.filter(x => x.id !== b.dataset.id); save(); closeModal(); }
+            });
+
             document.addEventListener('input', e => { if (e.target.id === 'search-input') { searchQuery = e.target
                     .value;
                     renderModal(); const input = document.getElementById('search-input'); if (input) { input
                         .focus();
-                        input.setSelectionRange(input.value.length, input.value.length); } } });
+                        input.setSelectionRange(input.value.length, input.value.length); } } if (
+                    e.target.id === 'essay-text-input') { essayText = e.target.value; return; } if (
+                    e.target.dataset && e.target.dataset.action === 'vocab-ocr-edit-phrase') { if (vocabOcrDraft) vocabOcrDraft.items[Number(e.target.dataset.index)].phrase = e.target.value; return; } if (
+                    e.target.dataset && e.target.dataset.action === 'vocab-ocr-edit-english') { if (vocabOcrDraft) vocabOcrDraft.items[Number(e.target.dataset.index)].english = e.target.value; return; } });
+
+            document.addEventListener('change', e => { const t = e.target, action = t.dataset && t.dataset.action;
+                if (action === 'vocab-ocr-toggle') { if (vocabOcrDraft) vocabOcrDraft.items[Number(t.dataset.index)].include = t.checked; }
+                else if (action === 'toggle-tense') { toggleLearnedTense(t.dataset.subject, t.dataset.tense, t.checked); }
+                else if (action === 'toggle-essay-topic') { const id = t.dataset.topic;
+                    if (t.checked) essayTopicIds = [...essayTopicIds, id]; else essayTopicIds = essayTopicIds.filter(x => x !== id); }
+                else if (t.id === 'vocab-ocr-file') { const file = t.files?.[0]; const subjectId = t.dataset.subject; t.value = '';
+                    if (file) runVocabOcr(subjectId, file); }
+                else if (t.id === 'essay-photo-file') { const file = t.files?.[0]; t.value = '';
+                    if (!file) return;
+                    if (!file.type.startsWith('image/')) { toast('Please choose an image file.'); return; }
+                    fileToDataUrl(file).then(dataUrl => { essayPhoto = { mimeType: file.type, data: dataUrl.split(',')[1], dataUrl, name: file.name }; render(); })
+                        .catch(err => toast(err.message || "Couldn't read that photo, try again.")); } });
             document.addEventListener('change', e => { if (e.target.id === 'setting-theme') { state.settings.theme =
                     e.target.checked ? 'dark' : 'light';
                     document.body.classList.toggle('dark', state.settings.theme === 'dark');
