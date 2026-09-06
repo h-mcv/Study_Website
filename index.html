@@ -6349,13 +6349,20 @@
 
             // Every distinct way to pick 6 grades (with repeats) from the 8 Higher Level bands — memoized
             // since it's the same ~1700 combinations regardless of what the user searches for.
+            // Every distinct way to pick 6 grades (with repeats) from the 8 Higher Level bands, each tagged
+            // with whether it's eligible for the +25 HL Maths bonus — i.e. whether at least one of the 6
+            // grades is H1-H6, since that grade could plausibly be the maths one (the combos here are
+            // anonymous, same as the main calculator's generic Higher/Ordinary/LCVP add-grid: nothing tracks
+            // which specific slot is "maths", so any H1-H6 grade in the combo is treated as a candidate).
             function caoAllSixCombos() { if (CAO_SIX_COMBOS_CACHE) return CAO_SIX_COMBOS_CACHE;
                 const grades = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8'],
                     pts = grades.map(g => CAO_POINTS[g]),
                     out = [],
                     counts = new Array(grades.length).fill(0);
                 (function rec(idx, remaining, total) { if (idx === grades.length - 1) { counts[idx] = remaining;
-                        out.push({ counts: counts.slice(), total: total + remaining * pts[idx] });
+                        const total6 = total + remaining * pts[idx],
+                            bonusEligible = counts.slice(0, 6).some(c => c > 0);
+                        out.push({ counts: counts.slice(), total: total6, bonusEligible });
                         counts[idx] = 0;
                         return; } for (let n = 0; n <= remaining; n++) { counts[idx] = n;
                         rec(idx + 1, remaining - n, total + n * pts[idx]); }
@@ -6363,21 +6370,27 @@
                 CAO_SIX_COMBOS_CACHE = { grades, out };
                 return CAO_SIX_COMBOS_CACHE; }
 
-            // For a target total, the smallest few achievable 6-subject Higher Level totals at or above it,
-            // each with one example combination — preferring combos front-loaded with the highest grades
-            // (more H1s before any H2s, etc) since that's the most natural way to reach a given total and
+            // For a target total, the smallest few achievable 6-subject Higher Level totals at or above it
+            // (up to 625, once the +25 HL Maths bonus is factored in), each with one example combination —
+            // preferring combos that don't need the bonus, then ones front-loaded with the highest grades
+            // (more H1s before any H2s, etc), since that's the most natural way to reach a given total and
             // matches how someone would actually read "5×H1 + 1×H3".
             function caoCalcFindCombos(target) { const { grades, out } = caoAllSixCombos();
-                const byTotal = new Map(); out.forEach(c => { if (c.total >= target) { if (!byTotal.has(c.total))
-                            byTotal.set(c.total, []);
-                        byTotal.get(c.total).push(c.counts); } });
+                const byTotal = new Map();
+                const add = (total, counts, bonus) => { if (total < target) return; if (!byTotal.has(total))
+                        byTotal.set(total, []);
+                    byTotal.get(total).push({ counts, bonus }); };
+                out.forEach(c => { add(c.total, c.counts, false); if (c.bonusEligible) add(c.total + 25, c.counts,
+                        true); });
                 const totals = [...byTotal.keys()].sort((a, b) => a - b).slice(0, 5);
                 return totals.map(total => { const combos = byTotal.get(total);
-                    combos.sort((a, b) => { for (let i = 0; i < a.length; i++) { if (b[i] !== a[i]) return b[i] -
-                                a[i]; } return 0; });
-                    const counts = combos[0],
-                        parts = grades.map((g, i) => counts[i] > 0 ? `${counts[i]}×${g}` : null).filter(Boolean);
-                    return { total, label: parts.join(' + ') }; }); }
+                    combos.sort((a, b) => { if (a.bonus !== b.bonus) return (a.bonus ? 1 : 0) - (b.bonus ? 1 : 0);
+                        for (let i = 0; i < a.counts.length; i++) { if (b.counts[i] !== a.counts[i]) return b
+                                .counts[i] - a.counts[i]; } return 0; });
+                    const best = combos[0],
+                        parts = grades.map((g, i) => best.counts[i] > 0 ? `${best.counts[i]}×${g}` : null).filter(
+                            Boolean);
+                    return { total, label: parts.join(' + ') + (best.bonus ? ' (+25 HL Maths bonus)' : '') }; }); }
 
             function caoCalcTargetResultsHtml() { if (!caoCalcTargetResults.length) return
                     '<p class="empty" style="margin-top:10px">No combination of 6 Higher Level grades reaches that many points (600 is the max, or 625 with the Maths bonus).</p>';
