@@ -878,11 +878,19 @@
             border: none;
             padding: 0;
         }
+        .formula-book-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+        }
         .formula-book {
             display: grid;
             grid-template-columns: 240px 1fr;
             gap: 20px;
             align-items: start;
+        }
+        .formula-book.toc-collapsed {
+            grid-template-columns: 1fr;
         }
         @media (max-width: 860px) {
             .formula-book { grid-template-columns: 1fr; }
@@ -995,49 +1003,94 @@
             gap: 14px;
             padding: 8px 14px 14px;
         }
-        .cao-calc-grid {
+        .cao-calc-choice-row {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin: 28px 0 10px;
+        }
+        .cao-calc-choice {
+            min-width: 140px;
+            padding: 20px;
+            font-size: 18px;
+            border-radius: 14px;
+        }
+        .cao-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+            gap: 10px;
             margin: 14px 0;
         }
-        .cao-calc-tile {
+        .cao-grid-tile {
             border: 1px solid var(--line);
-            border-radius: 10px;
-            padding: 8px 4px;
+            border-radius: 14px;
+            padding: 16px 8px;
             text-align: center;
             background: var(--surface);
+            cursor: pointer;
+            transition: background .12s;
         }
-        .cao-calc-tile strong {
+        .cao-grid-tile:hover {
+            background: var(--surface-2);
+        }
+        .cao-grid-tile strong {
             display: block;
-            font-size: 14px;
+            font-size: 20px;
         }
-        .cao-calc-tile .small {
+        .cao-grid-tile .small {
             display: block;
             color: var(--muted);
             font-size: 11px;
-            margin: 2px 0 6px;
+            margin-top: 4px;
         }
-        .cao-calc-tile .row {
+        .cao-subjects-head {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+        .cao-subjects-row {
             display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+            min-height: 20px;
+        }
+        .cao-subject-chip {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-        .cao-calc-tile .row button {
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
-            border: 1px solid var(--line);
+            gap: 8px;
             background: var(--surface-2);
-            cursor: pointer;
-            font-weight: 700;
-            line-height: 1;
-            padding: 0;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 6px 10px;
         }
-        .cao-calc-tile .count {
-            min-width: 16px;
+        .cao-subject-chip.counted {
+            border-color: var(--primary);
+        }
+        .cao-subject-chip strong {
+            font-size: 13px;
+        }
+        .cao-subject-chip .small {
+            color: var(--muted);
+            font-size: 11px;
+        }
+        .cao-bonus-badge {
+            background: #2D9B6C;
+            color: #fff;
+            font-size: 10px;
             font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 6px;
+        }
+        .cao-chip-remove {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
         }
         .cao-calc-total {
             padding: 18px;
@@ -1051,10 +1104,29 @@
             font-size: 34px;
             display: block;
         }
-        .cao-calc-breakdown {
-            font-size: 12.5px;
+        .cao-calc-tabs {
+            display: flex;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 14px 0 4px;
+        }
+        .cao-calc-tabs button {
+            flex: 1;
+            padding: 10px;
+            background: var(--surface);
+            border: none;
+            font-weight: 700;
+            font-size: 13px;
             color: var(--muted);
-            margin-top: 6px;
+            cursor: pointer;
+        }
+        .cao-calc-tabs button.active {
+            background: var(--primary);
+            color: #fff;
+        }
+        .cao-calc-reverse {
+            margin-top: 20px;
         }
         .performance-summary-card {
             padding: 16px 18px;
@@ -4731,13 +4803,26 @@
             let formulaBookSearchQuery = '';
             let formulaBookSearchStatus = null; // null | 'found' | 'no-match' | 'ai-loading' | 'ai-no-match' | 'ai-error'
             let formulaBookSearchError = '';
+            let formulaBookTocCollapsed = false; // hide the contents list to give the page image more room
 
-            // ---- Quick CAO points calculator (Tools page) — a deliberately simple standalone tool: tally up
-            // to 7 grades and see the best-6 total, same idea as the well-known third-party CAO calculators.
-            // Separate from the full CAO Planning page, which works off real logged exam results instead.
-            let caoCalcTally = { H1: 0, H2: 0, H3: 0, H4: 0, H5: 0, H6: 0, H7: 0, H8: 0,
-                O1: 0, O2: 0, O3: 0, O4: 0, O5: 0, O6: 0, O7: 0, O8: 0 };
-            let caoCalcMathsBonus = false;
+            // ---- Tools page (tile landing, like Classes) ----------------------------------------------
+            let toolsActiveTool = null; // null (tile grid) | 'formulas' | 'cao'
+
+            // ---- Quick CAO points calculator (Tools page) — modelled on the well-known third-party CAO
+            // calculators (careersportal.ie etc): ask about Higher Level Maths first (since it's the only
+            // subject the +25 bonus can apply to), take that grade, then loop adding further subjects (up to
+            // 10) from tabbed Higher/Ordinary/LCVP grids, always showing the best-6 running total. Separate
+            // from the full CAO Planning page, which works off real logged exam results instead.
+            const LCVP_POINTS = { D: 66, M: 46, P: 28 };
+            const LCVP_LABELS = { D: 'LCVP Distinction', M: 'LCVP Merit', P: 'LCVP Pass' };
+            const CAO_GRADE_BANDS = ['90-100%', '80-89%', '70-79%', '60-69%', '50-59%', '40-49%', '30-39%', '0-29%'];
+            let caoCalcStep = 'start'; // 'start' (HL maths y/n) | 'mathsGrade' | 'main'
+            let caoCalcMathsLevel = null; // 'H' | 'O' — answer to the HL maths question
+            let caoCalcSubjects = []; // [{ label, points, bonus }], maths always entered first
+            let caoCalcActiveTab = 'higher'; // 'higher' | 'ordinary' | 'lcvp' — which grid the main step shows
+            let caoCalcTargetInput = '';
+            let caoCalcTargetResults = null; // computed by caoCalcFindCombos(), or null before a search
+            let CAO_SIX_COMBOS_CACHE = null; // memoized caoAllSixCombos() result
             // Computes CAO points for a real Leaving Cert or Mock exam once results are in: best six subjects
             // count, plus 25 bonus points for Higher Level Mathematics specifically (not Applied Maths) at grade
             // H6 or above. Returns null if this isn't an LC/mock exam. While any sitting is missing a result,
@@ -6176,8 +6261,9 @@
           <button type="button" data-action="formula-toc-toggle" data-section="${sec.id}">${isOpen?'▾':'▸'} ${escape(sec.name)}</button>
           ${isOpen?`<div class="formula-book-toc-entries">${entries.map(e=>`<button type="button" class="${activeEntry&&activeEntry.id===e.id?'active':''}" data-action="formula-toc-select" data-entry="${e.id}">${escape(e.name)}</button>`).join('')}</div>`:''}
         </div>`; }).join('');
-                return `<div class="formula-book">
-        <div class="formula-book-toc">${tocHtml}</div>
+                return `<div class="formula-book-toolbar"><button type="button" class="button ghost" data-action="formula-toc-collapse-toggle">${formulaBookTocCollapsed?'☰ Show contents list':'✕ Hide contents list'}</button></div>
+      <div class="formula-book ${formulaBookTocCollapsed?'toc-collapsed':''}">
+        ${formulaBookTocCollapsed?'':`<div class="formula-book-toc">${tocHtml}</div>`}
         <div>
           <div class="formula-book-search">
             <input type="text" id="formula-search-input" placeholder="Search a formula or table… e.g. &quot;area of a circle&quot;" value="${escape(formulaBookSearchQuery)}">
@@ -6201,32 +6287,117 @@
       </div>`; }
 
             // ---- Quick CAO points calculator (Tools page) --------------------------------------------
-            function caoQuickCalcResult() { const rows = Object.entries(caoCalcTally).flatMap(([grade, count]) =>
-                        Array(count).fill(grade));
-                const scored = rows.map(g => ({ grade: g, points: CAO_POINTS[g] })).sort((a, b) => b.points - a
-                    .points);
-                const top6 = scored.slice(0, 6);
-                let total = top6.reduce((sum, r) => sum + r.points, 0); if (caoCalcMathsBonus && rows.length) total +=
-                    25;
-                return { total, count: rows.length, top6 }; }
+            // Best-6 total across whatever's currently in caoCalcSubjects — each entry's `points` already has
+            // any bonus baked in (only the maths entry from the 'mathsGrade' step ever sets one), so this is
+            // just "sort by points, sum the top 6". top6Ids is the set of array indexes actually counted, so
+            // the chip row can show which entries are (and aren't) contributing to the total.
+            function caoCalcResult() { const withIdx = caoCalcSubjects.map((s, i) => ({ ...s, i }));
+                const sorted = withIdx.slice().sort((a, b) => b.points - a.points);
+                const top6 = sorted.slice(0, 6);
+                const total = top6.reduce((sum, s) => sum + s.points, 0);
+                return { total, top6Ids: new Set(top6.map(s => s.i)) }; }
 
-            function caoQuickCalcHtml() { const grades = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'O1', 'O2',
-                        'O3', 'O4', 'O5', 'O6', 'O7', 'O8'];
-                const { total, count, top6 } = caoQuickCalcResult();
-                const tile = (g) => `<div class="cao-calc-tile"><strong>${g}</strong><span class="small">${CAO_POINTS[g]} pts</span><div class="row"><button type="button" data-action="cao-calc-dec" data-grade="${g}" aria-label="Fewer ${g}">−</button><span class="count">${caoCalcTally[g]}</span><button type="button" data-action="cao-calc-inc" data-grade="${g}" aria-label="More ${g}">+</button></div></div>`;
-                return `<section class="card section">
-        <h2>Quick CAO points calculator</h2>
-        <p class="small">Tap up each subject grade you'd get (or think you'll get) — up to 7 or so subjects — and this works out your best-6 CAO points automatically, same as the well-known online calculators. This is a standalone scratchpad; it doesn't touch your logged exam results.</p>
-        <div class="cao-calc-total"><strong>${count?total:'—'}</strong><span class="small">${count?`points from your best 6 of ${count} subject${count===1?'':'s'}${caoCalcMathsBonus?' (incl. +25 HL Maths bonus)':''}`:'Add some grades below to see your total'}</span>
-          ${count>6?`<div class="cao-calc-breakdown">Counting: ${top6.map(r=>r.grade).join(', ')}</div>`:''}</div>
-        <div class="cao-calc-grid">${grades.map(tile).join('')}</div>
-        <label class="row" style="gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="cao-calc-bonus" ${caoCalcMathsBonus?'checked':''} data-action="cao-calc-bonus-toggle"> <span class="small">Add the +25 point bonus for Higher Level Maths at grade H6 or above</span></label>
-        <div class="row" style="margin-top:12px"><button type="button" class="button ghost" data-action="cao-calc-reset">Reset</button></div>
-      </section>`; }
+            // Every distinct way to pick 6 grades (with repeats) from the 8 Higher Level bands — memoized
+            // since it's the same ~1700 combinations regardless of what the user searches for.
+            function caoAllSixCombos() { if (CAO_SIX_COMBOS_CACHE) return CAO_SIX_COMBOS_CACHE;
+                const grades = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8'],
+                    pts = grades.map(g => CAO_POINTS[g]),
+                    out = [],
+                    counts = new Array(grades.length).fill(0);
+                (function rec(idx, remaining, total) { if (idx === grades.length - 1) { counts[idx] = remaining;
+                        out.push({ counts: counts.slice(), total: total + remaining * pts[idx] });
+                        counts[idx] = 0;
+                        return; } for (let n = 0; n <= remaining; n++) { counts[idx] = n;
+                        rec(idx + 1, remaining - n, total + n * pts[idx]); }
+                    counts[idx] = 0; })(0, 6, 0);
+                CAO_SIX_COMBOS_CACHE = { grades, out };
+                return CAO_SIX_COMBOS_CACHE; }
 
-            function renderTools() { return appFrame(`<div class="page">${header('Tools',"The Formulae & Tables booklet allowed in the exam, and a quick CAO points calculator.",'')}
-        <section class="card section"><h2>Formulae and Tables booklet</h2><p class="small" style="margin-bottom:12px">The full official booklet, trimmed to just the formula and table pages — browse the contents on the left, or search for what you need below.</p>${formulaBookHtml()}</section>
-        ${caoQuickCalcHtml()}
+            // For a target total, the smallest few achievable 6-subject Higher Level totals at or above it,
+            // each with one example combination — preferring combos front-loaded with the highest grades
+            // (more H1s before any H2s, etc) since that's the most natural way to reach a given total and
+            // matches how someone would actually read "5×H1 + 1×H3".
+            function caoCalcFindCombos(target) { const { grades, out } = caoAllSixCombos();
+                const byTotal = new Map(); out.forEach(c => { if (c.total >= target) { if (!byTotal.has(c.total))
+                            byTotal.set(c.total, []);
+                        byTotal.get(c.total).push(c.counts); } });
+                const totals = [...byTotal.keys()].sort((a, b) => a - b).slice(0, 5);
+                return totals.map(total => { const combos = byTotal.get(total);
+                    combos.sort((a, b) => { for (let i = 0; i < a.length; i++) { if (b[i] !== a[i]) return b[i] -
+                                a[i]; } return 0; });
+                    const counts = combos[0],
+                        parts = grades.map((g, i) => counts[i] > 0 ? `${counts[i]}×${g}` : null).filter(Boolean);
+                    return { total, label: parts.join(' + ') }; }); }
+
+            function caoCalcTargetResultsHtml() { if (!caoCalcTargetResults.length) return
+                    '<p class="empty" style="margin-top:10px">No combination of 6 Higher Level grades reaches that many points (600 is the max, or 625 with the Maths bonus).</p>';
+                return `<div class="list" style="margin-top:10px">${caoCalcTargetResults.map(r=>`<div class="topic-row"><span>${r.total} points</span><span class="small">${escape(r.label)}</span></div>`).join('')}</div>`; }
+
+            function caoCalcHtml() { if (caoCalcStep === 'start') return `<section class="card section cao-calc">
+          <h2 style="text-align:center">Did you do Higher Level maths?</h2>
+          <div class="cao-calc-choice-row">
+            <button type="button" class="button primary cao-calc-choice" data-action="cao-calc-hlmaths" data-value="yes">Yes</button>
+            <button type="button" class="button primary cao-calc-choice" data-action="cao-calc-hlmaths" data-value="no">No</button>
+          </div>
+        </section>`;
+                if (caoCalcStep === 'mathsGrade') { const level = caoCalcMathsLevel,
+                        grades = level === 'H' ? ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8'] : ['O1', 'O2',
+                            'O3', 'O4', 'O5', 'O6', 'O7', 'O8'];
+                    const tile = (g, i) => { const bonus = level === 'H' && i <= 5 ? 25 : 0,
+                            pts = CAO_POINTS[g] + bonus;
+                        return `<button type="button" class="cao-grid-tile" data-action="cao-calc-set-maths" data-grade="${g}" data-bonus="${bonus}"><strong>${g}</strong><span class="small">${CAO_GRADE_BANDS[i]} +${pts}pts</span></button>`; };
+                    return `<section class="card section cao-calc">
+          <h2 style="text-align:center">Enter your grade in maths</h2>
+          <div class="cao-grid">${grades.map(tile).join('')}</div>
+        </section>`; }
+                // 'main' step
+                const { total, top6Ids } = caoCalcResult();
+                const chip = (s, i) =>
+                    `<div class="cao-subject-chip ${top6Ids.has(i)?'counted':''}"><strong>${escape(s.label)}</strong><span class="small">${s.points}pts</span>${s.bonus?`<span class="cao-bonus-badge">+${s.bonus}</span>`:''}<button type="button" class="cao-chip-remove" data-action="cao-calc-remove" data-index="${i}" aria-label="Remove ${escape(s.label)}">×</button></div>`;
+                const tabGrades = caoCalcActiveTab === 'higher' ? ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8'] :
+                    caoCalcActiveTab === 'ordinary' ? ['O1', 'O2', 'O3', 'O4', 'O5', 'O6', 'O7', 'O8'] : ['D', 'M',
+                        'P'];
+                const gridTile = (g, i) => { let pts, label, sub; if (caoCalcActiveTab === 'lcvp') { pts =
+                            LCVP_POINTS[g];
+                        label = LCVP_LABELS[g];
+                        sub = ''; } else { pts = CAO_POINTS[g];
+                        label = g;
+                        sub = CAO_GRADE_BANDS[i]; }
+                    return `<button type="button" class="cao-grid-tile" data-action="cao-calc-add" data-grade="${g}" data-tab="${caoCalcActiveTab}"><strong>${label}</strong><span class="small">${sub?sub+' ':''}+${pts}pts</span></button>`; };
+                const canAddMore = caoCalcSubjects.length < 10,
+                    tab = (id, label) =>
+                    `<button type="button" class="${caoCalcActiveTab===id?'active':''}" data-action="cao-calc-tab" data-tab="${id}">${label}</button>`;
+                return `<section class="card section cao-calc">
+          <div class="cao-subjects-head">Subjects: ${caoCalcSubjects.length}/10</div>
+          <div class="cao-subjects-row">${caoCalcSubjects.length?caoCalcSubjects.map(chip).join(''):'<p class="empty">Add subjects below.</p>'}</div>
+          <div class="cao-calc-total"><strong>${total}</strong><span class="small">points${caoCalcSubjects.some(s=>s.bonus)?' (incl. HL Maths bonus)':''}</span></div>
+          <div class="cao-calc-tabs">${tab('higher','Higher')}${tab('ordinary','Ordinary')}${tab('lcvp','LCVP Link')}</div>
+          ${canAddMore?`<div class="cao-grid">${tabGrades.map(gridTile).join('')}</div>`:'<p class="small" style="margin-top:10px">You\'ve added the max of 10 subjects.</p>'}
+          <div class="row" style="margin-top:14px"><button type="button" class="button ghost danger" data-action="cao-calc-restart">Start over</button></div>
+        </section>
+        <section class="card section cao-calc-reverse">
+          <h2>Find combinations for a target</h2>
+          <p class="small">Enter a points total and see a few ways to reach it (or just above it) using Higher Level grades.</p>
+          <div class="row" style="gap:8px;margin-top:8px"><input type="number" id="cao-target-input" placeholder="e.g. 600" value="${escape(caoCalcTargetInput)}" style="max-width:160px"><button type="button" class="button primary" data-action="cao-calc-find-combos">Find</button></div>
+          ${caoCalcTargetResults?caoCalcTargetResultsHtml():''}
+        </section>`; }
+
+            function renderTools() { if (!toolsActiveTool) { const tile = (id, icon, title, desc) =>
+                        `<button type="button" class="class-tile" data-action="tools-open" data-tool="${id}" style="--subject:var(--primary)"><strong>${icon} ${title}</strong><span class="small">${desc}</span></button>`;
+                    return appFrame(`<div class="page">${header('Tools','Extra study tools that don\'t fit neatly anywhere else.','')}
+        <div class="class-grid">
+          ${tile('formulas','📘','Formula Book','The official Formulae & Tables booklet allowed in the exam — searchable and browsable.')}
+          ${tile('cao','◎','CAO Points Calculator','Work out your best-6 CAO points, or find grade combinations that reach a target.')}
+        </div>
+        </div>`); }
+                const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (
+                    toolsActiveTool === 'formulas') return appFrame(`<div class="page">${back}
+        ${header('Formula Book',"The full official booklet, trimmed to just the formula and table pages — browse the contents, or search for what you need below.",'')}
+        ${formulaBookHtml()}
+        </div>`);
+                return appFrame(`<div class="page">${back}
+        ${header('CAO Points Calculator','A quick standalone scratchpad — it doesn\'t touch your logged exam results.','')}
+        ${caoCalcHtml()}
         </div>`); }
 
             function caoCourseFormModal(courseId) { const c = courseId ? state.caoCourses.find(x => x.id ===
@@ -11113,24 +11284,39 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'delete-essay-history') { state.essayMarks = state.essayMarks.filter(x => x.id !== b.dataset.id); save(); closeModal(); }
             });
 
-            // ---- Formula Book & Quick CAO Calculator click actions — another self-contained delegated
-            // listener, same reasoning as the Word Bank one above.
+            // ---- Formula Book & CAO Calculator click actions — another self-contained delegated listener,
+            // same reasoning as the Word Bank one above.
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
                 const a = b.dataset.action;
-                if (a === 'formula-toc-toggle') { const id = b.dataset.section;
+                if (a === 'tools-open') { toolsActiveTool = b.dataset.tool; render(); }
+                else if (a === 'tools-back') { toolsActiveTool = null; render(); }
+                else if (a === 'formula-toc-toggle') { const id = b.dataset.section;
                     if (formulaBookOpenSections.has(id)) formulaBookOpenSections.delete(id); else formulaBookOpenSections.add(id);
                     render(); }
+                else if (a === 'formula-toc-collapse-toggle') { formulaBookTocCollapsed = !formulaBookTocCollapsed; render(); }
                 else if (a === 'formula-toc-select') formulaBookGoToEntry(b.dataset.entry);
                 else if (a === 'formula-search-go') formulaBookRunSearch(document.getElementById('formula-search-input')?.value);
                 else if (a === 'formula-search-ai') formulaBookRunAiSearch();
                 else if (a === 'formula-page-prev') formulaBookStep(-1);
                 else if (a === 'formula-page-next') formulaBookStep(1);
-                else if (a === 'cao-calc-inc') { caoCalcTally[b.dataset.grade]++; render(); }
-                else if (a === 'cao-calc-dec') { caoCalcTally[b.dataset.grade] = Math.max(0, caoCalcTally[b.dataset.grade] - 1); render(); }
-                else if (a === 'cao-calc-reset') { Object.keys(caoCalcTally).forEach(g => caoCalcTally[g] = 0); caoCalcMathsBonus = false; render(); }
+                else if (a === 'cao-calc-hlmaths') { caoCalcMathsLevel = b.dataset.value === 'yes' ? 'H' : 'O'; caoCalcStep = 'mathsGrade'; render(); }
+                else if (a === 'cao-calc-set-maths') { const bonus = Number(b.dataset.bonus) || 0;
+                    caoCalcSubjects.push({ label: b.dataset.grade, points: CAO_POINTS[b.dataset.grade] + bonus, bonus });
+                    caoCalcStep = 'main'; caoCalcActiveTab = 'higher'; render(); }
+                else if (a === 'cao-calc-add') { if (caoCalcSubjects.length >= 10) return; const grade = b.dataset.grade, tab = b.dataset.tab;
+                    const points = tab === 'lcvp' ? LCVP_POINTS[grade] : CAO_POINTS[grade],
+                        label = tab === 'lcvp' ? LCVP_LABELS[grade] : grade;
+                    caoCalcSubjects.push({ label, points, bonus: 0 }); render(); }
+                else if (a === 'cao-calc-remove') { caoCalcSubjects.splice(Number(b.dataset.index), 1); render(); }
+                else if (a === 'cao-calc-tab') { caoCalcActiveTab = b.dataset.tab; render(); }
+                else if (a === 'cao-calc-restart') { caoCalcStep = 'start'; caoCalcMathsLevel = null; caoCalcSubjects = [];
+                    caoCalcActiveTab = 'higher'; caoCalcTargetInput = ''; caoCalcTargetResults = null; render(); }
+                else if (a === 'cao-calc-find-combos') { const raw = document.getElementById('cao-target-input')?.value,
+                        target = parseInt(raw, 10); if (!raw || isNaN(target) || target <= 0) { toast('Enter a target points total first.'); return; }
+                    caoCalcTargetInput = raw; caoCalcTargetResults = caoCalcFindCombos(target); render(); }
             });
-            document.addEventListener('change', e => { if (e.target.id === 'cao-calc-bonus') { caoCalcMathsBonus = e.target.checked; render(); } });
-            document.addEventListener('keydown', e => { if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value); });
+            document.addEventListener('keydown', e => { if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value);
+                else if (e.target && e.target.id === 'cao-target-input' && e.key === 'Enter') { const target = parseInt(e.target.value, 10); if (!isNaN(target) && target > 0) { caoCalcTargetInput = e.target.value; caoCalcTargetResults = caoCalcFindCombos(target); render(); } } });
 
             document.addEventListener('input', e => { if (e.target.id === 'search-input') { searchQuery = e.target
                     .value;
