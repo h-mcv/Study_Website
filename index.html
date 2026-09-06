@@ -7622,226 +7622,82 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 return `<div class="study-item ${item.logged?'logged':''}"><div class="study-item-main" ${clickable?`data-action="open-topic-detail" data-topic="${item.classTopicId}" style="cursor:pointer"`:''}><span class="subject-dot" style="background:${s?s.color:'#999'}"></span><div class="study-item-text"><strong>${escape(item.logged?item.loggedLabel:item.label)}</strong><span class="small">${s?escape(s.name)+' · ':''}${fmtMins(item.minutes)}${item.examName?' · ahead of '+escape(item.examName):''}${clickable?' · tap for history':''}</span></div></div>${item.logged?`<span class="pill good">Logged ✓</span>`:canLog?`<button class="button ghost" data-action="start-log" data-block="${blockKey}" data-item="${item.id}">Log this</button>`:''}</div>${isLogging?`<div class="log-form"><input type="text" id="log-input-${item.id}" value="${escape(item.label.replace(/^(Prep: |Review: |Quick review: )/,''))}" placeholder="What did you actually study?"><button class="button primary" data-action="submit-log" data-block="${blockKey}" data-item="${item.id}">Save</button><button class="button ghost" data-action="cancel-log">Cancel</button></div>`:''}`; }
 
             // ----------------------------------------------------------------------------------
-            // Study Mode — a focused, full-screen session guide for an actual study block, built on top of
-            // the existing content engine's already-planned items rather than a separate system.
-            const STUDY_MODE_SETUP_MIN = 3, STUDY_MODE_WRAPUP_MIN = 3,
-                STUDY_MODE_START_GRACE_MIN = 10, // clicking up to 10 min before a block starts still targets that block
-                STUDY_MODE_CHUNK_MIN = 25, // classic Pomodoro work interval — long tasks are split into chunks this size
-                STUDY_MODE_SHORT_BREAK_MIN = 5, // between Pomodoro chunks of the SAME task
-                STUDY_MODE_LONG_BREAK_MIN = 10, // between different tasks
-                STUDY_MODE_EXTEND_MIN = 10, // added per tap of "Extend" once a task's guideline timer runs out
-                STUDY_MODE_REPLAN_THRESHOLD_MIN = 15, // how far ahead/behind schedule before a replan kicks in
-                STUDY_MODE_FINISH_GATE_MIN = 10; // below this much wall-clock time left, wrapup can finish normally; above it, only Finish Early can end the session
+            // Study Mode — a simple, full-screen focus timer. It doesn't hand you a pre-planned list of
+            // what to study — just "Task 1", a stopwatch, and a "Finish task" button that always asks
+            // whether to take a short break before the next task or finish the session there. What was
+            // actually studied gets picked afterwards, from a checklist of homework and topics, rather
+            // than being planned (or logged item-by-item) in advance.
+            const STUDY_MODE_BREAK_MIN = 5, // suggested length of the break offered between tasks
+                STUDY_MODE_HOUR_NUDGE_MIN = 60; // a task running this long gets a "take a break soon" nudge
             const BREAK_SUGGESTIONS_SELF = ['Get up and stretch, or step outside for a minute of fresh air.',
                 'Grab a glass of water and walk around for a bit.', 'Do a few minutes of light movement — jumping jacks, a lap of the house.',
                 'Look out a window at something distant for 20 seconds to rest your eyes.',
                 'Put on one song and just listen, away from your desk.'];
-            const BREAK_SUGGESTIONS_SUPERVISED = ["Stretch at your desk — shoulders, neck, wrists.",
-                'Close your eyes and take five slow breaths.', 'Look at something far across the room for 20 seconds to rest your eyes.',
-                'Roll your shoulders and shake out your hands.', "Sit back, relax your jaw, and just pause for a moment."];
 
-            let studyModeSession = null; // see startStudyMode() for shape
-            let studyModePendingRatingTopic = null; // classTopicId awaiting a quick rating before the session can advance
+            let studyModeSession = null; // see studyModeBegin() for shape
             let studyModeTickHandle = null;
+            let studyModeLogDraft = null; // { taskMs, tasksCompleted, overallRating, checkedTaskIds, checkedTopicIds } — the post-session "what did you do" checklist
 
-            // Splits one already-planned item into Pomodoro-length chunks (STUDY_MODE_CHUNK_MIN) with short
-            // breaks between chunks of the SAME task, so a long single item (e.g. a 2-hour block of homework)
-            // still gets built-in breaks rather than being one unbroken stretch — genuine Pomodoro behaviour,
-            // not just spacing between different subjects.
-            function studyModeChunksForItem(item) { const totalMin = Math.max(5, item.minutes),
-                    chunkCount = Math.max(1, Math.ceil(totalMin / STUDY_MODE_CHUNK_MIN)); const out = []; for (let c = 0;
-                    c < chunkCount; c++) { const isLastChunk = c === chunkCount - 1,
-                        chunkMin = isLastChunk ? totalMin - STUDY_MODE_CHUNK_MIN * c : STUDY_MODE_CHUNK_MIN;
-                    out.push({ id: uid(), type: 'task', item, minutes: chunkMin, chunkIndex: c, chunkCount,
-                        isLastChunk }); if (!isLastChunk) out.push({ id: uid(), type: 'break',
-                        minutes: STUDY_MODE_SHORT_BREAK_MIN, short: true }); }
-                return out; }
+            // Entry point — always asks how long there is rather than guessing from the timetable: "Free
+            // study" for a set number of minutes, or "Just start" for an open-ended session that runs
+            // until it's manually finished.
+            function startStudyMode() { openModal('study-mode-start'); }
 
-            function buildStudyModeSteps(block) { const steps = [{ id: uid(), type: 'setup',
-                        minutes: STUDY_MODE_SETUP_MIN }];
-                block.items.forEach((item, i) => { steps.push(...studyModeChunksForItem(item)); if (i < block.items
-                        .length - 1) steps.push({ id: uid(), type: 'break', minutes: STUDY_MODE_LONG_BREAK_MIN }); });
-                steps.push({ id: uid(), type: 'wrapup', minutes: STUDY_MODE_WRAPUP_MIN });
-                return steps; }
-
-            // Entry point: refreshes the self-study plan first (so Study Mode always starts from an up to date
-            // plan), then looks for a block covering right now — including a grace window before a block's
-            // start, so clicking a couple of minutes early still targets that block's actual end time rather
-            // than starting a fresh, wrong-length timer.
-            function startStudyMode() { runSelfStudyAutoPlan();
-                const today = localDate(), plan = ensureStudyPlan(today); const now = new Date(),
-                    nowMinutes = now.getHours() * 60 + now.getMinutes();
-                const block = plan ? plan.blocks.find(b => nowMinutes >= b.start - STUDY_MODE_START_GRACE_MIN &&
-                    nowMinutes < b.end) : null;
-                if (!block || !block.items.length) { openModal('study-mode-fallback'); return; }
-                const blockEvent = event(block.blockEventId);
-                studyModeSession = { date: today, blockEventId: block.blockEventId, blockSlotId: block.blockSlotId,
-                    blockStart: block.start, blockEnd: block.end,
-                    isSupervised: blockEvent?.studyKind === 'supervised', steps: buildStudyModeSteps(block),
-                    stepIndex: 0, stepStartedAt: Date.now(), countdownRevealed: false, lastForegroundAt: Date.now(),
-                    pipMode: false, log: [] };
-                studyModePendingRatingTopic = null;
-                enterStudyModeView(); }
-
-            // Fallback used when no scheduled block covers right now — a short, unscheduled default session
-            // built around whatever recommendation() currently suggests, so Study Mode still works for
-            // spontaneous studying, just clearly not tied to a real timetable block.
-            function startUnscheduledStudyMode(customMinutes) { const r = recommendation(); const nowMin = new Date()
-                    .getHours() * 60 + new Date().getMinutes();
-                const minutes = Math.max(10, Math.min(240, Number(customMinutes) || DEFAULT_SESSION_MIN));
-                const fakeItem = { id: uid(), subjectId: r.subject?.id || '', label: r.name || 'Study session',
-                    minutes, kind: 'balance', logged: false, loggedLabel: '', taskId: '',
-                    topicId: '', classTopicId: '', examName: '' };
-                studyModeSession = { date: localDate(), blockEventId: '', blockSlotId: '', blockStart: nowMin,
-                    blockEnd: nowMin + minutes, isSupervised: false,
-                    steps: [{ id: uid(), type: 'setup', minutes: STUDY_MODE_SETUP_MIN }, ...studyModeChunksForItem(
-                            fakeItem), { id: uid(), type: 'wrapup',
-                            minutes: STUDY_MODE_WRAPUP_MIN }], stepIndex: 0, stepStartedAt: Date.now(),
-                    countdownRevealed: false, lastForegroundAt: Date.now(), pipMode: false, log: [], unscheduled: true };
-                studyModePendingRatingTopic = null;
+            function studyModeBegin(minutes) { const mins = minutes ? Math.max(10, Math.min(240, Number(
+                        minutes) || DEFAULT_SESSION_MIN)) : null;
+                const now = Date.now();
+                studyModeSession = { mode: mins ? 'timed' : 'open', endTs: mins ? now + mins * 60000 : null,
+                    startedAt: now, phase: 'task', taskIndex: 1, phaseStartedAt: now, taskMs: 0, breaksMs: 0,
+                    countdownRevealed: false, pipMode: false, lastForegroundAt: now, lastNudgeAt: null };
                 closeModal();
                 enterStudyModeView(); }
 
-            function studyModeSessionEndTs() { const now = new Date(),
-                    end = new Date(now); end.setHours(Math.floor(studyModeSession.blockEnd / 60),
-                    studyModeSession.blockEnd % 60, 0, 0); return end.getTime(); }
-
-            function studyModeCurrentStep() { return studyModeSession ? studyModeSession.steps[studyModeSession
-                    .stepIndex] : null; }
-
-            // Advancing past a task step logs it (if not already) and, when it's tied to a real class topic,
-            // pauses for a quick traffic-light rating before actually moving on — the "end of each topic"
-            // check-in. Breaks/setup/wrapup just advance directly.
-            function studyModeAdvance() { const s = studyModeSession; if (!s) return;
-                const step = studyModeCurrentStep(); if (!step) return; if (step.type === 'task' && step
-                    .isLastChunk) { if (!step.item.logged && s.blockEventId) logStudyItem(s.date, s.blockEventId, s
-                        .blockSlotId, step.item.id, step.item.label.replace(
-                            /^(Prep: |Review: |Quick review: )/, ''));
-                    s.log.push({ label: step.item.label, subjectId: step.item.subjectId }); if (step.item
-                        .classTopicId) { studyModePendingRatingTopic = step.item.classTopicId;
-                        renderStudyModeOverlay();
-                        return; } }
-                if (step.type === 'wrapup' && s.blockEventId) { const wallRemainingMin = (studyModeSessionEndTs() -
-                        Date.now()) / 60000; if (wallRemainingMin > STUDY_MODE_FINISH_GATE_MIN) { const before = s
-                        .steps.length;
-                        studyModeReplan(); if (s.steps.length > before) { renderStudyModeOverlay();
-                            return; } // found more to fill the time — go do that instead of finishing
-                        s.wrapupExhausted = true; // nothing left to add, but still gated — only Finish Early can end it from here
-                        renderStudyModeOverlay();
-                        return; } }
-                studyModeGoNext();
-                studyModeReplan(); }
-
-            // The explicit, deliberate way to end a session before its scheduled time — the only path that can
-            // finish while significant wall-clock time remains, since the normal wrapup flow is gated against
-            // that (see studyModeAdvance). Confirms first so a stray click can't end a session by accident.
-            function studyModeFinishEarly() { const s = studyModeSession; if (!s) return;
-                const wallRemainingMin = Math.round((studyModeSessionEndTs() - Date.now()) / 60000); if (
-                    wallRemainingMin > 2 && !confirm(
-                        `There's still about ${fmtMins(wallRemainingMin)} left in this session. Finish early anyway?`))
-                    return;
-                studyModeFinish(); }
-
-            function studyModeRateAndAdvance(rating) { if (studyModePendingRatingTopic) { const t = state
-                        .classTopics.find(x => x.id === studyModePendingRatingTopic); if (t) t.rating = rating;
-                    invalidateFutureStudyPlans();
-                    save(); }
-                studyModePendingRatingTopic = null;
-                studyModeGoNext();
-                studyModeReplan(); }
-
-            function studyModeGoNext() { const s = studyModeSession; if (!s) return;
-                studyModePendingRatingTopic = null;
-                s.stepIndex++;
-                s.stepStartedAt = Date.now(); if (s.stepIndex >= s.steps.length) { studyModeFinish();
-                    return; }
+            // "Finish task" always leads to the same choice — a short break before the next task, or
+            // finishing the session outright — rather than silently moving on by itself.
+            function studyModeFinishTask() { const s = studyModeSession; if (!s || s.phase !== 'task') return;
+                s.taskMs += Date.now() - s.phaseStartedAt;
+                s.phase = 'deciding';
                 renderStudyModeOverlay(); }
 
-            // Picks the single best additional thing to study that isn't already part of this session, using
-            // the same priority signals the content engine itself uses (currently-learning topics first, then
-            // due-and-weak topics, falling back to any active exam subject not yet touched this session) —
-            // deliberately reuses that judgement rather than inventing a separate one for Study Mode.
-            function studyModeFindExtraCandidate(usedSubjectIds, usedClassTopicIds) { const today = localDate(); let
-                    best = null, bestScore = -Infinity; (state.classTopics || []).forEach(ct => { if (
-                        usedClassTopicIds.has(ct.id)) return; const s = subject(ct.subjectId); if (!s || !s.active ||
-                        s.examSubject === false || ct.status === 'paused') return; let score = null; if (ct
-                        .status === 'learning') score = 6;
-                    else if (ct.status === 'done' && isClassTopicDue(ct, today, 0)) score = ct.rating === 'bad' ? 8 :
-                        ct.rating === 'good' ? 2 : 4.5; if (score !== null && score > bestScore) { bestScore = score;
-                        best = { subjectId: s.id, label: ct.status === 'learning' ?
-                                `${ct.label} (currently learning)` : `Review: ${ct.label}`, classTopicId: ct.id }; } });
-                if (best) return best; const subj = state.subjects.find(s => s.active && s.examSubject !== false &&
-                    !usedSubjectIds.has(s.id)); if (subj) { const hasTopics = (state.classTopics || []).some(ct =>
-                        ct.subjectId === subj.id && ct.status !== 'paused'); return { subjectId: subj.id,
-                        label: hasTopics ? `${subj.name} — ${studyMethodFor(subj)}` : noTopicsLabel(subj),
-                        classTopicId: '' }; }
-                return null; }
+            function studyModeChooseNext() { const s = studyModeSession; if (!s || s.phase !== 'deciding')
+                    return;
+                s.phase = 'break';
+                s.phaseStartedAt = Date.now();
+                renderStudyModeOverlay(); }
 
-            // Running well ahead of schedule (finished things faster than planned) — fills the gap with
-            // additional relevant content instead of leaving the rest of a supervised block idle, inserted
-            // just before the wrapup step.
-            function studyModeAddExtraContent(gapMin) { const s = studyModeSession;
-                const usedSubjectIds = new Set(s.steps.filter(st => st.type === 'task').map(st => st.item
-                        .subjectId)),
-                    usedClassTopicIds = new Set(s.steps.filter(st => st.type === 'task' && st.item.classTopicId)
-                        .map(st => st.item.classTopicId));
-                const plan = state.studyPlans[s.date],
-                    realBlock = plan ? plan.blocks.find(b => b.blockEventId === s.blockEventId && b.blockSlotId ===
-                        s.blockSlotId) : null;
-                let remaining = gapMin, guard = 0; const newSteps = []; while (remaining >= 15 && guard++ < 6) { const
-                        cand = studyModeFindExtraCandidate(usedSubjectIds, usedClassTopicIds); if (!cand) break;
-                    const minutes = Math.min(remaining, STUDY_MODE_CHUNK_MIN * 2),
-                        item = { id: uid(), subjectId: cand.subjectId, label: cand.label, minutes, kind: 'balance',
-                            logged: false, loggedLabel: '', taskId: '', topicId: '',
-                            classTopicId: cand.classTopicId || '', examName: '' };
-                    if (realBlock) realBlock.items.push(item); // keep the real persisted plan in sync so logStudyItem() can find this item once it's completed
-                    if (newSteps.length) newSteps
-                        .push({ id: uid(), type: 'break', minutes: STUDY_MODE_LONG_BREAK_MIN });
-                    newSteps.push(...studyModeChunksForItem(item));
-                    usedSubjectIds.add(cand.subjectId); if (cand.classTopicId) usedClassTopicIds.add(cand
-                        .classTopicId);
-                    remaining -= minutes; } if (newSteps.length) { s.steps.splice(s.steps.length - 1, 0, ...newSteps);
-                    if (realBlock) save();
-                    toast("You're ahead of schedule — added a bit more to study in the extra time."); } }
+            function studyModeChooseFinish() { studyModeEndSession(); }
 
-            // Running behind (extended time on something) — trims content from just before the wrapup step,
-            // since the content engine places its highest-priority items earliest, so what's left latest in
-            // the session is the least urgent to cut. Never touches the current step or wrapup itself.
-            function studyModeTrimContent(overMin) { const s = studyModeSession; let toTrim = overMin,
-                    trimmedAny = false; while (toTrim > 0 && s.steps.length > s.stepIndex + 2) { const lastIdx = s
-                        .steps.length - 2,
-                        victim = s.steps[lastIdx];
-                    s.steps.splice(lastIdx, 1);
-                    toTrim -= victim.minutes;
-                    trimmedAny = true; } if (trimmedAny) toast(
-                    "Running behind schedule — trimmed some lower-priority content to fit the time you have left."); }
+            // Moving on from a break is always a deliberate click — the suggested break length is just a
+            // guide, never enforced — and bumps the task counter so the next one is "Task N+1".
+            function studyModeStartNextTask() { const s = studyModeSession; if (!s || s.phase !== 'break')
+                    return;
+                s.breaksMs += Date.now() - s.phaseStartedAt;
+                s.taskIndex++;
+                s.phase = 'task';
+                s.phaseStartedAt = Date.now();
+                renderStudyModeOverlay(); }
 
-            // The actual replan check: compares wall-clock time left in the session against how much time the
-            // remaining planned steps actually add up to, and nudges the plan back into alignment if they've
-            // drifted apart by more than a small threshold. Only for real scheduled blocks — an unscheduled
-            // session has no fixed end to replan against.
-            function studyModeReplan() { const s = studyModeSession; if (!s || !s.blockEventId) return;
-                const wallRemainingMs = studyModeSessionEndTs() - Date.now(); if (wallRemainingMs <= 0) return;
-                const remainingSteps = s.steps.slice(s.stepIndex + 1),
-                    scheduledRemainingMs = remainingSteps.reduce((a, st) => a + st.minutes * 60000, 0),
-                    gapMin = Math.round((wallRemainingMs - scheduledRemainingMs) / 60000); if (gapMin >=
-                    STUDY_MODE_REPLAN_THRESHOLD_MIN) studyModeAddExtraContent(gapMin);
-                else if (gapMin <= -STUDY_MODE_REPLAN_THRESHOLD_MIN) studyModeTrimContent(-gapMin); }
+            // The corner shortcut to end the session outright from a task or a break, without going
+            // through the "next task" choice first. Confirms only when it would cut off an in-progress task.
+            function studyModeFinishNow() { const s = studyModeSession; if (!s) return;
+                if (s.phase === 'task') { if (!confirm('End this task and finish the session?')) return;
+                    s.taskMs += Date.now() - s.phaseStartedAt; }
+                else if (s.phase === 'break') s.breaksMs += Date.now() - s.phaseStartedAt;
+                studyModeEndSession(); }
 
-            function studyModeFinish() { const s = studyModeSession; if (!s) return;
+            // Ends the timer/overlay and hands off to the post-session checklist — nothing about what was
+            // actually studied is recorded until that checklist is saved.
+            function studyModeEndSession() { const s = studyModeSession; if (!s) return;
                 clearInterval(studyModeTickHandle);
                 studyModeTickHandle = null;
                 document.getElementById('study-mode-overlay').classList.add('hidden');
                 document.getElementById('study-mode-pip').classList.add('hidden');
                 document.getElementById('spotify-widget').classList.add('hidden');
-                if (s.log.length || s.overallRating) { state.studySessionLog.push({ id: uid(), date: s.date,
-                        overallRating: s.overallRating || null, itemCount: s.log.length,
-                        isSupervised: s.isSupervised });
-                    save(); }
+                const tasksCompleted = Math.max(0, s.taskIndex - (s.phase === 'task' ? 1 : 0));
+                studyModeLogDraft = { taskMs: s.taskMs, tasksCompleted, overallRating: null,
+                    checkedTaskIds: new Set(), checkedTopicIds: new Set() };
                 studyModeSession = null;
-                studyModePendingRatingTopic = null;
-                openModal('study-mode-summary', { log: s.log, isSupervised: s.isSupervised,
-                    overallRating: s.overallRating }); }
+                openModal('study-mode-log'); }
 
             function studyModeMinimize() { if (!studyModeSession) return;
                 studyModeSession.pipMode = true;
@@ -7862,7 +7718,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 renderStudyModeOverlay();
                 renderSpotifyWidget(); }
 
-            // Drives both the live countdown while in the foreground and the "you've drifted off" nudge while
+            // Drives both the live clock while in the foreground and the "you've drifted off" nudge while
             // minimized to the PIP — checked, not fired every tick, so it's one gentle toast every couple of
             // minutes away rather than a constant stream.
             function studyModeTick() { const s = studyModeSession; if (!s) { clearInterval(studyModeTickHandle);
@@ -7876,92 +7732,97 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function fmtCountdown(ms) { const total = Math.max(0, Math.round(ms / 1000)),
                     m = Math.floor(total / 60), sec = total % 60; return `${m}:${String(sec).padStart(2, '0')}`; }
 
+            function studyModeClockText(s) { if (s.mode === 'timed') { const remainMs = s.endTs - Date.now();
+                    return remainMs >= 0 ? `${fmtCountdown(remainMs)} left in this session` :
+                        "This session's time is up — finish when you're ready"; }
+                return `${fmtCountdown(Date.now() - s.startedAt)} elapsed this session`; }
+
             function renderStudyModeOverlay() { const overlay = document.getElementById('study-mode-overlay'),
                     s = studyModeSession; if (!s || s.pipMode) { overlay.classList.add('hidden');
                     return; }
                 overlay.classList.remove('hidden');
-                const remainingMs = studyModeSessionEndTs() - Date.now(),
-                    remainingMin = Math.round(remainingMs / 60000),
-                    countdownText = remainingMs >= 0 ? `${fmtCountdown(remainingMs)} left in this session` :
-                    "This session's scheduled time is up — finish when you're ready",
-                    topBar =
-                    `<button type="button" class="sm-exit" data-action="sm-minimize">↘ Minimize — I need to check something</button><button type="button" class="sm-exit" style="right:auto;left:24px" data-action="sm-finish-early">⏹ Finish early</button>`;
-                if (studyModePendingRatingTopic) { const t = state.classTopics.find(x => x.id ===
-                        studyModePendingRatingTopic);
+                const topBar =
+                    `<button type="button" class="sm-exit" data-action="sm-minimize">↘ Minimize — I need to check something</button><button type="button" class="sm-exit" style="right:auto;left:24px" data-action="sm-finish-now">⏹ Finish session</button>`;
+                const countdownHtml =
+                    `<div class="sm-countdown-wrap"><span class="sm-countdown ${s.countdownRevealed?'revealed':''}" data-action="sm-toggle-countdown">${studyModeClockText(s)}</span></div>`;
+                const completedTasks = Math.max(0, s.taskIndex - (s.phase === 'task' ? 1 : 0));
+                const progressDots = Array.from({ length: completedTasks + 1 }, (_, i) =>
+                        `<span class="sm-progress-dot ${i<completedTasks?'done':'current'}"></span>`).join('');
+                if (s.phase === 'task') { const elapsedMs = Date.now() - s.phaseStartedAt,
+                        elapsedMin = Math.floor(elapsedMs / 60000);
                     overlay.innerHTML =
-                        `${topBar}<div class="sm-stage" style="margin-top:80px"><div class="sm-stage-kind">Quick check-in</div><div class="sm-stage-title">How did "${escape(t?t.label:'that')}" go?</div><div class="sm-stage-sub">This changes how soon it comes back around for review.</div><div class="sm-actions" style="gap:24px"><button type="button" class="button ghost" style="font-size:36px;padding:10px 16px" data-action="sm-rate" data-rating="good">🟢</button><button type="button" class="button ghost" style="font-size:36px;padding:10px 16px" data-action="sm-rate" data-rating="ok">🟡</button><button type="button" class="button ghost" style="font-size:36px;padding:10px 16px" data-action="sm-rate" data-rating="bad">🔴</button></div></div>`;
+                        `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Task ${s.taskIndex}</div><div class="sm-stage-title">Task ${s.taskIndex}</div><div class="sm-stage-sub">${elapsedMin>=STUDY_MODE_HOUR_NUDGE_MIN?"You've been at this for over an hour — worth taking a break soon.":'Work on whatever you need to, then finish the task when you\'re ready.'}</div><div class="sm-task-timer">${fmtCountdown(elapsedMs)}</div><div class="sm-actions"><button type="button" class="button primary" data-action="sm-finish-task">Finish task</button></div><div class="sm-progress">${progressDots}</div></div>`;
                     return; }
-                const step = studyModeCurrentStep(); if (!step) return;
-                const stepRemainMs = step.minutes * 60000 - (Date.now() - s.stepStartedAt),
-                    overtime = stepRemainMs < 0,
-                    stepTimerText = (overtime ? '+' : '') + fmtCountdown(Math.abs(stepRemainMs));
-                const wrapupGated = step.type === 'wrapup' && s.blockEventId && remainingMin >
-                    STUDY_MODE_FINISH_GATE_MIN;
-                let kind, title, sub = '', extra = '';
-                if (step.type === 'setup') { kind = 'Getting started';
-                    title = 'Get set up';
-                    sub = 'Books out, phone away, water nearby — whatever helps you actually start.'; } else if (
-                    step.type === 'wrapup') { kind = 'Wrapping up';
-                    title = 'How did the session go overall?';
-                    sub = wrapupGated ? (s.wrapupExhausted ?
-                        `Nothing more due right now, but there's still about ${fmtMins(remainingMin)} left in this block — use "Finish early" above if you need to stop now.` :
-                        'Log a quick rating — then we\'ll check whether there\'s time left to fill.') :
-                        'Log a quick rating, then pack up.';
-                    extra =
-                        `<div class="sm-actions" style="gap:24px;margin:10px 0 4px">${[['good','🟢'],['ok','🟡'],['bad','🔴']].map(([id,emoji])=>`<button type="button" class="button ${s.overallRating===id?'primary':'ghost'}" style="font-size:32px;padding:8px 14px" data-action="sm-rate-overall" data-rating="${id}">${emoji}</button>`).join('')}</div>`; } else if (
-                    step.type === 'break') { kind = 'Break';
-                    title = 'Take a breather'; const suggestions = s.isSupervised ? BREAK_SUGGESTIONS_SUPERVISED :
-                        BREAK_SUGGESTIONS_SELF,
-                        suggestion = suggestions[s.stepIndex % suggestions.length];
-                    extra = `<div class="sm-break-suggestion">${s.isSupervised?'🪑':'🚶'} ${escape(suggestion)}</div>`;
-                    sub = s.isSupervised ?
-                        "You're in supervised study, so stay at your desk — but still take a real break from the work." :
-                        'You can step away from your desk for this one.'; } else { const subj = subject(step.item
-                        .subjectId);
-                    kind = subj ? escape(subj.name) : 'Study';
-                    title = escape(step.item.label.replace(/^(Prep: |Review: |Quick review: )/, '')) + (step
-                        .chunkCount > 1 ? ` (part ${step.chunkIndex+1} of ${step.chunkCount})` : '');
-                    sub = step.item.examName ? `Ahead of ${escape(step.item.examName)}` : ''; }
-                const progressDots = s.steps.map((st, i) =>
-                    `<span class="sm-progress-dot ${i<s.stepIndex?'done':i===s.stepIndex?'current':''}"></span>`)
-                    .join('');
-                const extendBtn = step.type === 'task' && overtime ?
-                    `<button type="button" class="button ghost" data-action="sm-extend">+${STUDY_MODE_EXTEND_MIN} min</button>` :
-                    '';
-                const mainBtnLabel = step.type !== 'wrapup' ? 'Next →' : !wrapupGated ? 'Finish session' : s
-                    .wrapupExhausted ? 'Check again' : 'Check for more to do';
+                if (s.phase === 'deciding') { overlay.innerHTML =
+                        `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Task ${s.taskIndex} done</div><div class="sm-stage-title">Next task, or finish for now?</div><div class="sm-stage-sub">A short break helps before diving into the next one — or stop here if you're done.</div><div class="sm-actions"><button type="button" class="button ghost" data-action="sm-choose-finish">Finish session</button><button type="button" class="button primary" data-action="sm-choose-next">Take a break, then next task</button></div><div class="sm-progress">${progressDots}</div></div>`;
+                    return; }
+                const suggestion = BREAK_SUGGESTIONS_SELF[(s.taskIndex - 1) % BREAK_SUGGESTIONS_SELF.length],
+                    breakRemainMs = STUDY_MODE_BREAK_MIN * 60000 - (Date.now() - s.phaseStartedAt),
+                    overtime = breakRemainMs < 0;
                 overlay.innerHTML =
-                    `${topBar}<div class="sm-countdown-wrap"><span class="sm-countdown ${s.countdownRevealed?'revealed':''}" data-action="sm-toggle-countdown">${countdownText}</span></div><div class="sm-stage"><div class="sm-stage-kind">${kind}</div><div class="sm-stage-title">${title}</div>${sub?`<div class="sm-stage-sub">${sub}</div>`:''}${step.type!=='wrapup'?`<div class="sm-task-timer ${overtime?'overtime':''}">${stepTimerText}</div>`:''}${extra}<div class="sm-actions">${extendBtn}<button type="button" class="button primary" data-action="sm-advance">${mainBtnLabel}</button></div><div class="sm-progress">${progressDots}</div></div>`; }
+                    `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Break</div><div class="sm-stage-title">Take a breather</div><div class="sm-break-suggestion">🚶 ${escape(suggestion)}</div><div class="sm-task-timer ${overtime?'overtime':''}">${(overtime?'+':'')+fmtCountdown(Math.abs(breakRemainMs))}</div><div class="sm-actions"><button type="button" class="button primary" data-action="sm-start-next-task">Start Task ${s.taskIndex+1}</button></div><div class="sm-progress">${progressDots}</div></div>`; }
 
             function renderStudyModePip() { const pip = document.getElementById('study-mode-pip'),
                     s = studyModeSession; if (!s || !s.pipMode) { pip.classList.add('hidden');
                     return; }
                 pip.classList.remove('hidden');
-                const remainingMs = studyModeSessionEndTs() - Date.now(),
-                    step = studyModeCurrentStep(); if (!step) return;
-                const taskLabel = step.type === 'task' ? step.item.label.replace(
-                        /^(Prep: |Review: |Quick review: )/, '') : step.type === 'break' ? 'Break' : step.type ===
-                    'setup' ? 'Getting set up' : 'Wrapping up';
+                const clockText = s.mode === 'timed' ? fmtCountdown(Math.max(0, s.endTs - Date.now())) :
+                    fmtCountdown(Date.now() - s.startedAt);
+                const label = s.phase === 'task' ? `Task ${s.taskIndex}` : s.phase === 'break' ? 'Break' :
+                    'Choosing next step';
                 pip.setAttribute('data-action', 'sm-restore');
                 pip.innerHTML =
-                    `<div class="pip-timer">${remainingMs>=0?fmtCountdown(remainingMs):'0:00'}</div><div class="pip-task">${escape(taskLabel)} · tap to return to Study Mode</div>`; }
+                    `<div class="pip-timer">${clockText}</div><div class="pip-task">${escape(label)} · tap to return to Study Mode</div>`; }
 
-            function studyModeFallbackModal() { return modalShell('No study block right now',
-                    `<p class="small">There's no scheduled study block covering right now (or starting in the next ${STUDY_MODE_START_GRACE_MIN} minutes). You can still start an unscheduled session for however long you actually have.</p><div class="field" style="margin-top:14px"><label for="sm-fallback-minutes">Minutes available</label><input type="number" id="sm-fallback-minutes" min="10" max="240" step="5" value="${DEFAULT_SESSION_MIN}"></div>`,
-                    `<button class="button" data-action="close-modal">Cancel</button><button class="button primary" data-action="sm-start-unscheduled">Start session</button>`,
+            function studyModeStartModal() { return modalShell('Start Study Mode',
+                    `<div class="field"><label for="sm-start-minutes">Free study — how many minutes do you have?</label><input type="number" id="sm-start-minutes" min="10" max="240" step="5" value="${DEFAULT_SESSION_MIN}"></div><p class="small" style="margin-top:14px">Or skip the timer and just start — go until you're done, however long that takes.</p>`,
+                    `<button class="button" data-action="close-modal">Cancel</button><button class="button ghost" data-action="sm-start-open">Just start</button><button class="button primary" data-action="sm-start-timed">Start free study</button>`,
                     false); }
 
-            function studyModeSummaryModal(data) { const bySubject = {}; (data.log || []).forEach(l => { const key =
-                        l.subjectId || '';
-                    bySubject[key] = (bySubject[key] || 0) + 1; });
-                const rows = Object.entries(bySubject).map(([subjectId, count]) => { const s = subject(subjectId);
-                    return `<div class="topic-row"><span>${s?escape(s.name):'General'}</span><span class="small">${count} item${count===1?'':'s'}</span></div>`; })
-                    .join('');
-                const ratingEmoji = { good: '🟢 Went well', ok: '🟡 It was okay', bad: '🔴 Tough session' };
-                return modalShell('Session complete',
-                    `<div class="event-detail"><div style="text-align:center;padding:20px;background:var(--surface-2);border-radius:14px;margin-bottom:14px"><div class="small">You worked through</div><h2 style="margin-top:6px">${(data.log||[]).length} item${(data.log||[]).length===1?'':'s'}</h2>${data.overallRating?`<div class="small" style="margin-top:6px">${ratingEmoji[data.overallRating]}</div>`:''}</div>${rows?`<div class="list">${rows}</div>`:'<p class="empty">Nothing logged this time — that\'s okay.</p>'}<div style="margin-top:16px"><label for="sm-summary-notes" class="small">Anything worth remembering about how this session went?</label><textarea id="sm-summary-notes" placeholder="Optional" style="margin-top:6px"></textarea></div></div>`,
-                    `<button class="button primary" data-action="sm-close-summary">Done</button>`,
-                    true); }
+            // The post-session checklist — what was actually studied gets picked here, once, rather than
+            // logged task-by-task against a plan that no longer exists during the session itself.
+            function studyModeLogModal() { const d = studyModeLogDraft || {};
+                const homeworkTasks = state.tasks.filter(t => !t.done && t.type !== 'test');
+                const groups = {}; (state.classTopics || []).forEach(ct => { const s = subject(ct.subjectId); if (
+                        !s || !s.active || ct.status === 'paused') return; (groups[s.id] = groups[s.id] || {
+                        subject: s, topics: [] }).topics.push(ct); });
+                const subjectGroups = Object.values(groups).sort((a, b) => a.subject.name.localeCompare(b.subject
+                    .name));
+                const ratingRow =
+                    `<div class="sm-actions" style="gap:16px;margin:6px 0 18px">${[['good','🟢'],['ok','🟡'],['bad','🔴']].map(([id,emoji])=>`<button type="button" class="button ${d.overallRating===id?'primary':'ghost'}" style="font-size:28px;padding:8px 14px" data-action="sm-log-rate" data-rating="${id}">${emoji}</button>`).join('')}</div>`;
+                const taskRows = homeworkTasks.length ? homeworkTasks.map(t => { const s = subject(t.subjectId);
+                        return `<label class="topic-row" style="cursor:pointer"><span><input type="checkbox" data-action="sm-log-toggle-task" data-id="${t.id}" ${d.checkedTaskIds&&d.checkedTaskIds.has(t.id)?'checked':''}> ${escape(t.title)}</span><span class="small">${s?escape(s.name):''}</span></label>`; })
+                    .join('') : '<p class="empty">No outstanding homework to tick off.</p>';
+                const subjectHtml = subjectGroups.length ? subjectGroups.map(g =>
+                        `<div style="margin-top:14px"><h3>${escape(g.subject.name)}</h3><div class="list" style="margin-top:6px">${g.topics.map(ct=>`<label class="topic-row" style="cursor:pointer"><span><input type="checkbox" data-action="sm-log-toggle-topic" data-id="${ct.id}" ${d.checkedTopicIds&&d.checkedTopicIds.has(ct.id)?'checked':''}> ${escape(ct.label)}</span></label>`).join('')}</div></div>`)
+                    .join('') : '<p class="empty">No topics tracked yet.</p>';
+                return modalShell('What did you study?',
+                    `<p class="small">How did the session go overall?</p>${ratingRow}<h3>Homework completed</h3><div class="list" style="margin-top:6px">${taskRows}</div>${subjectHtml}`,
+                    `<button class="button primary" data-action="sm-save-log">Save</button>`,
+                    true, true); }
+
+            function studyModeSaveLog() { const d = studyModeLogDraft; if (!d) { closeModal();
+                    return; }
+                const today = localDate(); let itemCount = 0;
+                d.checkedTaskIds.forEach(id => { const t = state.tasks.find(x => x.id === id); if (t && !t.done) {
+                        setTaskDone(t, true);
+                        itemCount++; } });
+                d.checkedTopicIds.forEach(id => { const ct = state.classTopics.find(x => x.id === id); if (ct) { ct
+                        .lastStudied = today;
+                        itemCount++; } });
+                if (d.checkedTopicIds.size) invalidateFutureStudyPlans();
+                const coinsEarned = Math.round((d.taskMs || 0) / 3600000 * COIN_RATE_PER_HOUR); if (coinsEarned > 0)
+                    state.coins = (state.coins || 0) + coinsEarned;
+                if (itemCount || d.overallRating || d.taskMs) state.studySessionLog.push({ id: uid(), date: today,
+                        overallRating: d.overallRating || null, itemCount, isSupervised: false });
+                studyModeLogDraft = null;
+                save();
+                closeModal();
+                render();
+                toast(coinsEarned > 0 ?
+                    `Session saved. +${coinsEarned} coin${coinsEarned===1?'':'s'} for Sparky's Closet!` :
+                    'Session saved.'); }
+
 
             function renderTimetable() { const holidays = state.holidays.sort((a, b) => a.start.localeCompare(b.start));
                 const timetableSection = `
@@ -8362,8 +8223,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     modal.kind === 'topic-detail') return layer.innerHTML = topicDetailModal(modal.topicId); if (
                     modal.kind === 'subject-performance') return layer.innerHTML = subjectPerformanceDetailModal(
                     modal.subjectId); if (
-                    modal.kind === 'study-mode-fallback') return layer.innerHTML = studyModeFallbackModal(); if (
-                    modal.kind === 'study-mode-summary') return layer.innerHTML = studyModeSummaryModal(modal); if (
+                    modal.kind === 'study-mode-start') return layer.innerHTML = studyModeStartModal(); if (
+                    modal.kind === 'study-mode-log') return layer.innerHTML = studyModeLogModal(); if (
                     modal.kind === 'info') return layer.innerHTML = infoModal(modal.topic); if (
                     modal.kind === 'vocab-detail') return layer.innerHTML = vocabDetailModal(modal.entryId); if (
                     modal.kind === 'verb-detail') return layer.innerHTML = verbDetailModal(modal.entryId); if (
@@ -10478,22 +10339,22 @@ If the user asks about how to study or study methods generally, answer from your
                         text: 'Tapping a topic anywhere it shows up opens this — its full history, and an optional "how challenging was it" check-in. That\'s a personal record for you to look back on, kept separate from the 🟢🟡🔴 rating that actually drives scheduling.',
                         next: null }
                 ],
-                // Uses the safe, time-independent unscheduled entry point rather than the real "Start Study
-                // Mode" button, which depends on a block covering the actual current time of day — this stays
-                // deterministic regardless of when the tour is run. silentlyEndTourStudyMode (called from
-                // endDemoTour, and defensively at the top of the next chapter's onEnter below) cleans up the
-                // running timer/overlay — the real studyModeFinish() isn't used here since it always pops a
-                // "session summary" modal, which would be a strange non-sequitur mid-tour.
+                // Uses the safe, deterministic timed entry point rather than the real "Start Study Mode"
+                // button, which would otherwise pop the "Free study or just start" modal mid-tour.
+                // silentlyEndTourStudyMode (called from endDemoTour, and defensively at the top of the next
+                // chapter's onEnter below) cleans up the running timer/overlay — the real studyModeEndSession()
+                // isn't used here since it always pops the "what did you study" checklist, which would be a
+                // strange non-sequitur mid-tour.
                 'tour-study-mode': [
                     { id: 'ft-studymode-start', pose: 'point', target: '.sm-stage-title', autoAdvanceMs: 11000,
                         onEnter: () => { closeModal();
                             silentlyEndTourStudyMode();
-                            startUnscheduledStudyMode(45); },
-                        text: 'Start Study Mode to run through your plan hands-free — a focus timer that steps through each item in turn, in chunks with short breaks between them, so it never asks for more unbroken focus than is realistic.',
+                            studyModeBegin(45); },
+                        text: "Start Study Mode for a simple focus timer — no pre-planned checklist, just \"Task 1\" and a stopwatch. Work on whatever you need to, then finish the task when you're ready.",
                         next: 'ft-studymode-advance' },
-                    { id: 'ft-studymode-advance', pose: 'point', target: '[data-action="sm-advance"]',
+                    { id: 'ft-studymode-advance', pose: 'point', target: '[data-action="sm-finish-task"]',
                         autoAdvanceMs: 11500,
-                        text: "Next moves you on whenever you're ready — early or late, no penalty. Running over just offers +10 minutes instead of cutting you off, and you can minimise to a small floating timer if you need to switch away for a moment without losing your place.",
+                        text: '"Finish task" always asks whether to take a short break before the next task or finish the session there — and at the end, you tick off what you actually studied (homework or topics) rather than following a rigid plan.',
                         next: null }
                 ],
                 'tour-tasks': [
@@ -10612,7 +10473,7 @@ If the user asks about how to study or study methods generally, answer from your
                 const isOnboarding = !!(mascotTour && mascotTour.context && mascotTour.context.isOnboarding);
                 // Study Mode's session/timer live outside `state` (module-level closures), so swapping `state`
                 // back below wouldn't stop a ticking demo session or its overlay on its own — see
-                // silentlyEndTourStudyMode's own comment for why the real studyModeFinish() isn't used here.
+                // silentlyEndTourStudyMode's own comment for why the real studyModeEndSession() isn't used here.
                 silentlyEndTourStudyMode();
                 if (preTourSnapshot) { state = preTourSnapshot;
                     preTourSnapshot = null; }
@@ -10626,16 +10487,16 @@ If the user asks about how to study or study methods generally, answer from your
             }
 
             // A demoed Study Mode session (tour-study-mode) needs cleaning up whenever the tour moves past
-            // that chapter or ends early — but the real studyModeFinish() always pops open a "session summary"
-            // modal, which would be a jarring non-sequitur mid-tour. This does the same interval/DOM cleanup
-            // silently, with no summary and no session-log entry (there's nothing genuine to log anyway).
+            // that chapter or ends early — but the real studyModeEndSession() always pops open the "what did
+            // you study" checklist, which would be a jarring non-sequitur mid-tour. This does the same
+            // interval/DOM cleanup silently, with no checklist and no session-log entry (there's nothing
+            // genuine to log anyway).
             function silentlyEndTourStudyMode() { if (!studyModeSession) return;
                 clearInterval(studyModeTickHandle);
                 studyModeTickHandle = null;
                 document.getElementById('study-mode-overlay').classList.add('hidden');
                 document.getElementById('study-mode-pip').classList.add('hidden');
-                studyModeSession = null;
-                studyModePendingRatingTopic = null; }
+                studyModeSession = null; }
 
             function currentMascotStep() { if (!mascotTour) return null; const steps = MASCOT_TOURS[mascotTour
                     .tourId]; return steps ? steps[mascotTour.index] : null; }
@@ -10819,16 +10680,18 @@ If the user asks about how to study or study methods generally, answer from your
                     return; } if (a === 'start-study-mode') { startStudyMode();
                     return; } if (a === 'sm-minimize') { studyModeMinimize();
                     return; } if (a === 'sm-restore') { studyModeRestore();
-                    return; } if (a === 'sm-advance') { studyModeAdvance();
-                    return; } if (a === 'sm-rate') { studyModeRateAndAdvance(b.dataset.rating);
-                    return; } if (a === 'sm-rate-overall') { if (studyModeSession) studyModeSession
+                    return; } if (a === 'sm-start-timed') { studyModeBegin(document.getElementById(
+                        'sm-start-minutes')?.value);
+                    return; } if (a === 'sm-start-open') { studyModeBegin(null);
+                    return; } if (a === 'sm-finish-task') { studyModeFinishTask();
+                    return; } if (a === 'sm-choose-next') { studyModeChooseNext();
+                    return; } if (a === 'sm-choose-finish') { studyModeChooseFinish();
+                    return; } if (a === 'sm-start-next-task') { studyModeStartNextTask();
+                    return; } if (a === 'sm-finish-now') { studyModeFinishNow();
+                    return; } if (a === 'sm-log-rate') { if (studyModeLogDraft) studyModeLogDraft
                     .overallRating = b.dataset.rating;
-                    renderStudyModeOverlay();
-                    return; } if (a === 'sm-extend') { const step = studyModeCurrentStep(); if (step) { step
-                        .minutes += STUDY_MODE_EXTEND_MIN;
-                        studyModeReplan();
-                        renderStudyModeOverlay(); }
-                    return; } if (a === 'sm-finish-early') { studyModeFinishEarly();
+                    renderModal();
+                    return; } if (a === 'sm-save-log') { studyModeSaveLog();
                     return; } if (a === 'spotify-connect') { spotifyConnect();
                     return; } if (a === 'spotify-disconnect') { spotifyDisconnect();
                     return; } if (a === 'garmin-generate-code') { garminGenerateCode();
@@ -10846,11 +10709,6 @@ If the user asks about how to study or study methods generally, answer from your
                     return; } if (a === 'sm-toggle-countdown') { if (studyModeSession) studyModeSession
                     .countdownRevealed = !studyModeSession.countdownRevealed;
                     renderStudyModeOverlay();
-                    return; } if (a === 'sm-start-unscheduled') { startUnscheduledStudyMode(document
-                    .getElementById('sm-fallback-minutes')?.value);
-                    return; } if (a === 'sm-close-summary') { const notes = document.getElementById(
-                        'sm-summary-notes')?.value.trim(); if (notes) toast('Noted — thanks.');
-                    closeModal();
                     return; } if (a === 'open-picker') { if (b.dataset.type === 'date') openDatePicker(
                         b);
                     else openTimePicker(b);
@@ -11488,6 +11346,12 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (action === 'toggle-tense') { toggleLearnedTense(t.dataset.subject, t.dataset.tense, t.checked); }
                 else if (action === 'toggle-essay-topic') { const id = t.dataset.topic;
                     if (t.checked) essayTopicIds = [...essayTopicIds, id]; else essayTopicIds = essayTopicIds.filter(x => x !== id); }
+                else if (action === 'sm-log-toggle-task') { if (studyModeLogDraft) { if (t.checked) studyModeLogDraft
+                        .checkedTaskIds.add(t.dataset.id);
+                    else studyModeLogDraft.checkedTaskIds.delete(t.dataset.id); } }
+                else if (action === 'sm-log-toggle-topic') { if (studyModeLogDraft) { if (t.checked) studyModeLogDraft
+                        .checkedTopicIds.add(t.dataset.id);
+                    else studyModeLogDraft.checkedTopicIds.delete(t.dataset.id); } }
                 else if (t.id === 'vocab-ocr-file') { const file = t.files?.[0]; const subjectId = t.dataset.subject; t.value = '';
                     if (file) runVocabOcr(subjectId, file); }
                 else if (t.id === 'essay-photo-file') { const file = t.files?.[0]; t.value = '';
