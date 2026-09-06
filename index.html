@@ -878,6 +878,184 @@
             border: none;
             padding: 0;
         }
+        .formula-book {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 860px) {
+            .formula-book { grid-template-columns: 1fr; }
+        }
+        .formula-book-search {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .formula-book-search input {
+            flex: 1;
+        }
+        .formula-book-search-status {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 10px;
+            min-height: 18px;
+        }
+        .formula-book-toc {
+            max-height: 70vh;
+            overflow-y: auto;
+            position: sticky;
+            top: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 6px;
+        }
+        .formula-book-toc-section > button {
+            width: 100%;
+            text-align: left;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .formula-book-toc-section > button:hover {
+            background: var(--surface-2);
+        }
+        .formula-book-toc-entries {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            padding: 2px 0 8px 10px;
+        }
+        .formula-book-toc-entries button {
+            text-align: left;
+            padding: 6px 10px;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-size: 12.5px;
+            cursor: pointer;
+        }
+        .formula-book-toc-entries button:hover {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+        .formula-book-toc-entries button.active {
+            background: var(--primary);
+            color: #fff;
+        }
+        .formula-book-viewer {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            overflow: hidden;
+            background: var(--surface);
+        }
+        .formula-book-caption {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 14px;
+            background: var(--surface-2);
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .formula-book-caption .row {
+            display: flex;
+            gap: 6px;
+        }
+        .formula-book-page-wrap {
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            background: #fff;
+        }
+        .formula-book-page-wrap img {
+            max-width: 100%;
+            border-radius: 6px;
+            transition: box-shadow 0.4s ease;
+        }
+        .formula-book-page-wrap img.highlight {
+            box-shadow: 0 0 0 4px var(--primary), 0 0 24px rgba(51, 92, 255, .5);
+            animation: formula-pulse 1.4s ease 2;
+        }
+        @keyframes formula-pulse {
+            0%, 100% { box-shadow: 0 0 0 4px var(--primary), 0 0 24px rgba(51, 92, 255, .5); }
+            50% { box-shadow: 0 0 0 4px var(--primary), 0 0 4px rgba(51, 92, 255, .2); }
+        }
+        .formula-book-nav-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            padding: 8px 14px 14px;
+        }
+        .cao-calc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+            gap: 8px;
+            margin: 14px 0;
+        }
+        .cao-calc-tile {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 8px 4px;
+            text-align: center;
+            background: var(--surface);
+        }
+        .cao-calc-tile strong {
+            display: block;
+            font-size: 14px;
+        }
+        .cao-calc-tile .small {
+            display: block;
+            color: var(--muted);
+            font-size: 11px;
+            margin: 2px 0 6px;
+        }
+        .cao-calc-tile .row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .cao-calc-tile .row button {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 1px solid var(--line);
+            background: var(--surface-2);
+            cursor: pointer;
+            font-weight: 700;
+            line-height: 1;
+            padding: 0;
+        }
+        .cao-calc-tile .count {
+            min-width: 16px;
+            font-weight: 700;
+        }
+        .cao-calc-total {
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: var(--surface-2);
+            text-align: center;
+            margin-bottom: 14px;
+        }
+        .cao-calc-total strong {
+            font-size: 34px;
+            display: block;
+        }
+        .cao-calc-breakdown {
+            font-size: 12.5px;
+            color: var(--muted);
+            margin-top: 6px;
+        }
         .performance-summary-card {
             padding: 16px 18px;
             border-radius: 14px;
@@ -3979,7 +4157,7 @@
             let examResultDraft = null; // { markingType, percentUnknown } — just enough to know which fields to show
             let pastPaperResultDraft = null; // same shape, for the separate past-papers result form
             let selectedSubjectId = null; // which subject the 'subject-detail' page (a real page now, not a modal) is showing
-            let subjectDetailSection = 'overview'; // 'overview' | 'topics' | 'pastpapers' | 'wordbank' | 'essaymarking' — internal sidebar within that page
+            let subjectDetailSection = 'overview'; // 'overview' | 'topics' | 'pastpapers' | 'wordbank' | 'essaymarking' | 'formulas' — internal sidebar within that page
 
             // ---- Word Bank (vocab + verbs) & Essay Marking UI state — see the "Word Bank & Essay Marking"
             // section further down for the data/AI functions these drive. Kept as plain module-level state like
@@ -4394,6 +4572,172 @@
             // Official CAO Common Points Scale (source: cao.ie) — unchanged since 2017, same for every year.
             const CAO_POINTS = { H1: 100, H2: 88, H3: 77, H4: 66, H5: 56, H6: 46, H7: 37, H8: 0,
                 O1: 56, O2: 46, O3: 37, O4: 28, O5: 20, O6: 12, O7: 0, O8: 0 };
+
+            // The official State Examination Commission "Formulae and Tables" booklet (SEC167/11),
+            // trimmed to just the real formula/table pages — cover, legal, and duplicate in-booklet
+            // "contents" nav pages are left out since this viewer's own TOC/search replaces them.
+            // Page numbers below are this trimmed PDF's own page numbers (formula-book/pages/pNNN.jpg).
+            const FORMULA_BOOK_PAGES = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98];
+            const FORMULA_BOOK_SECTIONS = [
+                { id: "length-area", name: "Length and Area" },
+                { id: "surface-volume", name: "Surface Area and Volume" },
+                { id: "area-approx", name: "Area Approximations" },
+                { id: "trigonometry", name: "Trigonometry" },
+                { id: "geometry", name: "Geometry" },
+                { id: "coord-geometry", name: "Co-ordinate Geometry" },
+                { id: "algebra", name: "Algebra" },
+                { id: "indices-logs", name: "Indices and Logarithms" },
+                { id: "sequences-series", name: "Sequences and Series" },
+                { id: "sets-logic", name: "Sets and Logic" },
+                { id: "calculus", name: "Calculus" },
+                { id: "economics", name: "Economics" },
+                { id: "financial-maths", name: "Financial Mathematics" },
+                { id: "statistics", name: "Statistics and Probability" },
+                { id: "units-measurement", name: "Units of Measurement" },
+                { id: "physical-constants", name: "Fundamental Physical Constants" },
+                { id: "particle-physics", name: "Particle Physics" },
+                { id: "mechanics", name: "Mechanics" },
+                { id: "heat-temp", name: "Heat and Temperature" },
+                { id: "light-sound", name: "Light and Sound" },
+                { id: "geometric-optics", name: "Geometric Optics" },
+                { id: "electricity", name: "Electricity" },
+                { id: "radioactivity", name: "Radioactivity" },
+                { id: "chemistry-constants", name: "Chemistry" },
+                { id: "physical-quantities", name: "Symbols & Units of Common Physical Quantities" },
+                { id: "circuit-symbols", name: "Electrical Circuit Symbols" },
+                { id: "elements", name: "The Elements" },
+            ];
+            const FORMULA_BOOK_ENTRIES = [
+                { id: "parallelogram", section: "length-area", name: "Parallelogram", nameGa: "Comhthreomharán", page: 9, aliases: ["area of a parallelogram"] },
+                { id: "trapezium", section: "length-area", name: "Trapezium", nameGa: "Traipéisiam", page: 9, aliases: ["area of a trapezium", "trapezoid area"] },
+                { id: "circle-disc", section: "length-area", name: "Circle / Disc", nameGa: "Ciorcal / Diosca", page: 9, aliases: ["area of a circle", "circle area", "circumference", "circumference of a circle", "circle formula", "pi r squared", "2 pi r"] },
+                { id: "arc-sector", section: "length-area", name: "Arc / Sector", nameGa: "Stua / Teascóg", page: 10, aliases: ["arc length", "sector area", "area of a sector", "radians arc"] },
+                { id: "triangle-area", section: "length-area", name: "Triangle", nameGa: "Triantán", page: 10, aliases: ["area of a triangle", "half ab sin c", "triangle area formula"] },
+                { id: "cylinder", section: "surface-volume", name: "Cylinder", nameGa: "Sorcóir", page: 11, aliases: ["volume of a cylinder", "surface area of a cylinder", "curved surface area cylinder"] },
+                { id: "cone", section: "surface-volume", name: "Cone", nameGa: "Cón", page: 11, aliases: ["volume of a cone", "surface area of a cone", "curved surface area cone"] },
+                { id: "frustum-cone", section: "surface-volume", name: "Frustum of Cone", nameGa: "Frustam cóin", page: 12, aliases: ["frustum volume", "frustum of a cone"] },
+                { id: "prism", section: "surface-volume", name: "Solid of Uniform Cross-Section (Prism)", nameGa: "Sólad de thrasghearradh aonfhoirmeach (priosma)", page: 12, aliases: ["prism volume", "volume of a prism"] },
+                { id: "pyramid", section: "surface-volume", name: "Pyramid on any Base", nameGa: "Pirimid ar bhonn ar bith", page: 12, aliases: ["volume of a pyramid", "pyramid volume"] },
+                { id: "trapezoidal-rule", section: "area-approx", name: "Trapezoidal Rule", nameGa: "Riail thraipéasoideach", page: 13, aliases: ["trapezoidal rule area approximation"] },
+                { id: "simpsons-rule", section: "area-approx", name: "Simpson's Rule", nameGa: "Riail Simpson", page: 13, aliases: ["simpsons rule", "area approximation simpson"] },
+                { id: "trig-ratios", section: "trigonometry", name: "Trig Ratios & Standard Angles", nameGa: "Triantánacht", page: 14, aliases: ["sin cos tan table", "unit circle", "standard angles table", "trig identities tan cot sec cosec", "trigonometric ratios"] },
+                { id: "compound-angle", section: "trigonometry", name: "Compound Angle Formulae", nameGa: "Foirmlí uillinneacha comhshuite", page: 15, aliases: ["sin(a+b)", "cos(a+b)", "tan(a+b)", "compound angle formulas", "addition formulae trig"] },
+                { id: "double-angle", section: "trigonometry", name: "Double Angle Formulae", nameGa: "Foirmlí uillinneacha dúbailte", page: 15, aliases: ["cos2a", "sin2a", "tan2a", "double angle formulas"] },
+                { id: "prod-to-sum", section: "trigonometry", name: "Products to Sums and Differences", nameGa: "Iolraigh a thiontú ina suimeanna agus ina ndifríochtaí", page: 16, aliases: ["product to sum formulae", "2cosAcosB"] },
+                { id: "sum-to-prod", section: "trigonometry", name: "Sums and Differences to Products", nameGa: "Suimeanna agus difríochtaí a thiontú ina n-iolraigh", page: 16, aliases: ["sum to product formulae", "cosA+cosB"] },
+                { id: "triangle-trig", section: "trigonometry", name: "Trigonometry of the Triangle (Sine & Cosine Rule)", nameGa: "Triantánacht an triantáin", page: 17, aliases: ["sine rule", "cosine rule", "law of sines", "law of cosines", "area of a triangle half ab sin c"] },
+                { id: "right-angle-triangle", section: "trigonometry", name: "Right-Angled Triangle / Pythagoras", nameGa: "Triantán dronuilleach", page: 17, aliases: ["pythagoras theorem", "pythagorean theorem", "soh cah toa"] },
+                { id: "geometry-notation", section: "geometry", name: "Geometry Notation", nameGa: "Nodaireacht", page: 18, aliases: ["line notation", "line segment notation", "vector notation geometry"] },
+                { id: "vector-operations", section: "geometry", name: "Vector Operations", nameGa: "Oibríochtaí le veicteoirí", page: 18, aliases: ["vector norm", "scalar product", "dot product", "magnitude of a vector"] },
+                { id: "coord-line", section: "coord-geometry", name: "Line (slope, length, midpoint, equation)", nameGa: "Líne", page: 19, aliases: ["slope of a line", "midpoint formula", "length of a line segment", "equation of a line", "point dividing a line segment", "area of a triangle coordinates"] },
+                { id: "coord-distance-angle", section: "coord-geometry", name: "Distance from a Point to a Line / Angle Between Lines", nameGa: "Fad ó phointe go líne", page: 20, aliases: ["distance from point to line", "angle between two lines", "perpendicular distance formula"] },
+                { id: "coord-circle", section: "coord-geometry", name: "Circle (coordinate geometry)", nameGa: "Ciorcal", page: 20, aliases: ["equation of a circle", "tangent to a circle", "centre and radius of a circle", "general equation of a circle"] },
+                { id: "quadratic-formula", section: "algebra", name: "Roots of the Quadratic Equation", nameGa: "Fréamhacha na cothromóide cearnaí", page: 21, aliases: ["quadratic formula", "quadratic equation roots", "-b plus or minus sqrt"] },
+                { id: "matrix-inverse", section: "algebra", name: "Inverse of a Matrix", nameGa: "Inbhéartach na maitríse", page: 21, aliases: ["matrix inverse", "determinant of a matrix", "2x2 matrix inverse"] },
+                { id: "de-moivre", section: "algebra", name: "De Moivre's Theorem", nameGa: "Teoirim de Moivre", page: 21, aliases: ["de moivres theorem", "complex numbers theorem"] },
+                { id: "binomial-theorem", section: "algebra", name: "Binomial Theorem", nameGa: "An Teoirim dhéthéarmach", page: 21, aliases: ["binomial theorem", "binomial expansion", "binomial coefficients", "ncr formula"] },
+                { id: "indices-laws", section: "indices-logs", name: "Laws of Indices", nameGa: "Séasla", page: 22, aliases: ["laws of indices", "index rules", "exponent rules"] },
+                { id: "logs-laws", section: "indices-logs", name: "Laws of Logarithms", nameGa: "Logartaim", page: 22, aliases: ["laws of logarithms", "log rules", "log laws"] },
+                { id: "arithmetic-sequence", section: "sequences-series", name: "Arithmetic Sequence or Series", nameGa: "Seichimh uimhríochta nó sraith comhchéimseach", page: 23, aliases: ["arithmetic sequence formula", "arithmetic series formula", "nth term arithmetic"] },
+                { id: "geometric-sequence", section: "sequences-series", name: "Geometric Sequence or Series", nameGa: "Seichimh iolraíocha nó sraith iolraíoch", page: 23, aliases: ["geometric sequence formula", "geometric series formula", "sum to infinity"] },
+                { id: "set-symbols", section: "sets-logic", name: "Set Symbols", nameGa: "Siombailí na dtacar", page: 24, aliases: ["set notation", "union symbol", "intersection symbol", "subset symbol", "null set"] },
+                { id: "number-sets", section: "sets-logic", name: "Number Sets (N, Z, Q, R, C)", nameGa: "Tacair uimhreacha", page: 24, aliases: ["natural numbers", "integers", "rational numbers", "real numbers", "complex numbers set"] },
+                { id: "logic-symbols", section: "sets-logic", name: "Logic Symbols", nameGa: "Siombailí loighce", page: 25, aliases: ["and or not nand nor", "implies symbol", "logic notation"] },
+                { id: "de-morgans-laws", section: "sets-logic", name: "De Morgan's Laws", nameGa: "Dlíthe de Morgan", page: 25, aliases: ["de morgans law", "negation of and or"] },
+                { id: "negation-quantifiers", section: "sets-logic", name: "Negation and Quantifiers", nameGa: "Séanadh agus cainníochtóirí", page: 25, aliases: ["for all", "there exists", "quantifiers logic"] },
+                { id: "derivatives-table", section: "calculus", name: "Derivatives", nameGa: "Díorthaigh", page: 26, aliases: ["derivative table", "differentiation table", "derivative of sin cos tan ln"] },
+                { id: "product-rule", section: "calculus", name: "Product Rule", nameGa: "Riail an toraidh", page: 26, aliases: ["product rule differentiation"] },
+                { id: "quotient-rule", section: "calculus", name: "Quotient Rule", nameGa: "Riail an lín", page: 26, aliases: ["quotient rule differentiation"] },
+                { id: "chain-rule", section: "calculus", name: "Chain Rule", nameGa: "Cuingriail", page: 26, aliases: ["chain rule differentiation"] },
+                { id: "integrals-table", section: "calculus", name: "Integrals", nameGa: "Suimeálaithe", page: 27, aliases: ["integral table", "integration table", "standard integrals"] },
+                { id: "integration-by-parts", section: "calculus", name: "Integration by Parts", nameGa: "Suimeáil ina mireanna", page: 27, aliases: ["integration by parts formula"] },
+                { id: "newton-raphson", section: "calculus", name: "Newton-Raphson Iteration", nameGa: "Atriall Newton-Raphson", page: 28, aliases: ["newton raphson method", "newton raphson formula"] },
+                { id: "taylor-series", section: "calculus", name: "Taylor Series", nameGa: "Sraith Taylor", page: 28, aliases: ["taylor series formula", "taylor series expansion"] },
+                { id: "maclaurin-series", section: "calculus", name: "Maclaurin Series", nameGa: "Sraith Maclaurin", page: 28, aliases: ["maclaurin series formula"] },
+                { id: "volume-revolution", section: "calculus", name: "Volume of Solid of Revolution", nameGa: "Toirt sholaid imrothlaithe", page: 28, aliases: ["volume of revolution formula", "solid of revolution about x axis"] },
+                { id: "elasticity", section: "economics", name: "Elasticity", nameGa: "Leaisteachas", page: 29, aliases: ["price elasticity of demand", "income elasticity of demand", "cross price elasticity", "price elasticity of supply", "ped", "yed", "pes"] },
+                { id: "gdp-equation", section: "economics", name: "GDP Equation", nameGa: "Cothromóid OTI", page: 30, aliases: ["gdp formula", "gross domestic product formula", "y=c+i+g+(x-m)"] },
+                { id: "multipliers", section: "economics", name: "Multipliers", nameGa: "Iolraitheoirí", page: 30, aliases: ["mpc mps mpm mpt", "multiplier formula", "marginal propensity to consume"] },
+                { id: "compound-interest", section: "financial-maths", name: "Compound Interest", nameGa: "Ús iolraithe", page: 31, aliases: ["compound interest formula"] },
+                { id: "present-value", section: "financial-maths", name: "Present Value", nameGa: "Luach láithreach", page: 31, aliases: ["present value formula"] },
+                { id: "depreciation-reducing", section: "financial-maths", name: "Depreciation — Reducing Balance Method", nameGa: "Dímheas — modh an chomhardaithe laghdaithigh", page: 31, aliases: ["reducing balance depreciation"] },
+                { id: "depreciation-straight", section: "financial-maths", name: "Depreciation — Straight Line Method", nameGa: "Dímheas — modh dronlíneach", page: 31, aliases: ["straight line depreciation"] },
+                { id: "amortisation", section: "financial-maths", name: "Amortisation — Mortgages and Loans", nameGa: "Amúchadh — morgáistí agus iasachtaí", page: 32, aliases: ["mortgage formula", "loan repayment formula", "amortization"] },
+                { id: "apr", section: "financial-maths", name: "Annual Percentage Rate (APR)", nameGa: "Ráta céadatánach bliantúil (RCB)", page: 32, aliases: ["apr formula", "annual percentage rate statutory formula"] },
+                { id: "annual-rate-conversion", section: "financial-maths", name: "Converting to Annual Rate from Other Compounding Period", nameGa: "Tiontú go dtí ráta bliantúil", page: 33, aliases: ["nominal to effective annual rate", "compounding period conversion"] },
+                { id: "continuous-compounding", section: "financial-maths", name: "Continuous Compounding", nameGa: "Iolrú leanúnach", page: 33, aliases: ["continuous compounding formula"] },
+                { id: "mean", section: "statistics", name: "Mean", nameGa: "An Meán", page: 35, aliases: ["mean formula", "average formula", "mean from a list of numbers", "mean from a frequency table"] },
+                { id: "standard-deviation", section: "statistics", name: "Standard Deviation", nameGa: "An Diall caighdeánach", page: 35, aliases: ["standard deviation formula", "sd formula", "std dev"] },
+                { id: "probability-distributions", section: "statistics", name: "Probability Distributions (Poisson, Normal)", nameGa: "Dáiltí dóchúlachta", page: 36, aliases: ["poisson distribution formula", "normal distribution formula", "gaussian distribution", "standardising formula", "z score formula"] },
+                { id: "sampling", section: "statistics", name: "Sampling", nameGa: "Sampláil", page: 36, aliases: ["standard error of the mean", "standard error of the proportion", "estimate population standard deviation"] },
+                { id: "hypothesis-testing", section: "statistics", name: "Hypothesis Testing (z-test, t-test)", nameGa: "Tástáil hipitéisí", page: 37, aliases: ["z test formula", "t test formula", "one sample z test", "two sample t test", "chi squared goodness of fit test", "significance of correlation coefficient", "pearson correlation test"] },
+                { id: "normal-distribution-table", section: "statistics", name: "Probabilities for the Standard Normal Distribution", nameGa: "Dóchúlachtaí don dáileadh normalach caighdeánach", page: 38, aliases: ["z table", "standard normal table", "normal distribution table"] },
+                { id: "chi-squared-table", section: "statistics", name: "Chi-Squared Distribution", nameGa: "Dáileadh chí-chearnaithe", page: 40, aliases: ["chi squared table", "chi squared critical values"] },
+                { id: "student-t-table", section: "statistics", name: "Student's t-Distribution", nameGa: "t-dháileadh Student", page: 42, aliases: ["t table", "student t distribution table", "t critical values"] },
+                { id: "tukey-test", section: "statistics", name: "Tukey Quick Test (Compact Form)", nameGa: "Mearthástáil Tukey", page: 44, aliases: ["tukey test", "tukey quick test"] },
+                { id: "spearman-correlation", section: "statistics", name: "Spearman's Rank-Order Correlation Coefficient", nameGa: "Comhéifeacht Spearman", page: 44, aliases: ["spearmans rank correlation", "spearman correlation coefficient"] },
+                { id: "mann-whitney", section: "statistics", name: "Mann-Whitney U-Test", nameGa: "U-thástáil Mann-Whitney", page: 45, aliases: ["mann whitney u test", "mann whitney table"] },
+                { id: "si-units", section: "units-measurement", name: "Base and Derived Units", nameGa: "Aonaid tomhais", page: 46, aliases: ["si base units", "derived units", "newton definition kg m s"] },
+                { id: "prefixes", section: "units-measurement", name: "Prefixes", nameGa: "Réimíreanna", page: 47, aliases: ["metric prefixes", "kilo mega giga milli micro nano", "unit prefixes table"] },
+                { id: "physical-constants-table", section: "physical-constants", name: "Fundamental Physical Constants", nameGa: "Tairisigh bhunúsacha fisiceacha", page: 48, aliases: ["speed of light", "planck constant", "boltzmann constant", "avogadros number", "avogadro constant", "electron mass", "electron volt", "gravitational constant", "permittivity of free space", "permeability of free space", "faraday constant", "universal gas constant"] },
+                { id: "leptons-mesons-baryons", section: "particle-physics", name: "Leptons, Mesons, Baryons", nameGa: "Fisic cháithnín", page: 50, aliases: ["particle physics table", "leptons", "mesons", "baryons", "electron neutrino muon tau"] },
+                { id: "quarks", section: "particle-physics", name: "Quarks", nameGa: "Cuarc", page: 51, aliases: ["quarks table", "up down strange charm top bottom quark"] },
+                { id: "linear-motion", section: "mechanics", name: "Linear Motion with Constant Acceleration", nameGa: "Gluaisne lineach faoi luasghéarú tairiseach", page: 53, aliases: ["suvat equations", "equations of motion", "v=u+at", "kinematics equations"] },
+                { id: "relative-motion", section: "mechanics", name: "Relative Motion", nameGa: "Gluaisne choibhneasta", page: 53, aliases: ["relative velocity", "relative displacement", "relative acceleration"] },
+                { id: "collisions", section: "mechanics", name: "Collisions", nameGa: "Imbhuailtí", page: 54, aliases: ["momentum formula", "newtons experimental law", "conservation of momentum", "impulse formula", "coefficient of restitution"] },
+                { id: "circular-motion", section: "mechanics", name: "Motion in a Circle", nameGa: "Gluaisne i gciorcal", page: 54, aliases: ["centripetal acceleration", "centripetal force", "angular velocity formula", "circular motion formula"] },
+                { id: "centres-of-gravity", section: "mechanics", name: "Centres of Gravity", nameGa: "Meáchanlár", page: 55, aliases: ["centre of gravity formula", "centroid formula", "centre of mass hemisphere cone"] },
+                { id: "moments-of-inertia", section: "mechanics", name: "Moments of Inertia", nameGa: "Móiminti táimhe", page: 56, aliases: ["moment of inertia formula", "moment of inertia rod disc hoop sphere", "parallel axis theorem", "perpendicular axis theorem"] },
+                { id: "rotating-bodies", section: "mechanics", name: "Rotating Bodies", nameGa: "Coirp rothlacha", page: 57, aliases: ["angular momentum formula", "torque formula", "moment of a force", "rotational kinetic energy"] },
+                { id: "shm", section: "mechanics", name: "Simple Harmonic Motion", nameGa: "Gluaisne armónach shimplí", page: 57, aliases: ["shm formula", "simple harmonic motion formula", "simple pendulum formula", "compound pendulum formula", "period of a pendulum"] },
+                { id: "energy-work", section: "mechanics", name: "Energy and Work", nameGa: "Fuinneamh agus obair", page: 58, aliases: ["work formula", "power formula", "percentage efficiency", "potential energy formula", "kinetic energy formula", "conservation of energy", "mass energy equivalence", "e=mc2"] },
+                { id: "gravitation", section: "mechanics", name: "Gravitation", nameGa: "Imtharraingt", page: 59, aliases: ["newtons law of gravitation", "weight formula", "acceleration due to gravity", "gravitational field strength", "period of a satellite"] },
+                { id: "forces-materials", section: "mechanics", name: "Forces and Materials", nameGa: "Fórsaí agus ábhair", page: 60, aliases: ["hookes law", "stress formula", "strain formula", "youngs modulus", "density formula", "coefficient of friction", "pressure formula", "pressure in a fluid", "boyles law"] },
+                { id: "heat-temperature", section: "heat-temp", name: "Heat and Temperature", nameGa: "Teas agus tocht", page: 61, aliases: ["celsius to kelvin", "specific heat capacity formula", "latent heat formula", "thermal conductivity", "thermal resistivity", "r-value", "u-value"] },
+                { id: "light-sound", section: "light-sound", name: "Light and Sound", nameGa: "Solas agus fuaim", page: 62, aliases: ["velocity of a wave formula", "doppler effect formula", "fundamental frequency of a stretched string", "refractive index formula", "diffraction grating formula", "energy of a photon"] },
+                { id: "geometric-optics", section: "geometric-optics", name: "Geometric Optics", nameGa: "Optaic gheoiméadrach", page: 63, aliases: ["mirror formula", "lens formula", "magnification formula", "power of a lens", "thin lenses in contact"] },
+                { id: "electricity-1", section: "electricity", name: "Electricity — Coulomb's Law, Fields, Resistance", nameGa: "Leictreachas", page: 64, aliases: ["coulombs law", "electric field strength formula", "potential difference formula", "resistance formula", "ohms law", "resistivity formula", "resistors in series", "resistors in parallel", "wheatstone bridge", "joules law"] },
+                { id: "electricity-2", section: "electricity", name: "Electricity — Power, AC, Capacitance, Magnetism", nameGa: "Leictreachas 2", page: 65, aliases: ["power formula electrical", "force on a current carrying conductor", "force on a charged particle", "induced emf formula", "rms voltage and current", "capacitance formula", "parallel plate capacitor", "energy stored in a capacitor", "magnetic flux formula", "transformer formula"] },
+                { id: "radioactivity", section: "radioactivity", name: "Radioactivity", nameGa: "Radaighníomhaíocht", page: 66, aliases: ["activity formula", "law of radioactive decay", "half life formula", "mass energy equivalence"] },
+                { id: "chemistry-constants", section: "chemistry-constants", name: "Chemistry Constants", nameGa: "Ceimic", page: 67, aliases: ["standard temperature and pressure", "stp", "molar volume", "ph formula", "ionic product of water", "universal gas equation", "pv=nrt", "atomic mass unit"] },
+                { id: "physical-quantities-symbols", section: "physical-quantities", name: "Symbols & Units of Common Physical Quantities", nameGa: "Siombailí do chainníochtaí fisiceacha coitianta", page: 68, aliases: ["units table", "si unit of a quantity", "symbol for a physical quantity"] },
+                { id: "switches", section: "circuit-symbols", name: "Switches", nameGa: "Lasca", page: 76, aliases: ["switch symbol", "push to make switch", "spst spdt dpdt switch symbol", "relay symbol"] },
+                { id: "conductors", section: "circuit-symbols", name: "Conductors", nameGa: "Seoltóirí", page: 77, aliases: ["wire junction symbol", "crossing wires symbol"] },
+                { id: "power-supply", section: "circuit-symbols", name: "Power Supply", nameGa: "Soláthar cumhachta", page: 77, aliases: ["battery symbol", "cell symbol", "dc supply symbol", "ac supply symbol", "photovoltaic cell symbol", "transformer symbol", "fuse symbol", "earth symbol"] },
+                { id: "resistors-symbols", section: "circuit-symbols", name: "Resistors", nameGa: "Friotóirí", page: 78, aliases: ["resistor symbol", "variable resistor symbol", "rheostat symbol", "potential divider symbol", "thermistor symbol", "ldr symbol", "light dependent resistor symbol"] },
+                { id: "capacitors-symbols", section: "circuit-symbols", name: "Capacitors", nameGa: "Toilleoirí", page: 78, aliases: ["capacitor symbol", "electrolytic capacitor symbol", "variable capacitor symbol"] },
+                { id: "diodes-symbols", section: "circuit-symbols", name: "Diodes", nameGa: "Dé-óidí", page: 79, aliases: ["diode symbol", "zener diode symbol", "photodiode symbol", "led symbol"] },
+                { id: "meters-symbols", section: "circuit-symbols", name: "Meters", nameGa: "Méadair", page: 79, aliases: ["voltmeter symbol", "ammeter symbol", "galvanometer symbol", "ohmmeter symbol", "oscilloscope symbol"] },
+                { id: "transistors-symbols", section: "circuit-symbols", name: "Transistors & Amplification", nameGa: "Trasraitheoirí agus aimpliú", page: 80, aliases: ["transistor symbol", "npn transistor symbol", "jfet symbol", "phototransistor symbol", "amplifier symbol"] },
+                { id: "audio-symbols", section: "circuit-symbols", name: "Audio", nameGa: "Fuaim", page: 80, aliases: ["microphone symbol", "loudspeaker symbol", "buzzer symbol", "piezoelectric transducer symbol", "bell symbol"] },
+                { id: "lamps-symbols", section: "circuit-symbols", name: "Lamps", nameGa: "Lampaí", page: 81, aliases: ["filament lamp symbol", "signal lamp symbol", "neon lamp symbol"] },
+                { id: "other-devices-symbols", section: "circuit-symbols", name: "Other Devices", nameGa: "Feistí eile", page: 81, aliases: ["motor symbol", "heater symbol", "inductor symbol"] },
+                { id: "logic-gates-symbols", section: "circuit-symbols", name: "Logic Gates", nameGa: "Geataí loighce", page: 82, aliases: ["logic gate symbols", "or gate", "and gate", "not gate", "nand gate", "nor gate symbol"] },
+                { id: "periodic-table", section: "elements", name: "Periodic Table of the Elements", nameGa: "Tábla peiriadach na ndúl", page: 84, aliases: ["periodic table"] },
+                { id: "ionisation-energies", section: "elements", name: "First Ionisation Energies of the Elements", nameGa: "Fuinneamh céadianúcháin na ndúl", page: 85, aliases: ["first ionisation energy table", "ionization energy of elements"] },
+                { id: "electronegativity", section: "elements", name: "Electronegativity Values of the Elements", nameGa: "Luachanna leictridhiúltachta na ndúl", page: 86, aliases: ["electronegativity table", "pauling scale"] },
+                { id: "lanthanoid-actinoid", section: "elements", name: "The Lanthanoid and Actinoid Series", nameGa: "An tSraith Lantanóideach agus an tSraith Achtanóideach", page: 87, aliases: ["lanthanides table", "actinides table", "lanthanoid series", "actinoid series"] },
+                { id: "table-of-nuclides", section: "elements", name: "Table of Nuclides", nameGa: "Tábla na núiclídí", page: 88, aliases: ["nuclides table", "isotope abundance table", "isotope mass table", "isotopic abundance"] },
+                { id: "elements-by-symbol", section: "elements", name: "Elements, Sorted by Symbol", nameGa: "Dúile, sórtaithe de réir na siombailí", page: 96, aliases: ["element symbols list", "chemical symbols alphabetical", "list of elements by symbol"] },
+            ];
+            // Subjects (by taxonomyId) whose real state exam allows this exact booklet in the room.
+            const FORMULA_BOOK_SUBJECTS = ['maths', 'applied-maths', 'physics', 'chemistry', 'physics-chemistry'];
+
+            // ---- Formula Book (Formulae & Tables) viewer state — shared between the subject-detail
+            // "Formulas" tab and the standalone Tools page, so both call the same formulaBookHtml().
+            let formulaBookCurrentPage = FORMULA_BOOK_PAGES[0]; // which trimmed-PDF page is on screen right now
+            let formulaBookHighlightEntryId = null; // set right after a TOC click/search jump, to trigger the pulse animation once
+            let formulaBookOpenSections = new Set(); // which TOC section groups are expanded
+            let formulaBookSearchQuery = '';
+            let formulaBookSearchStatus = null; // null | 'found' | 'no-match' | 'ai-loading' | 'ai-no-match' | 'ai-error'
+            let formulaBookSearchError = '';
+
+            // ---- Quick CAO points calculator (Tools page) — a deliberately simple standalone tool: tally up
+            // to 7 grades and see the best-6 total, same idea as the well-known third-party CAO calculators.
+            // Separate from the full CAO Planning page, which works off real logged exam results instead.
+            let caoCalcTally = { H1: 0, H2: 0, H3: 0, H4: 0, H5: 0, H6: 0, H7: 0, H8: 0,
+                O1: 0, O2: 0, O3: 0, O4: 0, O5: 0, O6: 0, O7: 0, O8: 0 };
+            let caoCalcMathsBonus = false;
             // Computes CAO points for a real Leaving Cert or Mock exam once results are in: best six subjects
             // count, plus 25 bonus points for Higher Level Mathematics specifically (not Applied Maths) at grade
             // H6 or above. Returns null if this isn't an LC/mock exam. While any sitting is missing a result,
@@ -5139,7 +5483,7 @@
                 const shellClass = `app-shell sidebar-mode-${mode}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">✦</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}
+        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}
       </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search">🔍 <span>Search</span></button><button data-action="open-settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${content}</main></div>`;
             }
 
@@ -5702,6 +6046,189 @@
                     'insights-scatter-canvas', scatterData, 'Minutes studied (3 weeks before)'); }
 
 
+            // ---- Formula Book (Formulae & Tables) ----------------------------------------------------
+            // Renders the trimmed official booklet (see FORMULA_BOOK_* data above) as a click-through
+            // viewer: a collapsible table of contents down the side, a search box that resolves a query to
+            // one entry (hardcoded alias match first, AI as a fallback for anything not recognised), and
+            // the matching page image with a pulsing highlight so it's obvious what was jumped to.
+            function formulaBookNormalize(s) { return (s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
+                    .replace(/\s+/g, ' ').trim(); }
+
+            // Nearest entry AT OR BEFORE this page — lets a continuation page of a multi-page table (e.g.
+            // page 89 of the Table of Nuclides, which only has an entry on its first page, 88) still show a
+            // sensible caption and TOC highlight instead of going blank.
+            function formulaBookEntryForPage(page) { const exact = FORMULA_BOOK_ENTRIES.find(e => e.page === page);
+                if (exact) return exact;
+                let best = null;
+                FORMULA_BOOK_ENTRIES.forEach(e => { if (e.page <= page && (!best || e.page > best.page)) best = e; });
+                return best; }
+
+            // Deterministic local match: scores every entry's name/Irish name/id/aliases against the
+            // normalized query, and only returns a hit confident enough to jump to without asking the AI.
+            // Whole-word substring test — plain .includes() lets a short alias like "ped" or "stp" falsely
+            // match inside an unrelated word (e.g. "dropped" contains "ped"), so the direction that matters
+            // (a short alias found inside a longer free-text query) is anchored to word boundaries instead.
+            function formulaBookWordBoundaryIncludes(haystack, needle) { if (!needle) return false;
+                const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).test(haystack); }
+
+            function formulaBookLocalMatch(query) { const q = formulaBookNormalize(query); if (!q) return null;
+                let best = null, bestScore = 0;
+                const qWords = q.split(' ').filter(Boolean);
+                FORMULA_BOOK_ENTRIES.forEach(e => { const candidates = [e.name, e.nameGa, e.id.replace(/-/g, ' '),
+                        ...e.aliases];
+                    candidates.forEach(c => { const nc = formulaBookNormalize(c); if (!nc) return; let score = 0;
+                        if (nc === q) score = 100; else if (nc.includes(q) || formulaBookWordBoundaryIncludes(q, nc))
+                            score = 70 + Math.min(20, nc.length);
+                        else { const cWords = new Set(nc.split(' ').filter(Boolean));
+                            const overlap = qWords.filter(w => w.length > 2 && cWords.has(w)).length; if (overlap &&
+                                qWords.length) score = Math.round(45 * overlap / qWords.length); }
+                        if (score > bestScore) { bestScore = score;
+                            best = e; } }); });
+                return bestScore >= 45 ? best : null; }
+
+            // AI fallback for a search that didn't hardcode-match anything — hands the whole entry list to
+            // the same Gemini-backed "ai-chat" function the study assistant uses, and asks for just an id
+            // back. Requires sign-in, same as the study assistant (that's where the AI provider keys live).
+            async function formulaBookAiSearch(query) { if (!currentUser) return { error:
+                        'Sign in to use AI-assisted search for anything the quick search doesn\'t recognise.' };
+                const listing = FORMULA_BOOK_ENTRIES.map(e => `${e.id}: ${e.name}${e.nameGa?` (${e.nameGa})`:''}`)
+                    .join('\n');
+                const prompt =
+                    `A student is searching the Irish State Examinations "Formulae and Tables" booklet for a formula or table. Their search was: "${query}"\n\nHere is the full list of entries in the booklet (id: name):\n${listing}\n\nReply with ONLY the single best-matching id from the list above, and nothing else — no explanation, no punctuation. If genuinely nothing in the list is a reasonable match, reply with exactly: NONE`;
+                try { const { data, error } = await supabaseClient.functions.invoke('ai-chat', { body: { contents: [
+                                { role: 'user', parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text:
+                                        'You are a precise lookup assistant for a fixed list of ids. Reply with only an id from the list, nothing else.' }] } } });
+                    if (error) { let detail = error.message || 'AI search failed.';
+                        try { detail = (await error.context.json())?.error || detail; } catch {}
+                        throw new Error(detail); }
+                    const text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text).filter(Boolean).join(
+                            '').trim();
+                    const id = (text.split(/\s+/)[0] || '').replace(/[^a-z0-9-]/gi, '').toLowerCase(); if (!id ||
+                        id === 'none') return { notFound: true };
+                    const entry = FORMULA_BOOK_ENTRIES.find(e => e.id === id);
+                    return entry ? { entry } : { notFound: true }; } catch (err) { return { error: err.message ||
+                        'AI search failed.' }; } }
+
+            function formulaBookGoToEntry(entryId) { const entry = FORMULA_BOOK_ENTRIES.find(e => e.id === entryId);
+                if (!entry) return;
+                formulaBookCurrentPage = entry.page;
+                formulaBookHighlightEntryId = entryId;
+                formulaBookOpenSections.add(entry.section);
+                render();
+                formulaBookPulseHighlight(); }
+
+            function formulaBookPulseHighlight() { requestAnimationFrame(() => { const img = document.getElementById(
+                        'formula-book-page-img'); if (!img) return;
+                    img.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    img.classList.remove('highlight'); void img.offsetWidth;
+                    img.classList.add('highlight'); }); }
+
+            function formulaBookStep(delta) { const idx = FORMULA_BOOK_PAGES.indexOf(formulaBookCurrentPage);
+                const newIdx = Math.min(FORMULA_BOOK_PAGES.length - 1, Math.max(0, idx + delta));
+                formulaBookCurrentPage = FORMULA_BOOK_PAGES[newIdx];
+                formulaBookHighlightEntryId = null;
+                formulaBookSearchStatus = null;
+                const entry = formulaBookEntryForPage(formulaBookCurrentPage); if (entry) formulaBookOpenSections.add(
+                    entry.section);
+                render(); }
+
+            async function formulaBookRunSearch(rawQuery) { const query = (rawQuery || '').trim();
+                formulaBookSearchQuery = query; if (!query) { formulaBookSearchStatus = null;
+                    render();
+                    return; }
+                const local = formulaBookLocalMatch(query); if (local) { formulaBookSearchStatus = 'found';
+                    formulaBookGoToEntry(local.id);
+                    return; }
+                formulaBookSearchStatus = 'no-match';
+                render(); }
+
+            async function formulaBookRunAiSearch() { const query = formulaBookSearchQuery; if (!query) return;
+                formulaBookSearchStatus = 'ai-loading';
+                render();
+                const result = await formulaBookAiSearch(query); if (result.entry) { formulaBookSearchStatus =
+                        'found';
+                    formulaBookGoToEntry(result.entry.id);
+                    return; } if (result.error) { formulaBookSearchStatus = 'ai-error';
+                    formulaBookSearchError = result.error;
+                    render();
+                    return; }
+                formulaBookSearchStatus = 'ai-no-match';
+                render(); }
+
+            function formulaBookHtml() { const page = formulaBookCurrentPage,
+                    highlightEntry = formulaBookHighlightEntryId ? FORMULA_BOOK_ENTRIES.find(e => e.id ===
+                        formulaBookHighlightEntryId && e.page === page) : null,
+                    activeEntry = highlightEntry || formulaBookEntryForPage(page),
+                    pageIdx = FORMULA_BOOK_PAGES.indexOf(page);
+                const statusHtml = formulaBookSearchStatus === 'ai-loading' ?
+                    '🔎 Asking the AI study assistant…' : formulaBookSearchStatus === 'no-match' ?
+                    `No quick match for "${escape(formulaBookSearchQuery)}" — <button type="button" class="button ghost" style="padding:2px 8px" data-action="formula-search-ai">try AI search</button> instead?` :
+                    formulaBookSearchStatus === 'ai-no-match' ?
+                    "The AI couldn't find a match either — try different wording." :
+                    formulaBookSearchStatus === 'ai-error' ? escape(formulaBookSearchError || 'AI search failed.') :
+                    formulaBookSearchStatus === 'found' ? `Showing: <strong>${escape(activeEntry?activeEntry.name:'')}</strong>` :
+                    '';
+                const tocHtml = FORMULA_BOOK_SECTIONS.map(sec => { const entries = FORMULA_BOOK_ENTRIES.filter(e => e
+                            .section === sec.id);
+                    const isOpen = formulaBookOpenSections.has(sec.id);
+                    return `<div class="formula-book-toc-section">
+          <button type="button" data-action="formula-toc-toggle" data-section="${sec.id}">${isOpen?'▾':'▸'} ${escape(sec.name)}</button>
+          ${isOpen?`<div class="formula-book-toc-entries">${entries.map(e=>`<button type="button" class="${activeEntry&&activeEntry.id===e.id?'active':''}" data-action="formula-toc-select" data-entry="${e.id}">${escape(e.name)}</button>`).join('')}</div>`:''}
+        </div>`; }).join('');
+                return `<div class="formula-book">
+        <div class="formula-book-toc">${tocHtml}</div>
+        <div>
+          <div class="formula-book-search">
+            <input type="text" id="formula-search-input" placeholder="Search a formula or table… e.g. &quot;area of a circle&quot;" value="${escape(formulaBookSearchQuery)}">
+            <button type="button" class="button primary" data-action="formula-search-go">Search</button>
+          </div>
+          ${statusHtml?`<div class="formula-book-search-status">${statusHtml}</div>`:''}
+          <div class="formula-book-viewer">
+            <div class="formula-book-caption">
+              <span>${activeEntry?escape(activeEntry.name)+(activeEntry.page!==page?' (continued)':''):'Formulae and Tables'}</span>
+              <span class="small">Page ${pageIdx+1} of ${FORMULA_BOOK_PAGES.length}</span>
+            </div>
+            <div class="formula-book-page-wrap">
+              <img id="formula-book-page-img" src="formula-book/pages/p${String(page).padStart(3,'0')}.jpg" alt="${activeEntry?escape(activeEntry.name):'Formula book page'}">
+            </div>
+            <div class="formula-book-nav-row">
+              <button type="button" class="button ghost" data-action="formula-page-prev" ${pageIdx<=0?'disabled':''}>← Previous page</button>
+              <button type="button" class="button ghost" data-action="formula-page-next" ${pageIdx>=FORMULA_BOOK_PAGES.length-1?'disabled':''}>Next page →</button>
+            </div>
+          </div>
+        </div>
+      </div>`; }
+
+            // ---- Quick CAO points calculator (Tools page) --------------------------------------------
+            function caoQuickCalcResult() { const rows = Object.entries(caoCalcTally).flatMap(([grade, count]) =>
+                        Array(count).fill(grade));
+                const scored = rows.map(g => ({ grade: g, points: CAO_POINTS[g] })).sort((a, b) => b.points - a
+                    .points);
+                const top6 = scored.slice(0, 6);
+                let total = top6.reduce((sum, r) => sum + r.points, 0); if (caoCalcMathsBonus && rows.length) total +=
+                    25;
+                return { total, count: rows.length, top6 }; }
+
+            function caoQuickCalcHtml() { const grades = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'O1', 'O2',
+                        'O3', 'O4', 'O5', 'O6', 'O7', 'O8'];
+                const { total, count, top6 } = caoQuickCalcResult();
+                const tile = (g) => `<div class="cao-calc-tile"><strong>${g}</strong><span class="small">${CAO_POINTS[g]} pts</span><div class="row"><button type="button" data-action="cao-calc-dec" data-grade="${g}" aria-label="Fewer ${g}">−</button><span class="count">${caoCalcTally[g]}</span><button type="button" data-action="cao-calc-inc" data-grade="${g}" aria-label="More ${g}">+</button></div></div>`;
+                return `<section class="card section">
+        <h2>Quick CAO points calculator</h2>
+        <p class="small">Tap up each subject grade you'd get (or think you'll get) — up to 7 or so subjects — and this works out your best-6 CAO points automatically, same as the well-known online calculators. This is a standalone scratchpad; it doesn't touch your logged exam results.</p>
+        <div class="cao-calc-total"><strong>${count?total:'—'}</strong><span class="small">${count?`points from your best 6 of ${count} subject${count===1?'':'s'}${caoCalcMathsBonus?' (incl. +25 HL Maths bonus)':''}`:'Add some grades below to see your total'}</span>
+          ${count>6?`<div class="cao-calc-breakdown">Counting: ${top6.map(r=>r.grade).join(', ')}</div>`:''}</div>
+        <div class="cao-calc-grid">${grades.map(tile).join('')}</div>
+        <label class="row" style="gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="cao-calc-bonus" ${caoCalcMathsBonus?'checked':''} data-action="cao-calc-bonus-toggle"> <span class="small">Add the +25 point bonus for Higher Level Maths at grade H6 or above</span></label>
+        <div class="row" style="margin-top:12px"><button type="button" class="button ghost" data-action="cao-calc-reset">Reset</button></div>
+      </section>`; }
+
+            function renderTools() { return appFrame(`<div class="page">${header('Tools',"The Formulae & Tables booklet allowed in the exam, and a quick CAO points calculator.",'')}
+        <section class="card section"><h2>Formulae and Tables booklet</h2><p class="small" style="margin-bottom:12px">The full official booklet, trimmed to just the formula and table pages — browse the contents on the left, or search for what you need below.</p>${formulaBookHtml()}</section>
+        ${caoQuickCalcHtml()}
+        </div>`); }
+
             function caoCourseFormModal(courseId) { const c = courseId ? state.caoCourses.find(x => x.id ===
                     courseId) : null;
                 return modalShell(c ? 'Edit course' : 'Add a course',
@@ -5877,6 +6404,8 @@
                     content = renderWordBank(s);
                 } else if (section === 'essaymarking') {
                     content = renderEssayMarking(s);
+                } else if (section === 'formulas') {
+                    content = `<p class="small" style="margin-bottom:12px">The Formulae and Tables booklet allowed in the exam for this subject — browse the contents on the left, or search for what you need below.</p>${formulaBookHtml()}`;
                 } else { const summary =
                     subjectPerformanceSummary(s.id);
                     content =
@@ -5886,11 +6415,12 @@
 
                 const navBtn = (id, label) => `<button type="button" class="${section===id?'active':''}" data-action="subject-section" data-section="${id}">${label}</button>`;
                 const isLang = isLanguageSubject(s);
+                const hasFormulaBook = FORMULA_BOOK_SUBJECTS.includes(s.taxonomyId);
                 return appFrame(`<div class="page">
         <button type="button" class="subject-page-back" data-action="nav-classes">← Back to Classes</button>
         ${header(escape(s.name), `${CATEGORY_LABELS[s.category]||'Other'}${s.examSubject===false?' · not an exam subject':''}`,'')}
         <div class="subject-page-layout">
-          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}</div>
+          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}${hasFormulaBook?navBtn('formulas','Formula Book'):''}</div>
           <div>${content}</div>
         </div>
         </div>`); }
@@ -7446,7 +7976,9 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     .innerHTML = renderSparkysCloset(); } else if (view === 'cao') { document.getElementById('app')
                     .innerHTML = renderCaoPage(); } else if (view === 'insights') { document.getElementById('app')
                     .innerHTML = renderInsightsPage();
-                    requestAnimationFrame(drawInsightsCharts); } else { document.getElementById('app').innerHTML = renderTimetable();
+                    requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
+                    .getElementById('app')
+                    .innerHTML = renderTools(); } else { document.getElementById('app').innerHTML = renderTimetable();
                     requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (
                     !state.settings.onboarded && !modal) openModal('onboarding');
                 else if (state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
@@ -10580,6 +11112,25 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'view-essay-history') openModal('essay-history', { entryId: b.dataset.id });
                 else if (a === 'delete-essay-history') { state.essayMarks = state.essayMarks.filter(x => x.id !== b.dataset.id); save(); closeModal(); }
             });
+
+            // ---- Formula Book & Quick CAO Calculator click actions — another self-contained delegated
+            // listener, same reasoning as the Word Bank one above.
+            document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
+                const a = b.dataset.action;
+                if (a === 'formula-toc-toggle') { const id = b.dataset.section;
+                    if (formulaBookOpenSections.has(id)) formulaBookOpenSections.delete(id); else formulaBookOpenSections.add(id);
+                    render(); }
+                else if (a === 'formula-toc-select') formulaBookGoToEntry(b.dataset.entry);
+                else if (a === 'formula-search-go') formulaBookRunSearch(document.getElementById('formula-search-input')?.value);
+                else if (a === 'formula-search-ai') formulaBookRunAiSearch();
+                else if (a === 'formula-page-prev') formulaBookStep(-1);
+                else if (a === 'formula-page-next') formulaBookStep(1);
+                else if (a === 'cao-calc-inc') { caoCalcTally[b.dataset.grade]++; render(); }
+                else if (a === 'cao-calc-dec') { caoCalcTally[b.dataset.grade] = Math.max(0, caoCalcTally[b.dataset.grade] - 1); render(); }
+                else if (a === 'cao-calc-reset') { Object.keys(caoCalcTally).forEach(g => caoCalcTally[g] = 0); caoCalcMathsBonus = false; render(); }
+            });
+            document.addEventListener('change', e => { if (e.target.id === 'cao-calc-bonus') { caoCalcMathsBonus = e.target.checked; render(); } });
+            document.addEventListener('keydown', e => { if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value); });
 
             document.addEventListener('input', e => { if (e.target.id === 'search-input') { searchQuery = e.target
                     .value;
