@@ -969,18 +969,63 @@
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             gap: 6px 14px;
         }
-        .conj-table {
-            width: 100%;
+        .tense-picker {
+            position: relative;
+        }
+        .tense-groups {
+            margin-top: 8px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--surface-2);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 20px;
+        }
+        .tense-group {
+            min-width: 150px;
+        }
+        .tense-group h4 {
+            margin: 0 0 6px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--muted);
+        }
+        .conj-grid-wrap {
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+        .conj-grid {
             border-collapse: collapse;
+            width: 100%;
             font-size: 13px;
         }
-        .conj-table td {
-            padding: 4px 8px;
-            border-bottom: 1px solid var(--line);
+        .conj-grid th, .conj-grid td {
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            text-align: left;
+            white-space: nowrap;
         }
-        .conj-table td:first-child {
+        .conj-grid thead th {
+            background: var(--surface-2);
+        }
+        .conj-grid tbody th {
+            background: var(--surface-2);
             color: var(--muted);
-            width: 40%;
+            font-weight: 650;
+        }
+        .conj-grid .irregular-col {
+            background: rgba(227, 138, 39, 0.16);
+        }
+        .irregular-swatch {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            background: rgba(227, 138, 39, 0.4);
+            vertical-align: middle;
+            margin-right: 5px;
         }
         .end-day {
             border-top-color: var(--danger);
@@ -3994,6 +4039,11 @@
             let vocabOcrLoading = false;
             let vocabAlternatives = null; // { forId, items: [{phrase, english}] } — last "generate alternatives" result
             let vocabAltLoading = false;
+            let vocabAddLoading = false; // true while the add-phrase popup is waiting on an AI lookup for a blank field
+            let vocabAddDraft = { phrase: '', english: '' }; // survives the popup's re-render while a lookup is in flight (or fails), so typed text isn't lost
+            let tensePanelOpen = false; // whether the custom collapsible tense picker on the Verbs page is expanded
+            let verbAddLoading = false; // true while the add-verb popup is waiting on an AI lookup for a blank field
+            let verbAddDraft = { infinitive: '', english: '' };
             let verbSort = 'english'; // 'english' | 'infinitive'
             let verbSearchQuery = '';
             let verbSearchResults = null;
@@ -5921,30 +5971,31 @@
 
             function isLanguageSubject(s) { return !!s && s.category === 'language' && s.taxonomyId !== 'english'; }
 
+            // `group` buckets each tense for the collapsible tense picker (Present/Past/Future/Other) —
+            // moods like conditional/subjunctive/imperative go in "other" rather than a real time-tense.
             const DEFAULT_LANGUAGE_TENSES = [
-                { id: 'present', label: 'Present' },
-                { id: 'preterite', label: 'Preterite / Simple past' },
-                { id: 'imperfect', label: 'Imperfect' },
-                { id: 'future', label: 'Future' },
-                { id: 'conditional', label: 'Conditional' },
-                { id: 'perfect', label: 'Perfect (compound past)' },
-                { id: 'pluperfect', label: 'Pluperfect' },
-                { id: 'subjunctive', label: 'Present subjunctive' }
+                { id: 'present', label: 'Present', group: 'present' },
+                { id: 'preterite', label: 'Preterite / Simple past', group: 'past' },
+                { id: 'imperfect', label: 'Imperfect', group: 'past' },
+                { id: 'perfect', label: 'Perfect (compound past)', group: 'past' },
+                { id: 'pluperfect', label: 'Pluperfect', group: 'past' },
+                { id: 'future', label: 'Future', group: 'future' },
+                { id: 'conditional', label: 'Conditional', group: 'other' },
+                { id: 'subjunctive', label: 'Present subjunctive', group: 'other' }
             ];
             // Irish doesn't map cleanly onto the above (no perfect/pluperfect/subjunctive as
             // separate school-taught tenses, and the habitual past is its own distinct tense) —
             // give it its own catalog, named the way it's actually taught.
             const IRISH_LANGUAGE_TENSES = [
-                { id: 'present', label: 'Aimsir Láithreach (Present)' },
-                { id: 'past', label: 'Aimsir Chaite (Past)' },
-                { id: 'habitual-past', label: 'Aimsir Ghnáthchaite (Habitual past)' },
-                { id: 'future', label: 'Aimsir Fháistineach (Future)' },
-                { id: 'conditional', label: 'Modh Coinníollach (Conditional)' },
-                { id: 'imperative', label: 'Modh Ordaitheach (Imperative)' }
+                { id: 'present', label: 'Aimsir Láithreach (Present)', group: 'present' },
+                { id: 'past', label: 'Aimsir Chaite (Past)', group: 'past' },
+                { id: 'habitual-past', label: 'Aimsir Ghnáthchaite (Habitual past)', group: 'past' },
+                { id: 'future', label: 'Aimsir Fháistineach (Future)', group: 'future' },
+                { id: 'conditional', label: 'Modh Coinníollach (Conditional)', group: 'other' },
+                { id: 'imperative', label: 'Modh Ordaitheach (Imperative)', group: 'other' }
             ];
             const LANGUAGE_TENSES_BY_TAXONOMY = { irish: IRISH_LANGUAGE_TENSES };
             function tensesForSubject(s) { return LANGUAGE_TENSES_BY_TAXONOMY[s?.taxonomyId] || DEFAULT_LANGUAGE_TENSES; }
-            function tenseLabel(s, tenseId) { return (tensesForSubject(s).find(t => t.id === tenseId) || {}).label || tenseId; }
 
             // ---- Generic one-shot AI call helpers ----------------------------------------------------
             // Unlike the chat widget's callGemini()/processUserPrompt(), these send a single user turn
@@ -6000,6 +6051,36 @@
                 state.wordbankVocab.push(entry);
                 save();
                 return entry;
+            }
+
+            // Entry point for the "Add a phrase" popup — either field can be left blank and gets looked up
+            // via AI (one short, plain-text reply, not the JSON call shape the other features use).
+            async function runVocabAdd(subjectId) {
+                let phrase = (document.getElementById('vocab-phrase-input')?.value || '').trim();
+                let english = (document.getElementById('vocab-english-input')?.value || '').trim();
+                if (!phrase && !english) { toast('Enter the phrase, its English meaning, or both.'); return; }
+                vocabAddDraft = { phrase, english }; // survives the re-renders below if a lookup is slow or fails
+                const s = subject(subjectId);
+                const stripQuotes = (t) => t.trim().replace(/^["'“”]+|["'“”]+$/g, '');
+                try {
+                    if (phrase && !english) {
+                        vocabAddLoading = true; renderModal();
+                        english = stripQuotes(await aiTextOnce(
+                            `Give the English meaning of this ${s.name} word or phrase, for an Irish secondary school student's vocab bank. Reply with ONLY the English meaning, nothing else.`,
+                            [{ text: phrase }], preferredProviderFor(s)));
+                    } else if (english && !phrase) {
+                        vocabAddLoading = true; renderModal();
+                        phrase = stripQuotes(await aiTextOnce(
+                            `Give the ${s.name} word or phrase that means this in English, the way it's actually taught in Irish secondary schools. Reply with ONLY the ${s.name} text, nothing else.`,
+                            [{ text: english }], preferredProviderFor(s)));
+                    }
+                } catch (err) { toast(err.message || 'Could not look that up.'); vocabAddLoading = false; renderModal(); return; }
+                vocabAddLoading = false;
+                addVocabEntry(subjectId, phrase, english, 'manual');
+                toast('Added to your bank.');
+                vocabAddDraft = { phrase: '', english: '' };
+                closeModal();
+                render();
             }
 
             async function runVocabOcr(subjectId, file) {
@@ -6075,6 +6156,35 @@
                 state.wordbankVerbs.push(entry);
                 save();
                 return entry;
+            }
+
+            // Entry point for the "Add a verb" popup — either field can be left blank and gets looked up via AI.
+            async function runVerbAdd(subjectId) {
+                let infinitive = (document.getElementById('verb-infinitive-input')?.value || '').trim();
+                let english = (document.getElementById('verb-english-input')?.value || '').trim();
+                if (!infinitive && !english) { toast('Enter the infinitive, its English meaning, or both.'); return; }
+                verbAddDraft = { infinitive, english }; // survives the re-renders below if a lookup is slow or fails
+                const s = subject(subjectId);
+                const stripQuotes = (t) => t.trim().replace(/^["'“”]+|["'“”]+$/g, '');
+                try {
+                    if (infinitive && !english) {
+                        verbAddLoading = true; renderModal();
+                        english = stripQuotes(await aiTextOnce(
+                            `Give the English meaning of this ${s.name} verb, for an Irish secondary school student's verb bank. Reply with ONLY the English meaning as a short phrase (e.g. "to speak"), nothing else.`,
+                            [{ text: infinitive }], preferredProviderFor(s)));
+                    } else if (english && !infinitive) {
+                        verbAddLoading = true; renderModal();
+                        infinitive = stripQuotes(await aiTextOnce(
+                            `Give the infinitive form of the ${s.name} verb that means this in English, for an Irish secondary school student's verb bank. Reply with ONLY the ${s.name} infinitive, nothing else.`,
+                            [{ text: english }], preferredProviderFor(s)));
+                    }
+                } catch (err) { toast(err.message || 'Could not look that up.'); verbAddLoading = false; renderModal(); return; }
+                verbAddLoading = false;
+                addVerbEntry(subjectId, infinitive, english, 'manual');
+                toast('Added to your bank.');
+                verbAddDraft = { infinitive: '', english: '' };
+                closeModal();
+                render();
             }
 
             function toggleLearnedTense(subjectId, tenseId, on) {
@@ -6587,12 +6697,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     const matches = vocabSearchResults.ids.map(id => bank.find(v => v.id === id)).filter(Boolean);
                     return `<div class="alert" style="margin-top:10px">${vocabSearchResults.note ? escape(vocabSearchResults.note) : `Best match${matches.length===1?'':'es'} for "${escape(vocabSearchQuery)}":`}${matches.length ? `<div class="list" style="margin-top:8px">${matches.map(row).join('')}</div>` : ''}</div>`;
                 })() : '';
-                return `<div class="form-grid">
-          <input type="text" id="vocab-phrase-input" class="field" placeholder="${escape(s.name)} phrase">
-          <input type="text" id="vocab-english-input" class="field" placeholder="English meaning">
-          <button type="button" class="button primary span-2" data-action="add-vocab" data-subject="${s.id}">+ Add phrase</button>
-        </div>
-        <div class="row" style="margin-top:10px;gap:8px;align-items:center">
+                return `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+          <button type="button" class="button primary" data-action="open-add-vocab" data-subject="${s.id}">+ Add phrase</button>
           <input type="file" id="vocab-ocr-file" accept="image/*" class="hidden" data-subject="${s.id}">
           <button type="button" class="button ghost" data-action="pick-vocab-photo" ${vocabOcrLoading?'disabled':''}>${vocabOcrLoading?'Reading photo…':'📷 Import from a photo'}</button>
         </div>
@@ -6608,6 +6714,17 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
           <button type="button" class="button ${vocabSort==='phrase'?'primary':'ghost'}" data-action="vocab-sort" data-sort="phrase">${escape(s.name)}</button>
         </div>
         <div class="list" style="margin-top:10px">${bank.length?bank.map(row).join(''):'<p class="empty">No phrases saved yet — add one above, or import a photo of your notes.</p>'}</div>`;
+            }
+
+            function addVocabModal(subjectId) {
+                const s = subject(subjectId);
+                return modalShell('Add a phrase',
+                    `<div class="form-grid">
+            <input type="text" id="vocab-phrase-input" class="field" placeholder="${escape(s.name)} phrase" value="${escape(vocabAddDraft.phrase)}">
+            <input type="text" id="vocab-english-input" class="field" placeholder="English meaning" value="${escape(vocabAddDraft.english)}">
+          </div>
+          <p class="small" style="margin-top:8px">Leave one blank and we'll look it up for you.</p>`,
+                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="add-vocab" data-subject="${subjectId}" ${vocabAddLoading?'disabled':''}>${vocabAddLoading?'Adding…':'Add phrase'}</button>`);
             }
 
             function renderVocabOcrDraft() {
@@ -6635,8 +6752,17 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             }
 
             // ---- Rendering: Verb bank -------------------------------------------------------------
-            function renderVerbBank(s) {
+            // Custom disclosure panel (not a native <select>) grouping tenses under Present/Past/Future/Other,
+            // toggled open/closed by the "Tenses learnt" button rather than always shown.
+            function tenseSelectorPanel(s) {
                 const catalog = tensesForSubject(s), learned = new Set(learnedTensesFor(s.id));
+                const groups = [['present', 'Present'], ['past', 'Past'], ['future', 'Future'], ['other', 'Other']];
+                return `<div class="tense-groups">${groups.map(([gid, label]) => { const items = catalog.filter(t => (t.group || 'other') === gid);
+                    if (!items.length) return '';
+                    return `<div class="tense-group"><h4>${label}</h4>${items.map(t => `<label class="switch-row"><input type="checkbox" data-action="toggle-tense" data-subject="${s.id}" data-tense="${t.id}" ${learned.has(t.id)?'checked':''}> ${escape(t.label)}</label>`).join('')}</div>`; }).join('')}</div>`;
+            }
+
+            function renderVerbBank(s) {
                 const bank = verbsFor(s.id).slice().sort((a, b) => (verbSort === 'infinitive' ? a.infinitive : a.english)
                     .localeCompare(verbSort === 'infinitive' ? b.infinitive : b.english));
                 const row = (v) => `<div class="topic-row" data-action="open-verb-detail" data-id="${v.id}" style="cursor:pointer"><div><strong>${escape(v.infinitive)}</strong><div class="small">${escape(v.english)}</div></div><button type="button" class="button ghost danger" data-action="delete-verb" data-id="${v.id}" aria-label="Delete" title="Delete" onclick="event.stopPropagation()">🗑</button></div>`;
@@ -6644,13 +6770,13 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     const matches = verbSearchResults.ids.map(id => bank.find(v => v.id === id)).filter(Boolean);
                     return `<div class="alert" style="margin-top:10px">${verbSearchResults.note ? escape(verbSearchResults.note) : `Best match${matches.length===1?'':'es'} for "${escape(verbSearchQuery)}":`}${matches.length ? `<div class="list" style="margin-top:8px">${matches.map(row).join('')}</div>` : ''}</div>`;
                 })() : '';
-                return `<div style="margin-bottom:16px"><h3>Tenses learnt so far</h3><p class="small">Tick off tenses as your class covers them — this is what shows up in each verb's table below.</p>
-          <div class="tense-check-grid" style="margin-top:8px">${catalog.map(t=>`<label class="switch-row"><input type="checkbox" data-action="toggle-tense" data-subject="${s.id}" data-tense="${t.id}" ${learned.has(t.id)?'checked':''}> ${escape(t.label)}</label>`).join('')}</div>
-        </div>
-        <div class="form-grid">
-          <input type="text" id="verb-infinitive-input" class="field" placeholder="Infinitive, e.g. hablar">
-          <input type="text" id="verb-english-input" class="field" placeholder="English meaning, e.g. to speak">
-          <button type="button" class="button primary span-2" data-action="add-verb" data-subject="${s.id}">+ Add verb</button>
+                const learnedCount = learnedTensesFor(s.id).length;
+                return `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-start">
+          <button type="button" class="button primary" data-action="open-add-verb" data-subject="${s.id}">+ Add verb</button>
+          <div class="tense-picker">
+            <button type="button" class="button ghost" data-action="toggle-tense-panel">${tensePanelOpen?'▾':'▸'} Tenses learnt (${learnedCount})</button>
+            ${tensePanelOpen?tenseSelectorPanel(s):''}
+          </div>
         </div>
         <div class="row" style="margin-top:16px;gap:8px">
           <input type="text" id="verb-search-input" placeholder="Search in English, e.g. 'to go'" value="${escape(verbSearchQuery)}" style="flex:1">
@@ -6666,25 +6792,43 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
         <div class="list" style="margin-top:10px">${bank.length?bank.map(row).join(''):'<p class="empty">No verbs saved yet — add one above.</p>'}</div>`;
             }
 
+            function addVerbModal(subjectId) {
+                const s = subject(subjectId);
+                return modalShell('Add a verb',
+                    `<div class="form-grid">
+            <input type="text" id="verb-infinitive-input" class="field" placeholder="Infinitive, e.g. hablar" value="${escape(verbAddDraft.infinitive)}">
+            <input type="text" id="verb-english-input" class="field" placeholder="English meaning, e.g. to speak" value="${escape(verbAddDraft.english)}">
+          </div>
+          <p class="small" style="margin-top:8px">Leave one blank and we'll look it up for you.</p>`,
+                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="add-verb" data-subject="${subjectId}" ${verbAddLoading?'disabled':''}>${verbAddLoading?'Adding…':'Add verb'}</button>`);
+            }
+
+            // One combined table (pronouns × learned tenses) rather than a table per tense — a tense's whole
+            // column is highlighted when that verb is irregular in it (the underlying data is a per-tense
+            // flag, not per-cell, so a column is the finest grain that's actually accurate to show).
             function verbDetailModal(entryId) {
                 const v = state.wordbankVerbs.find(x => x.id === entryId);
                 if (!v) return modalShell('Verb', '<p class="empty">This entry no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
                 const s = subject(v.subjectId), catalog = tensesForSubject(s), learned = learnedTensesFor(v.subjectId);
                 const alt = verbAlternatives && verbAlternatives.forId === entryId ? verbAlternatives : null;
                 const altRow = (item, i) => `<div class="topic-row"><div><strong>${escape(item.infinitive)}</strong><div class="small">${escape(item.english)}</div></div><button type="button" class="button ghost" data-action="verb-add-alt" data-index="${i}">+ Add</button></div>`;
-                const tenseBlock = (tid) => { const label = tenseLabel(s, tid), data = v.conjugations && v.conjugations[tid];
-                    if (!data) return `<div class="card section" style="margin-top:10px"><strong>${escape(label)}</strong><p class="small">Not generated yet.</p></div>`;
-                    return `<div class="card section" style="margin-top:10px"><strong>${escape(label)}</strong> ${data.irregular?`<span class="pill bad">Irregular</span>`:`<span class="pill good">Regular</span>`}
-            ${data.note?`<p class="small" style="margin-top:4px">${escape(data.note)}</p>`:''}
-            <table class="conj-table" style="margin-top:8px">${data.forms.map(f=>`<tr><td>${escape(f.pronoun)}</td><td>${escape(f.form)}</td></tr>`).join('')}</table>
-          </div>`; };
+                const learnedTensesList = learned.map(tid => catalog.find(t => t.id === tid)).filter(Boolean);
+                let conjBlock;
+                if (!learnedTensesList.length) conjBlock = '<p class="empty">Tick off some tenses on the Verbs page first.</p>';
+                else {
+                    const PRONOUNS_BY_TAXONOMY = { spanish: ES_PRONOUNS, french: FR_PRONOUNS, german: DE_PRONOUNS, irish: IR_PRONOUNS };
+                    const anyData = learnedTensesList.map(t => v.conjugations && v.conjugations[t.id]).find(Boolean);
+                    const pronouns = PRONOUNS_BY_TAXONOMY[s.taxonomyId] || (anyData ? anyData.forms.map(f => f.pronoun) : ['1st sg','2nd sg','3rd sg','1st pl','2nd pl','3rd pl']);
+                    const table = `<div class="conj-grid-wrap"><table class="conj-grid"><thead><tr><th></th>${learnedTensesList.map(t => `<th class="${v.conjugations?.[t.id]?.irregular?'irregular-col':''}">${escape(t.label)}</th>`).join('')}</tr></thead><tbody>${pronouns.map((p, i) => `<tr><th>${escape(p)}</th>${learnedTensesList.map(t => { const data = v.conjugations && v.conjugations[t.id];
+                        return `<td class="${data?.irregular?'irregular-col':''}">${escape(data ? (data.forms[i]?.form || '') : '…')}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
+                    const notes = learnedTensesList.map(t => ({ label: t.label, note: v.conjugations?.[t.id]?.note })).filter(x => x.note);
+                    conjBlock = `${table}<p class="small" style="margin-top:8px"><span class="irregular-swatch"></span>irregular in that tense</p>${notes.length?`<ul class="small" style="margin-top:6px;padding-left:18px">${notes.map(n=>`<li><strong>${escape(n.label)}:</strong> ${escape(n.note)}</li>`).join('')}</ul>`:''}`;
+                }
                 return modalShell(escape(v.infinitive),
                     `<div class="event-detail"><p class="small" style="margin-top:-4px">${escape(v.english)}</p>
           <button type="button" class="button" style="margin-top:14px" data-action="verb-alternatives" data-id="${v.id}" ${verbAltLoading?'disabled':''}>${verbAltLoading?'Thinking…':'✨ Generate alternatives'}</button>
           ${alt?`<div style="margin-top:14px"><h3>Alternatives</h3><div class="list" style="margin-top:8px">${alt.items.length?alt.items.map(altRow).join(''):'<p class="empty">No alternatives came back — try again.</p>'}</div></div>`:''}
-          <div style="margin-top:16px"><h3>Conjugation ${verbConjLoading?'<span class="small">(loading…)</span>':''}</h3>
-          ${learned.length?learned.map(tenseBlock).join(''):'<p class="empty">Tick off some tenses on the Verbs page first.</p>'}
-          </div>
+          <div style="margin-top:16px"><h3>Conjugation ${verbConjLoading?'<span class="small">(loading…)</span>':''}</h3>${conjBlock}</div>
         </div>`,
                     `<button class="button ghost danger" data-action="delete-verb" data-id="${v.id}">Delete</button><button class="button" data-action="close-modal">Close</button>`, true);
             }
@@ -7507,6 +7651,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     modal.kind === 'info') return layer.innerHTML = infoModal(modal.topic); if (
                     modal.kind === 'vocab-detail') return layer.innerHTML = vocabDetailModal(modal.entryId); if (
                     modal.kind === 'verb-detail') return layer.innerHTML = verbDetailModal(modal.entryId); if (
+                    modal.kind === 'add-vocab') return layer.innerHTML = addVocabModal(modal.subjectId); if (
+                    modal.kind === 'add-verb') return layer.innerHTML = addVerbModal(modal.subjectId); if (
                     modal.kind === 'essay-history') return layer.innerHTML = essayHistoryModal(modal.entryId); }
 
             const INFO_TEXT = {
@@ -10542,10 +10688,8 @@ If the user asks about how to study or study methods generally, answer from your
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
                 const a = b.dataset.action;
                 if (a === 'wordbank-tab') { wordBankTab = b.dataset.tab; vocabSearchResults = null; verbSearchResults = null; render(); }
-                else if (a === 'add-vocab') { const phrase = document.getElementById('vocab-phrase-input')?.value,
-                        english = document.getElementById('vocab-english-input')?.value;
-                    if (!phrase?.trim() || !english?.trim()) { toast('Fill in both the phrase and its English meaning.'); return; }
-                    addVocabEntry(b.dataset.subject, phrase, english, 'manual'); toast('Added to your bank.'); render(); }
+                else if (a === 'open-add-vocab') { vocabAddDraft = { phrase: '', english: '' }; openModal('add-vocab', { subjectId: b.dataset.subject }); }
+                else if (a === 'add-vocab') runVocabAdd(b.dataset.subject);
                 else if (a === 'delete-vocab') { state.wordbankVocab = state.wordbankVocab.filter(v => v.id !== b.dataset.id);
                     save(); if (modal?.kind === 'vocab-detail' && modal.entryId === b.dataset.id) closeModal(); else render(); }
                 else if (a === 'open-vocab-detail') { vocabAlternatives = null; openModal('vocab-detail', { entryId: b.dataset.id }); }
@@ -10558,10 +10702,8 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'vocab-alternatives') { const v = state.wordbankVocab.find(x => x.id === b.dataset.id); if (v) runVocabAlternatives(v); }
                 else if (a === 'vocab-add-alt') { const item = vocabAlternatives?.items[Number(b.dataset.index)], v = state.wordbankVocab.find(x => x.id === vocabAlternatives.forId);
                     if (item && v) { addVocabEntry(v.subjectId, item.phrase, item.english, 'suggested'); toast('Added to your bank.'); } }
-                else if (a === 'add-verb') { const infinitive = document.getElementById('verb-infinitive-input')?.value,
-                        english = document.getElementById('verb-english-input')?.value;
-                    if (!infinitive?.trim() || !english?.trim()) { toast('Fill in both the infinitive and its English meaning.'); return; }
-                    addVerbEntry(b.dataset.subject, infinitive, english, 'manual'); toast('Added to your bank.'); render(); }
+                else if (a === 'open-add-verb') { verbAddDraft = { infinitive: '', english: '' }; openModal('add-verb', { subjectId: b.dataset.subject }); }
+                else if (a === 'add-verb') runVerbAdd(b.dataset.subject);
                 else if (a === 'delete-verb') { state.wordbankVerbs = state.wordbankVerbs.filter(v => v.id !== b.dataset.id);
                     save(); if (modal?.kind === 'verb-detail' && modal.entryId === b.dataset.id) closeModal(); else render(); }
                 else if (a === 'open-verb-detail') { verbAlternatives = null; const v = state.wordbankVerbs.find(x => x.id === b.dataset.id);
@@ -10569,6 +10711,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'verb-search') runVerbSearch(b.dataset.subject, document.getElementById('verb-search-input')?.value);
                 else if (a === 'verb-search-clear') { verbSearchQuery = ''; verbSearchResults = null; render(); }
                 else if (a === 'verb-sort') { verbSort = b.dataset.sort; render(); }
+                else if (a === 'toggle-tense-panel') { tensePanelOpen = !tensePanelOpen; render(); }
                 else if (a === 'verb-alternatives') { const v = state.wordbankVerbs.find(x => x.id === b.dataset.id); if (v) runVerbAlternatives(v); }
                 else if (a === 'verb-add-alt') { const item = verbAlternatives?.items[Number(b.dataset.index)], v = state.wordbankVerbs.find(x => x.id === verbAlternatives.forId);
                     if (item && v) { addVerbEntry(v.subjectId, item.infinitive, item.english, 'suggested'); toast('Added to your bank.'); } }
