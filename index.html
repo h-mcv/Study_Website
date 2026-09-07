@@ -4823,6 +4823,13 @@
             let caoCalcTargetInput = '';
             let caoCalcTargetResults = null; // computed by caoCalcFindCombos(), or null before a search
             let CAO_SIX_COMBOS_CACHE = null; // memoized caoAllSixCombos() result
+
+            // ---- Quadratic Equation Solver (Tools page) — live as-you-type, no submit button. Coefficients
+            // are parsed straight from their decimal strings into exact integer fractions (rather than through
+            // float division) so the roots can be shown as exact fractions/surds by default, with a toggle to
+            // show plain decimals instead.
+            let quadA = '', quadB = '', quadC = '';
+            let quadFormat = 'fraction'; // 'fraction' | 'decimal'
             // Computes CAO points for a real Leaving Cert or Mock exam once results are in: best six subjects
             // count, plus 25 bonus points for Higher Level Mathematics specifically (not Applied Maths) at grade
             // H6 or above. Returns null if this isn't an LC/mock exam. While any sitting is missing a result,
@@ -6395,18 +6402,121 @@
           ${caoCalcTargetResults?caoCalcTargetResultsHtml():''}
         </section>`; }
 
+            function gcdInt(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a || 1; }
+            // Reduces num/den to lowest terms with a positive denominator.
+            function makeFraction(num, den) { if (den < 0) { num = -num; den = -den; } const g = gcdInt(num, den);
+                return { num: num / g, den: den / g }; }
+            function addFrac(x, y) { return makeFraction(x.num * y.den + y.num * x.den, x.den * y.den); }
+            function subFrac(x, y) { return makeFraction(x.num * y.den - y.num * x.den, x.den * y.den); }
+            function mulFrac(x, y) { return makeFraction(x.num * y.num, x.den * y.den); }
+            function divFrac(x, y) { return makeFraction(x.num * y.den, x.den * y.num); }
+            function negFrac(f) { return { num: -f.num, den: f.den }; }
+            function absFrac(f) { return { num: Math.abs(f.num), den: f.den }; }
+            function fracIsZero(f) { return f.num === 0; }
+            function formatFrac(f) { return f.den === 1 ? `${f.num}` : `${f.num}/${f.den}`; }
+            function fracToDecimal(f) { return f.num / f.den; }
+            // Trims a decimal to at most 6dp without float noise (e.g. 0.30000000000000004 -> "0.3").
+            function formatDecimal(n) { if (!isFinite(n)) return '—'; return String(Math.round(n * 1e6) / 1e6); }
+            // Parses a plain decimal string (e.g. "-3", "2.5", ".75") into an exact integer fraction — done via
+            // string splitting rather than float division, so it can't pick up binary floating-point rounding.
+            function decimalToFraction(str) { str = (str || '').trim();
+                if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(str)) return null;
+                let neg = false; if (str[0] === '-') { neg = true; str = str.slice(1); } else if (str[0] === '+') str = str
+                    .slice(1);
+                const [intPart, fracPart = ''] = str.split('.'),
+                    den = Math.pow(10, fracPart.length),
+                    num = Number((intPart || '0') + fracPart || '0');
+                return makeFraction((neg ? -1 : 1) * num, den); }
+            // Factors non-negative integer n into coeff²·radicand with radicand squarefree, so √n = coeff·√radicand.
+            function simplifySqrtInt(n) { if (n === 0) return { coeff: 0, radicand: 1 };
+                let coeff = 1, radicand = n;
+                for (let p = 2; p * p <= radicand; p++) while (radicand % (p * p) === 0) { radicand /= p * p;
+                    coeff *= p; }
+                return { coeff, radicand }; }
+            // For a non-negative fraction p/q, returns { factor, radicand } such that √(p/q) = factor·√radicand,
+            // with radicand squarefree — using √(p/q) = √(pq)/q.
+            function sqrtFraction(frac) { const { coeff, radicand } = simplifySqrtInt(frac.num * frac.den);
+                return { factor: makeFraction(coeff, frac.den), radicand }; }
+            // Formats rational + coeff·√radicand·suffix (e.g. suffix 'i' for the imaginary unit) as a single
+            // expression, omitting zero terms and redundant "1" coefficients.
+            function formatSumWithSurd(rational, coeff, radicand, suffix) { suffix = suffix || '';
+                const terms = [];
+                if (!fracIsZero(rational)) terms.push({ neg: rational.num < 0, text: formatFrac(absFrac(rational)) });
+                if (!fracIsZero(coeff)) { const absC = absFrac(coeff),
+                        label = absC.num === absC.den ? '' : formatFrac(absC),
+                        surdPart = radicand === 1 ? '' : `√${radicand}`;
+                    terms.push({ neg: coeff.num < 0, text: `${label}${surdPart}${surdPart&&suffix?' ':''}${suffix}` || '1' }); }
+                if (!terms.length) return '0';
+                return terms.map((t, i) => i === 0 ? (t.neg ? `-${t.text}` : t.text) : (t.neg ? ` - ${t.text}` :
+                    ` + ${t.text}`)).join(''); }
+            // Solves Ax² + Bx + C = 0 for the given coefficient fractions and returns ready-to-render HTML for
+            // the root(s), in either exact 'fraction'/surd form or rounded 'decimal' form.
+            function quadraticRootsHtml(A, B, C, format) {
+                if (fracIsZero(A)) { if (fracIsZero(B)) return `<p class="empty">${fracIsZero(C)?'Every value of x is a solution — a, b and c are all 0.':"No solution — a and b are both 0 but c isn't."}</p>`;
+                    const root = divFrac(negFrac(C), B);
+                    return `<p class="small">a is 0, so this is linear (bx + c = 0):</p><p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${format==='decimal'?formatDecimal(fracToDecimal(root)):formatFrac(root)}</p>`; }
+                const negB = negFrac(B), twoA = mulFrac(A, { num: 2, den: 1 }),
+                    discriminant = subFrac(mulFrac(B, B), mulFrac({ num: 4, den: 1 }, mulFrac(A, C)));
+                if (format === 'decimal') { const a = fracToDecimal(A), b = fracToDecimal(B), c = fracToDecimal(C),
+                        d = b * b - 4 * a * c;
+                    if (d < 0) { const re = -b / (2 * a), im = Math.sqrt(-d) / (2 * a);
+                        return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatDecimal(re)} ± ${formatDecimal(im)}i</p><p class="small" style="margin-top:6px">No real roots — the discriminant is negative.</p>`; }
+                    const sq = Math.sqrt(d);
+                    if (d === 0) return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatDecimal(-b/(2*a))}</p><p class="small" style="margin-top:6px">A repeated (double) root.</p>`;
+                    return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatDecimal((-b+sq)/(2*a))}</p><p style="font-size:20px;font-weight:800;margin:2px 0 0">x = ${formatDecimal((-b-sq)/(2*a))}</p>`; }
+                // Fraction/surd mode — every step stays in exact fraction arithmetic.
+                if (discriminant.num < 0) { const { factor, radicand } = sqrtFraction(absFrac(discriminant)),
+                        rational = divFrac(negB, twoA), imCoeff = divFrac(factor, twoA);
+                    return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatSumWithSurd(rational,imCoeff,radicand,'i')}</p><p style="font-size:20px;font-weight:800;margin:2px 0 0">x = ${formatSumWithSurd(rational,negFrac(imCoeff),radicand,'i')}</p><p class="small" style="margin-top:6px">No real roots — the discriminant is negative.</p>`; }
+                if (discriminant.num === 0) return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatFrac(divFrac(negB,twoA))}</p><p class="small" style="margin-top:6px">A repeated (double) root.</p>`;
+                const { factor, radicand } = sqrtFraction(discriminant);
+                if (radicand === 1) { const root1 = divFrac(addFrac(negB, factor), twoA),
+                        root2 = divFrac(subFrac(negB, factor), twoA);
+                    return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatFrac(root1)}</p><p style="font-size:20px;font-weight:800;margin:2px 0 0">x = ${formatFrac(root2)}</p>`; }
+                const rational = divFrac(negB, twoA), irrCoeff = divFrac(factor, twoA);
+                return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatSumWithSurd(rational,irrCoeff,radicand)}</p><p style="font-size:20px;font-weight:800;margin:2px 0 0">x = ${formatSumWithSurd(rational,negFrac(irrCoeff),radicand)}</p>`; }
+
+            function quadraticSolverHtml() { const hasAll = quadA.trim() !== '' && quadB.trim() !== '' && quadC
+                    .trim() !== '';
+                const A = decimalToFraction(quadA), B = decimalToFraction(quadB), C = decimalToFraction(quadC);
+                const resultHtml = !hasAll ? '<p class="empty">Enter a, b and c to see the roots.</p>' : (!A || !B ||
+                    !C ? '<p class="empty">Enter valid numbers for a, b and c.</p>' : quadraticRootsHtml(A, B, C,
+                        quadFormat));
+                const field = (id, label, val) =>
+                    `<div class="field"><label for="${id}">${label}</label><input type="text" inputmode="decimal" autocomplete="off" id="${id}" placeholder="0" value="${escape(val)}"></div>`;
+                return `<section class="card section">
+          <p class="small">Solves ax² + bx + c = 0 — the roots update automatically as you type.</p>
+          <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px">
+            ${field('quad-input-a','a',quadA)}
+            ${field('quad-input-b','b',quadB)}
+            ${field('quad-input-c','c',quadC)}
+          </div>
+          <div class="row" style="gap:8px;margin-top:12px">
+            <button type="button" class="button ${quadFormat==='fraction'?'primary':'ghost'}" data-action="quad-format" data-format="fraction">Fractions</button>
+            <button type="button" class="button ${quadFormat==='decimal'?'primary':'ghost'}" data-action="quad-format" data-format="decimal">Decimals</button>
+          </div>
+        </section>
+        <section class="card section" style="margin-top:14px">
+          ${resultHtml}
+        </section>`; }
+
             function renderTools() { if (!toolsActiveTool) { const tile = (id, icon, title, desc) =>
                         `<button type="button" class="class-tile" data-action="tools-open" data-tool="${id}" style="--subject:var(--primary)"><strong>${icon} ${title}</strong><span class="small">${desc}</span></button>`;
                     return appFrame(`<div class="page">${header('Tools','Extra study tools that don\'t fit neatly anywhere else.','')}
         <div class="class-grid">
           ${tile('formulas','📘','Formula Book','The official Formulae & Tables booklet allowed in the exam — searchable and browsable.')}
           ${tile('cao','◎','CAO Points Calculator','Work out your best-6 CAO points, or find grade combinations that reach a target.')}
+          ${tile('quadratic','➗','Quadratic Solver','Enter a, b and c and see the roots instantly — as exact fractions or decimals.')}
         </div>
         </div>`); }
                 const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (
                     toolsActiveTool === 'formulas') return appFrame(`<div class="page">${back}
         ${header('Formula Book',"The full official booklet, trimmed to just the formula and table pages — browse the contents, or search for what you need below.",'')}
         ${formulaBookHtml()}
+        </div>`);
+                if (toolsActiveTool === 'quadratic') return appFrame(`<div class="page">${back}
+        ${header('Quadratic Solver','Solves ax² + bx + c = 0.','')}
+        ${quadraticSolverHtml()}
         </div>`);
                 return appFrame(`<div class="page">${back}
         ${header('CAO Points Calculator','A quick standalone scratchpad — it doesn\'t touch your logged exam results.','')}
@@ -11327,6 +11437,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'cao-calc-find-combos') { const raw = document.getElementById('cao-target-input')?.value,
                         target = parseInt(raw, 10); if (!raw || isNaN(target) || target <= 0) { toast('Enter a target points total first.'); return; }
                     caoCalcTargetInput = raw; caoCalcTargetResults = caoCalcFindCombos(target); render(); }
+                else if (a === 'quad-format') { quadFormat = b.dataset.format; render(); }
             });
             document.addEventListener('keydown', e => { if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value);
                 else if (e.target && e.target.id === 'cao-target-input' && e.key === 'Enter') { const target = parseInt(e.target.value, 10); if (!isNaN(target) && target > 0) { caoCalcTargetInput = e.target.value; caoCalcTargetResults = caoCalcFindCombos(target); render(); } } });
@@ -11338,7 +11449,14 @@ If the user asks about how to study or study methods generally, answer from your
                         input.setSelectionRange(input.value.length, input.value.length); } } if (
                     e.target.id === 'essay-text-input') { essayText = e.target.value; return; } if (
                     e.target.dataset && e.target.dataset.action === 'vocab-ocr-edit-phrase') { if (vocabOcrDraft) vocabOcrDraft.items[Number(e.target.dataset.index)].phrase = e.target.value; return; } if (
-                    e.target.dataset && e.target.dataset.action === 'vocab-ocr-edit-english') { if (vocabOcrDraft) vocabOcrDraft.items[Number(e.target.dataset.index)].english = e.target.value; return; } });
+                    e.target.dataset && e.target.dataset.action === 'vocab-ocr-edit-english') { if (vocabOcrDraft) vocabOcrDraft.items[Number(e.target.dataset.index)].english = e.target.value; return; }
+                if (e.target.id === 'quad-input-a' || e.target.id === 'quad-input-b' || e.target.id === 'quad-input-c') {
+                    if (e.target.id === 'quad-input-a') quadA = e.target.value;
+                    else if (e.target.id === 'quad-input-b') quadB = e.target.value;
+                    else quadC = e.target.value;
+                    const id = e.target.id, pos = e.target.selectionStart;
+                    render(); const input = document.getElementById(id);
+                    if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) {} } } });
 
             document.addEventListener('change', e => { const t = e.target, action = t.dataset && t.dataset.action;
                 if (action === 'vocab-ocr-toggle') { if (vocabOcrDraft) vocabOcrDraft.items[Number(t.dataset.index)].include = t.checked; }
