@@ -1962,6 +1962,30 @@
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
+        #cabbage-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        #cabbage-overlay span {
+            font-size: min(20vw, 170px);
+            font-weight: 900;
+            font-family: inherit;
+            color: #3ddc50;
+            text-shadow: 0 0 10px #3ddc50, 0 0 30px #3ddc50, 0 0 60px #8cff5c, 0 0 110px #8cff5c;
+            animation: cabbage-glow 1s ease-in-out infinite alternate;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        @keyframes cabbage-glow {
+            from { text-shadow: 0 0 10px #3ddc50, 0 0 30px #3ddc50, 0 0 60px #8cff5c; }
+            to { text-shadow: 0 0 20px #3ddc50, 0 0 60px #8cff5c, 0 0 130px #8cff5c; }
+        }
         #undo-bar {
             position: fixed;
             z-index: 35;
@@ -2980,6 +3004,7 @@
     <div id="picker-popover" class="picker-popover hidden"></div>
     <div id="toast" class="toast" role="status"></div>
     <div id="undo-bar" class="hidden" role="status"><span id="undo-bar-text"></span><button type="button" data-action="perform-undo">Undo</button></div>
+    <div id="cabbage-overlay" class="hidden" role="alert" aria-hidden="true"><span>cabbages!</span></div>
 
     <!-- Mascot guide -->
     <div id="mascot-widget" class="hidden" role="status" aria-live="polite">
@@ -4214,6 +4239,7 @@
                 settings: { firstName: '', lastName: '', dob: '', yearGroup: '', termStart: '', termEnd: '',
                     theme: 'light', onboarded: false, sidebarMode: 'hover', studyEngineDisabled: false,
                     notificationsEnabled: false, tourVersion: 0, tourBannerDismissedVersion: 0,
+                    dyslexiaMode: false, cabbageCount: 0,
                     studyPreferences: { intensity: '', pointsTarget: '', timeOfDay: '', weekendBalance: '',
                         sessionLength: '', temporaryBoostUntil: '', notes: '' } },
                 subjects: [],
@@ -4391,6 +4417,14 @@
                 el.classList.add('show');
                 clearTimeout(toastTimer);
                 toastTimer = setTimeout(() => el.classList.remove('show'), 2600); }
+
+            // "Sophia mode" is a small easter egg that activates purely off the user's first name — no
+            // separate setting for it, it just kicks in for anyone signed in as Sophia.
+            function isSophiaMode() { return (state.settings.firstName || '').trim().toLowerCase() === 'sophia'; }
+
+            // Slows the guided tour's auto-advance down for Sophia mode and for anyone with the dyslexia-friendly
+            // setting on (settingsModal, setting-dyslexia) — same effect, two different triggers.
+            function tourAutoAdvanceMs(ms) { return (isSophiaMode() || state.settings.dyslexiaMode) ? ms * 2 : ms; }
 
             function subject(id) { return state.subjects.find(s => s.id === id); }
 
@@ -8171,6 +8205,10 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (
                     !state.settings.onboarded && !modal) openModal('onboarding');
                 else if (state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
+                else if (state.settings.onboarded && !modal && isSophiaMode() && !sophiaWelcomeShown) {
+                    sophiaWelcomeShown = true;
+                    openModal('sophia-welcome'); }
+                maybeScheduleCabbageScreen();
                 maybeShowSparkyRecall(); }
 
             // Shows a small persistent "bring Sparky back" button whenever setup genuinely looks incomplete
@@ -8181,6 +8219,36 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function maybeShowSparkyRecall() { const btn = document.getElementById('sparky-recall'); if (!btn)
                     return; const setupIncomplete = nextSetupCheckpointStep() !== 'setup-good';
                 btn.classList.toggle('hidden', !setupIncomplete || !!mascotTour); }
+
+            // Sophia mode's screen-takeover easter egg: a full-screen "cabbages!" flash, at a random point every
+            // 1-3 minutes, capped at CABBAGE_MAX_COUNT ever (state.settings.cabbageCount persists the count so it
+            // really does stop forever, not just for the current tab). Kicked off once per page load from
+            // render(); re-checks isSophiaMode() on every firing since the name (and so the mode) can change
+            // mid-session via Settings.
+            const CABBAGE_MAX_COUNT = 5;
+            function maybeScheduleCabbageScreen() {
+                if (cabbageScheduled || !isSophiaMode() || (state.settings.cabbageCount || 0) >= CABBAGE_MAX_COUNT)
+                    return;
+                cabbageScheduled = true;
+                scheduleNextCabbageScreen(); }
+
+            function scheduleNextCabbageScreen() {
+                const delay = 60000 + Math.random() * 120000; // 1-3 minutes: guarantees one every "few minutes"
+                setTimeout(() => {
+                    if (!isSophiaMode() || (state.settings.cabbageCount || 0) >= CABBAGE_MAX_COUNT) {
+                        cabbageScheduled = false;
+                        return; }
+                    showCabbageScreen();
+                    state.settings.cabbageCount = (state.settings.cabbageCount || 0) + 1;
+                    save(); if (state.settings.cabbageCount >= CABBAGE_MAX_COUNT) { cabbageScheduled = false;
+                        return; }
+                    scheduleNextCabbageScreen(); }, delay); }
+
+            function showCabbageScreen() { const el = document.getElementById('cabbage-overlay');
+                el.classList.remove('hidden');
+                setTimeout(() => el.classList.add('hidden'), 2800); }
+            document.getElementById('cabbage-overlay').addEventListener('click', () =>
+                document.getElementById('cabbage-overlay').classList.add('hidden'));
 
             function openModal(kind, data = {}) { modal = { kind, ...data };
                 renderModal(); if (mascotTour) positionMascotWidget(currentMascotStep()); }
@@ -8230,7 +8298,12 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     modal.kind === 'verb-detail') return layer.innerHTML = verbDetailModal(modal.entryId); if (
                     modal.kind === 'add-vocab') return layer.innerHTML = addVocabModal(modal.subjectId); if (
                     modal.kind === 'add-verb') return layer.innerHTML = addVerbModal(modal.subjectId); if (
-                    modal.kind === 'essay-history') return layer.innerHTML = essayHistoryModal(modal.entryId); }
+                    modal.kind === 'essay-history') return layer.innerHTML = essayHistoryModal(modal.entryId); if (
+                    modal.kind === 'sophia-welcome') return layer.innerHTML = sophiaWelcomeModal(); }
+
+            function sophiaWelcomeModal() { return modalShell('✨ Sophia mode',
+                    `<p>Welcome to Sophia mode!</p>`,
+                    `<button class="button primary" data-action="close-modal">Got it</button>`); }
 
             const INFO_TEXT = {
                 cushion: { title: 'How the workload check works', body: 'Your "cushion" is how much free time you have left before a task is due, after earlier deadlines have already claimed their share. Negative means you\'re realistically short on time; under two hours is tight; more than that is comfortable.' },
@@ -8306,6 +8379,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
           ${spotifySettingsRowHtml()}
           ${garminSettingsRowHtml()}
           <div class="settings-row"><div><strong>Notifications</strong><span class="small">Only for genuinely important things — a test tomorrow, a CAO hard deadline in the next couple of days. Nothing more frequent than that.</span></div><label class="switch-row"><input id="setting-notifications" type="checkbox" ${s.notificationsEnabled?'checked':''}> Enable browser notifications</label></div>
+          <div class="settings-row"><div><strong>Dyslexia-friendly</strong><span class="small">Slows down the guided tour, giving more time to read each step before it moves on.</span></div><label class="switch-row"><input id="setting-dyslexia" type="checkbox" ${s.dyslexiaMode?'checked':''}> Slow down guided tours</label></div>
           <div class="settings-row"><div><strong>Backup your data</strong><span class="small">${backupNote} An Export is the only way to get everything back if you switch browsers or devices, or this browser's storage ever gets cleared.</span></div><div class="row"><button class="button" data-action="export-data">Export backup</button><label class="button">Import backup<input id="import-data" type="file" accept="application/json" class="hidden"></label></div></div>
           <div class="settings-row"><div><strong>Sample data</strong><span class="small">Fills in a full week of classes, activities, and study — handy for testing.</span></div><button class="button" data-action="sample-data">Add sample week</button></div>
           <div class="settings-row"><div><strong>Start over</strong><span class="small">This clears only Simple Study's saved data.</span></div><button class="button danger" data-action="reset-data">Reset</button></div>
@@ -10001,6 +10075,8 @@ If the user asks about how to study or study methods generally, answer from your
             let demoModeActive = false; // true while a preview tour has swapped in sample data — save() no-ops
             let preTourSnapshot = null; // real state to restore once a demo tour ends
             let burnoutCheckReasons = []; // set right before starting the burnoutCheck tour, read by its dynamic text
+            let sophiaWelcomeShown = false; // shows the Sophia-mode welcome popup once per page load, not on every render()
+            let cabbageScheduled = false; // whether the Sophia-mode "cabbages!" timer loop has been kicked off this page load
             let examTaskDraft = {}; // { subjectId } — tracks the live subject pick in the exam task form so changing it can reactively show/hide milestone fields
             let searchQuery = ''; // live text in the search modal's input
             let dashboardZoomedOut = false; // toggles the Dashboard timetable between the normal week grid and a condensed multi-week overview
@@ -10561,7 +10637,7 @@ If the user asks about how to study or study methods generally, answer from your
                     // tours' plain-continue steps (below) still get a manual button since they're waiting on a
                     // real action the user has to go take (add a class, save preferences, etc.), not just reading.
                     mascotAutoAdvanceTimer = setTimeout(() => { if (currentMascotStep() === step) mascotNext(); },
-                        step.autoAdvanceMs); } else { const btn = document.createElement('button');
+                        tourAutoAdvanceMs(step.autoAdvanceMs)); } else { const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'button primary';
                     btn.textContent = step.continueLabel || (step.next ? 'Next →' : 'Got it');
@@ -11370,6 +11446,8 @@ If the user asks about how to study or study methods generally, answer from your
                     return; } if (e.target.id === 'setting-notifications') { state.settings.notificationsEnabled = e
                     .target.checked; if (e.target.checked && 'Notification' in window && Notification
                         .permission === 'default') Notification.requestPermission();
+                    save();
+                    return; } if (e.target.id === 'setting-dyslexia') { state.settings.dyslexiaMode = e.target.checked;
                     save();
                     return; } if (e.target.classList.contains('examwizard-topic-check')) {
                     const id = e.target.dataset.topic; if (e.target.checked) examWizard.pendingTopics = [...(
