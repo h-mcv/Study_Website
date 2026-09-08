@@ -2978,6 +2978,52 @@
         #print-area {
             display: none;
         }
+        .admin-page {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .admin-page-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .admin-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .admin-bar-row {
+            display: grid;
+            grid-template-columns: 160px 1fr 44px;
+            align-items: center;
+            gap: 10px;
+        }
+        .admin-bar-label {
+            font-size: 12px;
+            color: var(--muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .admin-bar-track {
+            background: var(--surface-2, #eee);
+            border-radius: 6px;
+            height: 10px;
+            overflow: hidden;
+        }
+        .admin-bar-fill {
+            background: var(--accent, #5b8def);
+            height: 100%;
+            border-radius: 6px;
+        }
+        .admin-bar-count {
+            font-size: 12px;
+            color: var(--muted);
+            text-align: right;
+        }
         @media print {
             body * {
                 visibility: hidden;
@@ -3162,6 +3208,203 @@
             let cloudSyncTimer = null;   // debounce handle for pushStateToCloud().
             let lastSyncedAt = null;     // Date of the last successful cloud write, shown in the account UI.
             let cloudSyncFailed = false; // set when a push errors, so the UI can say so instead of silently lying.
+
+            // ------------------------------------------------------------------
+            // Admin mode. Reachable only by typing "admin" into the app's own
+            // Search (see searchModal()) -- never a visible nav item, and no
+            // password or admin allowlist lives anywhere in this file. Every
+            // admin request is re-checked server-side (supabase/functions/
+            // admin-api) against both the caller's real Supabase session and a
+            // short-lived signed token minted after that password check. The
+            // token (not the password) is cached in sessionStorage purely so a
+            // refresh mid-session doesn't force re-entering the password --
+            // sessionStorage clears itself when the tab closes, and the token
+            // itself expires server-side a few hours after issue regardless.
+            // ------------------------------------------------------------------
+            let adminToken = sessionStorage.getItem('admin-token') || null;
+            let adminTokenExpiresAt = Number(sessionStorage.getItem('admin-token-expires') || 0);
+            if (adminToken && Date.now() > adminTokenExpiresAt) {
+                adminToken = null; adminTokenExpiresAt = 0;
+                sessionStorage.removeItem('admin-token'); sessionStorage.removeItem('admin-token-expires');
+            }
+            let adminReturnView = 'dashboard'; // which normal view "Back to my account" returns to
+            let adminView = 'users';           // 'users' | 'user-detail' | 'analytics'
+            let adminUsers = null;             // [{id,email,createdAt,...,metrics}] once list-users resolves
+            let adminUserFilter = '';
+            let adminSelectedUserId = null;
+            let adminUserDetail = null;        // { authUser, state, stateUpdatedAt, recentEvents, magicLink? }
+            let adminAnalytics = null;
+            let adminBusy = false;
+            let adminError = '';
+            function isAdminTokenValid() { return !!adminToken && Date.now() < adminTokenExpiresAt; }
+
+            // Fires on essentially every click that carries a data-action (see
+            // the capturing listener near the end of this file), so the admin
+            // Analytics tab gets real feature-usage breakdown without hand-
+            // instrumenting each feature individually. Fire-and-forget by
+            // design: telemetry must never be able to break or slow down the
+            // app it's measuring, so failures (offline, RLS hiccup) are
+            // silently swallowed and nothing here is ever awaited.
+            function logFeatureEvent(event, meta) {
+                if (!currentUser || !event) return;
+                supabaseClient.from('feature_events').insert({ user_id: currentUser.id, event, meta: meta || null })
+                    .then(() => {}, () => {});
+            }
+
+            async function adminFetch(action, params = {}) {
+                if (action !== 'unlock' && !isAdminTokenValid()) {
+                    adminToken = null;
+                    openModal('admin-unlock');
+                    throw new Error('Admin session expired -- re-enter the password.');
+                }
+                const { data, error } = await supabaseClient.functions.invoke('admin-api',
+                    { body: { action, adminToken, ...params } });
+                if (error) {
+                    let detail = error.message || 'Admin request failed.';
+                    try { detail = (await error.context.json())?.error || detail; } catch {}
+                    if (/expired|not authorized/i.test(detail)) {
+                        adminToken = null;
+                        sessionStorage.removeItem('admin-token'); sessionStorage.removeItem('admin-token-expires');
+                    }
+                    throw new Error(detail);
+                }
+                if (data?.error) throw new Error(data.error);
+                return data;
+            }
+
+            async function adminUnlock() {
+                const password = document.getElementById('admin-password-input')?.value || '';
+                adminBusy = true; adminError = ''; renderModal();
+                try {
+                    const data = await adminFetch('unlock', { password });
+                    adminToken = data.token; adminTokenExpiresAt = data.expiresAt;
+                    sessionStorage.setItem('admin-token', adminToken);
+                    sessionStorage.setItem('admin-token-expires', String(adminTokenExpiresAt));
+                    closeModal();
+                    enterAdminMode();
+                } catch (err) {
+                    adminError = err.message || 'Could not unlock admin mode.';
+                } finally { adminBusy = false; renderModal(); }
+            }
+
+            function enterAdminMode() {
+                if (view !== 'admin') adminReturnView = view;
+                view = 'admin'; adminView = 'users'; adminError = '';
+                render();
+                loadAdminUsers();
+            }
+
+            function exitAdminMode() { view = adminReturnView || 'dashboard'; render(); }
+
+            async function loadAdminUsers() {
+                adminBusy = true; adminError = ''; render();
+                try { adminUsers = (await adminFetch('list-users')).users; }
+                catch (err) { adminError = err.message; }
+                finally { adminBusy = false; render(); }
+            }
+
+            async function loadAdminUserDetail(userId) {
+                adminSelectedUserId = userId; adminView = 'user-detail'; adminUserDetail = null;
+                adminBusy = true; adminError = ''; render();
+                try { adminUserDetail = await adminFetch('get-user', { userId }); }
+                catch (err) { adminError = err.message; }
+                finally { adminBusy = false; render(); }
+            }
+
+            async function loadAdminAnalytics() {
+                adminView = 'analytics'; adminBusy = true; adminError = ''; render();
+                try { adminAnalytics = await adminFetch('analytics-overview'); }
+                catch (err) { adminError = err.message; }
+                finally { adminBusy = false; render(); requestAnimationFrame(drawAdminAnalyticsCharts); }
+            }
+
+            async function adminSetPassword(userId) {
+                const pw = document.getElementById('admin-new-password')?.value || '';
+                if (pw.length < 8) { toast('Password must be at least 8 characters.'); return; }
+                adminBusy = true; render();
+                try { await adminFetch('set-password', { userId, newPassword: pw }); toast('Password updated.'); }
+                catch (err) { toast(err.message); }
+                finally { adminBusy = false; render(); }
+            }
+
+            async function adminSendReset(userId, email) {
+                adminBusy = true; render();
+                try {
+                    await adminFetch('send-reset-email',
+                        { userId, email, redirectTo: window.location.origin + window.location.pathname });
+                    toast(`Password reset email sent to ${email}.`);
+                } catch (err) { toast(err.message); }
+                finally { adminBusy = false; render(); }
+            }
+
+            async function adminMagicLink(userId, email) {
+                adminBusy = true; render();
+                try {
+                    const data = await adminFetch('generate-magic-link',
+                        { userId, email, redirectTo: window.location.origin + window.location.pathname });
+                    if (adminUserDetail) adminUserDetail = { ...adminUserDetail, magicLink: data.link };
+                    toast('Sign-in link generated below.');
+                } catch (err) { toast(err.message); }
+                finally { adminBusy = false; render(); }
+            }
+
+            async function adminSetBan(userId, banned) {
+                adminBusy = true; render();
+                try {
+                    await adminFetch(banned ? 'ban-user' : 'unban-user', { userId });
+                    toast(banned ? 'Account suspended.' : 'Account unsuspended.');
+                    loadAdminUsers();
+                    await loadAdminUserDetail(userId);
+                } catch (err) { toast(err.message); adminBusy = false; render(); }
+            }
+
+            async function adminDeleteUserConfirmed(userId, email) {
+                const typed = document.getElementById('admin-delete-confirm')?.value || '';
+                if (typed.trim().toLowerCase() !== email.toLowerCase()) {
+                    toast('Type the exact email address to confirm deletion.'); return;
+                }
+                if (!confirm(`Permanently delete ${email}'s account and all their data? This cannot be undone.`)) return;
+                adminBusy = true; render();
+                try {
+                    await adminFetch('delete-user', { userId });
+                    toast('Account deleted.');
+                    adminView = 'users'; adminSelectedUserId = null; adminUserDetail = null;
+                    loadAdminUsers();
+                } catch (err) { toast(err.message); adminBusy = false; render(); }
+            }
+
+            async function adminSaveRawState(userId) {
+                const raw = document.getElementById('admin-raw-state')?.value || '';
+                let parsed;
+                try { parsed = JSON.parse(raw); } catch { toast('Not valid JSON -- nothing was saved.'); return; }
+                if (!confirm("Overwrite this user's entire saved data with the JSON above? This replaces everything."))
+                    return;
+                adminBusy = true; render();
+                try { await adminFetch('replace-state', { userId, state: parsed }); toast('Data saved.'); }
+                catch (err) { toast(err.message); }
+                finally { adminBusy = false; loadAdminUserDetail(userId); }
+            }
+
+            async function adminExportCsv() {
+                try {
+                    const { csv } = await adminFetch('export-csv');
+                    const blob = new Blob([csv], { type: 'text/csv' }),
+                        url = URL.createObjectURL(blob), link = document.createElement('a');
+                    link.href = url; link.download = 'admin-user-metrics.csv'; link.click();
+                    URL.revokeObjectURL(url);
+                } catch (err) { toast(err.message); }
+            }
+
+            function adminFmtDateTime(iso) {
+                if (!iso) return '—'; const d = new Date(iso);
+                return isNaN(d) ? '—' : d.toLocaleString(undefined,
+                    { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+            }
+            function adminFmtDate(iso) {
+                if (!iso) return '—'; const d = new Date(iso);
+                return isNaN(d) ? '—' : d.toLocaleDateString(undefined,
+                    { month: 'short', day: 'numeric', year: 'numeric' });
+            }
 
             function signInWithGoogle() {
                 // Strip any existing hash before handing this to Supabase: it appends its
@@ -6781,9 +7024,14 @@ ${pointsSvg}
 
             function searchModal() { const results = globalSearch(searchQuery);
                 const row = (r) => `<div class="topic-row" style="cursor:pointer" data-action="${r.action}" data-id="${r.id}" data-subject="${r.id}" data-topic="${r.id}"><span>${escape(r.label)}</span><span class="small">${escape(r.kind)}${r.sub?' · '+escape(r.sub):''}</span></div>`;
+                // Typing the literal word "admin" is the only way in — no visible nav item, so it
+                // never confuses or tempts anyone else looking over a shoulder. Anyone signed in can
+                // see this entry; the actual gate is entirely server-side (see adminUnlock()).
+                const isAdminTrigger = currentUser && searchQuery.trim().toLowerCase() === 'admin';
+                const adminRow = isAdminTrigger ? `<div class="topic-row" style="cursor:pointer" data-action="admin-enter-from-search"><span>🔐 Admin Mode</span><span class="small">Enter</span></div>` : '';
                 return modalShell('Search',
                     `<input type="text" id="search-input" value="${escape(searchQuery)}" placeholder="Search tasks, subjects, topics, exams, courses…" autocomplete="off" style="width:100%;margin-bottom:14px">
-          <div class="list">${searchQuery.trim().length<2?'<p class="empty">Type at least 2 characters.</p>':results.length?results.map(row).join(''):'<p class="empty">No matches.</p>'}</div>`,
+          <div class="list">${adminRow}${searchQuery.trim().length<2?'<p class="empty">Type at least 2 characters.</p>':results.length?results.map(row).join(''):(isAdminTrigger?'':'<p class="empty">No matches.</p>')}</div>`,
                     `<button class="button" data-action="close-modal">Close</button>`,
                     false); }
 
@@ -8071,7 +8319,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 const coinsEarned = Math.round((d.taskMs || 0) / 3600000 * COIN_RATE_PER_HOUR); if (coinsEarned > 0)
                     state.coins = (state.coins || 0) + coinsEarned;
                 if (itemCount || d.overallRating || d.taskMs) state.studySessionLog.push({ id: uid(), date: today,
-                        overallRating: d.overallRating || null, itemCount, isSupervised: false });
+                        overallRating: d.overallRating || null, itemCount, isSupervised: false,
+                        durationMinutes: Math.round((d.taskMs || 0) / 60000) });
                 studyModeLogDraft = null;
                 save();
                 closeModal();
@@ -8424,8 +8673,9 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     .innerHTML = renderInsightsPage();
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
-                    .innerHTML = renderTools(); } else { document.getElementById('app').innerHTML = renderTimetable();
-                    requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (
+                    .innerHTML = renderTools(); } else if (view === 'admin') { document.getElementById('app')
+                    .innerHTML = renderAdminPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
+                    requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (view === 'admin') return; if (
                     !state.settings.onboarded && !modal) openModal('onboarding');
                 else if (state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
                 else if (state.settings.onboarded && !modal && isSophiaMode() && !sophiaWelcomeShown) {
@@ -8507,6 +8757,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     modal.kind === 'cao-course-form') return layer.innerHTML = caoCourseFormModal(modal.courseId); if (
                     modal.kind === 'exam-task-form') return layer.innerHTML = examTaskFormModal(modal.taskId); if (
                     modal.kind === 'search') return layer.innerHTML = searchModal(); if (
+                    modal.kind === 'admin-unlock') return layer.innerHTML = adminUnlockModal(); if (
                     modal.kind === 'print-choice') return layer.innerHTML = printChoiceModal(); if (
                     modal.kind === 'self-study-plan') return layer.innerHTML = selfStudyPlanSummaryModal(modal
                     .summary); if (
@@ -8539,6 +8790,158 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function infoBtn(topic, light) { return `<button class="button icon info-btn${light?' light':''}" data-action="show-info" data-topic="${topic}" aria-label="How this works" title="How this works">i</button>`; }
 
             function modalShell(title, body, foot = '', large = false, noClose = false) { return `<div class="modal ${large?'large':''}" role="dialog" aria-modal="true" aria-label="${escape(title)}"><div class="modal-head"><h2>${title}</h2>${noClose?'':'<button class="button icon" data-action="close-modal" aria-label="Close">×</button>'}</div><div class="modal-body">${body}</div>${foot?`<div class="modal-foot">${foot}</div>`:''}</div>`; }
+
+            function adminUnlockModal() {
+                return modalShell('Admin Mode',
+                    `<p class="small">Only visible to you — enter the admin password to continue.</p>
+                     <input type="password" id="admin-password-input" placeholder="Password" autocomplete="off" style="width:100%">
+                     ${adminError?`<p class="empty" style="color:var(--danger)">${escape(adminError)}</p>`:''}`,
+                    `<button class="button" data-action="close-modal">Cancel</button><button class="button primary" data-action="admin-unlock-submit" ${adminBusy?'disabled':''}>${adminBusy?'Checking…':'Enter'}</button>`,
+                    false);
+            }
+
+            // ------------------------------------------------------------------
+            // Admin dashboard. A separate top-level `view` (not a modal, not
+            // wrapped in the normal sidebar appFrame()) so it reads unmistakably
+            // as its own mode rather than a settings screen. "Back to my
+            // account" just swaps `view` back — it never signs the admin out of
+            // their own normal session underneath it.
+            // ------------------------------------------------------------------
+            function renderAdminPage() {
+                const body = adminView === 'analytics' ? renderAdminAnalytics()
+                    : adminView === 'user-detail' ? renderAdminUserDetail()
+                    : renderAdminUsersList();
+                return `<div class="admin-page">
+                    <div class="admin-page-head">
+                        <div><h1 style="margin:0">🔐 Admin Mode</h1><p class="small" style="margin:4px 0 0">Signed in as ${escape(currentUser?.email||'')} — nobody else can see this.</p></div>
+                        <button class="button" data-action="admin-exit">← Back to my account</button>
+                    </div>
+                    <div class="sm-actions" style="gap:8px;margin:14px 0">
+                        <button class="button ${adminView!=='analytics'?'primary':'ghost'}" data-action="admin-tab-users">Users</button>
+                        <button class="button ${adminView==='analytics'?'primary':'ghost'}" data-action="admin-tab-analytics">Analytics</button>
+                    </div>
+                    ${adminError?`<p class="empty" style="color:var(--danger)">${escape(adminError)}</p>`:''}
+                    ${body}
+                </div>`;
+            }
+
+            function renderAdminUsersList() {
+                if (adminBusy && !adminUsers) return '<p class="empty">Loading users…</p>';
+                if (!adminUsers) return '<p class="empty">Could not load users.</p>';
+                const q = adminUserFilter.trim().toLowerCase();
+                const rows = adminUsers.filter(u => !q || u.email.toLowerCase().includes(q))
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                const row = (u) => { const m = u.metrics || {};
+                    const lastActive = [m.lastEventAt, m.lastSessionDate, m.stateUpdatedAt].filter(Boolean).sort()
+                        .slice(-1)[0];
+                    return `<div class="topic-row" style="cursor:pointer" data-action="admin-open-user" data-id="${u.id}">
+                        <span><strong>${escape(u.email)}</strong>${u.bannedUntil?' <span class="pill bad">Suspended</span>':''}<br><span class="small">Joined ${adminFmtDate(u.createdAt)} · ${escape(u.provider)}</span></span>
+                        <span class="small" style="text-align:right">${m.sessionCount||0} session${(m.sessionCount||0)===1?'':'s'} · ${((m.totalMinutes||0)/60).toFixed(1)}h logged<br>${typeof m.avgResultPct==='number'?`avg ${Math.round(m.avgResultPct)}%`:'no results yet'} · ${m.eventTotal||0} actions${lastActive?` · active ${adminFmtDate(lastActive)}`:''}</span>
+                    </div>`; };
+                return `<input type="text" id="admin-user-filter" value="${escape(adminUserFilter)}" placeholder="Search by email…" style="width:100%;margin-bottom:12px">
+                    <div class="list">${rows.length?rows.map(row).join(''):'<p class="empty">No users match.</p>'}</div>
+                    <p class="small" style="margin-top:10px">${rows.length} of ${adminUsers.length} user${adminUsers.length===1?'':'s'}.</p>`;
+            }
+
+            function renderAdminUserDetail() {
+                const id = adminSelectedUserId;
+                const back = `<button class="button ghost" data-action="admin-tab-users" style="margin-bottom:14px">← All users</button>`;
+                if (adminBusy && !adminUserDetail) return back + '<p class="empty">Loading…</p>';
+                if (!adminUserDetail || !adminUserDetail.authUser) return back + '<p class="empty">Could not load this user.</p>';
+                const { authUser, state: s, recentEvents, magicLink } = adminUserDetail;
+                const summary = (adminUsers || []).find(u => u.id === id);
+                const m = summary?.metrics || {};
+
+                const statCard = (label, value) => `<div class="card stat"><span class="label">${escape(label)}</span><span class="value">${value}</span></div>`;
+                const stats = `<div class="stats">${[
+                    statCard('Sessions logged', m.sessionCount || 0),
+                    statCard('Hours logged', ((m.totalMinutes||0)/60).toFixed(1)),
+                    statCard('Avg result', typeof m.avgResultPct==='number'?Math.round(m.avgResultPct)+'%':'—'),
+                    statCard('Subjects', m.subjectCount || 0),
+                    statCard('Feature actions', m.eventTotal || 0),
+                ].join('')}</div>`;
+
+                const subjectsHtml = (s?.subjects||[]).filter(x => x.active).map(x =>
+                    `<span class="pill neutral">${escape(x.name)}</span>`).join(' ') ||
+                    '<p class="empty">No subjects set up.</p>';
+
+                const resultRows = [];
+                (s?.exams||[]).forEach(ex => (ex.sittings||[]).forEach(st => { if (st.result?.percent != null)
+                    resultRows.push({ label: ex.name || ex.title || 'Exam', date: st.result.recordedDate || ex.end,
+                        pct: st.result.percent }); }));
+                (s?.pastPapers||[]).forEach(p => { if (p.result?.percent != null) resultRows.push(
+                    { label: `${p.year} past paper`, date: p.result.recordedDate || `${p.year}-06-30`,
+                        pct: p.result.percent }); });
+                resultRows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+                const resultsHtml = resultRows.length ? `<div class="list">${resultRows.slice(0, 15).map(r =>
+                    `<div class="topic-row"><span>${escape(r.label)}</span><span class="small">${escape(String(r.date||''))} · ${r.pct}%</span></div>`)
+                    .join('')}</div>` : '<p class="empty">No recorded results.</p>';
+
+                const eventsHtml = (recentEvents||[]).length ? `<div class="list" style="max-height:260px;overflow:auto">${recentEvents.map(e =>
+                    `<div class="topic-row"><span>${escape(e.event)}</span><span class="small">${adminFmtDateTime(e.created_at)}</span></div>`)
+                    .join('')}</div>` : '<p class="empty">No feature activity logged yet.</p>';
+
+                return `${back}
+                <div class="card section">
+                    <h2>${escape(authUser.email)} ${authUser.bannedUntil?'<span class="pill bad">Suspended</span>':''}</h2>
+                    <p class="small">Joined ${adminFmtDateTime(authUser.createdAt)} · Last sign-in ${adminFmtDateTime(authUser.lastSignInAt)} · ${escape(authUser.provider)} · id ${escape(authUser.id)}</p>
+                </div>
+                ${stats}
+                <div class="card section"><h2>Subjects</h2><div>${subjectsHtml}</div></div>
+                <div class="card section"><h2>Recent results</h2>${resultsHtml}</div>
+                <div class="card section"><h2>Recent feature activity</h2>${eventsHtml}</div>
+                <div class="card section" style="border:1px solid var(--danger)">
+                    <h2 style="color:var(--danger)">Account controls</h2>
+                    <div class="settings-row"><div><strong>Set a new password</strong><span class="small">Sets it directly — they won't get an email.</span></div><div style="display:flex;gap:8px"><input type="password" id="admin-new-password" placeholder="New password" style="width:180px"><button class="button" data-action="admin-set-password" data-id="${id}">Set</button></div></div>
+                    <div class="settings-row"><div><strong>Send password reset email</strong><span class="small">Sends the normal "forgot password" email.</span></div><button class="button" data-action="admin-send-reset" data-id="${id}" data-email="${escape(authUser.email)}">Send</button></div>
+                    <div class="settings-row"><div><strong>One-time sign-in link</strong><span class="small">Opens a real signed-in session as this user — for seeing exactly what they see.</span></div><button class="button" data-action="admin-magic-link" data-id="${id}" data-email="${escape(authUser.email)}">Generate</button></div>
+                    ${magicLink?`<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:6px"><input type="text" readonly value="${escape(magicLink)}" style="width:100%" onclick="this.select()"><span class="small">Copy this link and open it yourself — it signs in as ${escape(authUser.email)}.</span></div>`:''}
+                    <div class="settings-row"><div><strong>${authUser.bannedUntil?'Unsuspend':'Suspend'} account</strong><span class="small">${authUser.bannedUntil?'Lets them sign in again.':'Blocks sign-in without deleting anything.'}</span></div><button class="button ${authUser.bannedUntil?'':'danger'}" data-action="${authUser.bannedUntil?'admin-unban':'admin-ban'}" data-id="${id}">${authUser.bannedUntil?'Unsuspend':'Suspend'}</button></div>
+                    <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px"><div><strong style="color:var(--danger)">Delete account</strong><span class="small">Permanently deletes their account and all saved data. Cannot be undone.</span></div><div style="display:flex;gap:8px"><input type="text" id="admin-delete-confirm" placeholder="Type ${escape(authUser.email)} to confirm" style="flex:1"><button class="button danger" data-action="admin-delete-user" data-id="${id}" data-email="${escape(authUser.email)}">Delete</button></div></div>
+                </div>
+                <div class="card section">
+                    <h2>Raw saved data</h2>
+                    <p class="small">Edit directly only if you know what you're doing — saving this overwrites everything for this account.</p>
+                    <textarea id="admin-raw-state" rows="10" style="width:100%;font-family:monospace;font-size:12px">${escape(JSON.stringify(s || {}, null, 2))}</textarea>
+                    <button class="button danger" style="margin-top:8px" data-action="admin-save-state" data-id="${id}">Save raw data</button>
+                </div>`;
+            }
+
+            function renderAdminAnalytics() {
+                if (adminBusy && !adminAnalytics) return '<p class="empty">Crunching numbers…</p>';
+                if (!adminAnalytics) return '<p class="empty">Could not load analytics.</p>';
+                const a = adminAnalytics;
+                const statCard = (label, value) => `<div class="card stat"><span class="label">${escape(label)}</span><span class="value">${value}</span></div>`;
+                const stats = `<div class="stats">${[
+                    statCard('Users', a.userCount),
+                    statCard('Active (7d)', a.activeLast7),
+                    statCard('Active (30d)', a.activeLast30),
+                    statCard('Sessions logged', a.totalSessions),
+                    statCard('Hours logged', (a.totalMinutes/60).toFixed(1)),
+                    statCard('Feature actions', a.totalEvents),
+                ].join('')}</div>`;
+
+                const maxCount = Math.max(1, ...a.topFeatures.map(f => f.count));
+                const featureBars = a.topFeatures.length ? a.topFeatures.map(f =>
+                    `<div class="admin-bar-row"><span class="admin-bar-label" title="${escape(f.event)}">${escape(f.event)}</span><div class="admin-bar-track"><div class="admin-bar-fill" style="width:${Math.round(f.count/maxCount*100)}%"></div></div><span class="admin-bar-count">${f.count}</span></div>`)
+                    .join('') : '<p class="empty">No feature activity logged yet.</p>';
+
+                const corr = (label, c, canvasId) => `<div class="card section"><h2>${escape(label)}</h2>${c.points.length>=3?
+                    `<p class="small">Pearson r = ${c.r!=null?c.r.toFixed(2):'—'} across ${c.points.length} student${c.points.length===1?'':'s'} with logged results. Small samples — read the pattern loosely, not as proof.</p><canvas id="${canvasId}" width="640" height="220" style="width:100%;height:auto"></canvas>`:
+                    '<p class="empty">Need more students with both logged study activity and recorded results.</p>'}</div>`;
+
+                return `${stats}
+                <div class="card section"><h2>Feature usage</h2><div class="admin-bars">${featureBars}</div></div>
+                ${corr('Sessions logged vs. average result', a.correlations.sessionsVsResult, 'admin-corr-sessions')}
+                ${corr('Minutes logged vs. average result', a.correlations.minutesVsResult, 'admin-corr-minutes')}
+                <button class="button" data-action="admin-export-csv">⬇ Export per-user CSV</button>`;
+            }
+
+            function drawAdminAnalyticsCharts() {
+                if (!adminAnalytics) return;
+                drawScatterChart('admin-corr-sessions', adminAnalytics.correlations.sessionsVsResult.points, 'Sessions logged');
+                drawScatterChart('admin-corr-minutes', adminAnalytics.correlations.minutesVsResult.points, 'Minutes logged');
+            }
 
             function finishOnboarding() { state.settings.onboarded = true;
                 save();
@@ -11773,6 +12176,42 @@ If the user asks about how to study or study methods generally, answer from your
                 if (!pickerPopover.contains(e.target) && !e.target.closest('.picker-field')) closePicker(); });
             document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (openPicker) { closePicker();
                         return; } if (!['onboarding', 'year-rollover'].includes(modal?.kind)) closeModal(); } });
+
+            // Capture phase (not bubble): runs before any handler further down the tree can
+            // call stopPropagation() on the click (two spots do, for nested delete buttons),
+            // so this still sees every data-action click regardless. Logs the action name only
+            // -- no titles, ids, or free text -- see logFeatureEvent().
+            document.addEventListener('click', e => { const b = e.target.closest('[data-action]');
+                if (b && b.dataset.action) logFeatureEvent(b.dataset.action); }, true);
+
+            document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
+                const a = b.dataset.action;
+                if (a === 'admin-enter-from-search') { closeModal();
+                    if (isAdminTokenValid()) enterAdminMode(); else { adminError = ''; openModal('admin-unlock'); }
+                } else if (a === 'admin-unlock-submit') adminUnlock();
+                else if (a === 'admin-exit') exitAdminMode();
+                else if (a === 'admin-tab-users') { adminView = 'users'; render(); if (!adminUsers) loadAdminUsers(); }
+                else if (a === 'admin-tab-analytics') loadAdminAnalytics();
+                else if (a === 'admin-open-user') loadAdminUserDetail(b.dataset.id);
+                else if (a === 'admin-set-password') adminSetPassword(b.dataset.id);
+                else if (a === 'admin-send-reset') adminSendReset(b.dataset.id, b.dataset.email);
+                else if (a === 'admin-magic-link') adminMagicLink(b.dataset.id, b.dataset.email);
+                else if (a === 'admin-ban') adminSetBan(b.dataset.id, true);
+                else if (a === 'admin-unban') adminSetBan(b.dataset.id, false);
+                else if (a === 'admin-delete-user') adminDeleteUserConfirmed(b.dataset.id, b.dataset.email);
+                else if (a === 'admin-save-state') adminSaveRawState(b.dataset.id);
+                else if (a === 'admin-export-csv') adminExportCsv(); });
+
+            document.addEventListener('keydown', e => { if (e.target && e.target.id === 'admin-password-input' &&
+                    e.key === 'Enter') adminUnlock(); });
+
+            document.addEventListener('input', e => { if (e.target.id === 'admin-user-filter') {
+                    adminUserFilter = e.target.value;
+                    const pos = e.target.selectionStart;
+                    render();
+                    const input = document.getElementById('admin-user-filter');
+                    if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) {} } } });
+
             render();
             handleSpotifyCallback();
         })();

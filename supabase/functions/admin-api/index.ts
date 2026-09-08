@@ -1,0 +1,366 @@
+// Single entry point for the site's admin dashboard (Search -> type "admin").
+//
+// Two independent gates have to both pass before ANY admin data moves, on
+// EVERY request this function serves, not just the first one:
+//   1. The caller's Supabase-signed JWT (from Authorization: Bearer ..., sent
+//      automatically by supabaseClient.functions.invoke) decodes to a real,
+//      currently-signed-in user whose email matches ADMIN_EMAIL exactly.
+//   2. The request body carries a still-valid `adminToken` -- an HMAC-signed
+//      token this function itself minted for that exact user id, from the
+//      `unlock` action, after checking ADMIN_MODE_PASSWORD. Signing means a
+//      token can't be forged or edited (e.g. to swap in a different user id)
+//      without ADMIN_SESSION_SECRET, which never leaves this function.
+//
+// ADMIN_EMAIL / ADMIN_MODE_PASSWORD / ADMIN_SESSION_SECRET are Supabase
+// function secrets (`supabase secrets set ...`) -- never in index.html, never
+// in this repo. Losing this file or the repo leaks no password.
+//
+// Every non-"unlock" action below runs against a service-role client, which
+// bypasses RLS entirely -- that's the whole point (an admin has to be able to
+// see/change everyone's row, not just their own), so the two gates above are
+// the ONLY thing stopping this function from being a fully open door into
+// every user's account. Treat any change here as security-sensitive.
+
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const ADMIN_TOKEN_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours -- re-enter the password after this
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed." }, 405);
+
+  try {
+    const adminEmail = (Deno.env.get("ADMIN_EMAIL") || "").trim().toLowerCase();
+    const adminPassword = Deno.env.get("ADMIN_MODE_PASSWORD") || "";
+    const sessionSecret = Deno.env.get("ADMIN_SESSION_SECRET") || "";
+    if (!adminEmail || !adminPassword || !sessionSecret) {
+      console.error("admin-api: missing ADMIN_EMAIL / ADMIN_MODE_PASSWORD / ADMIN_SESSION_SECRET secret(s).");
+      return jsonResponse({ error: "Admin mode is not configured on the server." }, 500);
+    }
+
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: { user } } = await authClient.auth.getUser();
+    if (!user || (user.email || "").trim().toLowerCase() !== adminEmail) {
+      // Deliberately the same generic error whether the caller is signed out,
+      // signed in as someone else, or the email just doesn't match -- never
+      // confirm or deny which case it is.
+      return jsonResponse({ error: "Not authorized." }, 403);
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const action = body.action;
+
+    if (action === "unlock") {
+      if (!timingSafeEqual(String(body.password || ""), adminPassword)) {
+        // Small fixed delay on a wrong password so this can't be turned into
+        // a fast online-guessing loop against a single short password.
+        await new Promise((r) => setTimeout(r, 400));
+        return jsonResponse({ error: "Wrong password." }, 401);
+      }
+      const token = await signAdminToken(user.id, sessionSecret);
+      return jsonResponse({ token: token.token, expiresAt: token.expiresAt });
+    }
+
+    // Every action below this line needs a valid admin token, minted by
+    // "unlock" above, for this exact caller.
+    const verified = await verifyAdminToken(String(body.adminToken || ""), user.id, sessionSecret);
+    if (!verified) return jsonResponse({ error: "Admin session expired -- re-enter the password." }, 401);
+
+    const db = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    switch (action) {
+      case "list-users":
+        return jsonResponse(await listUsers(db));
+      case "get-user":
+        return jsonResponse(await getUser(db, String(body.userId || "")));
+      case "set-password": {
+        const pw = String(body.newPassword || "");
+        if (pw.length < 8) return jsonResponse({ error: "Password must be at least 8 characters." }, 400);
+        const { error } = await db.auth.admin.updateUserById(body.userId, { password: pw });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
+      case "send-reset-email": {
+        const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
+        const { error } = await anon.auth.resetPasswordForEmail(String(body.email || ""), {
+          redirectTo: String(body.redirectTo || ""),
+        });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
+      case "generate-magic-link": {
+        const { data, error } = await db.auth.admin.generateLink({
+          type: "magiclink",
+          email: String(body.email || ""),
+          options: { redirectTo: String(body.redirectTo || "") },
+        });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ link: data.properties?.action_link });
+      }
+      case "ban-user": {
+        const { error } = await db.auth.admin.updateUserById(body.userId, {
+          ban_duration: String(body.duration || "876000h"),
+        });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
+      case "unban-user": {
+        const { error } = await db.auth.admin.updateUserById(body.userId, { ban_duration: "none" });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
+      case "delete-user": {
+        if (body.userId === user.id) return jsonResponse({ error: "Refusing to delete the admin account itself." }, 400);
+        const { error } = await db.auth.admin.deleteUser(String(body.userId || ""));
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
+      case "patch-state": {
+        const userId = String(body.userId || "");
+        const patch = body.patch;
+        if (!patch || typeof patch !== "object") return jsonResponse({ error: "Missing patch object." }, 400);
+        const { data: row, error: readErr } = await db.from("study_state").select("state").eq("user_id", userId)
+          .maybeSingle();
+        if (readErr) return jsonResponse({ error: readErr.message }, 400);
+        const merged = { ...(row?.state || {}), ...patch };
+        const { error } = await db.from("study_state").upsert({ user_id: userId, state: merged });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true, state: merged });
+      }
+      case "replace-state": {
+        const userId = String(body.userId || "");
+        if (!body.state || typeof body.state !== "object") return jsonResponse({ error: "Missing state object." }, 400);
+        const { error } = await db.from("study_state").upsert({ user_id: userId, state: body.state });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
+      case "analytics-overview":
+        return jsonResponse(await analyticsOverview(db));
+      case "export-csv":
+        return jsonResponse({ csv: await exportCsv(db) });
+      default:
+        return jsonResponse({ error: `Unknown action "${action}".` }, 400);
+    }
+  } catch (err) {
+    console.error("admin-api error:", err);
+    return jsonResponse({ error: "Unexpected server error." }, 500);
+  }
+});
+
+async function listUsers(db: ReturnType<typeof createClient>) {
+  const users: any[] = [];
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw new Error(error.message);
+    users.push(...data.users);
+    if (data.users.length < 1000) break;
+  }
+  const { data: metricsRows, error: metricsErr } = await db.rpc("admin_user_metrics");
+  if (metricsErr) throw new Error(metricsErr.message);
+  const metricsByUser = new Map((metricsRows || []).map((r: any) => [r.user_id, r.metrics]));
+  return {
+    users: users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      createdAt: u.created_at,
+      lastSignInAt: u.last_sign_in_at,
+      emailConfirmedAt: u.email_confirmed_at,
+      bannedUntil: u.banned_until || null,
+      provider: u.app_metadata?.provider || "email",
+      metrics: metricsByUser.get(u.id) || null,
+    })),
+  };
+}
+
+async function getUser(db: ReturnType<typeof createClient>, userId: string) {
+  if (!userId) throw new Error("Missing userId.");
+  const [{ data: authData, error: authErr }, { data: stateRow, error: stateErr }, { data: events, error: eventsErr }] =
+    await Promise.all([
+      db.auth.admin.getUserById(userId),
+      db.from("study_state").select("state, updated_at").eq("user_id", userId).maybeSingle(),
+      db.from("feature_events").select("event, meta, created_at").eq("user_id", userId).order("created_at", {
+        ascending: false,
+      }).limit(100),
+    ]);
+  if (authErr) throw new Error(authErr.message);
+  if (stateErr) throw new Error(stateErr.message);
+  if (eventsErr) throw new Error(eventsErr.message);
+  const u = authData.user;
+  return {
+    authUser: u && {
+      id: u.id,
+      email: u.email,
+      createdAt: u.created_at,
+      lastSignInAt: u.last_sign_in_at,
+      emailConfirmedAt: u.email_confirmed_at,
+      bannedUntil: u.banned_until || null,
+      provider: u.app_metadata?.provider || "email",
+    },
+    state: stateRow?.state || null,
+    stateUpdatedAt: stateRow?.updated_at || null,
+    recentEvents: events || [],
+  };
+}
+
+// Pearson correlation coefficient; null when there isn't enough spread/data
+// to make the number meaningful (fewer than 3 points, or one side constant).
+function pearson(points: { x: number; y: number }[]): number | null {
+  const n = points.length;
+  if (n < 3) return null;
+  const mx = points.reduce((s, p) => s + p.x, 0) / n;
+  const my = points.reduce((s, p) => s + p.y, 0) / n;
+  let num = 0, dx2 = 0, dy2 = 0;
+  for (const p of points) {
+    const dx = p.x - mx, dy = p.y - my;
+    num += dx * dy;
+    dx2 += dx * dx;
+    dy2 += dy * dy;
+  }
+  if (dx2 === 0 || dy2 === 0) return null;
+  return num / Math.sqrt(dx2 * dy2);
+}
+
+async function analyticsOverview(db: ReturnType<typeof createClient>) {
+  const { data: metricsRows, error } = await db.rpc("admin_user_metrics");
+  if (error) throw new Error(error.message);
+  const rows = (metricsRows || []) as { user_id: string; metrics: any }[];
+
+  const now = Date.now();
+  const DAY = 86400000;
+  let activeLast7 = 0, activeLast30 = 0, totalSessions = 0, totalMinutes = 0, totalEvents = 0;
+  const eventTotals: Record<string, number> = {};
+  const sessionVsResult: { x: number; y: number }[] = [];
+  const minutesVsResult: { x: number; y: number }[] = [];
+
+  for (const row of rows) {
+    const m = row.metrics || {};
+    totalSessions += m.sessionCount || 0;
+    totalMinutes += m.totalMinutes || 0;
+    totalEvents += m.eventTotal || 0;
+    for (const [ev, cnt] of Object.entries(m.eventCounts || {})) {
+      eventTotals[ev] = (eventTotals[ev] || 0) + Number(cnt);
+    }
+    const lastActive = [m.lastEventAt, m.lastSessionDate, m.stateUpdatedAt]
+      .filter(Boolean)
+      .map((d: string) => new Date(d).getTime())
+      .reduce((a, b) => Math.max(a, b), 0);
+    if (lastActive) {
+      if (now - lastActive <= 7 * DAY) activeLast7++;
+      if (now - lastActive <= 30 * DAY) activeLast30++;
+    }
+    if (m.resultCount > 0 && typeof m.avgResultPct === "number") {
+      if (m.sessionCount > 0) sessionVsResult.push({ x: m.sessionCount, y: m.avgResultPct });
+      if (m.totalMinutes > 0) minutesVsResult.push({ x: m.totalMinutes, y: m.avgResultPct });
+    }
+  }
+
+  const topFeatures = Object.entries(eventTotals).sort((a, b) => b[1] - a[1]).slice(0, 30)
+    .map(([event, count]) => ({ event, count }));
+
+  return {
+    userCount: rows.length,
+    activeLast7,
+    activeLast30,
+    totalSessions,
+    totalMinutes,
+    totalEvents,
+    topFeatures,
+    correlations: {
+      sessionsVsResult: { points: sessionVsResult, r: pearson(sessionVsResult) },
+      minutesVsResult: { points: minutesVsResult, r: pearson(minutesVsResult) },
+    },
+  };
+}
+
+async function exportCsv(db: ReturnType<typeof createClient>): Promise<string> {
+  const { users } = await listUsers(db);
+  const cols = [
+    "id", "email", "createdAt", "lastSignInAt", "sessionCount", "sessionCountLast30",
+    "totalMinutes", "minutesLast30", "resultCount", "avgResultPct", "subjectCount",
+    "taskCount", "examCount", "eventTotal",
+  ];
+  const csvEscape = (v: unknown) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [cols.join(",")];
+  for (const u of users) {
+    const m = u.metrics || {};
+    lines.push(cols.map((c) => csvEscape((u as any)[c] ?? m[c])).join(","));
+  }
+  return lines.join("\n");
+}
+
+// ---- admin session tokens --------------------------------------------------
+// `${userId}.${expiresAtMs}` + a base64url HMAC-SHA256 signature over that
+// exact string, keyed by ADMIN_SESSION_SECRET. Anyone can read the payload
+// (it's not a secret, just a user id and a timestamp) but can't produce a
+// valid signature for a different user id or a pushed-out expiry without the
+// key, which only exists as a function secret on the server.
+
+async function hmacSign(message: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return base64UrlEncode(new Uint8Array(sig));
+}
+
+async function signAdminToken(userId: string, secret: string) {
+  const expiresAt = Date.now() + ADMIN_TOKEN_TTL_MS;
+  const payload = `${userId}.${expiresAt}`;
+  const sig = await hmacSign(payload, secret);
+  return { token: `${payload}.${sig}`, expiresAt };
+}
+
+async function verifyAdminToken(token: string, expectedUserId: string, secret: string): Promise<boolean> {
+  if (!token) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const [userId, expiresAtStr, sig] = parts;
+  if (userId !== expectedUserId) return false;
+  const expiresAt = Number(expiresAtStr);
+  if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return false;
+  const expectedSig = await hmacSign(`${userId}.${expiresAtStr}`, secret);
+  return timingSafeEqual(sig, expectedSig);
+}
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a), bb = enc.encode(b);
+  const len = Math.max(ab.length, bb.length);
+  let diff = ab.length ^ bb.length;
+  for (let i = 0; i < len; i++) diff |= (ab[i] || 0) ^ (bb[i] || 0);
+  return diff === 0;
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
