@@ -3204,6 +3204,17 @@
             let viewingPrivacyFromApp = false; // true when an already-signed-in/local user opened Privacy from Settings, rather than being a brand-new visitor
             if (showLanding) fetchLandingStatsOnce();
 
+            // Admin-authored banners/popups (see Admin Mode's Announcements tab) --
+            // public-readable regardless of sign-in state, same as the sync/tour
+            // banners, so this loads unconditionally rather than only when signed in.
+            let activeAnnouncements = [];
+            function loadActiveAnnouncements() {
+                supabaseClient.from('announcements').select('*').eq('active', true)
+                    .order('created_at', { ascending: false })
+                    .then(({ data, error }) => { if (!error && data) { activeAnnouncements = data; render(); } }, () => {});
+            }
+            loadActiveAnnouncements();
+
             let currentUser = null;      // Supabase auth user, or null when signed out (guest/local-only mode).
             let cloudSyncTimer = null;   // debounce handle for pushStateToCloud().
             let lastSyncedAt = null;     // Date of the last successful cloud write, shown in the account UI.
@@ -3234,6 +3245,8 @@
             let adminSelectedUserId = null;
             let adminUserDetail = null;        // { authUser, state, stateUpdatedAt, recentEvents, magicLink? }
             let adminAnalytics = null;
+            let adminAnnouncements = null;  // list of ALL announcements (active or not), for the Announcements tab
+            let adminNewAnnouncementKind = 'banner';
             let adminBusy = false;
             let adminError = '';
             function isAdminTokenValid() { return !!adminToken && Date.now() < adminTokenExpiresAt; }
@@ -3318,6 +3331,23 @@
                 finally { adminBusy = false; render(); requestAnimationFrame(drawAdminAnalyticsCharts); }
             }
 
+            async function adminCreateUser() {
+                const email = document.getElementById('admin-new-user-email')?.value.trim() || '';
+                const pw = document.getElementById('admin-new-user-password')?.value || '';
+                if (!email || !pw) { adminError = 'Enter an email and password.'; renderModal(); return; }
+                adminBusy = true; adminError = ''; renderModal();
+                try {
+                    await adminFetch('create-user', { email, password: pw });
+                    adminBusy = false;
+                    closeModal();
+                    toast(`Account created for ${email}.`);
+                    loadAdminUsers();
+                } catch (err) {
+                    adminBusy = false; adminError = err.message || 'Could not create the account.';
+                    renderModal();
+                }
+            }
+
             async function adminSetPassword(userId) {
                 const pw = document.getElementById('admin-new-password')?.value || '';
                 if (pw.length < 8) { toast('Password must be at least 8 characters.'); return; }
@@ -3393,6 +3423,39 @@
                     link.href = url; link.download = 'admin-user-metrics.csv'; link.click();
                     URL.revokeObjectURL(url);
                 } catch (err) { toast(err.message); }
+            }
+
+            async function loadAdminAnnouncements() {
+                adminView = 'announcements'; adminBusy = true; adminError = ''; render();
+                try { adminAnnouncements = (await adminFetch('list-announcements')).announcements; }
+                catch (err) { adminError = err.message; }
+                finally { adminBusy = false; render(); }
+            }
+
+            async function adminCreateAnnouncement() {
+                const message = document.getElementById('admin-announcement-message')?.value.trim() || '';
+                if (!message) { toast('Enter a message first.'); return; }
+                adminBusy = true; render();
+                try {
+                    await adminFetch('create-announcement', { kind: adminNewAnnouncementKind, message });
+                    toast('Announcement published.');
+                    // Refresh the public copy too, in case this admin session keeps browsing the app afterward.
+                    loadActiveAnnouncements();
+                    loadAdminAnnouncements();
+                } catch (err) { toast(err.message); adminBusy = false; render(); }
+            }
+
+            async function adminSetAnnouncementActive(id, active) {
+                adminBusy = true; render();
+                try { await adminFetch('set-announcement-active', { id, active }); loadActiveAnnouncements(); loadAdminAnnouncements(); }
+                catch (err) { toast(err.message); adminBusy = false; render(); }
+            }
+
+            async function adminDeleteAnnouncement(id) {
+                if (!confirm('Delete this announcement? Anyone who hasn\'t seen it yet never will.')) return;
+                adminBusy = true; render();
+                try { await adminFetch('delete-announcement', { id }); loadActiveAnnouncements(); loadAdminAnnouncements(); }
+                catch (err) { toast(err.message); adminBusy = false; render(); }
             }
 
             function adminFmtDateTime(iso) {
@@ -5959,7 +6022,26 @@
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">✦</span><span class="brand-label">Simple Study</span></div><nav class="nav">
         ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}
-      </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search">🔍 <span>Search</span></button><button data-action="open-settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${content}</main></div>`;
+      </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search">🔍 <span>Search</span></button><button data-action="open-settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
+            }
+
+            // Whether a given announcement id has already been shown/dismissed on this
+            // account -- one shared list for both banners and popups, stored in
+            // state.settings so (for signed-in users) it syncs across devices the
+            // same way every other setting does, rather than being per-browser.
+            function announcementSeen(id) { return (state.settings.dismissedAnnouncementIds || []).includes(id); }
+            function dismissAnnouncement(id) {
+                state.settings.dismissedAnnouncementIds = [...(state.settings.dismissedAnnouncementIds || []), id];
+                save();
+            }
+
+            // Shows the single most recent not-yet-dismissed banner-kind announcement.
+            // Only one at a time -- a stack of banners would push real content too far
+            // down, and there's no expectation of announcements being frequent.
+            function announcementBannerHtml() {
+                const a = activeAnnouncements.find(x => x.kind === 'banner' && !announcementSeen(x.id));
+                if (!a) return '';
+                return `<div class="settings-row" style="margin:14px var(--main-px) 0"><div><strong>Announcement</strong><span class="small">${escape(a.message)}</span></div><button class="button ghost" data-action="dismiss-announcement" data-id="${a.id}">Dismiss</button></div>`;
             }
 
             function syncBannerHtml() {
@@ -8681,6 +8763,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 else if (state.settings.onboarded && !modal && isSophiaMode() && !sophiaWelcomeShown) {
                     sophiaWelcomeShown = true;
                     openModal('sophia-welcome'); }
+                else if (!modal) { const pop = activeAnnouncements.find(x => x.kind === 'popup' && !announcementSeen(x.id));
+                    if (pop) openModal('announcement-popup', { announcement: pop }); }
                 maybeScheduleCabbageScreen();
                 maybeShowSparkyRecall(); }
 
@@ -8758,6 +8842,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     modal.kind === 'exam-task-form') return layer.innerHTML = examTaskFormModal(modal.taskId); if (
                     modal.kind === 'search') return layer.innerHTML = searchModal(); if (
                     modal.kind === 'admin-unlock') return layer.innerHTML = adminUnlockModal(); if (
+                    modal.kind === 'admin-create-user') return layer.innerHTML = adminCreateUserModal(); if (
+                    modal.kind === 'announcement-popup') return layer.innerHTML = announcementPopupModal(modal.announcement); if (
                     modal.kind === 'print-choice') return layer.innerHTML = printChoiceModal(); if (
                     modal.kind === 'self-study-plan') return layer.innerHTML = selfStudyPlanSummaryModal(modal
                     .summary); if (
@@ -8800,6 +8886,25 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     false);
             }
 
+            function adminCreateUserModal() {
+                return modalShell('New user',
+                    `<div class="form-grid">
+                        <div class="field span-2"><label for="admin-new-user-email">Email</label><input type="email" id="admin-new-user-email" autocomplete="off" placeholder="name@example.com"></div>
+                        <div class="field span-2"><label for="admin-new-user-password">Password</label><input type="password" id="admin-new-user-password" autocomplete="off" placeholder="At least 8 characters"></div>
+                     </div>
+                     <p class="small">Creates the account immediately with this password — no confirmation email, same as setting it up in Supabase directly.</p>
+                     ${adminError?`<p class="empty" style="color:var(--danger)">${escape(adminError)}</p>`:''}`,
+                    `<button class="button" data-action="close-modal">Cancel</button><button class="button primary" data-action="admin-create-user-submit" ${adminBusy?'disabled':''}>${adminBusy?'Creating…':'Create user'}</button>`,
+                    false);
+            }
+
+            function announcementPopupModal(a) {
+                return modalShell('Announcement',
+                    `<p>${escape(a.message)}</p>`,
+                    `<button class="button primary" data-action="dismiss-announcement-popup" data-id="${a.id}">Got it</button>`,
+                    false, true);
+            }
+
             // ------------------------------------------------------------------
             // Admin dashboard. A separate top-level `view` (not a modal, not
             // wrapped in the normal sidebar appFrame()) so it reads unmistakably
@@ -8809,6 +8914,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             // ------------------------------------------------------------------
             function renderAdminPage() {
                 const body = adminView === 'analytics' ? renderAdminAnalytics()
+                    : adminView === 'announcements' ? renderAdminAnnouncements()
                     : adminView === 'user-detail' ? renderAdminUserDetail()
                     : renderAdminUsersList();
                 return `<div class="admin-page">
@@ -8817,8 +8923,9 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                         <button class="button" data-action="admin-exit">← Back to my account</button>
                     </div>
                     <div class="sm-actions" style="gap:8px;margin:14px 0">
-                        <button class="button ${adminView!=='analytics'?'primary':'ghost'}" data-action="admin-tab-users">Users</button>
+                        <button class="button ${adminView==='users'||adminView==='user-detail'?'primary':'ghost'}" data-action="admin-tab-users">Users</button>
                         <button class="button ${adminView==='analytics'?'primary':'ghost'}" data-action="admin-tab-analytics">Analytics</button>
+                        <button class="button ${adminView==='announcements'?'primary':'ghost'}" data-action="admin-tab-announcements">Announcements</button>
                     </div>
                     ${adminError?`<p class="empty" style="color:var(--danger)">${escape(adminError)}</p>`:''}
                     ${body}
@@ -8838,7 +8945,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                         <span><strong>${escape(u.email)}</strong>${u.bannedUntil?' <span class="pill bad">Suspended</span>':''}<br><span class="small">Joined ${adminFmtDate(u.createdAt)} · ${escape(u.provider)}</span></span>
                         <span class="small" style="text-align:right">${m.sessionCount||0} session${(m.sessionCount||0)===1?'':'s'} · ${((m.totalMinutes||0)/60).toFixed(1)}h logged<br>${typeof m.avgResultPct==='number'?`avg ${Math.round(m.avgResultPct)}%`:'no results yet'} · ${m.eventTotal||0} actions${lastActive?` · active ${adminFmtDate(lastActive)}`:''}</span>
                     </div>`; };
-                return `<input type="text" id="admin-user-filter" value="${escape(adminUserFilter)}" placeholder="Search by email…" style="width:100%;margin-bottom:12px">
+                return `<div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" id="admin-user-filter" value="${escape(adminUserFilter)}" placeholder="Search by email…" style="flex:1"><button class="button primary" data-action="admin-new-user">+ New user</button></div>
                     <div class="list">${rows.length?rows.map(row).join(''):'<p class="empty">No users match.</p>'}</div>
                     <p class="small" style="margin-top:10px">${rows.length} of ${adminUsers.length} user${adminUsers.length===1?'':'s'}.</p>`;
             }
@@ -8921,10 +9028,12 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     statCard('Feature actions', a.totalEvents),
                 ].join('')}</div>`;
 
-                const maxCount = Math.max(1, ...a.topFeatures.map(f => f.count));
-                const featureBars = a.topFeatures.length ? a.topFeatures.map(f =>
-                    `<div class="admin-bar-row"><span class="admin-bar-label" title="${escape(f.event)}">${escape(f.event)}</span><div class="admin-bar-track"><div class="admin-bar-fill" style="width:${Math.round(f.count/maxCount*100)}%"></div></div><span class="admin-bar-count">${f.count}</span></div>`)
-                    .join('') : '<p class="empty">No feature activity logged yet.</p>';
+                const barList = (rows) => { const max = Math.max(1, ...rows.map(f => f.count));
+                    return rows.map(f =>
+                        `<div class="admin-bar-row"><span class="admin-bar-label" title="${escape(f.event)}">${escape(f.event)}</span><div class="admin-bar-track"><div class="admin-bar-fill" style="width:${Math.round(f.count/max*100)}%"></div></div><span class="admin-bar-count">${f.count}</span></div>`)
+                        .join(''); };
+                const featureBars = a.topFeatures.length ? barList(a.topFeatures) : '<p class="empty">No feature activity logged yet.</p>';
+                const aiBars = (a.aiUsageBreakdown||[]).length ? barList(a.aiUsageBreakdown) : '<p class="empty">No Sparky chat activity logged yet.</p>';
 
                 const corr = (label, c, canvasId) => `<div class="card section"><h2>${escape(label)}</h2>${c.points.length>=3?
                     `<p class="small">Pearson r = ${c.r!=null?c.r.toFixed(2):'—'} across ${c.points.length} student${c.points.length===1?'':'s'} with logged results. Small samples — read the pattern loosely, not as proof.</p><canvas id="${canvasId}" width="640" height="220" style="width:100%;height:auto"></canvas>`:
@@ -8932,6 +9041,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
 
                 return `${stats}
                 <div class="card section"><h2>Feature usage</h2><div class="admin-bars">${featureBars}</div></div>
+                <div class="card section"><h2>Sparky (AI) usage breakdown</h2><p class="small">What people actually ask Sparky to do, broken down by the action it took — "General question" means it just replied, no change made.</p><div class="admin-bars">${aiBars}</div></div>
                 ${corr('Sessions logged vs. average result', a.correlations.sessionsVsResult, 'admin-corr-sessions')}
                 ${corr('Minutes logged vs. average result', a.correlations.minutesVsResult, 'admin-corr-minutes')}
                 <button class="button" data-action="admin-export-csv">⬇ Export per-user CSV</button>`;
@@ -8941,6 +9051,36 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 if (!adminAnalytics) return;
                 drawScatterChart('admin-corr-sessions', adminAnalytics.correlations.sessionsVsResult.points, 'Sessions logged');
                 drawScatterChart('admin-corr-minutes', adminAnalytics.correlations.minutesVsResult.points, 'Minutes logged');
+            }
+
+            function renderAdminAnnouncements() {
+                const composer = `<div class="card section">
+                    <h2>New announcement</h2>
+                    <div class="sm-actions" style="gap:8px;margin-bottom:10px">
+                        <button class="button ${adminNewAnnouncementKind==='banner'?'primary':'ghost'}" data-action="admin-announcement-kind" data-kind="banner">Banner</button>
+                        <button class="button ${adminNewAnnouncementKind==='popup'?'primary':'ghost'}" data-action="admin-announcement-kind" data-kind="popup">Popup</button>
+                    </div>
+                    <p class="small">${adminNewAnnouncementKind==='banner' ?
+                        'A dismissible strip at the top of the app. Stays until someone dismisses it.' :
+                        'A modal shown once, on their next visit, that they must acknowledge to close.'}</p>
+                    <textarea id="admin-announcement-message" rows="3" style="width:100%" placeholder="What do you want people to see?"></textarea>
+                    <button class="button primary" style="margin-top:8px" data-action="admin-publish-announcement" ${adminBusy?'disabled':''}>${adminBusy?'Publishing…':'Publish'}</button>
+                </div>`;
+
+                if (adminBusy && !adminAnnouncements) return composer + '<p class="empty">Loading…</p>';
+                if (!adminAnnouncements) return composer + '<p class="empty">Could not load announcements.</p>';
+
+                const row = (a) => `<div class="topic-row">
+                    <span><span class="pill ${a.kind==='popup'?'neutral':'good'}">${a.kind}</span> ${escape(a.message)}<br><span class="small">${adminFmtDateTime(a.created_at)}${a.active?'':' · inactive'}</span></span>
+                    <span class="row" style="gap:6px">
+                        <button class="button ghost" data-action="admin-toggle-announcement" data-id="${a.id}" data-active="${a.active?'0':'1'}">${a.active?'Deactivate':'Reactivate'}</button>
+                        <button class="button ghost danger" data-action="admin-delete-announcement" data-id="${a.id}">Delete</button>
+                    </span>
+                </div>`;
+                const list = adminAnnouncements.length ? `<div class="list">${adminAnnouncements.map(row).join('')}</div>` :
+                    '<p class="empty">No announcements yet.</p>';
+
+                return `${composer}<div class="card section"><h2>All announcements</h2>${list}</div>`;
             }
 
             function finishOnboarding() { state.settings.onboarded = true;
@@ -10651,6 +10791,10 @@ If the user asks about how to study or study methods generally, answer from your
             }
 
             async function processUserPrompt(userInput, loadingElement, image) {
+                // Doesn't go through the data-action click dispatcher (the send button has its own
+                // direct listener), so it needs its own explicit log -- see the capture-phase
+                // listener near the end of this file for every action-driven feature.
+                logFeatureEvent('ai_study_assistant_chat');
                 const parts = [];
                 if (image) {
                     parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
@@ -10659,6 +10803,7 @@ If the user asks about how to study or study methods generally, answer from your
                     parts.push({ text: userInput });
                 }
                 aiConversation.push({ role: "user", parts });
+                let usedAnyTool = false; // tracks whether this message led to any real action, for the "what for" breakdown below
 
                 for (let step = 0; step < 25; step++) {
                     const data = await callGemini();
@@ -10674,6 +10819,11 @@ If the user asks about how to study or study methods generally, answer from your
                     aiConversation.push({ role: "model", parts: resultParts });
 
                     if (functionCalls.length) {
+                        usedAnyTool = true;
+                        // Breaks down "what is Sparky actually used for" (beyond just a total chat
+                        // count) by which tool the model reached for -- see FEATURE_LABELS in
+                        // admin-api for the ai_tool:* -> plain-English mapping.
+                        functionCalls.forEach(fc => logFeatureEvent(`ai_tool:${fc.name}`));
                         const responseParts = functionCalls.map(fc => ({
                             functionResponse: { name: fc.name, response: { result: executeAiTool(fc.name, fc.args) } }
                         }));
@@ -10684,6 +10834,7 @@ If the user asks about how to study or study methods generally, answer from your
                         continue; // let the model see the tool results and respond
                     }
 
+                    if (!usedAnyTool) logFeatureEvent('ai_tool:none');
                     loadingElement.textContent = textReply.replace(/\s*\[CONFIRM\]\s*$/, '').trim() || "Done."; if (
                         /\[CONFIRM\]\s*$/.test(textReply)) addConfirmButtons(loadingElement);
                     return;
@@ -12180,9 +12331,19 @@ If the user asks about how to study or study methods generally, answer from your
             // Capture phase (not bubble): runs before any handler further down the tree can
             // call stopPropagation() on the click (two spots do, for nested delete buttons),
             // so this still sees every data-action click regardless. Logs the action name only
-            // -- no titles, ids, or free text -- see logFeatureEvent().
+            // -- no titles, ids, or free text -- see logFeatureEvent(). A couple of generic,
+            // multi-purpose actions ('view', 'tools-open') carry the real feature in a sibling
+            // data-* attribute rather than the action name itself, so those are folded into the
+            // logged event ("view:tasks", "tools-open:formulas") -- see admin-api's FEATURE_LABELS,
+            // which maps these composite strings to plain-English names for the Analytics tab.
+            // admin-* actions are this account's own admin-mode usage, not a student using a
+            // feature, so they're excluded entirely rather than polluting that data.
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]');
-                if (b && b.dataset.action) logFeatureEvent(b.dataset.action); }, true);
+                if (!b || !b.dataset.action || b.dataset.action.startsWith('admin-')) return;
+                let event = b.dataset.action;
+                if (event === 'view' && b.dataset.view) event = `view:${b.dataset.view}`;
+                else if (event === 'tools-open' && b.dataset.tool) event = `tools-open:${b.dataset.tool}`;
+                logFeatureEvent(event); }, true);
 
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
                 const a = b.dataset.action;
@@ -12192,6 +12353,15 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'admin-exit') exitAdminMode();
                 else if (a === 'admin-tab-users') { adminView = 'users'; render(); if (!adminUsers) loadAdminUsers(); }
                 else if (a === 'admin-tab-analytics') loadAdminAnalytics();
+                else if (a === 'admin-tab-announcements') loadAdminAnnouncements();
+                else if (a === 'admin-announcement-kind') { const draft = document.getElementById('admin-announcement-message')?.value || '';
+                    adminNewAnnouncementKind = b.dataset.kind; render();
+                    const ta = document.getElementById('admin-announcement-message'); if (ta) ta.value = draft; }
+                else if (a === 'admin-publish-announcement') adminCreateAnnouncement();
+                else if (a === 'admin-toggle-announcement') adminSetAnnouncementActive(Number(b.dataset.id), b.dataset.active === '1');
+                else if (a === 'admin-delete-announcement') adminDeleteAnnouncement(Number(b.dataset.id));
+                else if (a === 'admin-new-user') { adminError = ''; openModal('admin-create-user'); }
+                else if (a === 'admin-create-user-submit') adminCreateUser();
                 else if (a === 'admin-open-user') loadAdminUserDetail(b.dataset.id);
                 else if (a === 'admin-set-password') adminSetPassword(b.dataset.id);
                 else if (a === 'admin-send-reset') adminSendReset(b.dataset.id, b.dataset.email);
@@ -12200,10 +12370,14 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'admin-unban') adminSetBan(b.dataset.id, false);
                 else if (a === 'admin-delete-user') adminDeleteUserConfirmed(b.dataset.id, b.dataset.email);
                 else if (a === 'admin-save-state') adminSaveRawState(b.dataset.id);
-                else if (a === 'admin-export-csv') adminExportCsv(); });
+                else if (a === 'admin-export-csv') adminExportCsv();
+                else if (a === 'dismiss-announcement') { dismissAnnouncement(Number(b.dataset.id)); render(); }
+                else if (a === 'dismiss-announcement-popup') { dismissAnnouncement(Number(b.dataset.id)); closeModal(); } });
 
             document.addEventListener('keydown', e => { if (e.target && e.target.id === 'admin-password-input' &&
-                    e.key === 'Enter') adminUnlock(); });
+                    e.key === 'Enter') adminUnlock();
+                else if (e.target && (e.target.id === 'admin-new-user-email' || e.target.id === 'admin-new-user-password') &&
+                    e.key === 'Enter') adminCreateUser(); });
 
             document.addEventListener('input', e => { if (e.target.id === 'admin-user-filter') {
                     adminUserFilter = e.target.value;
