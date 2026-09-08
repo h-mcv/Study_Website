@@ -10297,6 +10297,7 @@ If the user asks about how to study or study methods generally, answer from your
             let mascotAutoAdvanceTimer = null; // auto-advance handle for the current tour step, if it has one
             let demoModeActive = false; // true while a preview tour has swapped in sample data — save() no-ops
             let preTourSnapshot = null; // real state to restore once a demo tour ends
+            let tourManualMode = false; // set by the user's choice at tour-welcome — true means narration steps wait for a Next click instead of auto-advancing
             let burnoutCheckReasons = []; // set right before starting the burnoutCheck tour, read by its dynamic text
             let sophiaWelcomeShown = false; // shows the Sophia-mode welcome popup once per page load, not on every render()
             let cabbageScheduled = false; // whether the Sophia-mode "cabbages!" timer loop has been kicked off this page load
@@ -10465,9 +10466,19 @@ If the user asks about how to study or study methods generally, answer from your
                 // narration-only step auto-advances on its own (autoAdvanceMs, handled in renderMascot) with no
                 // button — nothing to click — except branching/finishing steps, which need a real decision.
                 'tour-welcome': [
-                    { id: 'ft-welcome', pose: 'wave', autoAdvanceMs: 9500,
-                        text: () => `Hi ${state.settings.firstName||'there'}! I'm Sparky — let me show you around properly. I've filled in an example week so there's something real to look at on every page; none of it is saved, and your own planner is untouched underneath.`,
-                        next: null }
+                    { id: 'ft-welcome', pose: 'wave',
+                        text: () => `Hi ${state.settings.firstName||'there'}! I'm Sparky — let me show you around properly. I've filled in an example week so there's something real to look at on every page; none of it is saved, and your own planner is untouched underneath. Should I move through this on my own, or would you rather click Next yourself at each step?`,
+                        // The playlist-advance logic lives in mascotNext() (falls through to the next chapter
+                        // when a chapter runs out of steps), so both choices call it directly instead of
+                        // duplicating that logic here — see mascotNext's own comment.
+                        choices: [
+                            { label: 'Go ahead automatically', action: () => { tourManualMode = false;
+                                    mascotNext();
+                                    return undefined; } },
+                            { label: "I'll click Next", action: () => { tourManualMode = true;
+                                    mascotNext();
+                                    return undefined; } }
+                        ], next: null }
                 ],
                 'tour-dashboard': [
                     { id: 'ft-dashboard', pose: 'point', target: '[data-view="dashboard"]', autoAdvanceMs: 9000,
@@ -10755,6 +10766,7 @@ If the user asks about how to study or study methods generally, answer from your
             function startDemoTour(isOnboarding, playlist) {
                 preTourSnapshot = JSON.parse(JSON.stringify(state));
                 demoModeActive = true;
+                tourManualMode = false;
                 state.events = []; state.tasks = []; state.exams = []; state.subjects = []; state.classTopics = [];
                 state.topics = []; state.holidays = []; state.studyPlans = {};
                 view = 'dashboard';
@@ -10854,16 +10866,19 @@ If the user asks about how to study or study methods generally, answer from your
                             !dest) { endMascotTour();
                             return; }
                         goToMascotStep(mascotTour.tourId, dest); });
-                    actionsEl.appendChild(btn); }); } else if (step.autoAdvanceMs) {
+                    actionsEl.appendChild(btn); }); } else if (step.autoAdvanceMs && !tourManualMode) {
                     // Narration-only steps (the full site tour) auto-advance with no button at all — nothing to
                     // click, matching "sparky moving around without the user needing to click anything." Other
                     // tours' plain-continue steps (below) still get a manual button since they're waiting on a
                     // real action the user has to go take (add a class, save preferences, etc.), not just reading.
+                    // Skipped entirely when the user chose manual mode at tour-welcome — see the button branch below.
                     mascotAutoAdvanceTimer = setTimeout(() => { if (currentMascotStep() === step) mascotNext(); },
                         tourAutoAdvanceMs(step.autoAdvanceMs)); } else { const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'button primary';
-                    btn.textContent = step.continueLabel || (step.next ? 'Next →' : 'Got it');
+                    // In manual mode, narration steps have no continueLabel/next of their own (they normally
+                    // auto-advance), so they'd otherwise fall back to "Got it" — always show "Next →" instead.
+                    btn.textContent = step.continueLabel || (step.next || step.autoAdvanceMs ? 'Next →' : 'Got it');
                     btn.addEventListener('click', mascotNext);
                     actionsEl.appendChild(btn); }
                 positionMascotWidget(step); }
