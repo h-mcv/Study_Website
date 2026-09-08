@@ -176,7 +176,22 @@ Deno.serve(async (req) => {
         if (kind !== "banner" && kind !== "popup") return jsonResponse({ error: "kind must be 'banner' or 'popup'." }, 400);
         if (!message) return jsonResponse({ error: "Message can't be empty." }, 400);
         if (message.length > 2000) return jsonResponse({ error: "Message is too long (max 2000 characters)." }, 400);
-        const { error } = await db.from("announcements").insert({ kind, message });
+
+        // Optional targeting: empty/omitted means visible to everyone (target_emails
+        // stays null). When given, every email must belong to a real account --
+        // caught here rather than silently targeting nobody on a typo.
+        const rawEmails = Array.isArray(body.targetEmails) ? body.targetEmails : [];
+        const targetEmails = [...new Set(rawEmails.map((e: unknown) => String(e).trim().toLowerCase()).filter(Boolean))];
+        if (targetEmails.length) {
+          const { users } = await listUsers(db);
+          const knownEmails = new Set(users.map((u: any) => (u.email || "").toLowerCase()));
+          const unknown = targetEmails.filter((e) => !knownEmails.has(e));
+          if (unknown.length) return jsonResponse({ error: `No account found for: ${unknown.join(", ")}` }, 400);
+        }
+
+        const { error } = await db.from("announcements").insert({
+          kind, message, target_emails: targetEmails.length ? targetEmails : null,
+        });
         if (error) return jsonResponse({ error: error.message }, 400);
         return jsonResponse({ ok: true });
       }
