@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.watch-pair]
 verify_jwt = true
 
+[functions.admin-api]
+verify_jwt = true
+
 # These two use a custom bearer credential (a pairing code, then a watch
 # token) rather than a Supabase-signed JWT, so the gateway's own JWT check
 # has to be off -- each function authenticates the request itself instead.
