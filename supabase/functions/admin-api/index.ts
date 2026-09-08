@@ -190,6 +190,8 @@ Deno.serve(async (req) => {
         if (error) return jsonResponse({ error: error.message }, 400);
         return jsonResponse({ ok: true });
       }
+      case "list-chatrooms":
+        return jsonResponse(await listChatRooms(db));
       default:
         return jsonResponse({ error: `Unknown action "${action}".` }, 400);
     }
@@ -569,6 +571,41 @@ async function analyticsOverview(db: ReturnType<typeof createClient>) {
       sessionsVsResult: { points: sessionVsResult, r: pearson(sessionVsResult) },
       minutesVsResult: { points: minutesVsResult, r: pearson(minutesVsResult) },
     },
+  };
+}
+
+// Service-role client bypasses RLS entirely, so this sees every room and
+// every member row regardless of who's in them -- exactly what the admin
+// dashboard's Chat Rooms tab needs ("a room called X has bob, billy and joe
+// in it"), and deliberately nothing more: no chat_messages table is ever
+// touched here, so message content stays out of admin reach.
+async function listChatRooms(db: ReturnType<typeof createClient>) {
+  const { data: rooms, error: roomsErr } = await db.from("chat_rooms")
+    .select("id, name, is_global, created_at, created_by_name, created_by_email")
+    .order("is_global", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (roomsErr) throw new Error(roomsErr.message);
+
+  const { data: members, error: membersErr } = await db.from("chat_room_members")
+    .select("room_id, member_name, member_email, joined_at");
+  if (membersErr) throw new Error(membersErr.message);
+
+  const byRoom = new Map<string, { name: string; email: string; joinedAt: string }[]>();
+  for (const m of members || []) {
+    if (!byRoom.has(m.room_id)) byRoom.set(m.room_id, []);
+    byRoom.get(m.room_id)!.push({ name: m.member_name, email: m.member_email, joinedAt: m.joined_at });
+  }
+
+  return {
+    rooms: (rooms || []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      isGlobal: r.is_global,
+      createdAt: r.created_at,
+      createdByName: r.created_by_name,
+      createdByEmail: r.created_by_email,
+      members: byRoom.get(r.id) || [],
+    })),
   };
 }
 
