@@ -3681,7 +3681,9 @@
                 authError = ''; authNotice = ''; authBusy = true;
                 renderLandingLayer();
                 const { data, error } = authMode === 'signup' ?
-                    await supabaseClient.auth.signUp({ email, password }) :
+                    await supabaseClient.auth.signUp({ email, password, options: {
+                        emailRedirectTo: window.location.origin + window.location.pathname + window.location.search
+                    } }) :
                     await supabaseClient.auth.signInWithPassword({ email, password });
                 authBusy = false;
                 if (error) { authError = friendlyAuthError(error);
