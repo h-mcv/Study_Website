@@ -1128,6 +1128,60 @@
         .cao-calc-reverse {
             margin-top: 20px;
         }
+        .quad-root {
+            font-size: 22px;
+            font-weight: 800;
+            margin: 6px 0 0;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .quad-root + .quad-root {
+            margin-top: 4px;
+        }
+        .quad-frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            line-height: 1.15;
+            margin: 0 3px;
+            font-size: 0.7em;
+        }
+        .quad-frac-num {
+            padding: 0 3px 2px;
+            border-bottom: 2px solid currentColor;
+        }
+        .quad-frac-den {
+            padding: 2px 3px 0;
+        }
+        .quad-graph {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .quad-graph-curve {
+            fill: none;
+            stroke: var(--primary);
+            stroke-width: 2.5;
+        }
+        .quad-graph-axis {
+            stroke: var(--muted);
+            stroke-width: 1;
+        }
+        .quad-graph-point {
+            fill: var(--danger, #d64545);
+            stroke: var(--surface);
+            stroke-width: 1.5;
+        }
+        .quad-graph-label {
+            font-size: 11px;
+            fill: var(--text);
+        }
+        .quad-graph-axis-label {
+            font-size: 11px;
+            fill: var(--muted);
+        }
         .performance-summary-card {
             padding: 16px 18px;
             border-radius: 14px;
@@ -6498,6 +6552,11 @@
             function absFrac(f) { return { num: Math.abs(f.num), den: f.den }; }
             function fracIsZero(f) { return f.num === 0; }
             function formatFrac(f) { return f.den === 1 ? `${f.num}` : `${f.num}/${f.den}`; }
+            // Renders a non-negative fraction as a stacked num-over-den fraction (plain integer if whole).
+            function fracHtml(f) { return f.den === 1 ? `${f.num}` :
+                `<span class="quad-frac"><span class="quad-frac-num">${f.num}</span><span class="quad-frac-den">${f.den}</span></span>`; }
+            // Same, but pulls a negative sign out in front rather than baking it into the fraction.
+            function signedFracHtml(f) { return f.num < 0 ? `−${fracHtml(absFrac(f))}` : fracHtml(f); }
             function fracToDecimal(f) { return f.num / f.den; }
             // Trims a decimal to at most 6dp without float noise (e.g. 0.30000000000000004 -> "0.3").
             function formatDecimal(n) { if (!isFinite(n)) return '—'; return String(Math.round(n * 1e6) / 1e6); }
@@ -6525,47 +6584,98 @@
             // expression, omitting zero terms and redundant "1" coefficients.
             function formatSumWithSurd(rational, coeff, radicand, suffix) { suffix = suffix || '';
                 const terms = [];
-                if (!fracIsZero(rational)) terms.push({ neg: rational.num < 0, text: formatFrac(absFrac(rational)) });
+                if (!fracIsZero(rational)) terms.push({ neg: rational.num < 0, html: fracHtml(absFrac(rational)) });
                 if (!fracIsZero(coeff)) { const absC = absFrac(coeff),
-                        label = absC.num === absC.den ? '' : formatFrac(absC),
+                        label = absC.num === absC.den ? '' : fracHtml(absC),
                         surdPart = radicand === 1 ? '' : `√${radicand}`;
-                    terms.push({ neg: coeff.num < 0, text: `${label}${surdPart}${surdPart&&suffix?' ':''}${suffix}` || '1' }); }
+                    terms.push({ neg: coeff.num < 0, html: `${label}${surdPart}${surdPart&&suffix?' ':''}${suffix}` || '1' }); }
                 if (!terms.length) return '0';
-                return terms.map((t, i) => i === 0 ? (t.neg ? `-${t.text}` : t.text) : (t.neg ? ` - ${t.text}` :
-                    ` + ${t.text}`)).join(''); }
+                return terms.map((t, i) => i === 0 ? (t.neg ? `−${t.html}` : t.html) : (t.neg ? ` − ${t.html}` :
+                    ` + ${t.html}`)).join(''); }
             // Solves Ax² + Bx + C = 0 for the given coefficient fractions and returns ready-to-render HTML for
             // the root(s), in either exact 'fraction'/surd form or rounded 'decimal' form.
             function quadraticRootsHtml(A, B, C, format) {
                 if (fracIsZero(A)) { if (fracIsZero(B)) return `<p class="empty">${fracIsZero(C)?'Every value of x is a solution — a, b and c are all 0.':"No solution — a and b are both 0 but c isn't."}</p>`;
                     const root = divFrac(negFrac(C), B);
-                    return `<p class="small">a is 0, so this is linear (bx + c = 0):</p><p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${format==='decimal'?formatDecimal(fracToDecimal(root)):formatFrac(root)}</p>`; }
+                    return `<p class="small">a is 0, so this is linear (bx + c = 0):</p><p class="quad-root">x = ${format==='decimal'?formatDecimal(fracToDecimal(root)):signedFracHtml(root)}</p>`; }
                 const negB = negFrac(B), twoA = mulFrac(A, { num: 2, den: 1 }),
                     discriminant = subFrac(mulFrac(B, B), mulFrac({ num: 4, den: 1 }, mulFrac(A, C)));
                 if (format === 'decimal') { const a = fracToDecimal(A), b = fracToDecimal(B), c = fracToDecimal(C),
                         d = b * b - 4 * a * c;
                     if (d < 0) { const re = -b / (2 * a), im = Math.sqrt(-d) / (2 * a);
-                        return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatDecimal(re)} ± ${formatDecimal(im)}i</p><p class="small" style="margin-top:6px">No real roots — the discriminant is negative.</p>`; }
+                        return `<p class="quad-root">x = ${formatDecimal(re)} ± ${formatDecimal(im)}i</p><p class="small" style="margin-top:6px">No real roots — the discriminant is negative.</p>`; }
                     const sq = Math.sqrt(d);
-                    if (d === 0) return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatDecimal(-b/(2*a))}</p><p class="small" style="margin-top:6px">A repeated (double) root.</p>`;
-                    return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatDecimal((-b+sq)/(2*a))}</p><p style="font-size:20px;font-weight:800;margin:2px 0 0">x = ${formatDecimal((-b-sq)/(2*a))}</p>`; }
+                    if (d === 0) return `<p class="quad-root">x = ${formatDecimal(-b/(2*a))}</p><p class="small" style="margin-top:6px">A repeated (double) root.</p>`;
+                    return `<p class="quad-root">x = ${formatDecimal((-b+sq)/(2*a))}</p><p class="quad-root">x = ${formatDecimal((-b-sq)/(2*a))}</p>`; }
                 // Fraction/surd mode — every step stays in exact fraction arithmetic.
                 if (discriminant.num < 0) { const { factor, radicand } = sqrtFraction(absFrac(discriminant)),
                         rational = divFrac(negB, twoA), imCoeff = divFrac(factor, twoA);
-                    return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatSumWithSurd(rational,imCoeff,radicand,'i')}</p><p style="font-size:20px;font-weight:800;margin:2px 0 0">x = ${formatSumWithSurd(rational,negFrac(imCoeff),radicand,'i')}</p><p class="small" style="margin-top:6px">No real roots — the discriminant is negative.</p>`; }
-                if (discriminant.num === 0) return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatFrac(divFrac(negB,twoA))}</p><p class="small" style="margin-top:6px">A repeated (double) root.</p>`;
+                    return `<p class="quad-root">x = ${formatSumWithSurd(rational,imCoeff,radicand,'i')}</p><p class="quad-root">x = ${formatSumWithSurd(rational,negFrac(imCoeff),radicand,'i')}</p><p class="small" style="margin-top:6px">No real roots — the discriminant is negative.</p>`; }
+                if (discriminant.num === 0) return `<p class="quad-root">x = ${signedFracHtml(divFrac(negB,twoA))}</p><p class="small" style="margin-top:6px">A repeated (double) root.</p>`;
                 const { factor, radicand } = sqrtFraction(discriminant);
                 if (radicand === 1) { const root1 = divFrac(addFrac(negB, factor), twoA),
                         root2 = divFrac(subFrac(negB, factor), twoA);
-                    return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatFrac(root1)}</p><p style="font-size:20px;font-weight:800;margin:2px 0 0">x = ${formatFrac(root2)}</p>`; }
+                    return `<p class="quad-root">x = ${signedFracHtml(root1)}</p><p class="quad-root">x = ${signedFracHtml(root2)}</p>`; }
                 const rational = divFrac(negB, twoA), irrCoeff = divFrac(factor, twoA);
-                return `<p style="font-size:20px;font-weight:800;margin:6px 0 0">x = ${formatSumWithSurd(rational,irrCoeff,radicand)}</p><p style="font-size:20px;font-weight:800;margin:2px 0 0">x = ${formatSumWithSurd(rational,negFrac(irrCoeff),radicand)}</p>`; }
+                return `<p class="quad-root">x = ${formatSumWithSurd(rational,irrCoeff,radicand)}</p><p class="quad-root">x = ${formatSumWithSurd(rational,negFrac(irrCoeff),radicand)}</p>`; }
+            // Rounds to 3dp and snaps float noise near zero to exactly 0, for graph axis-crossing labels.
+            function roundNice(n) { if (Math.abs(n) < 1e-9) return 0; return Math.round(n * 1000) / 1000; }
+            // Builds an inline SVG plot of y = Ax² + Bx + C, framed to include the vertex/intercepts, with
+            // circles + coordinate labels at every point where the curve crosses the x- or y-axis.
+            function quadraticGraphSvg(A, B, C) { const a = fracToDecimal(A), b = fracToDecimal(B), c = fracToDecimal(
+                        C),
+                    f = x => a * x * x + b * x + c;
+                let xs = [0];
+                if (a !== 0) { const vx = -b / (2 * a); xs.push(vx);
+                    const d = b * b - 4 * a * c; if (d >= 0) { const sq = Math.sqrt(d);
+                        xs.push((-b + sq) / (2 * a), (-b - sq) / (2 * a)); } }
+                else if (b !== 0) xs.push(-c / b);
+                let xMin = Math.min(...xs), xMax = Math.max(...xs);
+                if (xMax - xMin < 1e-6) { xMin -= 5; xMax += 5; }
+                const xPad = (xMax - xMin) * 0.3; xMin -= xPad; xMax += xPad;
+                const N = 80, samples = []; for (let i = 0; i <= N; i++) { const x = xMin + (xMax - xMin) * i / N;
+                    samples.push([x, f(x)]); }
+                let yMin = 0, yMax = 0; samples.forEach(([, y]) => { if (isFinite(y)) { yMin = Math.min(yMin, y);
+                        yMax = Math.max(yMax, y); } });
+                if (yMax - yMin < 1e-6) { yMin -= 5; yMax += 5; }
+                const yPad = (yMax - yMin) * 0.2; yMin -= yPad; yMax += yPad;
+                const W = 600, H = 340, mL = 44, mR = 20, mT = 20, mB = 34,
+                    toPx = x => mL + (x - xMin) / (xMax - xMin) * (W - mL - mR),
+                    toPy = y => H - mB - (y - yMin) / (yMax - yMin) * (H - mT - mB);
+                const pathD = samples.map(([x, y], i) => `${i===0?'M':'L'}${toPx(x).toFixed(1)},${toPy(y).toFixed(1)}`)
+                    .join(' ');
+                const axisY = toPy(0), axisX = toPx(0);
+                const pts = [{ x: 0, y: c, label: `(0, ${roundNice(c)})` }];
+                const addRoot = x => { if (!pts.some(p => Math.abs(p.x - x) < 1e-6 && Math.abs(p.y) < 1e-6)) pts
+                        .push({ x, y: 0, label: `(${roundNice(x)}, 0)` }); };
+                if (a !== 0) { const d = b * b - 4 * a * c; if (d >= 0) { const sq = Math.sqrt(d);
+                        addRoot((-b + sq) / (2 * a)); if (sq > 1e-9) addRoot((-b - sq) / (2 * a)); } }
+                else if (b !== 0) addRoot(-c / b);
+                const pointsSvg = pts.map(p => { const px = toPx(p.x), py = toPy(p.y),
+                        labelAbove = p.y >= (yMax + yMin) / 2;
+                    return `<circle class="quad-graph-point" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4"></circle><text class="quad-graph-label" x="${px.toFixed(1)}" y="${(py+(labelAbove?-8:16)).toFixed(1)}" text-anchor="middle">${p.label}</text>`; })
+                    .join('');
+                return `<svg class="quad-graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+<line class="quad-graph-axis" x1="${mL}" y1="${axisY.toFixed(1)}" x2="${W-mR}" y2="${axisY.toFixed(1)}"></line>
+<line class="quad-graph-axis" x1="${axisX.toFixed(1)}" y1="${mT}" x2="${axisX.toFixed(1)}" y2="${H-mB}"></line>
+<text class="quad-graph-axis-label" x="${W-mR}" y="${(axisY-6).toFixed(1)}" text-anchor="end">x</text>
+<text class="quad-graph-axis-label" x="${(axisX+6).toFixed(1)}" y="${mT+10}" text-anchor="start">y</text>
+<path class="quad-graph-curve" d="${pathD}"></path>
+${pointsSvg}
+</svg>`; }
 
             function quadraticSolverHtml() { const hasAll = quadA.trim() !== '' && quadB.trim() !== '' && quadC
                     .trim() !== '';
-                const A = decimalToFraction(quadA), B = decimalToFraction(quadB), C = decimalToFraction(quadC);
-                const resultHtml = !hasAll ? '<p class="empty">Enter a, b and c to see the roots.</p>' : (!A || !B ||
-                    !C ? '<p class="empty">Enter valid numbers for a, b and c.</p>' : quadraticRootsHtml(A, B, C,
+                const A = decimalToFraction(quadA), B = decimalToFraction(quadB), C = decimalToFraction(quadC),
+                    valid = hasAll && A && B && C;
+                const resultHtml = !hasAll ? '<p class="empty">Enter a, b and c to see the roots.</p>' : (!valid ?
+                    '<p class="empty">Enter valid numbers for a, b and c.</p>' : quadraticRootsHtml(A, B, C,
                         quadFormat));
+                const graphHtml = valid && !(fracIsZero(A) && fracIsZero(B) && fracIsZero(C)) ?
+                    `<section class="card section" style="margin-top:14px">
+          <h3 style="margin:0 0 10px;font-size:15px">Graph</h3>
+          ${quadraticGraphSvg(A,B,C)}
+        </section>` : '';
                 const field = (id, label, val) =>
                     `<div class="field"><label for="${id}">${label}</label><input type="text" inputmode="decimal" autocomplete="off" id="${id}" placeholder="0" value="${escape(val)}"></div>`;
                 return `<section class="card section">
@@ -6582,7 +6692,8 @@
         </section>
         <section class="card section" style="margin-top:14px">
           ${resultHtml}
-        </section>`; }
+        </section>
+        ${graphHtml}`; }
 
             function renderTools() { if (!toolsActiveTool) { const tile = (id, icon, title, desc) =>
                         `<button type="button" class="class-tile" data-action="tools-open" data-tool="${id}" style="--subject:var(--primary)"><strong>${icon} ${title}</strong><span class="small">${desc}</span></button>`;
