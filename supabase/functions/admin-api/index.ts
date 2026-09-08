@@ -165,6 +165,31 @@ Deno.serve(async (req) => {
         return jsonResponse(await analyticsOverview(db));
       case "export-csv":
         return jsonResponse({ csv: await exportCsv(db) });
+      case "list-announcements": {
+        const { data, error } = await db.from("announcements").select("*").order("created_at", { ascending: false });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ announcements: data });
+      }
+      case "create-announcement": {
+        const kind = String(body.kind || "");
+        const message = String(body.message || "").trim();
+        if (kind !== "banner" && kind !== "popup") return jsonResponse({ error: "kind must be 'banner' or 'popup'." }, 400);
+        if (!message) return jsonResponse({ error: "Message can't be empty." }, 400);
+        if (message.length > 2000) return jsonResponse({ error: "Message is too long (max 2000 characters)." }, 400);
+        const { error } = await db.from("announcements").insert({ kind, message });
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
+      case "set-announcement-active": {
+        const { error } = await db.from("announcements").update({ active: !!body.active }).eq("id", body.id);
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
+      case "delete-announcement": {
+        const { error } = await db.from("announcements").delete().eq("id", body.id);
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ ok: true });
+      }
       default:
         return jsonResponse({ error: `Unknown action "${action}".` }, 400);
     }
@@ -384,8 +409,43 @@ const FEATURE_LABELS: Record<string, string> = {
 
   // Main AI study assistant ("Sparky" chat widget) -- logged explicitly from
   // processUserPrompt() since its Send button has its own click listener
-  // rather than a data-action.
+  // rather than a data-action. Total chat volume, regardless of purpose.
   "ai_study_assistant_chat": "Used AI: Study assistant chat (Sparky)",
+
+  // What Sparky was actually asked to DO, broken out by which tool (if any)
+  // the model reached for -- see AI_TOOLS in index.html for the full set and
+  // executeAiTool()/the functionCalls loop in processUserPrompt() for where
+  // each ai_tool:<name> event gets logged. "none" means a turn that got a
+  // plain text reply with no action taken (a general question).
+  "ai_tool:none": "Used AI: Asked Sparky a general question",
+  "ai_tool:read_app_state": "Used AI: Asked Sparky to look something up",
+  "ai_tool:add_class_topic": "Used AI: Managed class topics",
+  "ai_tool:update_class_topic": "Used AI: Managed class topics",
+  "ai_tool:add_event": "Used AI: Managed timetable events",
+  "ai_tool:update_event": "Used AI: Managed timetable events",
+  "ai_tool:delete_event": "Used AI: Managed timetable events",
+  "ai_tool:skip_event_occurrence": "Used AI: Managed timetable events",
+  "ai_tool:add_task": "Used AI: Managed tasks",
+  "ai_tool:update_task": "Used AI: Managed tasks",
+  "ai_tool:delete_task": "Used AI: Managed tasks",
+  "ai_tool:toggle_task_done": "Used AI: Managed tasks",
+  "ai_tool:add_holiday": "Used AI: Managed holidays/days off",
+  "ai_tool:delete_holiday": "Used AI: Managed holidays/days off",
+  "ai_tool:update_settings": "Used AI: Changed settings",
+  "ai_tool:update_subject": "Used AI: Changed settings",
+  "ai_tool:open_study_preferences_form": "Used AI: Changed settings",
+  "ai_tool:find_free_slot": "Used AI: Asked Sparky to plan/schedule study",
+  "ai_tool:auto_plan": "Used AI: Asked Sparky to plan/schedule study",
+  "ai_tool:change_view": "Used AI: Navigated the app",
+  "ai_tool:go_to_week": "Used AI: Navigated the app",
+  "ai_tool:show_mascot_tour": "Used AI: Navigated the app",
+  "ai_tool:add_exam": "Used AI: Managed tests/exams",
+  "ai_tool:update_exam": "Used AI: Managed tests/exams",
+  "ai_tool:delete_exam": "Used AI: Managed tests/exams",
+  "ai_tool:record_exam_result": "Used AI: Managed tests/exams",
+  "ai_tool:find_replacement_options": "Used AI: Asked for a schedule swap",
+  "ai_tool:log_study_topic": "Used AI: Logged study via chat",
+  "ai_tool:apply_state_patch": "Used AI: Made a custom data change",
 
   // Settings / account
   "save-settings": "Used: Settings", "open-settings": "Used: Settings",
@@ -451,6 +511,11 @@ async function analyticsOverview(db: ReturnType<typeof createClient>) {
   const DAY = 86400000;
   let activeLast7 = 0, activeLast30 = 0, totalSessions = 0, totalMinutes = 0, totalEvents = 0;
   const eventTotals: Record<string, number> = {};
+  // Sparky's ai_tool:* events get their own breakdown (see aiUsageBreakdown
+  // below) rather than being mixed into the general feature list -- they
+  // measure the PURPOSE of a chat message, a different granularity than
+  // ai_study_assistant_chat (total chat volume), which stays in eventTotals.
+  const aiToolTotals: Record<string, number> = {};
   const sessionVsResult: { x: number; y: number }[] = [];
   const minutesVsResult: { x: number; y: number }[] = [];
 
@@ -461,6 +526,11 @@ async function analyticsOverview(db: ReturnType<typeof createClient>) {
     totalEvents += m.eventTotal || 0;
     for (const [ev, cnt] of Object.entries(m.eventCounts || {})) {
       if (ev.startsWith("admin-")) continue; // this account's own admin-mode use, not a feature
+      if (ev.startsWith("ai_tool:")) {
+        const label = friendlyFeatureName(ev).replace(/^Used AI: /, "");
+        aiToolTotals[label] = (aiToolTotals[label] || 0) + Number(cnt);
+        continue;
+      }
       const label = friendlyFeatureName(ev);
       eventTotals[label] = (eventTotals[label] || 0) + Number(cnt);
     }
@@ -483,6 +553,8 @@ async function analyticsOverview(db: ReturnType<typeof createClient>) {
   // this cap is just a safety net against a runaway number of distinct labels.
   const topFeatures = Object.entries(eventTotals).sort((a, b) => b[1] - a[1]).slice(0, 60)
     .map(([event, count]) => ({ event, count }));
+  const aiUsageBreakdown = Object.entries(aiToolTotals).sort((a, b) => b[1] - a[1])
+    .map(([event, count]) => ({ event, count }));
 
   return {
     userCount: rows.length,
@@ -492,6 +564,7 @@ async function analyticsOverview(db: ReturnType<typeof createClient>) {
     totalMinutes,
     totalEvents,
     topFeatures,
+    aiUsageBreakdown,
     correlations: {
       sessionsVsResult: { points: sessionVsResult, r: pearson(sessionVsResult) },
       minutesVsResult: { points: minutesVsResult, r: pearson(minutesVsResult) },
