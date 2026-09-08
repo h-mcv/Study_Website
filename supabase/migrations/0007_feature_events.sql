@@ -26,6 +26,7 @@ create index if not exists feature_events_event_idx on public.feature_events (ev
 
 alter table public.feature_events enable row level security;
 
+drop policy if exists "insert own feature events" on public.feature_events;
 create policy "insert own feature events" on public.feature_events
   for insert with check (auth.uid() = user_id);
 
