@@ -3024,6 +3024,54 @@
             color: var(--muted);
             text-align: right;
         }
+        .chat-invite-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            background: var(--primary-soft);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            margin-bottom: 10px;
+        }
+        .chat-thread {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 50vh;
+            overflow-y: auto;
+            padding: 4px 2px;
+            margin-bottom: 12px;
+        }
+        .chat-message {
+            max-width: 78%;
+            background: var(--surface-2);
+            border-radius: 14px;
+            padding: 8px 12px;
+        }
+        .chat-message.mine {
+            align-self: flex-end;
+            background: var(--primary-soft);
+        }
+        .chat-message .chat-message-meta {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 2px;
+        }
+        .chat-composer {
+            display: flex;
+            gap: 8px;
+        }
+        .chat-composer input {
+            flex: 1;
+        }
+        .chat-search-results {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 10px;
+        }
         @media print {
             body * {
                 visibility: hidden;
@@ -3247,9 +3295,222 @@
             let adminAnalytics = null;
             let adminAnnouncements = null;  // list of ALL announcements (active or not), for the Announcements tab
             let adminNewAnnouncementKind = 'banner';
+            let adminChatrooms = null;   // [{id,name,isGlobal,members:[{name,email,joinedAt}],...}]
             let adminBusy = false;
             let adminError = '';
             function isAdminTokenValid() { return !!adminToken && Date.now() < adminTokenExpiresAt; }
+
+            // ------------------------------------------------------------------
+            // Chat Rooms. A normal nav page (only shown once signed in, since
+            // rooms/messages/invites all live server-side, nothing local-guest
+            // works here). Invites never go out by email -- they're just a row
+            // in chat_invites the invitee sees as a card on this page with
+            // Accept/Decline, and every "who invited me" name+email shown is
+            // forced server-side by a trigger (see migration 0009), never
+            // whatever the inviter's client happened to send. There's no
+            // Realtime anywhere in this app, so an open room's messages are
+            // polled on a short timer instead, same "fetch then render()" style
+            // as the rest of the app -- see chatStartPolling/chatStopPolling.
+            // ------------------------------------------------------------------
+            let chatRooms = null;          // [{id,name,is_global,...}] once loaded
+            let chatRoomsBusy = false;
+            let chatRoomsError = '';
+            let chatRoomsAttempted = false; // set on the first load attempt so a failed fetch doesn't retry on every render
+            let chatInvites = null;        // pending invites addressed to me
+            let chatActiveRoomId = null;   // null = room list, otherwise a room's detail view
+            let chatActiveRoom = null;     // the matching row from chatRooms, cached for the header
+            let chatMembers = null;
+            let chatMessages = null;
+            let chatMessagesBusy = false;
+            let chatPollTimer = null;
+            let chatInviteRoomId = null;   // room the "Invite someone" modal is open for
+            let chatInviteQuery = '';
+            let chatInviteResults = null;
+            let chatInviteBusy = false;
+            let chatInviteSearchTimer = null;
+            let chatNewRoomBusy = false;
+            let chatNewRoomError = '';
+
+            async function loadChatInvites() {
+                if (!currentUser) { chatInvites = null; return; }
+                const { data, error } = await supabaseClient.from('chat_invites')
+                    .select('id, room_id, room_name, inviter_name, inviter_email, created_at')
+                    .eq('invitee_id', currentUser.id).eq('status', 'pending')
+                    .order('created_at', { ascending: false });
+                chatInvites = error ? [] : data;
+                render();
+            }
+
+            // Deliberately no synchronous render() before the first await here --
+            // this is called lazily from inside renderChatRoomsPage() itself (mid
+            // render pass, see the busy-flag check there), same reason
+            // garminRefreshWatchStatus() waits until after its await to touch the
+            // DOM. Explicit reloads (e.g. after creating a room) just rely on the
+            // finally-block render() once data lands.
+            async function loadChatRooms() {
+                if (chatRoomsBusy) return;
+                chatRoomsBusy = true; chatRoomsError = ''; chatRoomsAttempted = true;
+                try {
+                    const { data, error } = await supabaseClient.from('chat_rooms')
+                        .select('id, name, is_global, created_at, created_by, created_by_name')
+                        .order('is_global', { ascending: false }).order('created_at', { ascending: true });
+                    if (error) throw error;
+                    chatRooms = data;
+                    if (chatActiveRoomId) chatActiveRoom = chatRooms.find(r => r.id === chatActiveRoomId) || null;
+                } catch (err) { chatRoomsError = err.message || 'Could not load chat rooms.'; }
+                finally { chatRoomsBusy = false; render(); }
+            }
+
+            async function chatOpenRoom(roomId) {
+                chatStopPolling();
+                chatActiveRoomId = roomId;
+                chatActiveRoom = (chatRooms || []).find(r => r.id === roomId) || null;
+                chatMessages = null; chatMembers = null;
+                render();
+                await Promise.all([chatLoadMessages(), chatLoadMembers()]);
+                const thread = document.getElementById('chat-thread');
+                if (thread) thread.scrollTop = thread.scrollHeight;
+                chatStartPolling();
+            }
+
+            function chatCloseRoom() {
+                chatStopPolling();
+                chatActiveRoomId = null; chatActiveRoom = null; chatMessages = null; chatMembers = null;
+                render();
+            }
+
+            function chatStartPolling() {
+                chatStopPolling();
+                chatPollTimer = setInterval(() => { if (chatActiveRoomId) chatLoadMessages(); }, 4000);
+            }
+            function chatStopPolling() { if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; } }
+
+            async function chatLoadMessages() {
+                if (!chatActiveRoomId) return;
+                const { data, error } = await supabaseClient.from('chat_messages')
+                    .select('id, user_id, author_name, body, created_at')
+                    .eq('room_id', chatActiveRoomId).order('created_at', { ascending: true }).limit(200);
+                if (!error) chatMessages = data;
+                render();
+            }
+
+            async function chatLoadMembers() {
+                if (!chatActiveRoomId) return;
+                if (chatActiveRoom && chatActiveRoom.is_global) { chatMembers = null; render(); return; }
+                const { data, error } = await supabaseClient.from('chat_room_members')
+                    .select('user_id, member_name, member_email, joined_at')
+                    .eq('room_id', chatActiveRoomId).order('joined_at', { ascending: true });
+                chatMembers = error ? [] : data;
+                render();
+            }
+
+            async function chatSendMessage() {
+                const input = document.getElementById('chat-message-input');
+                const body = (input?.value || '').trim();
+                if (!body || !chatActiveRoomId) return;
+                if (input) input.value = '';
+                const { error } = await supabaseClient.from('chat_messages')
+                    .insert({ room_id: chatActiveRoomId, body });
+                if (error) { toast(error.message || 'Could not send message.'); if (input) input.value = body; return; }
+                await chatLoadMessages();
+                document.getElementById('chat-message-input')?.focus();
+                const thread = document.getElementById('chat-thread');
+                if (thread) thread.scrollTop = thread.scrollHeight;
+            }
+
+            function chatOpenNewRoomModal() { chatNewRoomError = ''; openModal('chat-new-room'); }
+
+            async function chatCreateRoom() {
+                const nameInput = document.getElementById('chat-new-room-name');
+                const name = (nameInput?.value || '').trim();
+                if (!name) { chatNewRoomError = 'Enter a room name.'; renderModal(); return; }
+                chatNewRoomBusy = true; chatNewRoomError = ''; renderModal();
+                try {
+                    const { data, error } = await supabaseClient.rpc('create_chat_room', { p_name: name });
+                    if (error) throw error;
+                    closeModal();
+                    await loadChatRooms();
+                    chatOpenRoom(data.id);
+                    toast(`"${name}" created.`);
+                } catch (err) { chatNewRoomError = err.message || 'Could not create room.'; }
+                finally { chatNewRoomBusy = false; renderModal(); }
+            }
+
+            function chatOpenInviteModal(roomId) {
+                chatInviteRoomId = roomId; chatInviteQuery = ''; chatInviteResults = null; chatInviteBusy = false;
+                openModal('chat-invite');
+            }
+
+            // renderModal() replaces the whole modal body, which would otherwise
+            // drop focus/cursor position out of the search box on every keystroke
+            // -- same fix admin-user-filter's input listener applies, just shared
+            // here since both the immediate (<2 chars) and debounced-search paths
+            // need it.
+            function chatRerenderInviteModal() {
+                const before = document.getElementById('chat-invite-search');
+                const hadFocus = before && document.activeElement === before;
+                const pos = before ? before.selectionStart : null;
+                renderModal();
+                if (hadFocus) { const el = document.getElementById('chat-invite-search');
+                    if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } }
+            }
+
+            function chatInviteSearchInput(value) {
+                chatInviteQuery = value;
+                clearTimeout(chatInviteSearchTimer);
+                if (value.trim().length < 2) { chatInviteResults = null; chatRerenderInviteModal(); return; }
+                chatInviteSearchTimer = setTimeout(chatRunInviteSearch, 300);
+            }
+
+            async function chatRunInviteSearch() {
+                chatInviteBusy = true; chatRerenderInviteModal();
+                const { data, error } = await supabaseClient.rpc('chat_search_users', { p_query: chatInviteQuery.trim() });
+                chatInviteResults = error ? [] : data;
+                chatInviteBusy = false; chatRerenderInviteModal();
+            }
+
+            async function chatInviteUser(userId) {
+                if (!chatInviteRoomId) return;
+                const { error } = await supabaseClient.from('chat_invites')
+                    .insert({ room_id: chatInviteRoomId, invitee_id: userId });
+                if (error) {
+                    toast(/duplicate|unique/i.test(error.message) ? 'Already invited -- waiting on a response.' :
+                        (error.message || 'Could not send invite.'));
+                    return;
+                }
+                toast('Invite sent.');
+                closeModal();
+            }
+
+            async function chatAcceptInvite(inviteId) {
+                const { error } = await supabaseClient.rpc('accept_chat_invite', { p_invite_id: inviteId });
+                if (error) { toast(error.message || 'Could not accept invite.'); return; }
+                toast('Invite accepted.');
+                await loadChatInvites();
+                loadChatRooms();
+            }
+
+            async function chatDeclineInvite(inviteId) {
+                const { error } = await supabaseClient.from('chat_invites')
+                    .update({ status: 'declined', responded_at: new Date().toISOString() }).eq('id', inviteId);
+                if (error) { toast(error.message || 'Could not decline invite.'); return; }
+                loadChatInvites();
+            }
+
+            async function chatLeaveRoom(roomId) {
+                if (!confirm('Leave this chat room?')) return;
+                const { error } = await supabaseClient.from('chat_room_members').delete()
+                    .eq('room_id', roomId).eq('user_id', currentUser.id);
+                if (error) { toast(error.message || 'Could not leave room.'); return; }
+                chatCloseRoom();
+                loadChatRooms();
+            }
+
+            function chatFmtTime(iso) {
+                const d = new Date(iso);
+                return isNaN(d) ? '' : d.toLocaleString(undefined,
+                    { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            }
 
             // Fires on essentially every click that carries a data-action (see
             // the capturing listener near the end of this file), so the admin
@@ -3346,6 +3607,15 @@
                     adminBusy = false; adminError = err.message || 'Could not create the account.';
                     renderModal();
                 }
+            }
+
+            // Service-role reads only room/member rows -- never chat_messages, so
+            // message content never reaches here even in principle.
+            async function loadAdminChatrooms() {
+                adminView = 'chatrooms'; adminBusy = true; adminError = ''; render();
+                try { adminChatrooms = (await adminFetch('list-chatrooms')).rooms; }
+                catch (err) { adminError = err.message; }
+                finally { adminBusy = false; render(); }
             }
 
             async function adminSetPassword(userId) {
@@ -4073,8 +4343,9 @@
                 // once that's actually done, rather than here.
                 if (currentUser && !wasSignedIn) { if (landingScreen !== 'reset-password') showLanding = false;
                     loadCloudState(); // clears cloudResolutionPending itself once the fetch settles
-                    spotifySyncOnSignIn(); }
-                else if (!currentUser && wasSignedIn) render();
+                    spotifySyncOnSignIn();
+                    loadChatInvites(); }
+                else if (!currentUser && wasSignedIn) { chatInvites = null; render(); }
                 else if (!currentUser && !wasSignedIn) { cloudResolutionPending = false; // a cached session token
                     render(); } // turned out not to restore a real session — nothing left to wait for
             });
@@ -6021,7 +6292,7 @@
                 const shellClass = `app-shell sidebar-mode-${mode}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">✦</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}
+        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}${currentUser?navButton('chatrooms','💬','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
       </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search">🔍 <span>Search</span></button><button data-action="open-settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
             }
 
@@ -6146,7 +6417,7 @@
                 renderModal();
             }
 
-            function navButton(id, icon, label) { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}"><b>${icon}</b><span>${label}</span></button>`; }
+            function navButton(id, icon, label, badge = '') { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}"><b>${icon}</b><span>${label}</span>${badge}</button>`; }
 
             function header(title, description, tools = '') { return `<div class="page-header"><div><h1>${title}</h1><p class="muted">${description}</p></div><div class="toolbar">${tools}</div></div>`; }
 
@@ -8742,6 +9013,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                         '<div style="display:grid;place-items:center;min-height:70vh;color:var(--muted)">Loading your data…</div>';
                     return; }
                 aiChatWidgetEl.classList.remove('hidden');
+                if (view !== 'chatrooms' && chatPollTimer) chatStopPolling();
                 updateAiChatGateUI(); document.body.classList.toggle('dark', state.settings.theme === 'dark'); if (view ===
                     'dashboard') { renderDashboard(); } else if (view === 'tasks') { document.getElementById('app')
                     .innerHTML = renderTasks(); } else if (view === 'study') { document.getElementById('app')
@@ -8755,7 +9027,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     .innerHTML = renderInsightsPage();
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
-                    .innerHTML = renderTools(); } else if (view === 'admin') { document.getElementById('app')
+                    .innerHTML = renderTools(); } else if (view === 'chatrooms') { document.getElementById('app')
+                    .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
                     .innerHTML = renderAdminPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
                     requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (view === 'admin') return; if (
                     !state.settings.onboarded && !modal) openModal('onboarding');
@@ -8859,7 +9132,9 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     modal.kind === 'add-vocab') return layer.innerHTML = addVocabModal(modal.subjectId); if (
                     modal.kind === 'add-verb') return layer.innerHTML = addVerbModal(modal.subjectId); if (
                     modal.kind === 'essay-history') return layer.innerHTML = essayHistoryModal(modal.entryId); if (
-                    modal.kind === 'sophia-welcome') return layer.innerHTML = sophiaWelcomeModal(); }
+                    modal.kind === 'sophia-welcome') return layer.innerHTML = sophiaWelcomeModal(); if (
+                    modal.kind === 'chat-new-room') return layer.innerHTML = chatNewRoomModal(); if (
+                    modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); }
 
             function sophiaWelcomeModal() { return modalShell('✨ Sophia mode',
                     `<p>Welcome to Sophia mode!</p>`,
@@ -8876,6 +9151,102 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function infoBtn(topic, light) { return `<button class="button icon info-btn${light?' light':''}" data-action="show-info" data-topic="${topic}" aria-label="How this works" title="How this works">i</button>`; }
 
             function modalShell(title, body, foot = '', large = false, noClose = false) { return `<div class="modal ${large?'large':''}" role="dialog" aria-modal="true" aria-label="${escape(title)}"><div class="modal-head"><h2>${title}</h2>${noClose?'':'<button class="button icon" data-action="close-modal" aria-label="Close">×</button>'}</div><div class="modal-body">${body}</div>${foot?`<div class="modal-foot">${foot}</div>`:''}</div>`; }
+
+            function renderChatRoomsPage() {
+                if (chatRooms === null && !chatRoomsBusy && !chatRoomsAttempted) loadChatRooms();
+                if (chatInvites === null) loadChatInvites();
+                const body = chatActiveRoomId ? renderChatRoomDetail() : renderChatRoomsList();
+                const errorHtml = chatRoomsError ? `<p class="empty" style="color:var(--danger)">${escape(chatRoomsError)}
+                    <button class="button ghost" style="margin-left:8px" data-action="chat-retry-rooms">Retry</button></p>` : '';
+                return appFrame(`<div class="page">${header('Chat Rooms', "Chat with everyone, or create a room and invite people to it.",
+                    chatActiveRoomId ? '' : `<button class="button primary" data-action="chat-new-room">+ New room</button>`)}
+                    ${errorHtml}
+                    ${body}</div>`);
+            }
+
+            function renderChatRoomsList() {
+                const invitesHtml = (chatInvites && chatInvites.length) ? `<section class="card section">
+                        <h2>Invites waiting for you</h2>
+                        ${chatInvites.map(inv => `<div class="chat-invite-card">
+                            <div><strong>${escape(inv.room_name)}</strong><br>
+                                <span class="small">Invited by ${escape(inv.inviter_name)} (${escape(inv.inviter_email)}) · ${chatFmtTime(inv.created_at)}</span></div>
+                            <div class="row" style="gap:8px">
+                                <button class="button primary" data-action="chat-accept-invite" data-id="${inv.id}">Accept</button>
+                                <button class="button ghost" data-action="chat-decline-invite" data-id="${inv.id}">Decline</button>
+                            </div>
+                        </div>`).join('')}
+                    </section>` : '';
+
+                let roomsHtml;
+                if (chatRoomsBusy && !chatRooms) roomsHtml = '<p class="empty">Loading rooms…</p>';
+                else if (!chatRooms || !chatRooms.length) roomsHtml = '<p class="empty">No rooms yet.</p>';
+                else roomsHtml = `<div class="list">${chatRooms.map(r => `<div class="topic-row" style="cursor:pointer" data-action="chat-open-room" data-id="${r.id}">
+                        <span>${r.is_global ? '🌐' : '💬'} <strong>${escape(r.name)}</strong>${r.is_global ? ' <span class="pill neutral">Everyone</span>' : ''}</span>
+                        <span class="small">${r.is_global ? 'Built in' : `Created by ${escape(r.created_by_name || 'someone')}`}</span>
+                    </div>`).join('')}</div>`;
+
+                return `${invitesHtml}<section class="card section"><h2>Your rooms</h2>${roomsHtml}</section>`;
+            }
+
+            function renderChatRoomDetail() {
+                const room = chatActiveRoom;
+                const isGlobal = !!(room && room.is_global);
+                const isCreator = !!(room && currentUser && room.created_by === currentUser.id);
+                const back = `<button class="button ghost" data-action="chat-close-room" style="margin-bottom:14px">← All rooms</button>`;
+
+                const messagesHtml = !chatMessages ? '<p class="empty">Loading messages…</p>' :
+                    !chatMessages.length ? '<p class="empty">No messages yet — say hello.</p>' :
+                    chatMessages.map(m => `<div class="chat-message${currentUser && m.user_id === currentUser.id ? ' mine' : ''}">
+                        <div class="chat-message-meta">${escape(m.author_name)} · ${chatFmtTime(m.created_at)}</div>
+                        <div>${escape(m.body)}</div>
+                    </div>`).join('');
+
+                const membersHtml = isGlobal ? `<p class="small">Everyone at Simple Study is in this room.</p>` :
+                    !chatMembers ? '<p class="empty">Loading members…</p>' :
+                    `<div class="list">${chatMembers.map(m => `<div class="topic-row"><span>${escape(m.member_name)}</span><span class="small">${escape(m.member_email)}</span></div>`).join('')}</div>`;
+
+                const roomActions = isGlobal ? '' : `<div class="row" style="gap:8px;margin-top:10px">
+                        <button class="button" data-action="chat-invite-someone" data-id="${room.id}">+ Invite someone</button>
+                        ${!isCreator ? `<button class="button ghost" data-action="chat-leave-room" data-id="${room.id}">Leave room</button>` : ''}
+                    </div>`;
+
+                return `${back}
+                <div class="card section">
+                    <h2 style="margin:0 0 10px">${isGlobal ? '🌐' : '💬'} ${escape(room ? room.name : '')}</h2>
+                    <div class="chat-thread" id="chat-thread">${messagesHtml}</div>
+                    <div class="chat-composer">
+                        <input type="text" id="chat-message-input" placeholder="Message…" maxlength="4000">
+                        <button class="button primary" data-action="chat-send-message">Send</button>
+                    </div>
+                </div>
+                <div class="card section">
+                    <h2>Members</h2>
+                    ${membersHtml}
+                    ${roomActions}
+                </div>`;
+            }
+
+            function chatNewRoomModal() {
+                return modalShell('New chat room',
+                    `<div class="field"><label for="chat-new-room-name">Room name</label><input id="chat-new-room-name" placeholder="e.g. Maths study group" maxlength="60" autofocus></div>
+                     ${chatNewRoomError ? `<p class="empty" style="color:var(--danger)">${escape(chatNewRoomError)}</p>` : ''}`,
+                    `<button class="button ghost" data-action="close-modal">Cancel</button><button class="button primary" data-action="chat-create-room-submit" ${chatNewRoomBusy?'disabled':''}>${chatNewRoomBusy?'Creating…':'Create'}</button>`);
+            }
+
+            function chatInviteModal(roomId) {
+                const room = (chatRooms || []).find(r => r.id === roomId);
+                const resultsHtml = chatInviteBusy ? '<p class="empty">Searching…</p>' :
+                    chatInviteResults === null ? '<p class="small">Type at least 2 characters of a name or email.</p>' :
+                    !chatInviteResults.length ? '<p class="empty">No matches.</p>' :
+                    `<div class="chat-search-results">${chatInviteResults.map(u => `<div class="topic-row">
+                        <span><strong>${escape(u.name)}</strong><br><span class="small">${escape(u.email)}</span></span>
+                        <button class="button primary" data-action="chat-invite-user" data-id="${u.user_id}">Invite</button>
+                    </div>`).join('')}</div>`;
+                return modalShell(`Invite someone${room ? ` to "${escape(room.name)}"` : ''}`,
+                    `<div class="field"><label for="chat-invite-search">Full name or email</label><input id="chat-invite-search" placeholder="e.g. Bob Smith or bob@example.com" value="${escape(chatInviteQuery)}" autofocus></div>
+                     ${resultsHtml}`,
+                    `<button class="button ghost" data-action="close-modal">Close</button>`);
+            }
 
             function adminUnlockModal() {
                 return modalShell('Admin Mode',
@@ -8915,6 +9286,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function renderAdminPage() {
                 const body = adminView === 'analytics' ? renderAdminAnalytics()
                     : adminView === 'announcements' ? renderAdminAnnouncements()
+                    : adminView === 'chatrooms' ? renderAdminChatrooms()
                     : adminView === 'user-detail' ? renderAdminUserDetail()
                     : renderAdminUsersList();
                 return `<div class="admin-page">
@@ -8926,6 +9298,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                         <button class="button ${adminView==='users'||adminView==='user-detail'?'primary':'ghost'}" data-action="admin-tab-users">Users</button>
                         <button class="button ${adminView==='analytics'?'primary':'ghost'}" data-action="admin-tab-analytics">Analytics</button>
                         <button class="button ${adminView==='announcements'?'primary':'ghost'}" data-action="admin-tab-announcements">Announcements</button>
+                        <button class="button ${adminView==='chatrooms'?'primary':'ghost'}" data-action="admin-tab-chatrooms">Chat Rooms</button>
                     </div>
                     ${adminError?`<p class="empty" style="color:var(--danger)">${escape(adminError)}</p>`:''}
                     ${body}
@@ -9081,6 +9454,21 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     '<p class="empty">No announcements yet.</p>';
 
                 return `${composer}<div class="card section"><h2>All announcements</h2>${list}</div>`;
+            }
+
+            function renderAdminChatrooms() {
+                if (adminBusy && !adminChatrooms) return '<p class="empty">Loading chat rooms…</p>';
+                if (!adminChatrooms) return '<p class="empty">Could not load chat rooms.</p>';
+                if (!adminChatrooms.length) return '<p class="empty">No chat rooms yet.</p>';
+                const room = (r) => `<div class="card section">
+                    <h2 style="margin:0 0 4px">${r.isGlobal ? '🌐' : '💬'} ${escape(r.name)}${r.isGlobal ? ' <span class="pill neutral">Everyone</span>' : ''}</h2>
+                    <p class="small" style="margin:0 0 10px">${r.isGlobal ? 'Built-in room — every account is implicitly a member.' :
+                        `Created by ${escape(r.createdByName || 'unknown')} (${escape(r.createdByEmail || 'unknown')}) · ${adminFmtDateTime(r.createdAt)}`}</p>
+                    ${r.isGlobal ? '' : (r.members.length ?
+                        `<div class="list">${r.members.map(m => `<div class="topic-row"><span>${escape(m.name)}</span><span class="small">${escape(m.email)} · joined ${adminFmtDate(m.joinedAt)}</span></div>`).join('')}</div>` :
+                        '<p class="empty">No members.</p>')}
+                </div>`;
+                return adminChatrooms.map(room).join('');
             }
 
             function finishOnboarding() { state.settings.onboarded = true;
@@ -12362,6 +12750,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'admin-delete-announcement') adminDeleteAnnouncement(Number(b.dataset.id));
                 else if (a === 'admin-new-user') { adminError = ''; openModal('admin-create-user'); }
                 else if (a === 'admin-create-user-submit') adminCreateUser();
+                else if (a === 'admin-tab-chatrooms') loadAdminChatrooms();
                 else if (a === 'admin-open-user') loadAdminUserDetail(b.dataset.id);
                 else if (a === 'admin-set-password') adminSetPassword(b.dataset.id);
                 else if (a === 'admin-send-reset') adminSendReset(b.dataset.id, b.dataset.email);
@@ -12385,6 +12774,27 @@ If the user asks about how to study or study methods generally, answer from your
                     render();
                     const input = document.getElementById('admin-user-filter');
                     if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) {} } } });
+
+            document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
+                const a = b.dataset.action;
+                if (a === 'chat-retry-rooms') { chatRoomsAttempted = false; loadChatRooms(); }
+                else if (a === 'chat-new-room') chatOpenNewRoomModal();
+                else if (a === 'chat-create-room-submit') chatCreateRoom();
+                else if (a === 'chat-open-room') chatOpenRoom(b.dataset.id);
+                else if (a === 'chat-close-room') chatCloseRoom();
+                else if (a === 'chat-send-message') chatSendMessage();
+                else if (a === 'chat-invite-someone') chatOpenInviteModal(b.dataset.id);
+                else if (a === 'chat-invite-user') chatInviteUser(b.dataset.id);
+                else if (a === 'chat-accept-invite') chatAcceptInvite(b.dataset.id);
+                else if (a === 'chat-decline-invite') chatDeclineInvite(b.dataset.id);
+                else if (a === 'chat-leave-room') chatLeaveRoom(b.dataset.id); });
+
+            document.addEventListener('keydown', e => { if (e.target && e.target.id === 'chat-message-input' &&
+                    e.key === 'Enter') chatSendMessage();
+                else if (e.target && e.target.id === 'chat-new-room-name' && e.key === 'Enter') chatCreateRoom(); });
+
+            document.addEventListener('input', e => { if (e.target.id === 'chat-invite-search')
+                    chatInviteSearchInput(e.target.value); });
 
             render();
             handleSpotifyCallback();
