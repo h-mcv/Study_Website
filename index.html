@@ -3318,6 +3318,23 @@
                 finally { adminBusy = false; render(); requestAnimationFrame(drawAdminAnalyticsCharts); }
             }
 
+            async function adminCreateUser() {
+                const email = document.getElementById('admin-new-user-email')?.value.trim() || '';
+                const pw = document.getElementById('admin-new-user-password')?.value || '';
+                if (!email || !pw) { adminError = 'Enter an email and password.'; renderModal(); return; }
+                adminBusy = true; adminError = ''; renderModal();
+                try {
+                    await adminFetch('create-user', { email, password: pw });
+                    adminBusy = false;
+                    closeModal();
+                    toast(`Account created for ${email}.`);
+                    loadAdminUsers();
+                } catch (err) {
+                    adminBusy = false; adminError = err.message || 'Could not create the account.';
+                    renderModal();
+                }
+            }
+
             async function adminSetPassword(userId) {
                 const pw = document.getElementById('admin-new-password')?.value || '';
                 if (pw.length < 8) { toast('Password must be at least 8 characters.'); return; }
@@ -8758,6 +8775,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     modal.kind === 'exam-task-form') return layer.innerHTML = examTaskFormModal(modal.taskId); if (
                     modal.kind === 'search') return layer.innerHTML = searchModal(); if (
                     modal.kind === 'admin-unlock') return layer.innerHTML = adminUnlockModal(); if (
+                    modal.kind === 'admin-create-user') return layer.innerHTML = adminCreateUserModal(); if (
                     modal.kind === 'print-choice') return layer.innerHTML = printChoiceModal(); if (
                     modal.kind === 'self-study-plan') return layer.innerHTML = selfStudyPlanSummaryModal(modal
                     .summary); if (
@@ -8800,6 +8818,18 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     false);
             }
 
+            function adminCreateUserModal() {
+                return modalShell('New user',
+                    `<div class="form-grid">
+                        <div class="field span-2"><label for="admin-new-user-email">Email</label><input type="email" id="admin-new-user-email" autocomplete="off" placeholder="name@example.com"></div>
+                        <div class="field span-2"><label for="admin-new-user-password">Password</label><input type="password" id="admin-new-user-password" autocomplete="off" placeholder="At least 8 characters"></div>
+                     </div>
+                     <p class="small">Creates the account immediately with this password — no confirmation email, same as setting it up in Supabase directly.</p>
+                     ${adminError?`<p class="empty" style="color:var(--danger)">${escape(adminError)}</p>`:''}`,
+                    `<button class="button" data-action="close-modal">Cancel</button><button class="button primary" data-action="admin-create-user-submit" ${adminBusy?'disabled':''}>${adminBusy?'Creating…':'Create user'}</button>`,
+                    false);
+            }
+
             // ------------------------------------------------------------------
             // Admin dashboard. A separate top-level `view` (not a modal, not
             // wrapped in the normal sidebar appFrame()) so it reads unmistakably
@@ -8838,7 +8868,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                         <span><strong>${escape(u.email)}</strong>${u.bannedUntil?' <span class="pill bad">Suspended</span>':''}<br><span class="small">Joined ${adminFmtDate(u.createdAt)} · ${escape(u.provider)}</span></span>
                         <span class="small" style="text-align:right">${m.sessionCount||0} session${(m.sessionCount||0)===1?'':'s'} · ${((m.totalMinutes||0)/60).toFixed(1)}h logged<br>${typeof m.avgResultPct==='number'?`avg ${Math.round(m.avgResultPct)}%`:'no results yet'} · ${m.eventTotal||0} actions${lastActive?` · active ${adminFmtDate(lastActive)}`:''}</span>
                     </div>`; };
-                return `<input type="text" id="admin-user-filter" value="${escape(adminUserFilter)}" placeholder="Search by email…" style="width:100%;margin-bottom:12px">
+                return `<div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" id="admin-user-filter" value="${escape(adminUserFilter)}" placeholder="Search by email…" style="flex:1"><button class="button primary" data-action="admin-new-user">+ New user</button></div>
                     <div class="list">${rows.length?rows.map(row).join(''):'<p class="empty">No users match.</p>'}</div>
                     <p class="small" style="margin-top:10px">${rows.length} of ${adminUsers.length} user${adminUsers.length===1?'':'s'}.</p>`;
             }
@@ -10651,6 +10681,10 @@ If the user asks about how to study or study methods generally, answer from your
             }
 
             async function processUserPrompt(userInput, loadingElement, image) {
+                // Doesn't go through the data-action click dispatcher (the send button has its own
+                // direct listener), so it needs its own explicit log -- see the capture-phase
+                // listener near the end of this file for every action-driven feature.
+                logFeatureEvent('ai_study_assistant_chat');
                 const parts = [];
                 if (image) {
                     parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
@@ -12180,9 +12214,19 @@ If the user asks about how to study or study methods generally, answer from your
             // Capture phase (not bubble): runs before any handler further down the tree can
             // call stopPropagation() on the click (two spots do, for nested delete buttons),
             // so this still sees every data-action click regardless. Logs the action name only
-            // -- no titles, ids, or free text -- see logFeatureEvent().
+            // -- no titles, ids, or free text -- see logFeatureEvent(). A couple of generic,
+            // multi-purpose actions ('view', 'tools-open') carry the real feature in a sibling
+            // data-* attribute rather than the action name itself, so those are folded into the
+            // logged event ("view:tasks", "tools-open:formulas") -- see admin-api's FEATURE_LABELS,
+            // which maps these composite strings to plain-English names for the Analytics tab.
+            // admin-* actions are this account's own admin-mode usage, not a student using a
+            // feature, so they're excluded entirely rather than polluting that data.
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]');
-                if (b && b.dataset.action) logFeatureEvent(b.dataset.action); }, true);
+                if (!b || !b.dataset.action || b.dataset.action.startsWith('admin-')) return;
+                let event = b.dataset.action;
+                if (event === 'view' && b.dataset.view) event = `view:${b.dataset.view}`;
+                else if (event === 'tools-open' && b.dataset.tool) event = `tools-open:${b.dataset.tool}`;
+                logFeatureEvent(event); }, true);
 
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
                 const a = b.dataset.action;
@@ -12192,6 +12236,8 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'admin-exit') exitAdminMode();
                 else if (a === 'admin-tab-users') { adminView = 'users'; render(); if (!adminUsers) loadAdminUsers(); }
                 else if (a === 'admin-tab-analytics') loadAdminAnalytics();
+                else if (a === 'admin-new-user') { adminError = ''; openModal('admin-create-user'); }
+                else if (a === 'admin-create-user-submit') adminCreateUser();
                 else if (a === 'admin-open-user') loadAdminUserDetail(b.dataset.id);
                 else if (a === 'admin-set-password') adminSetPassword(b.dataset.id);
                 else if (a === 'admin-send-reset') adminSendReset(b.dataset.id, b.dataset.email);
@@ -12203,7 +12249,9 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'admin-export-csv') adminExportCsv(); });
 
             document.addEventListener('keydown', e => { if (e.target && e.target.id === 'admin-password-input' &&
-                    e.key === 'Enter') adminUnlock(); });
+                    e.key === 'Enter') adminUnlock();
+                else if (e.target && (e.target.id === 'admin-new-user-email' || e.target.id === 'admin-new-user-password') &&
+                    e.key === 'Enter') adminCreateUser(); });
 
             document.addEventListener('input', e => { if (e.target.id === 'admin-user-filter') {
                     adminUserFilter = e.target.value;
