@@ -8,7 +8,7 @@
         default-src 'self';
         script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://eu.i.posthog.com https://eu-assets.i.posthog.com https://js-de.sentry-cdn.com https://sdk.scdn.co;
         style-src 'self' 'unsafe-inline';
-        img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com;
+        img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com https://rlwfxvnwekkyfslxltus.supabase.co;
         font-src 'self' data:;
         connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com;
         frame-src 'self' https://sdk.scdn.co;
@@ -3201,6 +3201,29 @@
         .chat-composer input {
             flex: 1;
         }
+        .chat-message-image {
+            display: block;
+            max-width: 100%;
+            max-height: 260px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .chat-message-image-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 160px;
+            height: 100px;
+            border-radius: 10px;
+            background: var(--surface);
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .chat-room-tabs {
+            display: flex;
+            gap: 8px;
+            margin: 10px 0 14px;
+        }
         .chat-search-results {
             display: flex;
             flex-direction: column;
@@ -3471,6 +3494,9 @@
             let chatInviteSearchTimer = null;
             let chatNewRoomBusy = false;
             let chatNewRoomError = '';
+            let chatRoomTab = 'chat';      // 'chat' | 'settings' -- which panel is showing inside an open room
+            let chatImageUploadBusy = false;
+            let chatImageUrlCache = {};    // image_path -> signed URL, resolved lazily as messages carrying one are seen
 
             async function loadChatInvites() {
                 if (!currentUser) { chatInvites = null; return; }
@@ -3506,7 +3532,7 @@
                 chatStopPolling();
                 chatActiveRoomId = roomId;
                 chatActiveRoom = (chatRooms || []).find(r => r.id === roomId) || null;
-                chatMessages = null; chatMembers = null;
+                chatMessages = null; chatMembers = null; chatRoomTab = 'chat';
                 render();
                 await Promise.all([chatLoadMessages(), chatLoadMembers()]);
                 const thread = document.getElementById('chat-thread');
@@ -3529,10 +3555,27 @@
             async function chatLoadMessages() {
                 if (!chatActiveRoomId) return;
                 const { data, error } = await supabaseClient.from('chat_messages')
-                    .select('id, user_id, author_name, body, created_at')
+                    .select('id, user_id, author_name, body, image_path, created_at')
                     .eq('room_id', chatActiveRoomId).order('created_at', { ascending: true }).limit(200);
                 if (!error) chatMessages = data;
+                await chatResolveImageUrls();
                 chatRerenderRoomPreservingState();
+            }
+
+            // Chat images live in a private bucket (see migration 0012), so
+            // there's no public URL to just read off the row -- each image_path
+            // needs a signed URL minted per session. Cached by path so an image
+            // already resolved isn't re-signed on every 4s poll tick; a signed
+            // URL is good for an hour, which is fine for a room realistically
+            // kept open that long -- reopening the room re-resolves it anyway.
+            async function chatResolveImageUrls() {
+                if (!chatMessages) return;
+                const paths = [...new Set(chatMessages.filter(m => m.image_path && !chatImageUrlCache[m.image_path])
+                    .map(m => m.image_path))];
+                if (!paths.length) return;
+                const { data, error } = await supabaseClient.storage.from('chat-images').createSignedUrls(paths, 3600);
+                if (error || !data) return;
+                for (const row of data) { if (row.signedUrl) chatImageUrlCache[row.path] = row.signedUrl; }
             }
 
             // render() rebuilds the whole #app innerHTML, which would otherwise reset
@@ -3586,6 +3629,43 @@
                 document.getElementById('chat-message-input')?.focus();
                 const thread = document.getElementById('chat-thread');
                 if (thread) thread.scrollTop = thread.scrollHeight;
+            }
+
+            function chatAttachImage() { document.getElementById('chat-image-input')?.click(); }
+
+            const CHAT_IMAGE_MAX_BYTES = 8 * 1024 * 1024; // matches the chat-images bucket's file_size_limit (0012)
+
+            // Any caption typed into the composer at the moment an image is picked
+            // rides along as that message's body, then the composer is cleared --
+            // mirrors how the AI chat widget's photo attach works (pendingImage),
+            // just sent immediately rather than staged, since a chat message (unlike
+            // an AI prompt) doesn't need a separate "send" step once the file's
+            // already chosen.
+            async function chatImageFileChanged(file) {
+                if (!file || !chatActiveRoomId) return;
+                if (!file.type.startsWith('image/')) { toast('Please choose an image file.'); return; }
+                if (file.size > CHAT_IMAGE_MAX_BYTES) { toast('That image is too large (max 8MB).'); return; }
+                const input = document.getElementById('chat-message-input');
+                const caption = (input?.value || '').trim();
+                const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+                const path = `${chatActiveRoomId}/${uid()}.${ext}`;
+                chatImageUploadBusy = true; chatRerenderRoomPreservingState();
+                try {
+                    const { error: uploadError } = await supabaseClient.storage.from('chat-images')
+                        .upload(path, file, { contentType: file.type });
+                    if (uploadError) throw uploadError;
+                    const { error: insertError } = await supabaseClient.from('chat_messages')
+                        .insert({ room_id: chatActiveRoomId, body: caption || null, image_path: path });
+                    if (insertError) throw insertError;
+                    if (input) input.value = '';
+                    await chatLoadMessages();
+                    const thread = document.getElementById('chat-thread');
+                    if (thread) thread.scrollTop = thread.scrollHeight;
+                } catch (err) {
+                    toast(err.message || 'Could not send that image.');
+                } finally {
+                    chatImageUploadBusy = false; chatRerenderRoomPreservingState();
+                }
             }
 
             function chatOpenNewRoomModal() { chatNewRoomError = ''; openModal('chat-new-room'); }
@@ -9820,16 +9900,50 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
 
             function renderChatRoomDetail() {
                 const room = chatActiveRoom;
-                const isGlobal = !!(room && room.is_global);
-                const isCreator = !!(room && currentUser && room.created_by === currentUser.id);
                 const back = `<button class="button ghost" data-action="chat-close-room" style="margin-bottom:14px">← All rooms</button>`;
+                const tabs = `<div class="chat-room-tabs">
+                        <button class="button ${chatRoomTab!=='settings'?'primary':'ghost'}" data-action="chat-room-tab" data-tab="chat">💬 Chat</button>
+                        <button class="button ${chatRoomTab==='settings'?'primary':'ghost'}" data-action="chat-room-tab" data-tab="settings">⚙ Settings</button>
+                    </div>`;
+                const body = chatRoomTab === 'settings' ? renderChatRoomSettingsTab(room) : renderChatRoomChatTab();
 
+                return `${back}
+                <div class="card section">
+                    <h2 style="margin:0">${room && room.is_global ? '🌐' : '💬'} ${escape(room ? room.name : '')}</h2>
+                    ${tabs}
+                    ${body}
+                </div>`;
+            }
+
+            function chatMessageImageHtml(m) {
+                const url = chatImageUrlCache[m.image_path];
+                return url ?
+                    `<a href="${escape(url)}" target="_blank" rel="noopener"><img class="chat-message-image" src="${escape(url)}" alt="Shared image" loading="lazy"></a>` :
+                    `<div class="chat-message-image-loading">Loading image…</div>`;
+            }
+
+            function renderChatRoomChatTab() {
                 const messagesHtml = !chatMessages ? '<p class="empty">Loading messages…</p>' :
                     !chatMessages.length ? '<p class="empty">No messages yet — say hello.</p>' :
                     chatMessages.map(m => `<div class="chat-message${currentUser && m.user_id === currentUser.id ? ' mine' : ''}">
                         <div class="chat-message-meta">${escape(m.author_name)} · ${chatFmtTime(m.created_at)}</div>
-                        <div>${escape(m.body)}</div>
+                        ${m.image_path ? chatMessageImageHtml(m) : ''}
+                        ${m.body ? `<div${m.image_path?' style="margin-top:6px"':''}>${escape(m.body)}</div>` : ''}
                     </div>`).join('');
+
+                return `<div class="chat-thread" id="chat-thread">${messagesHtml}</div>
+                    ${chatImageUploadBusy ? '<p class="small">Sending image…</p>' : ''}
+                    <div class="chat-composer">
+                        <button class="button icon" data-action="chat-attach-image" title="Attach an image" ${chatImageUploadBusy?'disabled':''}>📎</button>
+                        <input type="file" id="chat-image-input" accept="image/*" class="hidden">
+                        <input type="text" id="chat-message-input" placeholder="Message…" maxlength="4000">
+                        <button class="button primary" data-action="chat-send-message" ${chatImageUploadBusy?'disabled':''}>Send</button>
+                    </div>`;
+            }
+
+            function renderChatRoomSettingsTab(room) {
+                const isGlobal = !!(room && room.is_global);
+                const isCreator = !!(room && currentUser && room.created_by === currentUser.id);
 
                 const membersHtml = isGlobal ? `<p class="small">Everyone at Simple Study is in this room.</p>` :
                     !chatMembers ? '<p class="empty">Loading members…</p>' :
@@ -9840,20 +9954,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         ${!isCreator ? `<button class="button ghost" data-action="chat-leave-room" data-id="${room.id}">Leave room</button>` : ''}
                     </div>`;
 
-                return `${back}
-                <div class="card section">
-                    <h2 style="margin:0 0 10px">${isGlobal ? '🌐' : '💬'} ${escape(room ? room.name : '')}</h2>
-                    <div class="chat-thread" id="chat-thread">${messagesHtml}</div>
-                    <div class="chat-composer">
-                        <input type="text" id="chat-message-input" placeholder="Message…" maxlength="4000">
-                        <button class="button primary" data-action="chat-send-message">Send</button>
-                    </div>
-                </div>
-                <div class="card section">
-                    <h2>Members</h2>
-                    ${membersHtml}
-                    ${roomActions}
-                </div>`;
+                return `<h3>Members</h3>${membersHtml}${roomActions}`;
             }
 
             function chatNewRoomModal() {
@@ -13462,11 +13563,23 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'chat-invite-user') chatInviteUser(b.dataset.id);
                 else if (a === 'chat-accept-invite') chatAcceptInvite(b.dataset.id);
                 else if (a === 'chat-decline-invite') chatDeclineInvite(b.dataset.id);
-                else if (a === 'chat-leave-room') chatLeaveRoom(b.dataset.id); });
+                else if (a === 'chat-leave-room') chatLeaveRoom(b.dataset.id);
+                else if (a === 'chat-room-tab') { chatRoomTab = b.dataset.tab; render(); }
+                else if (a === 'chat-attach-image') chatAttachImage(); });
 
             document.addEventListener('keydown', e => { if (e.target && e.target.id === 'chat-message-input' &&
                     e.key === 'Enter') chatSendMessage();
                 else if (e.target && e.target.id === 'chat-new-room-name' && e.key === 'Enter') chatCreateRoom(); });
+
+            // The chat image input lives inside dynamically re-rendered room HTML
+            // (replaced on every render()), so a directly-attached listener like
+            // ai-chat-file's would stop working after the first re-render -- this
+            // delegates on document instead, same as the admin-user-filter/
+            // chat-invite-search 'input' listeners below.
+            document.addEventListener('change', e => { if (e.target.id === 'chat-image-input') {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) chatImageFileChanged(file); } });
 
             document.addEventListener('input', e => { if (e.target.id === 'chat-invite-search')
                     chatInviteSearchInput(e.target.value); });
