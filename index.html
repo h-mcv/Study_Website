@@ -3280,6 +3280,25 @@
                 margin-bottom: 16px;
             }
         }
+        .period-grid-scroll { overflow-x: auto; }
+        .period-grid { width: 100%; border-collapse: collapse; }
+        .period-grid th { padding: 6px; font-size: 12px; color: var(--muted); text-align: center; }
+        .period-row-label { padding: 6px 12px; font-size: 12px; font-weight: 700; white-space: nowrap; display: flex; flex-direction: column; }
+        .period-row-label .small { font-weight: 400; color: var(--muted); }
+        .period-static-row td { background: var(--surface-2); }
+        .period-static-cell { height: 20px; }
+        .period-missing-cell { text-align: center; color: var(--muted); }
+        .period-cell { border: 1.5px dashed var(--line); border-radius: 8px; min-width: 92px; height: 50px; text-align: center; vertical-align: middle; font-size: 12px; font-weight: 700; cursor: pointer; padding: 4px; }
+        .period-cell.empty:hover { background: var(--surface-2); }
+        .period-cell.filled { border-style: solid; background: color-mix(in srgb, var(--chip-color) 18%, transparent); color: var(--chip-color); border-color: var(--chip-color); }
+        .period-class-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .period-class-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); font-size: 12px; font-weight: 700; color: var(--text); }
+        .period-class-chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--chip-color, var(--muted)); display: inline-block; }
+        .period-class-chip.selected { border-color: var(--chip-color, var(--primary)); background: color-mix(in srgb, var(--chip-color, var(--primary)) 15%, transparent); }
+        .period-class-chip.eraser { color: var(--danger); }
+        .period-class-chip.eraser.selected { border-color: var(--danger); background: var(--danger-soft); }
+        .preset-event-row { padding: 10px 0; border-top: 1px solid var(--line); }
+        .preset-event-row:first-of-type { border-top: none; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script>
@@ -3519,13 +3538,28 @@
                 chatRoomsBusy = true; chatRoomsError = ''; chatRoomsAttempted = true;
                 try {
                     const { data, error } = await supabaseClient.from('chat_rooms')
-                        .select('id, name, is_global, created_at, created_by, created_by_name')
+                        .select('id, name, is_global, auto_key, created_at, created_by, created_by_name')
                         .order('is_global', { ascending: false }).order('created_at', { ascending: true });
                     if (error) throw error;
                     chatRooms = data;
                     if (chatActiveRoomId) chatActiveRoom = chatRooms.find(r => r.id === chatActiveRoomId) || null;
                 } catch (err) { chatRoomsError = err.message || 'Could not load chat rooms.'; }
                 finally { chatRoomsBusy = false; render(); }
+            }
+
+            let gradRoomEnsureAttempted = false; // at most once per session -- a failure isn't worth retrying on every render
+            // Finds/creates this user's school+graduation-year chat room and joins it (see migration 0013).
+            // Called once after onboarding finishes, and opportunistically from the Chat Rooms page for
+            // existing users who set their school before this feature existed.
+            async function ensureGradYearRoom() {
+                if (gradRoomEnsureAttempted || !currentUser) return;
+                const { schoolId, schoolName, graduationYear } = state.settings;
+                if (!schoolId || schoolId === 'other' || !graduationYear) return;
+                gradRoomEnsureAttempted = true;
+                const { error } = await supabaseClient.rpc('ensure_school_year_room',
+                    { p_school_id: schoolId, p_school_name: schoolName || (schoolById(schoolId)?.name || ''),
+                        p_graduation_year: graduationYear });
+                if (!error) loadChatRooms();
             }
 
             async function chatOpenRoom(roomId) {
@@ -5180,6 +5214,7 @@
                     theme: 'light', onboarded: false, sidebarMode: 'hover', studyEngineDisabled: false,
                     notificationsEnabled: false, tourVersion: 0, tourBannerDismissedVersion: 0,
                     dyslexiaMode: false, cabbageCount: 0,
+                    schoolId: '', schoolName: '', graduationYear: null, periodAssignments: {},
                     studyPreferences: { intensity: '', pointsTarget: '', timeOfDay: '', weekendBalance: '',
                         sessionLength: '', temporaryBoostUntil: '', notes: '' } },
                 subjects: [],
@@ -5322,6 +5357,72 @@
                 return years; }
 
             const YEAR_GROUPS = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
+
+            // Graduation year is fixed the moment a year group is first confirmed (onboarding, or a school
+            // change later) rather than recomputed on every render -- that's what lets two students who joined
+            // the same year group in different calendar years still land in the same graduation-year chat room,
+            // and keeps a student's room stable across the yearly rollover (yearRolloverModal only ever advances
+            // yearGroup, never touches graduationYear).
+            function computeGraduationYear(yearGroup, fromCalendarYear) { const n = YEAR_GROUPS.indexOf(yearGroup);
+                if (n === -1) return null;
+                return (fromCalendarYear || new Date().getFullYear()) + (7 - (n + 1)); }
+
+            // Hardcoded per-school presets, offered at signup so a student doesn't have to hand-build a period
+            // timetable and their school's supervised-study/activity blocks from scratch. A school with a
+            // `periods` schedule gets the period-picker builder (see periodBuilderPage); one without (or "Other")
+            // just falls through to the normal free-form timetable builder.
+            function schoolPeriod(id, label, kind, start, end) { return { id, label, kind, start, end }; }
+
+            const ST_ANDREWS_FULL_DAY = [
+                schoolPeriod('reg', 'Reg', 'reg', '08:45', '08:55'),
+                schoolPeriod('p1', 'Period 1', 'period', '08:55', '09:35'),
+                schoolPeriod('p2', 'Period 2', 'period', '09:35', '10:15'),
+                schoolPeriod('p3', 'Period 3', 'period', '10:15', '10:55'),
+                schoolPeriod('p4', 'Period 4', 'period', '10:55', '11:35'),
+                schoolPeriod('break', 'Break', 'break', '11:35', '11:55'),
+                schoolPeriod('p5', 'Period 5', 'period', '11:55', '12:35'),
+                schoolPeriod('p6', 'Period 6', 'period', '12:35', '13:15'),
+                schoolPeriod('lunch', 'Lunch', 'lunch', '13:15', '13:55'),
+                schoolPeriod('p7', 'Period 7', 'period', '13:55', '14:35'),
+                schoolPeriod('p8', 'Period 8', 'period', '14:35', '15:15'),
+                schoolPeriod('p9', 'Period 9', 'period', '15:15', '15:55'),
+            ];
+            // Wednesdays stop after period 6 -- no lunch, no periods 7-9.
+            const ST_ANDREWS_WEDNESDAY = ST_ANDREWS_FULL_DAY.slice(0, 8);
+
+            const SCHOOLS = [
+                {
+                    id: 'st-andrews-college', name: "St Andrew's College",
+                    // Keyed by the Mon=0..Fri=4 day index used throughout (DAY_NAMES / slot.days).
+                    periods: { 0: ST_ANDREWS_FULL_DAY, 1: ST_ANDREWS_FULL_DAY, 2: ST_ANDREWS_WEDNESDAY,
+                        3: ST_ANDREWS_FULL_DAY, 4: ST_ANDREWS_FULL_DAY },
+                    presetEvents: [
+                        { id: 'evening-study', name: 'Evening Study', type: 'study', studyKind: 'supervised',
+                            years: ['3rd', '5th', '6th'],
+                            slots: [{ days: [0, 1, 3], start: '16:15', end: '17:30' },
+                                { days: [4], start: '16:15', end: '19:00' }],
+                            details: 'In-school supervised study.' },
+                        { id: 'school-dinner', name: 'School Dinner', type: 'meal', years: ['3rd', '5th', '6th'],
+                            slots: [{ days: [0, 1, 3], start: '17:30', end: '18:15' }] },
+                        { id: 'late-study-3rd', name: 'Late Study', type: 'study', studyKind: 'supervised',
+                            years: ['3rd'], slots: [{ days: [0, 1, 3], start: '18:15', end: '19:45' }],
+                            details: 'In-school supervised study.' },
+                        { id: 'late-study-senior', name: 'Late Study', type: 'study', studyKind: 'supervised',
+                            years: ['5th', '6th'], slots: [{ days: [0, 1, 3], start: '18:15', end: '21:00' }],
+                            details: 'In-school supervised study.' },
+                        { id: 'saturday-study', name: 'Saturday Study', type: 'study', studyKind: 'supervised',
+                            years: ['3rd', '5th', '6th'], slots: [{ days: [5], start: '09:30', end: '12:30' }],
+                            details: 'In-school supervised study.' },
+                        { id: 'strength-conditioning', name: 'Morning Strength and Conditioning', type: 'activity',
+                            years: null, slots: [{ days: [0, 1, 2, 3, 4], start: '07:00', end: '08:15' }] },
+                    ],
+                },
+            ];
+            function schoolById(id) { return SCHOOLS.find(s => s.id === id) || null; }
+            function schoolHasPeriods(id) { const s = schoolById(id); return !!(s && s.periods); }
+            // Preset events available to a given year group -- `years: null` means everyone.
+            function schoolPresetEventsFor(school, yearGroup) { return (school && school.presetEvents || [])
+                .filter(p => !p.years || p.years.includes(yearGroup)); }
 
             // Settings has one nested object (studyPreferences) — a plain {...base, ...saved} would let an
             // older or imported settings blob wholesale-replace it, silently dropping any newer subfields added
@@ -9383,9 +9484,195 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             <div class="holiday-list">${holidays.length?holidays.map(h=>`<div class="holiday-row"><div><strong>${h.kind==='holiday'?'☼':'◌'} ${escape(h.name)}</strong><span>${fmtDate(h.start)} – ${fmtDate(h.end)} · ${h.kind==='holiday'?'holiday':'day off'}</span></div><button class="button ghost danger" data-action="delete-holiday" data-id="${h.id}" aria-label="Delete ${escape(h.name)}">×</button></div>`).join(''):`<p class="empty">Add holidays or day-off dates here.</p>`}</div>
           </section>
         </div>`;
+                const periodsBtn = schoolHasPeriods(state.settings.schoolId) ?
+                    `<button type="button" class="button" data-action="open-period-builder">Edit periods</button>` : '';
                 return appFrame(
-                    `<div class="page">${header('Timetable','Your regular weekly classes, activities, and study blocks.',`<button class="button primary fab" aria-label="Add to timetable" data-action="open-event-form">＋</button>`)}</div><div class="full-width-wrapper">${timetableSection}</div><div class="page">${sidebarContent}</div>`
+                    `<div class="page">${header('Timetable','Your regular weekly classes, activities, and study blocks.',`${periodsBtn}<button type="button" class="button primary fab" aria-label="Add to timetable" data-action="open-event-form">＋</button>`)}</div><div class="full-width-wrapper">${timetableSection}</div><div class="page">${sidebarContent}</div>`
                     );
+            }
+
+            // ---------------------------------------------------------------------------------------------
+            // Period timetable builder -- shown once during onboarding for a school with a period schedule
+            // (see SCHOOLS above), and reachable afterwards via the Timetable page's "Edit periods" button.
+            // state.settings.periodAssignments (dayIndex -> periodId -> subjectId) is the single source of
+            // truth; every class event tagged periodBased:true is fully regenerated from it on every change
+            // (see rebuildPeriodEvents), so there's no separate slot-merge state to keep in sync by hand --
+            // periods assigned to the same class back-to-back on the same day naturally become one wider slot
+            // (a double/triple), and the same class on the same time across several days collapses into one
+            // slot with multiple days, exactly like a hand-built timetable entry would.
+            // ---------------------------------------------------------------------------------------------
+            let periodBuilderSelectedSubjectId = null; // null = nothing picked; '__erase__' = eraser tool
+
+            function currentSchool() { return schoolById(state.settings.schoolId); }
+
+            function setPeriodAssignment(dayIdx, periodId, subjectId) {
+                const pa = state.settings.periodAssignments;
+                if (!pa[dayIdx]) pa[dayIdx] = {};
+                if (subjectId === null || pa[dayIdx][periodId] === subjectId) delete pa[dayIdx][periodId];
+                else pa[dayIdx][periodId] = subjectId;
+                rebuildPeriodEvents();
+                save();
+                render();
+            }
+
+            function rebuildPeriodEvents() {
+                const school = currentSchool(); if (!school) return;
+                // Carry over teacher/details from whatever a period-derived class event already had -- a user
+                // who opens one from the normal Timetable page and fills those in shouldn't lose them just
+                // because a later grid click regenerates every period-derived event from scratch.
+                const oldBySubject = {};
+                state.events.filter(e => e.type === 'class' && e.periodBased).forEach(e => oldBySubject[e.subjectId] = e);
+                state.events = state.events.filter(e => !(e.type === 'class' && e.periodBased));
+                const pa = state.settings.periodAssignments;
+                const runs = []; // {day, subjectId, start, end}
+                Object.keys(school.periods).map(Number).forEach(day => {
+                    const periodsOnly = school.periods[day].filter(p => p.kind === 'period');
+                    let run = null;
+                    periodsOnly.forEach(p => {
+                        const subjectId = (pa[day] || {})[p.id] || null;
+                        if (subjectId && run && run.subjectId === subjectId && run.end === p.start) run.end = p.end;
+                        else { if (run) runs.push(run);
+                            run = subjectId ? { day, subjectId, start: p.start, end: p.end } : null; }
+                    });
+                    if (run) runs.push(run);
+                });
+                const bySubject = {};
+                runs.forEach(r => (bySubject[r.subjectId] = bySubject[r.subjectId] || []).push(r));
+                Object.keys(bySubject).forEach(subjectId => {
+                    const subj = subject(subjectId); if (!subj) return;
+                    const slotsMap = {};
+                    bySubject[subjectId].forEach(r => { const key = `${r.start}-${r.end}`;
+                        if (!slotsMap[key]) slotsMap[key] = { start: r.start, end: r.end, days: [] };
+                        slotsMap[key].days.push(r.day); });
+                    const slots = Object.values(slotsMap).map(s => ({ id: uid(), start: s.start, end: s.end, days: s.days }));
+                    const old = oldBySubject[subjectId];
+                    state.events.push({ id: uid(), type: 'class', name: subj.name, subjectId, teacher: old?.teacher || '',
+                        inSchool: true, color: subj.color, details: old?.details || '', date: '', slots, skipDates: [],
+                        periodBased: true });
+                });
+            }
+
+            function periodBuilderClassChips() {
+                const subs = state.subjects.filter(s => s.active).sort((a, b) => a.name.localeCompare(b.name));
+                const eraser = `<button type="button" class="period-class-chip eraser ${periodBuilderSelectedSubjectId==='__erase__'?'selected':''}" data-action="period-select-subject" data-subject="__erase__">✕ Eraser</button>`;
+                if (!subs.length) return `${eraser}<p class="empty" style="margin-top:8px">No classes yet — create one below.</p>`;
+                return eraser + subs.map(s => `<button type="button" class="period-class-chip ${periodBuilderSelectedSubjectId===s.id?'selected':''}" style="--chip-color:${s.color}" data-action="period-select-subject" data-subject="${s.id}"><i></i>${escape(s.name)}</button>`).join('');
+            }
+
+            // The days (Mon=0..Sun=6) a preset event covers across all of its slots, for the day-chip row.
+            function presetEventDays(preset) { const days = new Set(); preset.slots.forEach(s => s.days.forEach(d => days.add(d)));
+                return [...days].sort((a, b) => a - b); }
+
+            function presetEventObj(preset) {
+                const color = preset.type === 'study' ? studyColorFor(preset.studyKind || 'supervised') :
+                    preset.type === 'meal' ? MEAL_COLOR : pickDistinctColor(state.events.map(e => e.color));
+                return { id: uid(), type: preset.type, name: preset.name, subjectId: '', teacher: '', inSchool: true,
+                    color, details: preset.details || '', date: '',
+                    slots: preset.slots.map(s => ({ id: uid(), start: s.start, end: s.end, days: [...s.days] })),
+                    skipDates: [], presetKey: preset.id,
+                    ...(preset.type === 'study' ? { studyKind: preset.studyKind || 'supervised',
+                        skippable: (preset.studyKind || 'supervised') !== 'supervised' } : {}) };
+            }
+
+            function togglePresetEvent(presetId, on) {
+                const school = currentSchool(); const preset = school && school.presetEvents.find(p => p.id === presetId);
+                if (!preset) return;
+                if (on) state.events.push(presetEventObj(preset));
+                else state.events = state.events.filter(e => e.presetKey !== presetId);
+                save(); render();
+            }
+
+            function togglePresetDay(presetId, day) {
+                const school = currentSchool(); const preset = school && school.presetEvents.find(p => p.id === presetId);
+                if (!preset) return;
+                let ev = state.events.find(e => e.presetKey === presetId);
+                const isOn = ev && ev.slots.some(s => s.days.includes(day));
+                if (isOn) { ev.slots.forEach(s => { s.days = s.days.filter(d => d !== day); });
+                    ev.slots = ev.slots.filter(s => s.days.length);
+                    if (!ev.slots.length) state.events = state.events.filter(e => e !== ev);
+                } else {
+                    const def = preset.slots.find(s => s.days.includes(day)); if (!def) return;
+                    if (!ev) { ev = presetEventObj(preset); ev.slots = []; state.events.push(ev); }
+                    let slot = ev.slots.find(s => s.start === def.start && s.end === def.end);
+                    if (!slot) { slot = { id: uid(), start: def.start, end: def.end, days: [] }; ev.slots.push(slot); }
+                    slot.days.push(day);
+                }
+                save(); render();
+            }
+
+            function periodBuilderPresetRow(preset) {
+                const ev = state.events.find(e => e.presetKey === preset.id);
+                const enabled = !!ev, days = presetEventDays(preset);
+                const timeSummary = preset.slots.map(s => `${s.days.map(d=>DAY_NAMES[d]).join('/')} ${timeDisplay(s.start)}–${timeDisplay(s.end)}`).join(' · ');
+                return `<div class="preset-event-row">
+                    <label class="switch-row"><input type="checkbox" data-action="toggle-preset-event" data-preset="${preset.id}" ${enabled?'checked':''}> <strong>${escape(preset.name)}</strong></label>
+                    <span class="small">${timeSummary}</span>
+                    <div class="day-chips">${days.map(d => { const on = enabled && ev.slots.some(s => s.days.includes(d));
+                        return `<button type="button" class="day-chip ${on?'active':''}" data-action="toggle-preset-day" data-preset="${preset.id}" data-day="${d}">${DAY_NAMES[d]}</button>`; }).join('')}</div>
+                </div>`;
+            }
+
+            function periodClassFormModal() {
+                const used = usedColors('');
+                const level = ['1st', '2nd', '3rd'].includes(state.settings.yearGroup) ? 'jc' : 'lc',
+                    subjectOptions = SUBJECT_TAXONOMY.filter(t => (t.levels || []).includes(level)).sort((a, b) => a
+                        .name.localeCompare(b.name)),
+                    available = PALETTE.filter(c => !used.has(c) && c !== STUDY_COLOR && c !== STUDY_COLOR_SUPERVISED);
+                return modalShell('Create class',
+                    `<form id="period-class-form"><div class="form-grid">
+                    <div class="field span-2"><label for="period-class-subject-select">Subject</label><select id="period-class-subject-select"><option value="">Choose a subject…</option>${subjectOptions.map(t=>`<option value="${escape(t.name)}" data-taxonomy="${t.id}">${escape(t.name)}</option>`).join('')}<option value="__other__">Other / not listed</option></select><input id="period-class-name-other" placeholder="Subject name" class="hidden" style="margin-top:8px"></div>
+                    <div class="field span-2"><label class="switch-row"><input id="period-class-exam-subject" type="checkbox" checked> This is an exam subject <span class="small">Uncheck for non-exam classes like SPHE or PE — homework for it still counts, but it won't be used to fill spare study time.</span></label></div>
+                    <div class="field span-2"><label>Colour</label><div class="color-picker">${available.map((c,i)=>`<button type="button" class="color-choice ${i===0?'selected':''}" style="background:${c}" data-action="pick-period-class-color" data-color="${c}" aria-label="Choose colour"></button>`).join('')}</div><input type="hidden" id="period-class-color" value="${available[0]||'#335CFF'}"></div>
+                    </div></form>`,
+                    `<button class="button" data-action="close-modal">Cancel</button><button class="button primary" data-action="save-period-class">Create</button>`);
+            }
+
+            function savePeriodClass() {
+                const sel = document.getElementById('period-class-subject-select');
+                let name, explicitTaxonomyId = '';
+                if (sel.value === '__other__') name = (document.getElementById('period-class-name-other')?.value || '').trim();
+                else { name = sel.value; explicitTaxonomyId = sel.selectedOptions?.[0]?.dataset?.taxonomy || ''; }
+                if (!name) { toast('Choose or enter a subject.'); return; }
+                const color = document.getElementById('period-class-color').value;
+                const subjectId = findOrCreateSubjectByClassName(name, color, explicitTaxonomyId);
+                const s = subject(subjectId);
+                if (s) s.examSubject = !!document.getElementById('period-class-exam-subject')?.checked;
+                periodBuilderSelectedSubjectId = subjectId;
+                closeModal();
+                save();
+                render();
+            }
+
+            function renderPeriodBuilderPage() {
+                const school = currentSchool();
+                if (!school || !school.periods) { view = 'timetable'; return renderTimetable(); }
+                const dayKeys = Object.keys(school.periods).map(Number).sort((a, b) => a - b);
+                const canonicalDay = dayKeys.reduce((best, d) => school.periods[d].length > school.periods[best].length ? d : best, dayKeys[0]);
+                const rows = school.periods[canonicalDay];
+                const pa = state.settings.periodAssignments;
+                const gridRows = rows.map(row => {
+                    if (row.kind !== 'period') return `<tr class="period-static-row"><td class="period-row-label">${escape(row.label)}<span class="small">${timeDisplay(row.start)}–${timeDisplay(row.end)}</span></td>${dayKeys.map(d => school.periods[d].some(p => p.id === row.id) ? `<td class="period-static-cell"></td>` : `<td class="period-missing-cell">—</td>`).join('')}</tr>`;
+                    return `<tr><td class="period-row-label">${escape(row.label)}<span class="small">${timeDisplay(row.start)}–${timeDisplay(row.end)}</span></td>${dayKeys.map(d => {
+                        const p = school.periods[d].find(x => x.id === row.id);
+                        if (!p) return `<td class="period-missing-cell">—</td>`;
+                        const subjectId = (pa[d] || {})[p.id] || '';
+                        const subj = subjectId ? subject(subjectId) : null;
+                        return `<td class="period-cell ${subj?'filled':'empty'}" style="${subj?`--chip-color:${subj.color}`:''}" data-action="period-cell-click" data-day="${d}" data-period="${p.id}">${subj?escape(subj.name):''}</td>`;
+                    }).join('')}</tr>`;
+                }).join('');
+                const availablePresets = schoolPresetEventsFor(school, state.settings.yearGroup);
+                const presetsHtml = availablePresets.length ?
+                    `<section class="card side-note"><h2>Preset events</h2>${availablePresets.map(periodBuilderPresetRow).join('')}</section>` : '';
+                const sidebar = `
+                    <section class="card side-note">
+                        <div class="section-title"><h2>Your classes</h2><button class="button icon" data-action="open-period-class-form" aria-label="Create class">＋</button></div>
+                        <p class="small">${periodBuilderSelectedSubjectId?'Click periods on the grid to fill them in — click adjoining periods with the same class to make a double or triple.':'Pick a class, then click periods on the grid to fill them in.'}</p>
+                        <div class="period-class-list">${periodBuilderClassChips()}</div>
+                    </section>
+                    ${presetsHtml}`;
+                return appFrame(`<div class="page">${header(school.name, 'Set up your classes: pick one on the right, then click its periods on the grid.', `<button type="button" class="button primary" data-action="close-period-builder">Done</button>`)}</div>
+                    <div class="full-width-wrapper"><section class="card timeline-card"><div class="period-grid-scroll"><table class="period-grid"><thead><tr><th></th>${dayKeys.map(d => `<th>${DAY_NAMES[d]}</th>`).join('')}</tr></thead><tbody>${gridRows}</tbody></table></div></section></div>
+                    <div class="page"><div class="timetable-info-grid">${sidebar}</div></div>`);
             }
 
             function renderTestsExams() { const items = state.exams.slice().sort((a, b) => (a.start || '9999')
@@ -9714,7 +10001,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     .getElementById('app')
                     .innerHTML = renderTools(); } else if (view === 'chatrooms') { document.getElementById('app')
                     .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
-                    .innerHTML = renderAdminPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
+                    .innerHTML = renderAdminPage(); } else if (view === 'period-builder') { document.getElementById(
+                    'app').innerHTML = renderPeriodBuilderPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
                     requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (view === 'admin') return; if (
                     !state.settings.onboarded && !modal) openModal('onboarding');
                 else if (state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
@@ -9784,7 +10072,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     .innerHTML = yearRolloverModal(); if (modal.kind === 'settings') return layer.innerHTML =
                     settingsModal(); if (modal.kind === 'study-preferences') return layer.innerHTML =
                     studyPreferencesModal(); if (modal.kind === 'event-form') return layer.innerHTML = eventModal(modal
-                    .event); if (modal.kind === 'holiday-form') return layer.innerHTML = holidayModal(modal
+                    .event); if (modal.kind === 'period-class-form') return layer.innerHTML = periodClassFormModal();
+                    if (modal.kind === 'holiday-form') return layer.innerHTML = holidayModal(modal
                 .holiday); if (modal.kind === 'event-details') return layer.innerHTML = eventDetailsModal(modal
                     .event, modal.slot, !!modal.dashboard, modal.date); if (modal.kind === 'task-form') return layer.innerHTML =
                     taskModal(modal.task); if (modal.kind === 'exam-wizard') return layer.innerHTML = examWizardModal(); if (
@@ -9865,6 +10154,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             function renderChatRoomsPage() {
                 if (chatRooms === null && !chatRoomsBusy && !chatRoomsAttempted) loadChatRooms();
                 if (chatInvites === null) loadChatInvites();
+                ensureGradYearRoom();
                 const body = chatActiveRoomId ? renderChatRoomDetail() : renderChatRoomsList();
                 const errorHtml = chatRoomsError ? `<p class="empty" style="color:var(--danger)">${escape(chatRoomsError)}
                     <button class="button ghost" style="margin-left:8px" data-action="chat-retry-rooms">Retry</button></p>` : '';
@@ -9891,8 +10181,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (chatRoomsBusy && !chatRooms) roomsHtml = '<p class="empty">Loading rooms…</p>';
                 else if (!chatRooms || !chatRooms.length) roomsHtml = '<p class="empty">No rooms yet.</p>';
                 else roomsHtml = `<div class="list">${chatRooms.map(r => `<div class="topic-row" style="cursor:pointer" data-action="chat-open-room" data-id="${r.id}">
-                        <span>${r.is_global ? '🌐' : '💬'} <strong>${escape(r.name)}</strong>${r.is_global ? ' <span class="pill neutral">Everyone</span>' : ''}</span>
-                        <span class="small">${r.is_global ? 'Built in' : `Created by ${escape(r.created_by_name || 'someone')}`}</span>
+                        <span>${r.is_global ? '🌐' : r.auto_key ? '🎓' : '💬'} <strong>${escape(r.name)}</strong>${r.is_global ? ' <span class="pill neutral">Everyone</span>' : ''}</span>
+                        <span class="small">${r.is_global ? 'Built in' : r.auto_key ? 'Your year group' : `Created by ${escape(r.created_by_name || 'someone')}`}</span>
                     </div>`).join('')}</div>`;
 
                 return `${invitesHtml}<section class="card section"><h2>Your rooms</h2>${roomsHtml}</section>`;
@@ -9909,7 +10199,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
 
                 return `${back}
                 <div class="card section">
-                    <h2 style="margin:0">${room && room.is_global ? '🌐' : '💬'} ${escape(room ? room.name : '')}</h2>
+                    <h2 style="margin:0">${room && room.is_global ? '🌐' : room && room.auto_key ? '🎓' : '💬'} ${escape(room ? room.name : '')}</h2>
                     ${tabs}
                     ${body}
                 </div>`;
@@ -9943,13 +10233,14 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
 
             function renderChatRoomSettingsTab(room) {
                 const isGlobal = !!(room && room.is_global);
+                const isAuto = !!(room && room.auto_key);
                 const isCreator = !!(room && currentUser && room.created_by === currentUser.id);
 
                 const membersHtml = isGlobal ? `<p class="small">Everyone at Simple Study is in this room.</p>` :
                     !chatMembers ? '<p class="empty">Loading members…</p>' :
                     `<div class="list">${chatMembers.map(m => `<div class="topic-row"><span>${escape(m.member_name)}</span><span class="small">${escape(m.member_email)}</span></div>`).join('')}</div>`;
 
-                const roomActions = isGlobal ? '' : `<div class="row" style="gap:8px;margin-top:10px">
+                const roomActions = (isGlobal || isAuto) ? '' : `<div class="row" style="gap:8px;margin-top:10px">
                         <button class="button" data-action="chat-invite-someone" data-id="${room.id}">+ Invite someone</button>
                         ${!isCreator ? `<button class="button ghost" data-action="chat-leave-room" data-id="${room.id}">Leave room</button>` : ''}
                     </div>`;
@@ -10233,21 +10524,26 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
 
             function onboardingModal() {
                 const s = state.settings;
-                if (onboardingStep === 1) return modalShell(`Welcome · Step 1 of 5`,
+                if (onboardingStep === 1) return modalShell(`Welcome · Step 1 of 6`,
                     `<div class="onboarding"><div class="brand-mark">✦</div><h2>Let's get you set up.</h2><p>First, what should we call you?</p><div class="form-grid"><div class="field" style="text-align:left"><label for="onboarding-first-name">First name</label><input id="onboarding-first-name" autofocus placeholder="First name" value="${escape(s.firstName)}"></div><div class="field" style="text-align:left"><label for="onboarding-last-name">Last name</label><input id="onboarding-last-name" placeholder="Last name" value="${escape(s.lastName)}"></div></div></div>`,
                     `<button class="button primary" data-action="onboarding-next-1">Continue →</button>`, false, true);
-                if (onboardingStep === 2) return modalShell(`Welcome · Step 2 of 5`,
+                if (onboardingStep === 2) return modalShell(`Welcome · Step 2 of 6`,
                     `<div class="onboarding"><div class="brand-mark">🎂</div><h2>When's your birthday${s.firstName?`, ${escape(s.firstName)}`:''}?</h2><p>Optional for now — handy for a birthday shout-out later, and maybe to keep study light that day.</p><div class="field" style="text-align:left"><label for="onboarding-dob">Date of birth</label>${pickerFieldHtml('id="onboarding-dob"','date',s.dob)}</div></div>`,
                     `<button class="button ghost" data-action="onboarding-skip-2">Skip</button><button class="button primary" data-action="onboarding-next-2">Continue →</button>`, false, true);
-                if (onboardingStep === 3) return modalShell(`Welcome · Step 3 of 5`,
+                if (onboardingStep === 3) return modalShell(`Welcome · Step 3 of 6`,
                     `<div class="onboarding"><div class="brand-mark">🎓</div><h2>What year are you in?</h2><div class="type-picker">${YEAR_GROUPS.map(y=>`<button type="button" class="type-option ${s.yearGroup===y?'selected':''}" style="min-height:52px;display:grid;place-items:center;font-weight:800;font-size:15px" data-action="onboarding-pick-year" data-year="${y}">${y} Year</button>`).join('')}</div></div>`,
                     `<button class="button primary" data-action="onboarding-next-3">Continue →</button>`, false, true);
-                if (onboardingStep === 4) return modalShell(`Welcome · Step 4 of 5`,
-                    `<div class="onboarding"><div class="brand-mark">🗓️</div><h2>When does this school year run?</h2><p>Your timetable only applies between these dates — so next year nothing needs deleting, the app will just know this school year has ended.</p><div class="form-grid"><div class="field" style="text-align:left"><label for="onboarding-term-start">Term starts</label>${pickerFieldHtml('id="onboarding-term-start"','date',s.termStart)}</div><div class="field" style="text-align:left"><label for="onboarding-term-end">Term ends</label>${pickerFieldHtml('id="onboarding-term-end"','date',s.termEnd)}</div></div></div>`,
+                if (onboardingStep === 4) return modalShell(`Welcome · Step 4 of 6`,
+                    `<div class="onboarding"><div class="brand-mark">🏫</div><h2>What school are you at?</h2><p>Pick your school and we'll set up its period times and study/activity blocks for you. Not listed? Pick Other and build your timetable by hand.</p><div class="type-picker">${SCHOOLS.map(sc=>`<button type="button" class="type-option ${s.schoolId===sc.id?'selected':''}" data-action="onboarding-pick-school" data-school="${sc.id}">${escape(sc.name)}</button>`).join('')}<button type="button" class="type-option ${s.schoolId==='other'?'selected':''}" data-action="onboarding-pick-school" data-school="other">Other / not listed</button></div></div>`,
                     `<button class="button primary" data-action="onboarding-next-4">Continue →</button>`, false, true);
-                // Step 5: hand off to the Timetable page, where the AI setup assistant takes over
-                return modalShell(`Welcome · Step 5 of 5`,
-                    `<div class="onboarding"><div class="brand-mark">📚</div><h2>Last step — let's build your timetable.</h2><p>I'll take you to your Timetable page, where an assistant will help you set everything up — whether you've got a photo of your timetable or want to build it by hand.</p></div>`,
+                if (onboardingStep === 5) return modalShell(`Welcome · Step 5 of 6`,
+                    `<div class="onboarding"><div class="brand-mark">🗓️</div><h2>When does this school year run?</h2><p>Your timetable only applies between these dates — so next year nothing needs deleting, the app will just know this school year has ended.</p><div class="form-grid"><div class="field" style="text-align:left"><label for="onboarding-term-start">Term starts</label>${pickerFieldHtml('id="onboarding-term-start"','date',s.termStart)}</div><div class="field" style="text-align:left"><label for="onboarding-term-end">Term ends</label>${pickerFieldHtml('id="onboarding-term-end"','date',s.termEnd)}</div></div></div>`,
+                    `<button class="button primary" data-action="onboarding-next-5">Continue →</button>`, false, true);
+                // Step 6: hand off to the Timetable page (or, for a school with a period schedule, the period
+                // builder first) where setup continues.
+                const school = schoolById(s.schoolId), hasPeriods = schoolHasPeriods(s.schoolId);
+                return modalShell(`Welcome · Step 6 of 6`,
+                    `<div class="onboarding"><div class="brand-mark">📚</div><h2>Last step — let's build your timetable.</h2><p>${hasPeriods?`I'll take you through ${escape(school.name)}'s periods so you can quickly set up your classes and school blocks.`:`I'll take you to your Timetable page, where an assistant will help you set everything up — whether you've got a photo of your timetable or want to build it by hand.`}</p></div>`,
                     `<button class="button primary" data-action="onboarding-finish">Let's go →</button>`, false, true); }
 
             function studyPreferencesModal() { const sp = state.settings.studyPreferences || {},
@@ -10280,6 +10576,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div class="form-grid"><div class="field"><label for="setting-first-name">First name</label><input id="setting-first-name" value="${escape(s.firstName)}"></div><div class="field"><label for="setting-last-name">Last name</label><input id="setting-last-name" value="${escape(s.lastName)}"></div></div></div>
           <div class="settings-row"><div class="field" style="width:100%"><label for="setting-dob">Date of birth</label>${pickerFieldHtml('id="setting-dob"','date',s.dob)}</div></div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Year</strong><span class="small">Used to tailor advice where relevant.</span></div><div class="type-picker">${YEAR_GROUPS.map(y=>`<button type="button" class="type-option ${s.yearGroup===y?'selected':''}" style="min-height:52px;display:grid;place-items:center;font-weight:800;font-size:15px" data-action="settings-pick-year" data-year="${y}">${y} Year</button>`).join('')}</div></div>
+          <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>School</strong><span class="small">Picking your school sets up its period times and study/activity blocks.</span></div><div class="type-picker">${SCHOOLS.map(sc=>`<button type="button" class="type-option ${s.schoolId===sc.id?'selected':''}" data-action="settings-pick-school" data-school="${sc.id}">${escape(sc.name)}</button>`).join('')}<button type="button" class="type-option ${s.schoolId==='other'?'selected':''}" data-action="settings-pick-school" data-school="other">Other / not listed</button></div></div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>School year</strong><span class="small">Your timetable only applies between these dates.</span></div><div class="form-grid"><div class="field"><label for="setting-term-start">Term starts</label>${pickerFieldHtml('id="setting-term-start"','date',s.termStart)}</div><div class="field"><label for="setting-term-end">Term ends</label>${pickerFieldHtml('id="setting-term-end"','date',s.termEnd)}</div></div></div>
           <div class="settings-row"><div><strong>Appearance</strong><span class="small">Use a darker surface after sunset.</span></div><label class="switch-row"><input id="setting-theme" type="checkbox" ${s.theme==='dark'?'checked':''}> Dark mode</label></div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Sidebar</strong><span class="small">How the sidebar behaves.</span></div><div class="row">${[['hover','Expand on hover'],['expanded','Always expanded'],['collapsed','Always collapsed']].map(([m,l])=>`<button type="button" class="button ${((s.sidebarMode||'hover')===m)?'primary':'ghost'}" data-action="set-sidebar-mode" data-mode="${m}">${l}</button>`).join('')}</div></div>
@@ -12834,7 +13131,20 @@ If the user asks about how to study or study methods generally, answer from your
                         end: '10:00' })); } else if (a === 'remove-slot') { const slots = document
                     .querySelectorAll('#slots .slot'); if (slots.length > 1) b.closest('.slot').remove();
                     else toast('An event needs at least one time.'); } else if (a === 'save-event') saveEvent();
-                else if (a === 'save-holiday') saveHoliday(); else if (a === 'save-task') saveTask(); else if (a ===
+                else if (a === 'open-period-builder') { view = 'period-builder'; render(); } else if (a ===
+                    'close-period-builder') { periodBuilderSelectedSubjectId = null; view = 'timetable'; render(); }
+                else if (a === 'period-select-subject') { periodBuilderSelectedSubjectId = periodBuilderSelectedSubjectId ===
+                    b.dataset.subject ? null : b.dataset.subject; render(); } else if (a === 'period-cell-click') {
+                    if (!periodBuilderSelectedSubjectId) { toast('Pick a class first.'); return; }
+                    setPeriodAssignment(Number(b.dataset.day), b.dataset.period,
+                        periodBuilderSelectedSubjectId === '__erase__' ? null : periodBuilderSelectedSubjectId);
+                } else if (a === 'open-period-class-form') openModal('period-class-form'); else if (a ===
+                    'save-period-class') savePeriodClass(); else if (a === 'pick-period-class-color') { document
+                    .getElementById('period-class-color').value = b.dataset.color;
+                    document.querySelectorAll('#period-class-form .color-choice').forEach(x => x.classList.toggle(
+                        'selected', x.dataset.color === b.dataset.color)); } else if (a === 'toggle-preset-day') {
+                    togglePresetDay(b.dataset.preset, Number(b.dataset.day)); } else if (a === 'save-holiday')
+                    saveHoliday(); else if (a === 'save-task') saveTask(); else if (a ===
                     'onboarding-next-1') { const first = document.getElementById('onboarding-first-name').value
                     .trim(); const last = document.getElementById('onboarding-last-name').value.trim(); if (!first) {
                         toast('Enter at least a first name.'); return; }
@@ -12851,20 +13161,39 @@ If the user asks about how to study or study methods generally, answer from your
                     save();
                     renderModal(); } else if (a === 'onboarding-pick-year' || a === 'settings-pick-year') { state
                     .settings.yearGroup = b.dataset.year;
+                    renderModal(); } else if (a === 'settings-pick-school') { const id = b.dataset.school,
+                        sc = schoolById(id);
+                    state.settings.schoolId = id;
+                    state.settings.schoolName = sc ? sc.name : '';
                     renderModal(); } else if (a === 'onboarding-next-3') { if (!state.settings.yearGroup) { toast(
                             'Pick your year to continue.'); return; }
+                    // Fixed once here -- see computeGraduationYear's comment for why this must not be
+                    // recomputed later from a (by-then-stale) "current year".
+                    if (!state.settings.graduationYear) state.settings.graduationYear = computeGraduationYear(
+                        state.settings.yearGroup);
                     onboardingStep = 4;
                     save();
-                    renderModal(); } else if (a === 'onboarding-next-4') { const ts = document.getElementById(
+                    renderModal(); } else if (a === 'onboarding-pick-school') { const id = b.dataset.school,
+                        sc = schoolById(id);
+                    state.settings.schoolId = id;
+                    state.settings.schoolName = sc ? sc.name : '';
+                    renderModal(); } else if (a === 'onboarding-next-4') {
+                    onboardingStep = 5;
+                    save();
+                    renderModal(); } else if (a === 'onboarding-next-5') { const ts = document.getElementById(
                         'onboarding-term-start').value, te = document.getElementById('onboarding-term-end').value; if (
                         !ts || !te) { toast('Add both a start and end date.'); return; } if (te <= ts) { toast(
                             'Term end date should be after the start date.'); return; }
                     state.settings.termStart = ts;
                     state.settings.termEnd = te;
-                    onboardingStep = 5;
+                    onboardingStep = 6;
                     save();
-                    renderModal(); } else if (a === 'onboarding-finish') { finishOnboarding();
-                    startDemoTour(true); } else if (a === 'save-settings') saveSettings(); else if (a ===
+                    renderModal(); } else if (a === 'onboarding-finish') { const hasPeriods = schoolHasPeriods(
+                        state.settings.schoolId);
+                    finishOnboarding();
+                    ensureGradYearRoom();
+                    if (hasPeriods) { view = 'period-builder'; render(); } else startDemoTour(true);
+                    } else if (a === 'save-settings') saveSettings(); else if (a ===
                     'add-exam') startExamWizard(null); else if (a === 'edit-exam') startExamWizard(state.exams.find(
                         x => x.id === b.dataset.id)); else if (a === 'delete-exam') { const x = state.exams.find(y =>
                         y.id === b.dataset.id); if (x) { invalidateFutureStudyPlans();
@@ -13375,6 +13704,7 @@ If the user asks about how to study or study methods generally, answer from your
             document.addEventListener('change', e => { const t = e.target, action = t.dataset && t.dataset.action;
                 if (action === 'vocab-ocr-toggle') { if (vocabOcrDraft) vocabOcrDraft.items[Number(t.dataset.index)].include = t.checked; }
                 else if (action === 'dup-class-toggle') { if (dupClassKeep) dupClassKeep[t.dataset.key] = t.checked; }
+                else if (action === 'toggle-preset-event') togglePresetEvent(t.dataset.preset, t.checked);
                 else if (action === 'toggle-tense') { toggleLearnedTense(t.dataset.subject, t.dataset.tense, t.checked); }
                 else if (action === 'toggle-essay-topic') { const id = t.dataset.topic;
                     if (t.checked) essayTopicIds = [...essayTopicIds, id]; else essayTopicIds = essayTopicIds.filter(x => x !== id); }
@@ -13441,6 +13771,8 @@ If the user asks about how to study or study methods generally, answer from your
                     renderModal();
                     return; } if (
                     e.target.id === 'event-subject-select') { document.getElementById('event-name-other')
+                    ?.classList.toggle('hidden', e.target.value !== '__other__'); } if (
+                    e.target.id === 'period-class-subject-select') { document.getElementById('period-class-name-other')
                     ?.classList.toggle('hidden', e.target.value !== '__other__'); } if (e.target.id ===
                     'task-type') { document.getElementById('task-minutes-wrap').classList.toggle('hidden', e.target
                         .value === 'test');
