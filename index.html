@@ -5363,9 +5363,17 @@
             // the same year group in different calendar years still land in the same graduation-year chat room,
             // and keeps a student's room stable across the yearly rollover (yearRolloverModal only ever advances
             // yearGroup, never touches graduationYear).
+            //
+            // fromCalendarYear defaults to the CURRENT ACADEMIC YEAR's start year, not the raw signup calendar
+            // year -- someone signing up mid-year (say, March) is still in the year group they've been in since
+            // last September, so using the raw current year would push them a year too late and split them from
+            // classmates who signed up back in September into a different graduation-year room. Same July 1st
+            // cutoff convention as mostRecentCompletedExamYear.
+            function currentAcademicYearStart() { const now = new Date();
+                return (now.getMonth() + 1) >= 7 ? now.getFullYear() : now.getFullYear() - 1; }
             function computeGraduationYear(yearGroup, fromCalendarYear) { const n = YEAR_GROUPS.indexOf(yearGroup);
                 if (n === -1) return null;
-                return (fromCalendarYear || new Date().getFullYear()) + (7 - (n + 1)); }
+                return (fromCalendarYear || currentAcademicYearStart()) + (7 - (n + 1)); }
 
             // Hardcoded per-school presets, offered at signup so a student doesn't have to hand-build a period
             // timetable and their school's supervised-study/activity blocks from scratch. A school with a
@@ -13161,16 +13169,18 @@ If the user asks about how to study or study methods generally, answer from your
                     save();
                     renderModal(); } else if (a === 'onboarding-pick-year' || a === 'settings-pick-year') { state
                     .settings.yearGroup = b.dataset.year;
+                    // Recomputed on every pick, not just once -- during onboarding this tracks whichever
+                    // year is currently selected, and in Settings it lets a student who picked the wrong
+                    // year fix it later without getting stuck in the wrong graduation-year chat room.
+                    // performRollover (annual advance) deliberately never calls this path, so the normal
+                    // yearly rollover still leaves graduationYear untouched.
+                    state.settings.graduationYear = computeGraduationYear(b.dataset.year);
                     renderModal(); } else if (a === 'settings-pick-school') { const id = b.dataset.school,
                         sc = schoolById(id);
                     state.settings.schoolId = id;
                     state.settings.schoolName = sc ? sc.name : '';
                     renderModal(); } else if (a === 'onboarding-next-3') { if (!state.settings.yearGroup) { toast(
                             'Pick your year to continue.'); return; }
-                    // Fixed once here -- see computeGraduationYear's comment for why this must not be
-                    // recomputed later from a (by-then-stale) "current year".
-                    if (!state.settings.graduationYear) state.settings.graduationYear = computeGraduationYear(
-                        state.settings.yearGroup);
                     onboardingStep = 4;
                     save();
                     renderModal(); } else if (a === 'onboarding-pick-school') { const id = b.dataset.school,
