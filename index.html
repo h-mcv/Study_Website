@@ -5070,6 +5070,7 @@
             let modal = null;
             let selected = null;
             let toastTimer;
+            let dupClassKeep = null; // key `${eventId}|${slotId}|${day}` -> keep this instance? set while the duplicate-classes modal is open
             const PX_PER_MIN = 0.6; // pixels per minute for the always-full-day, naturally-scrollable timetable
             // Event blocks are sized to their EXACT true proportional height (no artificial minimum) so a short
             // event can never visually overhang into whatever starts right after it — the old Math.max(18, ...)
@@ -5240,6 +5241,38 @@
             function subject(id) { return state.subjects.find(s => s.id === id); }
 
             function event(id) { return state.events.find(e => e.id === id); }
+
+            // Flags classes that look like leftovers from a mis-scanned timetable photo: the same
+            // subject showing up more than once on the same weekday. A subject meeting on different
+            // days all week is completely normal, so day-collision (not just "more than one slot") is
+            // the signal — it's the one case a student can never actually attend both of.
+            function duplicateClassGroups() {
+                const bySubject = {};
+                state.events.forEach(e => { if (e.type !== 'class') return;
+                    (e.slots || []).forEach(s => { (s.days || []).forEach(day => {
+                        (bySubject[e.subjectId] = bySubject[e.subjectId] || []).push({ eventId: e.id,
+                            slotId: s.id, day, start: s.start, end: s.end }); }); }); });
+                const groups = [];
+                Object.keys(bySubject).forEach(subjectId => {
+                    const insts = bySubject[subjectId];
+                    const byDay = {};
+                    insts.forEach(i => (byDay[i.day] = byDay[i.day] || []).push(i));
+                    if (!Object.values(byDay).some(arr => arr.length > 1)) return;
+                    insts.forEach(i => { i.exactDup = byDay[i.day].filter(o => o.start === i.start && o.end ===
+                        i.end).length > 1; });
+                    const s = subject(subjectId);
+                    groups.push({ subjectId, subjectName: s ? s.name : 'Class',
+                        instances: insts.sort((a, b) => a.day - b.day || a.start.localeCompare(b.start)) }); });
+                return groups.sort((a, b) => a.subjectName.localeCompare(b.subjectName)); }
+
+            // Removes one (event, slot, day) instance found by duplicateClassGroups(): drops that day
+            // from the slot, dropping the whole slot once it has no days left, and the whole event once
+            // it has no slots left — never touching other days/slots on the same class.
+            function removeClassSlotDay(eventId, slotId, day) {
+                const ev = event(eventId); if (!ev) return;
+                ev.slots = ev.slots.map(s => s.id === slotId ? { ...s, days: s.days.filter(d => d !== day) } : s)
+                    .filter(s => s.days.length > 0);
+                if (!ev.slots.length) state.events = state.events.filter(x => x.id !== ev.id); }
 
             // A "class" event's name IS its subject: look up a subject with a matching name (case-insensitive),
             // or create one on the fly. This keeps subjects and class names from drifting apart, since there is
@@ -6984,7 +7017,11 @@
                     nonExamSubjects = active.filter(s => s.examSubject === false);
                 const tile = (s) => { const learning = state.classTopics.filter(t => t.subjectId === s.id && t
                         .status === 'learning').length; return `<button type="button" class="class-tile" data-action="open-subject-detail" data-subject="${s.id}" style="--subject:${s.color}"><strong>${escape(s.name)}</strong><span class="small">${CATEGORY_LABELS[s.category]||'Other'}</span><span class="class-tile-count">${learning?`${learning} topic${learning===1?'':'s'} in progress`:'No topics added yet'}</span></button>`; };
+                const dupCount = duplicateClassGroups().length,
+                    dupBanner = dupCount ? `<div class="settings-row" style="margin:0 0 16px"><div><strong>⚠ Possible duplicate classes</strong><span class="small">${dupCount} subject${dupCount===1?'':'s'} show up more than once on the same day — this often happens when a timetable photo scan didn't come out right and classes were then added by hand too.</span></div><div class="row"><button class="button primary" data-action="open-duplicate-classes">Review and clean up</button></div></div>` :
+                    '';
                 return appFrame(`<div class="page">${header('Classes',"What's currently being covered in each subject — this is what the Study page draws on.",'')}
+        ${dupBanner}
         <div class="class-grid">${examSubjects.length?examSubjects.map(tile).join(''):'<p class="empty">Add a class on your Timetable to see it here.</p>'}</div>
         ${nonExamSubjects.length?`<h2 style="margin:22px 0 12px">Non-exam subjects</h2><div class="class-grid">${nonExamSubjects.map(tile).join('')}</div>`:''}
         </div>`); }
@@ -9633,7 +9670,30 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     modal.kind === 'chat-new-room') return layer.innerHTML = chatNewRoomModal(); if (
                     modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); if (
                     modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (
-                    modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); }
+                    modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
+                    modal.kind === 'duplicate-classes') return layer.innerHTML = dupClassesModal(); }
+
+            function dupClassesModal() { const groups = duplicateClassGroups(); if (!dupClassKeep) dupClassKeep = {};
+                if (!groups.length) return modalShell('No duplicates found',
+                    '<p class="empty">Every class only appears once per day now — nothing left to clean up.</p>',
+                    '<button class="button" data-action="close-modal">Close</button>');
+                const rows = groups.map(g => { const seenExact = new Set();
+                    const instRows = g.instances.map(inst => { const key =
+                            `${inst.eventId}|${inst.slotId}|${inst.day}`; if (!(key in dupClassKeep)) { const
+                            exactKey = `${inst.day}|${inst.start}|${inst.end}`;
+                        // Default: keep everything, except later copies of an exact same-day-same-time
+                        // duplicate — those are pure redundancy, so pre-untick all but the first.
+                        dupClassKeep[key] = !inst.exactDup || !seenExact.has(exactKey);
+                        seenExact.add(exactKey); }
+                        const checked = dupClassKeep[key] !== false;
+                        return `<label class="topic-row" style="cursor:pointer"><span style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-action="dup-class-toggle" data-key="${key}" ${checked?'checked':''}> ${DAY_NAMES[inst.day]} · ${inst.start}–${inst.end}</span>${inst.exactDup?'<span class="pill bad">Exact duplicate</span>':''}</label>`; })
+                        .join('');
+                    return `<section class="card side-note" style="margin-bottom:12px"><h3>${escape(g.subjectName)}</h3><div class="list">${instRows}</div></section>`; })
+                    .join('');
+                return modalShell('Clean up duplicate classes',
+                    `<p class="small" style="margin-bottom:12px">These subjects show up more than once on the same day — often left over from a timetable photo that didn't scan quite right, sitting alongside the correct one you added by hand. Untick anything that shouldn't be there, then remove it. Ticked times are kept.</p>${rows}`,
+                    `<button class="button" data-action="close-modal">Cancel</button><button class="button danger" data-action="apply-duplicate-cleanup">Remove unticked</button>`,
+                    true); }
 
             function sophiaWelcomeModal() { return modalShell('✨ Sophia mode',
                     `<p>Welcome to Sophia mode!</p>`,
@@ -12574,7 +12634,19 @@ If the user asks about how to study or study methods generally, answer from your
                     save();
                     closeModal();
                     render();
-                    toast('That time was deleted.'); } } else if (a === 'delete-holiday') { state.holidays = state
+                    toast('That time was deleted.'); } } else if (a === 'open-duplicate-classes') { dupClassKeep =
+                    null;
+                    openModal('duplicate-classes'); } else if (a === 'apply-duplicate-cleanup') { const groups =
+                    duplicateClassGroups(); let removed = 0; groups.forEach(g => g.instances.forEach(inst => {
+                        const key = `${inst.eventId}|${inst.slotId}|${inst.day}`; if (dupClassKeep && dupClassKeep[
+                            key] === false) { removeClassSlotDay(inst.eventId, inst.slotId, inst.day);
+                            removed++; } }));
+                    dupClassKeep = null;
+                    save();
+                    closeModal();
+                    render();
+                    toast(removed ? `Removed ${removed} duplicate class time${removed===1?'':'s'}.` :
+                        'Nothing was unticked, so nothing was removed.'); } else if (a === 'delete-holiday') { state.holidays = state
                     .holidays.filter(h => h.id !== b.dataset.id);
                     save();
                     render(); } else if (a === 'set-event-type') { modal.event = { ...(modal.event || {}),
@@ -13130,6 +13202,7 @@ If the user asks about how to study or study methods generally, answer from your
 
             document.addEventListener('change', e => { const t = e.target, action = t.dataset && t.dataset.action;
                 if (action === 'vocab-ocr-toggle') { if (vocabOcrDraft) vocabOcrDraft.items[Number(t.dataset.index)].include = t.checked; }
+                else if (action === 'dup-class-toggle') { if (dupClassKeep) dupClassKeep[t.dataset.key] = t.checked; }
                 else if (action === 'toggle-tense') { toggleLearnedTense(t.dataset.subject, t.dataset.tense, t.checked); }
                 else if (action === 'toggle-essay-topic') { const id = t.dataset.topic;
                     if (t.checked) essayTopicIds = [...essayTopicIds, id]; else essayTopicIds = essayTopicIds.filter(x => x !== id); }
