@@ -3343,6 +3343,10 @@
             const STORE = 'simple-study-v1';
             const STORE_UPDATED_AT = STORE + ':updatedAt'; // when `state` was last changed locally — lets
             // loadCloudState() tell a stale cloud row from a genuinely newer one instead of always trusting the cloud.
+            const STORE_USER_ID = STORE + ':userId'; // which account STORE/STORE_UPDATED_AT actually belong to —
+            // without this, a local cache left over from a *different* account (e.g. this browser's session
+            // silently swapping to someone else's, such as via multi-tab sync after a magic link sign-in
+            // elsewhere) could look "newer than the cloud" and get pushed up over the new account's real data.
 
             // ------------------------------------------------------------------
             // Supabase: auth (Google sign-in) + cloud sync.
@@ -3904,8 +3908,17 @@
             }
 
             async function signOutOfCloud() {
+                // Flush any pending debounced edit to this account's own row before leaving,
+                // then wipe the local cache entirely -- otherwise it lingers under the shared
+                // localStorage keys and can bleed into whichever account signs in next on this
+                // browser (the cross-account data leak this used to cause).
+                if (cloudSyncTimer) { clearTimeout(cloudSyncTimer); cloudSyncTimer = null; await pushStateToCloud(true); }
                 await supabaseClient.auth.signOut();
                 currentUser = null;
+                state = blankState();
+                localStorage.removeItem(STORE);
+                localStorage.removeItem(STORE_UPDATED_AT);
+                localStorage.removeItem(STORE_USER_ID);
                 render();
             }
 
@@ -3928,7 +3941,11 @@
                     cloudResolutionPending = false;
                     render(); return; }
                 if (data) {
-                    const localUpdatedAt = Number(localStorage.getItem(STORE_UPDATED_AT)) || 0;
+                    // Only trust the local cache as "possibly newer" when it's actually tagged as
+                    // belonging to this account -- a cache left over from a different account must
+                    // never be pushed up over this user's real cloud row (see STORE_USER_ID above).
+                    const localBelongsToThisUser = localStorage.getItem(STORE_USER_ID) === currentUser.id;
+                    const localUpdatedAt = localBelongsToThisUser ? (Number(localStorage.getItem(STORE_UPDATED_AT)) || 0) : 0;
                     const cloudUpdatedAt = new Date(data.updated_at).getTime();
                     if (localUpdatedAt > cloudUpdatedAt) {
                         await pushStateToCloud(true);
@@ -3937,9 +3954,19 @@
                         lastSyncedAt = new Date(data.updated_at);
                         localStorage.setItem(STORE, JSON.stringify(state));
                         localStorage.setItem(STORE_UPDATED_AT, String(cloudUpdatedAt));
+                        localStorage.setItem(STORE_USER_ID, currentUser.id);
                     }
                 } else {
+                    // No cloud row yet for this account. Seeding it from whatever `state` is
+                    // currently in memory is only correct when that state is either this
+                    // account's own (already tagged) or truly unowned guest data -- if it's
+                    // tagged to a *different* account (this tab's session just swapped, e.g.
+                    // via multi-tab sync after a magic-link sign-in elsewhere), it must never
+                    // become this brand-new account's seed data.
+                    const localOwner = localStorage.getItem(STORE_USER_ID);
+                    if (localOwner && localOwner !== currentUser.id) state = blankState();
                     await pushStateToCloud(true);
+                    localStorage.setItem(STORE_USER_ID, currentUser.id);
                 }
                 cloudResolutionPending = false;
                 render();
@@ -4490,18 +4517,34 @@
             }
 
             supabaseClient.auth.onAuthStateChange((_event, session) => {
-                const wasSignedIn = !!currentUser;
+                const previousUserId = currentUser?.id ?? null;
                 currentUser = session?.user ?? null;
                 // A password-recovery link establishes a real session the moment
                 // supabase-js parses it, but the user still needs to see the "set a new
                 // password" screen first — submitNewPassword() clears showLanding itself
                 // once that's actually done, rather than here.
-                if (currentUser && !wasSignedIn) { if (landingScreen !== 'reset-password') showLanding = false;
-                    loadCloudState(); // clears cloudResolutionPending itself once the fetch settles
+                //
+                // The check below is `currentUser.id !== previousUserId`, not just "was
+                // nobody signed in before" -- supabase-js syncs auth state across tabs of
+                // the same browser (e.g. via storage events), so a tab that already had
+                // its own signed-in user can silently receive a *different* user's session
+                // (say, someone opened a magic link in another tab) with no sign-out step
+                // in between. Treating that as a no-op used to leave this tab's in-memory
+                // `state` holding the old account's data while `currentUser` pointed at the
+                // new account -- and the next autosave would push the old account's data
+                // into the new account's cloud row. Always re-resolving from the cloud on
+                // any account change (new sign-in or a swap) closes that hole.
+                if (currentUser && currentUser.id !== previousUserId) {
+                    if (landingScreen !== 'reset-password') showLanding = false;
+                    cloudResolutionPending = true; // hide/ignore whatever `state` this tab was holding until
+                    // loadCloudState() below resolves it for the (possibly new) account -- see render()'s use
+                    // of this flag. It clears cloudResolutionPending itself once the fetch settles.
+                    loadCloudState();
                     spotifySyncOnSignIn();
-                    loadChatInvites(); }
-                else if (!currentUser && wasSignedIn) { chatInvites = null; render(); }
-                else if (!currentUser && !wasSignedIn) { cloudResolutionPending = false; // a cached session token
+                    loadChatInvites();
+                }
+                else if (!currentUser && previousUserId) { chatInvites = null; render(); }
+                else if (!currentUser && !previousUserId) { cloudResolutionPending = false; // a cached session token
                     render(); } // turned out not to restore a real session — nothing left to wait for
             });
 
@@ -5221,7 +5264,9 @@
             // gets persisted — not to localStorage, not to the cloud — no matter what triggers a save, so a
             // crash or stray click mid-tour can never leave demo content in place of someone's real data.
             function save() { if (demoModeActive) return; localStorage.setItem(STORE, JSON.stringify(state));
-                localStorage.setItem(STORE_UPDATED_AT, String(Date.now())); pushStateToCloud(); }
+                localStorage.setItem(STORE_UPDATED_AT, String(Date.now()));
+                if (currentUser) localStorage.setItem(STORE_USER_ID, currentUser.id);
+                pushStateToCloud(); }
 
             function toast(message) { if (demoModeActive) return; const el = document.getElementById('toast');
                 el.textContent = message;
