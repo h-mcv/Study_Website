@@ -3532,7 +3532,36 @@
                     .select('id, user_id, author_name, body, created_at')
                     .eq('room_id', chatActiveRoomId).order('created_at', { ascending: true }).limit(200);
                 if (!error) chatMessages = data;
+                chatRerenderRoomPreservingState();
+            }
+
+            // render() rebuilds the whole #app innerHTML, which would otherwise reset
+            // the message thread's scroll position to the top and wipe out any
+            // half-typed message every single poll tick (every 4s while a room is
+            // open -- see chatStartPolling). This captures the composer's draft text
+            // + cursor/focus and the thread's scroll position beforehand and restores
+            // them after, auto-scrolling to the new bottom only if the reader was
+            // already there (so scrolling up to read history doesn't get yanked back
+            // down by an incoming message).
+            function chatRerenderRoomPreservingState() {
+                const inputBefore = document.getElementById('chat-message-input');
+                const draft = inputBefore ? inputBefore.value : '';
+                const hadFocus = inputBefore && document.activeElement === inputBefore;
+                const cursorPos = inputBefore ? inputBefore.selectionStart : null;
+                const threadBefore = document.getElementById('chat-thread');
+                const wasNearBottom = !threadBefore ||
+                    (threadBefore.scrollHeight - threadBefore.scrollTop - threadBefore.clientHeight < 80);
+                const prevScrollTop = threadBefore ? threadBefore.scrollTop : null;
+
                 render();
+
+                const inputAfter = document.getElementById('chat-message-input');
+                if (inputAfter) {
+                    inputAfter.value = draft;
+                    if (hadFocus) { inputAfter.focus(); try { inputAfter.setSelectionRange(cursorPos, cursorPos); } catch (err) {} }
+                }
+                const threadAfter = document.getElementById('chat-thread');
+                if (threadAfter) threadAfter.scrollTop = wasNearBottom ? threadAfter.scrollHeight : prevScrollTop;
             }
 
             async function chatLoadMembers() {
