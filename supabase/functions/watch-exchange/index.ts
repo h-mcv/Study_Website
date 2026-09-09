@@ -37,6 +37,12 @@ Deno.serve(async (req) => {
     await db.from("watch_pairing_codes").delete().eq("code", code);
 
     if (!row || new Date(row.expires_at).getTime() < Date.now()) {
+      // A 6-digit code is only 1e6 possibilities and this endpoint has no JWT to
+      // gate it (see file header), so a wrong guess pays a fixed delay -- raises
+      // the cost of a serial brute-force sweep within the 10-minute code lifetime.
+      // Not a substitute for IP-level rate limiting, which belongs at the
+      // platform/edge layer rather than in each function.
+      await new Promise((r) => setTimeout(r, 300));
       return jsonResponse({ error: "Invalid or expired code." }, 401);
     }
 

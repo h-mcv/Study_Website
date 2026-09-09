@@ -1182,6 +1182,104 @@
             font-size: 11px;
             fill: var(--muted);
         }
+        .boxplot {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .boxplot-whisker, .boxplot-cap, .boxplot-median {
+            stroke: var(--primary);
+            stroke-width: 2;
+        }
+        .boxplot-box {
+            fill: var(--primary-soft);
+            stroke: var(--primary);
+            stroke-width: 2;
+        }
+        .boxplot-label {
+            font-size: 11px;
+            fill: var(--muted);
+        }
+        .periodic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+            gap: 6px;
+        }
+        .periodic-card {
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--cat-color);
+            border-radius: 10px;
+            background: var(--surface-2);
+            padding: 6px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .periodic-card:hover {
+            background: var(--primary-soft);
+        }
+        .periodic-card.selected {
+            outline: 2px solid var(--primary);
+            outline-offset: -1px;
+        }
+        .periodic-card .periodic-z {
+            font-size: 10px;
+            color: var(--muted);
+        }
+        .periodic-card .periodic-sym {
+            font-size: 17px;
+            font-weight: 800;
+        }
+        .periodic-card .periodic-mass {
+            font-size: 9px;
+            color: var(--muted);
+        }
+        .periodic-legend-chip {
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 5px 12px;
+            font-size: 12px;
+            background: var(--surface);
+            cursor: pointer;
+            position: relative;
+            padding-left: 20px;
+        }
+        .periodic-legend-chip::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--cat-color, var(--muted));
+        }
+        .periodic-legend-chip.active {
+            border-color: var(--primary);
+            background: var(--primary-soft);
+            font-weight: 700;
+        }
+        .periodic-detail {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .periodic-detail-sym {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            border-top: 5px solid var(--cat-color);
+            background: var(--surface-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
         .performance-summary-card {
             padding: 16px 18px;
             border-radius: 14px;
@@ -1582,6 +1680,19 @@
             margin: 0 auto 26px;
             font-size: 16px;
         }
+        .landing-guest-link {
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: underline;
+            padding: 8px 4px;
+            font-family: inherit;
+        }
+        .landing-guest-link:hover {
+            color: var(--primary);
+        }
         /* Inert, decorative mockups of the real app screens (not screenshots — hand-built markup styled to
            match, so there's nothing to keep in sync with actual product art and no click handlers to strip). */
         .landing-mock {
@@ -1642,6 +1753,16 @@
         }
         .landing-feature:nth-of-type(even) > :first-child {
             order: 2;
+        }
+        @media (max-width: 700px) {
+            .landing-feature {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 34px 0;
+            }
+            .landing-feature:nth-of-type(even) > :first-child {
+                order: 0;
+            }
         }
         .landing-feature h2 {
             font-size: 22px;
@@ -5709,7 +5830,6 @@
 
             function dueMinute(task) {
                 if (task.online) return 1439;
-                const day = mondayIndex(task.due);
                 const classes = state.events.filter(e => e.type === 'class' && e.subjectId === task.subjectId);
                 const starts = classes.flatMap(e => e.slots.filter(s => sourceMatches(e, task.due, s)).map(s => mins(s
                     .start)));
@@ -6046,6 +6166,28 @@
             // show plain decimals instead.
             let quadA = '', quadB = '', quadC = '';
             let quadFormat = 'fraction'; // 'fraction' | 'decimal'
+
+            // ---- SUVAT Motion Solver (Tools page) — enter any 3 of the 5 kinematics variables
+            // (u, v, a, t, s) and the other 2 are solved for live. Where the physics genuinely has
+            // two valid answers (e.g. a ball passes the same height going up and coming down), both
+            // are shown rather than silently picking one.
+            let suvatU = '', suvatV = '', suvatA = '', suvatT = '', suvatS = '';
+
+            // ---- Statistics Calculator (Tools page) — free-text list of numbers, parsed live.
+            let statsInput = '';
+
+            // ---- Periodic Table Explorer (Tools page)
+            let periodicSearch = '';
+            let periodicCategoryFilter = 'all';
+            let periodicSelected = null; // atomic number of the element shown in the detail panel
+
+            // ---- Unit Converter (Tools page)
+            let unitsCategory = 'length';
+            let unitsFrom = 'm', unitsTo = 'ft';
+            let unitsValue = '1';
+
+            // ---- Word Counter & Readability Checker (Tools page)
+            let wordCounterText = '';
             // Computes CAO points for a real Leaving Cert or Mock exam once results are in: best six subjects
             // count, plus 25 bonus points for Higher Level Mathematics specifically (not Applied Maths) at grade
             // H6 or above. Returns null if this isn't an LC/mock exam. While any sitting is missing a result,
@@ -6305,10 +6447,6 @@
 
             function plannedSelfStudyMinutes(week) { return range(week, 7).reduce((total, date) => total +
                     segmentsForDate(date).filter(x => x.event.type === 'study' && x.event.studyKind !==
-                        'supervised').reduce((a, x) => a + x.end - x.start, 0), 0); }
-
-            function plannedSupervisedMinutes(week) { return range(week, 7).reduce((total, date) => total +
-                    segmentsForDate(date).filter(x => x.event.type === 'study' && x.event.studyKind ===
                         'supervised').reduce((a, x) => a + x.end - x.start, 0), 0); }
 
             // Part 2: how the weekly self-study target should be SHARED across subjects — a weighted
@@ -6792,7 +6930,7 @@
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">✦</span><span class="brand-label">Simple Study</span></div><nav class="nav">
         ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}${currentUser?navButton('chatrooms','💬','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
-      </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search">🔍 <span>Search</span></button><button data-action="open-settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
+      </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search" aria-label="Search">🔍 <span>Search</span></button><button data-action="open-settings" aria-label="Settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
             }
 
             // Whether a given announcement id has already been shown/dismissed on this
@@ -6839,9 +6977,9 @@
                 if (currentUser) {
                     const label = currentUser.user_metadata?.full_name || currentUser.email || 'Account';
                     const initial = (label[0] || '?').toUpperCase();
-                    return `<button data-action="open-settings" title="${escape(label)} — signed in, synced to the cloud">${escape(initial)} <span>${escape(label)}</span></button>`;
+                    return `<button data-action="open-settings" aria-label="${escape(label)}" title="${escape(label)} — signed in, synced to the cloud">${escape(initial)} <span>${escape(label)}</span></button>`;
                 }
-                return `<button data-action="sign-in-google" title="Sign in with Google to sync your data across devices">☁ <span>Sign in</span></button>`;
+                return `<button data-action="sign-in-google" aria-label="Sign in" title="Sign in with Google to sync your data across devices">☁ <span>Sign in</span></button>`;
             }
 
             function accountSettingsRowHtml() {
@@ -6916,7 +7054,7 @@
                 renderModal();
             }
 
-            function navButton(id, icon, label, badge = '') { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}"><b>${icon}</b><span>${label}</span>${badge}</button>`; }
+            function navButton(id, icon, label, badge = '') { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}" aria-label="${escape(label)}"><b aria-hidden="true">${icon}</b><span>${label}</span>${badge}</button>`; }
 
             function header(title, description, tools = '') { return `<div class="page-header"><div><h1>${title}</h1><p class="muted">${description}</p></div><div class="toolbar">${tools}</div></div>`; }
 
@@ -7652,7 +7790,6 @@
             function negFrac(f) { return { num: -f.num, den: f.den }; }
             function absFrac(f) { return { num: Math.abs(f.num), den: f.den }; }
             function fracIsZero(f) { return f.num === 0; }
-            function formatFrac(f) { return f.den === 1 ? `${f.num}` : `${f.num}/${f.den}`; }
             // Renders a non-negative fraction as a stacked num-over-den fraction (plain integer if whole).
             function fracHtml(f) { return f.den === 1 ? `${f.num}` :
                 `<span class="quad-frac"><span class="quad-frac-num">${f.num}</span><span class="quad-frac-den">${f.den}</span></span>`; }
@@ -7796,6 +7933,360 @@ ${pointsSvg}
         </section>
         ${graphHtml}`; }
 
+            // ---- Motion (SUVAT) Solver (Tools page) — given any 3 of the 5 constant-acceleration
+            // kinematics variables, solves for the other 2. Missing-pair key identifies which of the
+            // 10 possible known-triples was entered; negative-time solutions are discarded as not
+            // physical, and cases with two genuinely valid answers (e.g. a ball passing the same
+            // height on the way up and on the way down) return both rather than silently picking one.
+            function suvatSolve(vals) { const order = ['u', 'v', 'a', 't', 's'],
+                    missing = order.filter(k => vals[k] === null), known = order.filter(k => vals[k] !== null);
+                if (known.length < 3) return { status: 'need-more', count: known.length };
+                if (known.length > 3) return { status: 'too-many' };
+                const EPS = 1e-9, zero = x => Math.abs(x) < EPS, { u, v, a, t, s } = vals,
+                    missKey = missing.join(','),
+                    single = extra => ({ status: 'ok', values: { ...vals, ...extra } }),
+                    two = (e1, e2) => ({ status: 'ok-two', values: [{ ...vals, ...e1 }, { ...vals, ...e2 }] }),
+                    err = message => ({ status: 'error', message }),
+                    ambiguous = message => ({ status: 'ambiguous', message });
+                if (missKey === 'a,t') { // known u, v, s
+                    const denom = u + v;
+                    if (zero(denom)) return zero(s) ?
+                        ambiguous('u = −v makes this combination ambiguous — try adding a value for a or t instead.') :
+                        err('u + v = 0 forces s = 0 — these values are inconsistent.');
+                    const tt = 2 * s / denom;
+                    if (zero(tt)) return ambiguous('This leaves acceleration undetermined — try adding a value for a or t instead.');
+                    return single({ a: (v - u) / tt, t: tt });
+                }
+                if (missKey === 'a,s') { // known u, v, t
+                    if (zero(t)) return zero(u - v) ?
+                        ambiguous('t = 0 makes acceleration and displacement undetermined.') :
+                        err('t = 0 requires u = v.');
+                    return single({ a: (v - u) / t, s: (u + v) / 2 * t });
+                }
+                if (missKey === 't,s') { // known u, v, a
+                    if (zero(a)) return zero(u - v) ?
+                        ambiguous('With a = 0 and u = v, t and s could be anything — try adding a value for t or s instead.') :
+                        err('With a = 0, v must equal u.');
+                    const tt = (v - u) / a;
+                    return single({ t: tt, s: (u + v) / 2 * tt });
+                }
+                if (missKey === 'v,s') return single({ v: u + a * t, s: u * t + 0.5 * a * t * t }); // known u, a, t
+                if (missKey === 'v,t') { // known u, a, s
+                    const disc = u * u + 2 * a * s;
+                    if (disc < -EPS) return err('No real solution — check your numbers (v² would be negative).');
+                    if (zero(a)) { if (zero(u)) return zero(s) ?
+                            ambiguous('With u = a = 0, t could be anything — try adding a value for t instead. (v = 0.)') :
+                            err('With u = 0 and a = 0, s must stay 0 — these values are inconsistent.');
+                        return single({ v: u, t: s / u }); }
+                    const root = Math.sqrt(Math.max(0, disc)), roots = zero(root) ? [0] : [root, -root],
+                        opts = roots.map(vv => ({ v: vv, t: (vv - u) / a })).filter(o => o.t >= -EPS);
+                    if (!opts.length) return err('No physically valid solution (would need negative time).');
+                    return opts.length === 1 ? single(opts[0]) : two(opts[0], opts[1]);
+                }
+                if (missKey === 'v,a') { // known u, t, s
+                    if (zero(t)) return zero(s) ?
+                        ambiguous(`t = 0 leaves acceleration undetermined — v = u = ${formatDecimal(u)}.`) :
+                        err('t = 0 requires s = 0.');
+                    const aa = 2 * (s - u * t) / (t * t);
+                    return single({ a: aa, v: u + aa * t });
+                }
+                if (missKey === 'u,s') return single({ u: v - a * t, s: v * t - 0.5 * a * t * t }); // known v, a, t
+                if (missKey === 'u,t') { // known v, a, s
+                    const disc = v * v - 2 * a * s;
+                    if (disc < -EPS) return err('No real solution — check your numbers (u² would be negative).');
+                    if (zero(a)) { if (zero(v)) return zero(s) ?
+                            ambiguous('With v = a = 0, t could be anything — try adding a value for t instead. (u = 0.)') :
+                            err('With v = 0 and a = 0, s must stay 0 — these values are inconsistent.');
+                        return single({ u: v, t: s / v }); }
+                    const root = Math.sqrt(Math.max(0, disc)), roots = zero(root) ? [0] : [root, -root],
+                        opts = roots.map(uu => ({ u: uu, t: (v - uu) / a })).filter(o => o.t >= -EPS);
+                    if (!opts.length) return err('No physically valid solution (would need negative time).');
+                    return opts.length === 1 ? single(opts[0]) : two(opts[0], opts[1]);
+                }
+                if (missKey === 'u,a') { // known v, t, s
+                    if (zero(t)) return zero(s) ?
+                        ambiguous(`t = 0 leaves acceleration undetermined — u = v = ${formatDecimal(v)}.`) :
+                        err('t = 0 requires s = 0.');
+                    const uu = 2 * s / t - v;
+                    return single({ u: uu, a: (v - uu) / t });
+                }
+                if (missKey === 'u,v') { // known a, t, s
+                    if (zero(t)) return zero(s) ?
+                        ambiguous('t = 0 leaves both u and v undetermined.') :
+                        err('t = 0 requires s = 0.');
+                    const uu = (s - 0.5 * a * t * t) / t;
+                    return single({ u: uu, v: uu + a * t });
+                }
+                return err('Could not solve — check your numbers.'); }
+
+            function suvatToolHtml() { const parse = str => { const t = (str || '').trim();
+                    if (t === '') return null; const n = Number(t); return isNaN(n) ? undefined : n; };
+                const raw = { u: suvatU, v: suvatV, a: suvatA, t: suvatT, s: suvatS },
+                    bad = Object.keys(raw).filter(k => parse(raw[k]) === undefined);
+                const field = (id, label, unit, val) =>
+                    `<div class="field"><label for="${id}">${label} <span class="small">(${unit})</span></label><input type="text" inputmode="decimal" autocomplete="off" id="${id}" placeholder="?" value="${escape(val)}"></div>`;
+                const labels = { u: 'u — initial velocity', v: 'v — final velocity', a: 'a — acceleration', t: 't — time', s: 's — displacement' },
+                    units = { u: 'm/s', v: 'm/s', a: 'm/s²', t: 's', s: 'm' };
+                let resultHtml;
+                if (bad.length) resultHtml = `<p class="empty">Enter a valid number for ${bad.join(', ')}, or leave it blank if you don't know it.</p>`;
+                else { const vals = { u: parse(raw.u), v: parse(raw.v), a: parse(raw.a), t: parse(raw.t), s: parse(raw.s) },
+                        result = suvatSolve(vals),
+                        solvedKeys = Object.keys(vals).filter(k => vals[k] === null),
+                        row = vv => solvedKeys.map(k => `<div class="cao-subject-chip"><strong>${labels[k]}</strong><span class="small">${formatDecimal(vv[k])} ${units[k]}</span></div>`).join('');
+                    if (result.status === 'need-more') resultHtml = `<p class="empty">Enter any 3 of the 5 values above to solve for the other 2 (${result.count}/3 so far).</p>`;
+                    else if (result.status === 'too-many') resultHtml = `<p class="empty">Clear a couple of fields — enter only the 3 you know, and the other 2 will be solved for automatically.</p>`;
+                    else if (result.status === 'error' || result.status === 'ambiguous') resultHtml = `<p class="empty">${escape(result.message)}</p>`;
+                    else if (result.status === 'ok') resultHtml = `<div class="cao-subjects-row">${row(result.values)}</div>`;
+                    else resultHtml = `<p class="small" style="margin-bottom:8px">There are two possible answers:</p>
+            <div class="cao-subjects-row" style="margin-bottom:8px">${row(result.values[0])}</div>
+            <div class="cao-subjects-row">${row(result.values[1])}</div>`; }
+                return `<section class="card section">
+          <p class="small">Enter any 3 of the 5 values — the other 2 update automatically. Assumes constant acceleration in a straight line.</p>
+          <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-top:12px">
+            ${field('suvat-input-u','u',units.u,suvatU)}
+            ${field('suvat-input-v','v',units.v,suvatV)}
+            ${field('suvat-input-a','a',units.a,suvatA)}
+            ${field('suvat-input-t','t',units.t,suvatT)}
+            ${field('suvat-input-s','s',units.s,suvatS)}
+          </div>
+        </section>
+        <section class="card section" style="margin-top:14px">${resultHtml}</section>`; }
+
+            // ---- Statistics Calculator (Tools page) — free-text list of numbers. Quartiles use the
+            // median-of-halves method taught in Project Maths (the median itself is excluded from
+            // both halves for an odd-sized dataset), and standard deviation is the population form
+            // (÷n, not ÷(n−1)) since that's what the Irish syllabus calls "the" standard deviation.
+            function parseStatsNumbers(input) { return (input || '').split(/[\s,;]+/).map(t => t.trim())
+                    .filter(t => t !== '').map(Number).filter(n => isFinite(n)); }
+            function medianOf(sorted) { const n = sorted.length; if (!n) return null;
+                return n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2; }
+            function statisticsSummary(nums) { const n = nums.length; if (!n) return null;
+                const sorted = [...nums].sort((a, b) => a - b),
+                    sum = nums.reduce((a, b) => a + b, 0), mean = sum / n,
+                    min = sorted[0], max = sorted[n - 1], median = medianOf(sorted);
+                const freq = new Map(); nums.forEach(x => freq.set(x, (freq.get(x) || 0) + 1));
+                const maxFreq = Math.max(...freq.values()),
+                    mode = maxFreq <= 1 ? [] : [...freq.entries()].filter(([, c]) => c === maxFreq)
+                        .map(([v]) => v).sort((a, b) => a - b);
+                const variance = nums.reduce((a, x) => a + (x - mean) * (x - mean), 0) / n, stdDev = Math.sqrt(variance);
+                const half = Math.floor(n / 2),
+                    lowerHalf = sorted.slice(0, half), upperHalf = n % 2 ? sorted.slice(half + 1) : sorted.slice(half),
+                    q1 = medianOf(lowerHalf), q3 = medianOf(upperHalf),
+                    iqr = (q1 != null && q3 != null) ? q3 - q1 : null,
+                    outliers = iqr != null ? [...new Set(nums.filter(x => x < q1 - 1.5 * iqr || x > q3 + 1.5 * iqr))]
+                        .sort((a, b) => a - b) : [];
+                return { n, sum, mean, min, max, range: max - min, median, mode, variance, stdDev, q1, q3, iqr, outliers }; }
+            function boxPlotSvg({ min, q1, median, q3, max }) { const W = 600, H = 90, mL = 34, mR = 34, y = 46, boxH = 28,
+                    span = (max - min) || 1, pad = span * 0.1, domainMin = min - pad, domainMax = max + pad,
+                    toPx = v => mL + (v - domainMin) / (domainMax - domainMin) * (W - mL - mR),
+                    xMin = toPx(min), xQ1 = toPx(q1), xMed = toPx(median), xQ3 = toPx(q3), xMax = toPx(max),
+                    label = (x, v, dy) => `<text class="boxplot-label" x="${x.toFixed(1)}" y="${dy}" text-anchor="middle">${formatDecimal(v)}</text>`;
+                return `<section class="card section" style="margin-top:14px">
+          <h3 style="margin:0 0 10px;font-size:15px">Box plot</h3>
+          <svg class="boxplot" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+            <line class="boxplot-whisker" x1="${xMin.toFixed(1)}" y1="${y}" x2="${xQ1.toFixed(1)}" y2="${y}"></line>
+            <line class="boxplot-whisker" x1="${xQ3.toFixed(1)}" y1="${y}" x2="${xMax.toFixed(1)}" y2="${y}"></line>
+            <line class="boxplot-cap" x1="${xMin.toFixed(1)}" y1="${(y-boxH/4).toFixed(1)}" x2="${xMin.toFixed(1)}" y2="${(y+boxH/4).toFixed(1)}"></line>
+            <line class="boxplot-cap" x1="${xMax.toFixed(1)}" y1="${(y-boxH/4).toFixed(1)}" x2="${xMax.toFixed(1)}" y2="${(y+boxH/4).toFixed(1)}"></line>
+            <rect class="boxplot-box" x="${Math.min(xQ1,xQ3).toFixed(1)}" y="${(y-boxH/2).toFixed(1)}" width="${Math.max(1,Math.abs(xQ3-xQ1)).toFixed(1)}" height="${boxH}"></rect>
+            <line class="boxplot-median" x1="${xMed.toFixed(1)}" y1="${(y-boxH/2).toFixed(1)}" x2="${xMed.toFixed(1)}" y2="${(y+boxH/2).toFixed(1)}"></line>
+            ${label(xMin,min,y+boxH/2+16)}${label(xQ1,q1,y-boxH/2-8)}${label(xMed,median,y+boxH/2+16)}${label(xQ3,q3,y-boxH/2-8)}${label(xMax,max,y+boxH/2+16)}
+          </svg>
+        </section>`; }
+            function statisticsToolHtml() { const nums = parseStatsNumbers(statsInput), stat = statisticsSummary(nums),
+                    box = (label, value) => `<div class="card stat"><span class="label">${escape(label)}</span><span class="value">${value}</span></div>`;
+                const body = !stat ? `<p class="empty">Enter a list of numbers above (separated by commas, spaces or new lines) to see the stats.</p>` :
+                    `<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+            ${box('Count',stat.n)}${box('Sum',formatDecimal(stat.sum))}${box('Mean',formatDecimal(stat.mean))}${box('Median',formatDecimal(stat.median))}
+          </div>
+          <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-top:13px">
+            ${box('Mode',stat.mode.length?stat.mode.map(formatDecimal).join(', '):'None')}${box('Range',formatDecimal(stat.range))}${box('Std. deviation',formatDecimal(stat.stdDev))}${box('Variance',formatDecimal(stat.variance))}
+          </div>
+          <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-top:13px">
+            ${box('Min',formatDecimal(stat.min))}${box('Q1',stat.q1!=null?formatDecimal(stat.q1):'—')}${box('Q3',stat.q3!=null?formatDecimal(stat.q3):'—')}${box('Max',formatDecimal(stat.max))}
+          </div>
+          ${stat.n>=4?boxPlotSvg(stat):'<p class="small" style="margin-top:10px">Enter at least 4 numbers to see a box plot.</p>'}
+          ${stat.outliers.length?`<p class="small" style="margin-top:10px">Possible outlier${stat.outliers.length===1?'':'s'} (outside 1.5×IQR): ${stat.outliers.map(formatDecimal).join(', ')}</p>`:''}`;
+                return `<section class="card section">
+          <p class="small">Separate numbers with commas, spaces or new lines.</p>
+          <textarea id="stats-input" placeholder="e.g. 4, 8, 15, 16, 23, 42" style="margin-top:10px;min-height:90px;width:100%">${escape(statsInput)}</textarea>
+        </section>
+        <section class="card section" style="margin-top:14px">${body}</section>`; }
+
+            // ---- Periodic Table Explorer (Tools page) — all 118 known elements, searchable by name,
+            // symbol or atomic number, with a category legend that doubles as a filter. Standard
+            // atomic weights are rounded to 2dp; synthetic/superheavy elements beyond around Z=104
+            // don't have a stable weight so the mass number of the most stable known isotope is shown
+            // instead (as is standard practice) — these rarely come up before third level.
+            const ELEMENTS = [
+                { z: 1, sym: 'H', name: 'Hydrogen', mass: 1.01, cat: 'nonmetal' }, { z: 2, sym: 'He', name: 'Helium', mass: 4.00, cat: 'noble gas' },
+                { z: 3, sym: 'Li', name: 'Lithium', mass: 6.94, cat: 'alkali metal' }, { z: 4, sym: 'Be', name: 'Beryllium', mass: 9.01, cat: 'alkaline earth metal' },
+                { z: 5, sym: 'B', name: 'Boron', mass: 10.81, cat: 'metalloid' }, { z: 6, sym: 'C', name: 'Carbon', mass: 12.01, cat: 'nonmetal' },
+                { z: 7, sym: 'N', name: 'Nitrogen', mass: 14.01, cat: 'nonmetal' }, { z: 8, sym: 'O', name: 'Oxygen', mass: 16.00, cat: 'nonmetal' },
+                { z: 9, sym: 'F', name: 'Fluorine', mass: 19.00, cat: 'halogen' }, { z: 10, sym: 'Ne', name: 'Neon', mass: 20.18, cat: 'noble gas' },
+                { z: 11, sym: 'Na', name: 'Sodium', mass: 22.99, cat: 'alkali metal' }, { z: 12, sym: 'Mg', name: 'Magnesium', mass: 24.31, cat: 'alkaline earth metal' },
+                { z: 13, sym: 'Al', name: 'Aluminium', mass: 26.98, cat: 'post-transition metal' }, { z: 14, sym: 'Si', name: 'Silicon', mass: 28.09, cat: 'metalloid' },
+                { z: 15, sym: 'P', name: 'Phosphorus', mass: 30.97, cat: 'nonmetal' }, { z: 16, sym: 'S', name: 'Sulfur', mass: 32.07, cat: 'nonmetal' },
+                { z: 17, sym: 'Cl', name: 'Chlorine', mass: 35.45, cat: 'halogen' }, { z: 18, sym: 'Ar', name: 'Argon', mass: 39.95, cat: 'noble gas' },
+                { z: 19, sym: 'K', name: 'Potassium', mass: 39.10, cat: 'alkali metal' }, { z: 20, sym: 'Ca', name: 'Calcium', mass: 40.08, cat: 'alkaline earth metal' },
+                { z: 21, sym: 'Sc', name: 'Scandium', mass: 44.96, cat: 'transition metal' }, { z: 22, sym: 'Ti', name: 'Titanium', mass: 47.87, cat: 'transition metal' },
+                { z: 23, sym: 'V', name: 'Vanadium', mass: 50.94, cat: 'transition metal' }, { z: 24, sym: 'Cr', name: 'Chromium', mass: 52.00, cat: 'transition metal' },
+                { z: 25, sym: 'Mn', name: 'Manganese', mass: 54.94, cat: 'transition metal' }, { z: 26, sym: 'Fe', name: 'Iron', mass: 55.85, cat: 'transition metal' },
+                { z: 27, sym: 'Co', name: 'Cobalt', mass: 58.93, cat: 'transition metal' }, { z: 28, sym: 'Ni', name: 'Nickel', mass: 58.69, cat: 'transition metal' },
+                { z: 29, sym: 'Cu', name: 'Copper', mass: 63.55, cat: 'transition metal' }, { z: 30, sym: 'Zn', name: 'Zinc', mass: 65.38, cat: 'transition metal' },
+                { z: 31, sym: 'Ga', name: 'Gallium', mass: 69.72, cat: 'post-transition metal' }, { z: 32, sym: 'Ge', name: 'Germanium', mass: 72.63, cat: 'metalloid' },
+                { z: 33, sym: 'As', name: 'Arsenic', mass: 74.92, cat: 'metalloid' }, { z: 34, sym: 'Se', name: 'Selenium', mass: 78.97, cat: 'nonmetal' },
+                { z: 35, sym: 'Br', name: 'Bromine', mass: 79.90, cat: 'halogen' }, { z: 36, sym: 'Kr', name: 'Krypton', mass: 83.80, cat: 'noble gas' },
+                { z: 37, sym: 'Rb', name: 'Rubidium', mass: 85.47, cat: 'alkali metal' }, { z: 38, sym: 'Sr', name: 'Strontium', mass: 87.62, cat: 'alkaline earth metal' },
+                { z: 39, sym: 'Y', name: 'Yttrium', mass: 88.91, cat: 'transition metal' }, { z: 40, sym: 'Zr', name: 'Zirconium', mass: 91.22, cat: 'transition metal' },
+                { z: 41, sym: 'Nb', name: 'Niobium', mass: 92.91, cat: 'transition metal' }, { z: 42, sym: 'Mo', name: 'Molybdenum', mass: 95.95, cat: 'transition metal' },
+                { z: 43, sym: 'Tc', name: 'Technetium', mass: 98, cat: 'transition metal' }, { z: 44, sym: 'Ru', name: 'Ruthenium', mass: 101.07, cat: 'transition metal' },
+                { z: 45, sym: 'Rh', name: 'Rhodium', mass: 102.91, cat: 'transition metal' }, { z: 46, sym: 'Pd', name: 'Palladium', mass: 106.42, cat: 'transition metal' },
+                { z: 47, sym: 'Ag', name: 'Silver', mass: 107.87, cat: 'transition metal' }, { z: 48, sym: 'Cd', name: 'Cadmium', mass: 112.41, cat: 'transition metal' },
+                { z: 49, sym: 'In', name: 'Indium', mass: 114.82, cat: 'post-transition metal' }, { z: 50, sym: 'Sn', name: 'Tin', mass: 118.71, cat: 'post-transition metal' },
+                { z: 51, sym: 'Sb', name: 'Antimony', mass: 121.76, cat: 'metalloid' }, { z: 52, sym: 'Te', name: 'Tellurium', mass: 127.60, cat: 'metalloid' },
+                { z: 53, sym: 'I', name: 'Iodine', mass: 126.90, cat: 'halogen' }, { z: 54, sym: 'Xe', name: 'Xenon', mass: 131.29, cat: 'noble gas' },
+                { z: 55, sym: 'Cs', name: 'Caesium', mass: 132.91, cat: 'alkali metal' }, { z: 56, sym: 'Ba', name: 'Barium', mass: 137.33, cat: 'alkaline earth metal' },
+                { z: 57, sym: 'La', name: 'Lanthanum', mass: 138.91, cat: 'lanthanide' }, { z: 58, sym: 'Ce', name: 'Cerium', mass: 140.12, cat: 'lanthanide' },
+                { z: 59, sym: 'Pr', name: 'Praseodymium', mass: 140.91, cat: 'lanthanide' }, { z: 60, sym: 'Nd', name: 'Neodymium', mass: 144.24, cat: 'lanthanide' },
+                { z: 61, sym: 'Pm', name: 'Promethium', mass: 145, cat: 'lanthanide' }, { z: 62, sym: 'Sm', name: 'Samarium', mass: 150.36, cat: 'lanthanide' },
+                { z: 63, sym: 'Eu', name: 'Europium', mass: 151.96, cat: 'lanthanide' }, { z: 64, sym: 'Gd', name: 'Gadolinium', mass: 157.25, cat: 'lanthanide' },
+                { z: 65, sym: 'Tb', name: 'Terbium', mass: 158.93, cat: 'lanthanide' }, { z: 66, sym: 'Dy', name: 'Dysprosium', mass: 162.50, cat: 'lanthanide' },
+                { z: 67, sym: 'Ho', name: 'Holmium', mass: 164.93, cat: 'lanthanide' }, { z: 68, sym: 'Er', name: 'Erbium', mass: 167.26, cat: 'lanthanide' },
+                { z: 69, sym: 'Tm', name: 'Thulium', mass: 168.93, cat: 'lanthanide' }, { z: 70, sym: 'Yb', name: 'Ytterbium', mass: 173.05, cat: 'lanthanide' },
+                { z: 71, sym: 'Lu', name: 'Lutetium', mass: 174.97, cat: 'lanthanide' }, { z: 72, sym: 'Hf', name: 'Hafnium', mass: 178.49, cat: 'transition metal' },
+                { z: 73, sym: 'Ta', name: 'Tantalum', mass: 180.95, cat: 'transition metal' }, { z: 74, sym: 'W', name: 'Tungsten', mass: 183.84, cat: 'transition metal' },
+                { z: 75, sym: 'Re', name: 'Rhenium', mass: 186.21, cat: 'transition metal' }, { z: 76, sym: 'Os', name: 'Osmium', mass: 190.23, cat: 'transition metal' },
+                { z: 77, sym: 'Ir', name: 'Iridium', mass: 192.22, cat: 'transition metal' }, { z: 78, sym: 'Pt', name: 'Platinum', mass: 195.08, cat: 'transition metal' },
+                { z: 79, sym: 'Au', name: 'Gold', mass: 196.97, cat: 'transition metal' }, { z: 80, sym: 'Hg', name: 'Mercury', mass: 200.59, cat: 'transition metal' },
+                { z: 81, sym: 'Tl', name: 'Thallium', mass: 204.38, cat: 'post-transition metal' }, { z: 82, sym: 'Pb', name: 'Lead', mass: 207.2, cat: 'post-transition metal' },
+                { z: 83, sym: 'Bi', name: 'Bismuth', mass: 208.98, cat: 'post-transition metal' }, { z: 84, sym: 'Po', name: 'Polonium', mass: 209, cat: 'metalloid' },
+                { z: 85, sym: 'At', name: 'Astatine', mass: 210, cat: 'halogen' }, { z: 86, sym: 'Rn', name: 'Radon', mass: 222, cat: 'noble gas' },
+                { z: 87, sym: 'Fr', name: 'Francium', mass: 223, cat: 'alkali metal' }, { z: 88, sym: 'Ra', name: 'Radium', mass: 226, cat: 'alkaline earth metal' },
+                { z: 89, sym: 'Ac', name: 'Actinium', mass: 227, cat: 'actinide' }, { z: 90, sym: 'Th', name: 'Thorium', mass: 232.04, cat: 'actinide' },
+                { z: 91, sym: 'Pa', name: 'Protactinium', mass: 231.04, cat: 'actinide' }, { z: 92, sym: 'U', name: 'Uranium', mass: 238.03, cat: 'actinide' },
+                { z: 93, sym: 'Np', name: 'Neptunium', mass: 237, cat: 'actinide' }, { z: 94, sym: 'Pu', name: 'Plutonium', mass: 244, cat: 'actinide' },
+                { z: 95, sym: 'Am', name: 'Americium', mass: 243, cat: 'actinide' }, { z: 96, sym: 'Cm', name: 'Curium', mass: 247, cat: 'actinide' },
+                { z: 97, sym: 'Bk', name: 'Berkelium', mass: 247, cat: 'actinide' }, { z: 98, sym: 'Cf', name: 'Californium', mass: 251, cat: 'actinide' },
+                { z: 99, sym: 'Es', name: 'Einsteinium', mass: 252, cat: 'actinide' }, { z: 100, sym: 'Fm', name: 'Fermium', mass: 257, cat: 'actinide' },
+                { z: 101, sym: 'Md', name: 'Mendelevium', mass: 258, cat: 'actinide' }, { z: 102, sym: 'No', name: 'Nobelium', mass: 259, cat: 'actinide' },
+                { z: 103, sym: 'Lr', name: 'Lawrencium', mass: 266, cat: 'actinide' }, { z: 104, sym: 'Rf', name: 'Rutherfordium', mass: 267, cat: 'transition metal' },
+                { z: 105, sym: 'Db', name: 'Dubnium', mass: 268, cat: 'transition metal' }, { z: 106, sym: 'Sg', name: 'Seaborgium', mass: 269, cat: 'transition metal' },
+                { z: 107, sym: 'Bh', name: 'Bohrium', mass: 270, cat: 'transition metal' }, { z: 108, sym: 'Hs', name: 'Hassium', mass: 269, cat: 'transition metal' },
+                { z: 109, sym: 'Mt', name: 'Meitnerium', mass: 278, cat: 'unknown' }, { z: 110, sym: 'Ds', name: 'Darmstadtium', mass: 281, cat: 'unknown' },
+                { z: 111, sym: 'Rg', name: 'Roentgenium', mass: 282, cat: 'unknown' }, { z: 112, sym: 'Cn', name: 'Copernicium', mass: 285, cat: 'unknown' },
+                { z: 113, sym: 'Nh', name: 'Nihonium', mass: 286, cat: 'post-transition metal' }, { z: 114, sym: 'Fl', name: 'Flerovium', mass: 289, cat: 'post-transition metal' },
+                { z: 115, sym: 'Mc', name: 'Moscovium', mass: 290, cat: 'post-transition metal' }, { z: 116, sym: 'Lv', name: 'Livermorium', mass: 293, cat: 'post-transition metal' },
+                { z: 117, sym: 'Ts', name: 'Tennessine', mass: 294, cat: 'halogen' }, { z: 118, sym: 'Og', name: 'Oganesson', mass: 294, cat: 'noble gas' },
+            ];
+            const PERIODIC_CATEGORIES = [
+                { id: 'alkali metal', label: 'Alkali metal', color: '#f6b73c' }, { id: 'alkaline earth metal', label: 'Alkaline earth metal', color: '#f2d43c' },
+                { id: 'transition metal', label: 'Transition metal', color: '#f4c9a6' }, { id: 'lanthanide', label: 'Lanthanide', color: '#c6a6f4' },
+                { id: 'actinide', label: 'Actinide', color: '#f4a6d8' }, { id: 'metalloid', label: 'Metalloid', color: '#a6d8c6' },
+                { id: 'post-transition metal', label: 'Post-transition metal', color: '#a6c6f4' }, { id: 'nonmetal', label: 'Nonmetal', color: '#9fe3a0' },
+                { id: 'halogen', label: 'Halogen', color: '#9fd7e3' }, { id: 'noble gas', label: 'Noble gas', color: '#d0a6f4' },
+                { id: 'unknown', label: 'Not yet classified', color: '#d7d7d7' },
+            ];
+            function periodicTableHtml() { const q = periodicSearch.trim().toLowerCase();
+                const filtered = ELEMENTS.filter(e => { if (periodicCategoryFilter !== 'all' && e.cat !== periodicCategoryFilter) return false;
+                    if (!q) return true;
+                    return e.name.toLowerCase().includes(q) || e.sym.toLowerCase() === q || String(e.z) === q; });
+                const catColor = cat => (PERIODIC_CATEGORIES.find(c => c.id === cat) || {}).color || '#d7d7d7',
+                    catLabel = cat => (PERIODIC_CATEGORIES.find(c => c.id === cat) || {}).label || cat;
+                const card = e => `<button type="button" class="periodic-card ${periodicSelected===e.z?'selected':''}" style="--cat-color:${catColor(e.cat)}" data-action="periodic-select" data-z="${e.z}" title="${escape(e.name)}"><span class="periodic-z">${e.z}</span><span class="periodic-sym">${e.sym}</span><span class="periodic-mass">${e.mass}</span></button>`;
+                const selected = periodicSelected != null ? ELEMENTS.find(e => e.z === periodicSelected) : null;
+                const detail = selected ? `<div class="periodic-detail" style="--cat-color:${catColor(selected.cat)}">
+            <div class="periodic-detail-sym">${selected.sym}</div>
+            <div><strong>${escape(selected.name)}</strong><span class="small">Atomic number ${selected.z} · atomic mass ${selected.mass} · ${escape(catLabel(selected.cat))}</span></div>
+          </div>` : `<p class="empty">Select an element below to see details, or search above.</p>`;
+                const legend = PERIODIC_CATEGORIES.map(c => `<button type="button" class="periodic-legend-chip ${periodicCategoryFilter===c.id?'active':''}" style="--cat-color:${c.color}" data-action="periodic-filter" data-cat="${c.id}">${escape(c.label)}</button>`).join('');
+                return `<section class="card section">
+          <input type="text" id="periodic-search-input" placeholder="Search by name, symbol or atomic number…" value="${escape(periodicSearch)}" style="width:100%">
+          <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px">
+            <button type="button" class="periodic-legend-chip ${periodicCategoryFilter==='all'?'active':''}" data-action="periodic-filter" data-cat="all">All</button>
+            ${legend}
+          </div>
+        </section>
+        <section class="card section" style="margin-top:14px">${detail}</section>
+        <section class="card section" style="margin-top:14px">
+          ${filtered.length?`<div class="periodic-grid">${filtered.map(card).join('')}</div>`:'<p class="empty">No elements match that search.</p>'}
+        </section>`; }
+
+            // ---- Unit Converter (Tools page) — factors are all relative to a base unit per category;
+            // temperature is handled separately since °C/°F/K aren't a simple multiplicative scale.
+            const UNIT_CATEGORIES = {
+                length: { label: 'Length', units: { mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344 } },
+                mass: { label: 'Mass', units: { mg: 0.000001, g: 0.001, kg: 1, tonne: 1000, oz: 0.0283495, lb: 0.453592, stone: 6.35029 } },
+                volume: { label: 'Volume', units: { mL: 0.001, L: 1, 'm³': 1000, ukPint: 0.568261, ukGallon: 4.54609, ukFlOz: 0.0284131 } },
+                temperature: { label: 'Temperature', special: true },
+                time: { label: 'Time', units: { s: 1, min: 60, hr: 3600, day: 86400, week: 604800 } },
+                speed: { label: 'Speed', units: { 'm/s': 1, 'km/h': 0.277778, mph: 0.44704, knot: 0.514444 } },
+            };
+            const UNITS_DEFAULT_PAIR = { length: ['m', 'ft'], mass: ['kg', 'lb'], volume: ['L', 'ukPint'], temperature: ['C', 'F'], time: ['min', 'hr'], speed: ['km/h', 'mph'] };
+            function convertTemp(value, from, to) { const c = from === 'C' ? value : from === 'F' ? (value - 32) * 5 / 9 : value - 273.15;
+                return to === 'C' ? c : to === 'F' ? c * 9 / 5 + 32 : c + 273.15; }
+            function convertUnits(value, category, from, to) { if (category === 'temperature') return convertTemp(value, from, to);
+                const def = UNIT_CATEGORIES[category]; if (!def || !(from in def.units) || !(to in def.units)) return null;
+                return value * def.units[from] / def.units[to]; }
+            function unitConverterHtml() { const isTemp = unitsCategory === 'temperature',
+                    unitIds = isTemp ? ['C', 'F', 'K'] : Object.keys(UNIT_CATEGORIES[unitsCategory].units),
+                    unitLabel = id => isTemp ? ({ C: '°C', F: '°F', K: 'K' })[id] : id;
+                const val = parseFloat(unitsValue), valid = unitsValue.trim() !== '' && isFinite(val),
+                    result = valid ? convertUnits(val, unitsCategory, unitsFrom, unitsTo) : null;
+                const tabBtn = (id) => `<button type="button" class="button ${unitsCategory===id?'primary':'ghost'}" data-action="units-category" data-cat="${id}">${UNIT_CATEGORIES[id].label}</button>`;
+                const fromOptions = unitIds.map(id => `<option value="${id}" ${unitsFrom===id?'selected':''}>${unitLabel(id)}</option>`).join(''),
+                    toOptions = unitIds.map(id => `<option value="${id}" ${unitsTo===id?'selected':''}>${unitLabel(id)}</option>`).join('');
+                return `<section class="card section">
+          <div class="row" style="gap:8px;flex-wrap:wrap">${Object.keys(UNIT_CATEGORIES).map(tabBtn).join('')}</div>
+          <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:14px">
+            <div class="field" style="flex:1;min-width:100px"><label for="units-value-input">Value</label><input type="text" inputmode="decimal" autocomplete="off" id="units-value-input" value="${escape(unitsValue)}"></div>
+            <div class="field" style="flex:1;min-width:120px"><label for="units-from-select">From</label><select id="units-from-select">${fromOptions}</select></div>
+            <button type="button" class="button ghost" data-action="units-swap" aria-label="Swap from and to units" style="margin-bottom:1px">⇄</button>
+            <div class="field" style="flex:1;min-width:120px"><label for="units-to-select">To</label><select id="units-to-select">${toOptions}</select></div>
+          </div>
+        </section>
+        <section class="card section" style="margin-top:14px">
+          ${!valid?'<p class="empty">Enter a number to convert.</p>':result==null?'<p class="empty">Choose valid units.</p>':
+            `<div class="cao-calc-total"><strong>${formatDecimal(result)}</strong><span class="small">${unitLabel(unitsTo)}</span></div><p class="small" style="margin-top:6px">${formatDecimal(val)} ${unitLabel(unitsFrom)} = ${formatDecimal(result)} ${unitLabel(unitsTo)}</p>`}
+        </section>`; }
+
+            // ---- Word Counter & Readability Checker (Tools page) — syllable counting uses the
+            // standard vowel-group heuristic (not a dictionary), so the readability score is always
+            // labelled as an estimate rather than an exact figure.
+            function countSyllablesInWord(word) { word = word.toLowerCase().replace(/[^a-z]/g, ''); if (!word) return 0;
+                if (word.length <= 3) return 1;
+                word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '').replace(/^y/, '');
+                const matches = word.match(/[aeiouy]{1,2}/g); return matches ? matches.length : 1; }
+            function analyzeText(text) { const trimmed = text.trim(); if (!trimmed) return null;
+                const words = trimmed.split(/\s+/).filter(Boolean), wordCount = words.length,
+                    charCount = text.length,
+                    sentenceCount = Math.max(trimmed.split(/[.!?]+(?:\s|$)/).map(s => s.trim()).filter(Boolean).length, 1),
+                    paragraphCount = Math.max(trimmed.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).length, 1),
+                    syllables = words.reduce((sum, w) => sum + countSyllablesInWord(w), 0),
+                    avgWordsPerSentence = wordCount / sentenceCount, avgSyllablesPerWord = syllables / wordCount,
+                    fleschScore = 206.835 - 1.015 * avgWordsPerSentence - 84.6 * avgSyllablesPerWord,
+                    fkGrade = 0.39 * avgWordsPerSentence + 11.8 * avgSyllablesPerWord - 15.59;
+                return { wordCount, charCount, sentenceCount, paragraphCount, avgWordsPerSentence, fleschScore, fkGrade,
+                    readingTimeMin: wordCount / 200, speakingTimeMin: wordCount / 130 }; }
+            function fleschLabel(score) { if (score >= 90) return 'Very easy'; if (score >= 70) return 'Easy';
+                if (score >= 60) return 'Fairly easy'; if (score >= 50) return 'Standard'; if (score >= 30) return 'Fairly difficult';
+                if (score >= 0) return 'Difficult'; return 'Very difficult'; }
+            function wordCounterToolHtml() { const a = analyzeText(wordCounterText),
+                    box = (label, value) => `<div class="card stat"><span class="label">${escape(label)}</span><span class="value">${value}</span></div>`,
+                    fmtReadTime = mins => mins < 1 ? '< 1 min' : `${Math.round(mins)} min`;
+                const body = !a ? `<p class="empty">Paste or type your text above to see word counts and a readability score.</p>` :
+                    `<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+            ${box('Words',a.wordCount)}${box('Characters',a.charCount)}${box('Sentences',a.sentenceCount)}${box('Paragraphs',a.paragraphCount)}
+          </div>
+          <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin-top:13px">
+            ${box('Reading time',fmtReadTime(a.readingTimeMin))}${box('Speaking time',fmtReadTime(a.speakingTimeMin))}${box('Words/sentence',formatDecimal(a.avgWordsPerSentence))}${box('Readability',fleschLabel(a.fleschScore))}
+          </div>
+          <p class="small" style="margin-top:12px">Flesch reading ease: ${formatDecimal(Math.max(0,Math.min(100,a.fleschScore)))} · Estimated grade level: ${formatDecimal(Math.max(0,a.fkGrade))}. Syllable counts are estimated, so treat this as a guide rather than an exact score.</p>`;
+                return `<section class="card section">
+          <textarea id="word-counter-input" placeholder="Paste or type your essay or answer here…" style="min-height:220px;width:100%">${escape(wordCounterText)}</textarea>
+        </section>
+        <section class="card section" style="margin-top:14px">${body}</section>`; }
+
             function renderTools() { if (!toolsActiveTool) { const tile = (id, icon, title, desc) =>
                         `<button type="button" class="class-tile" data-action="tools-open" data-tool="${id}" style="--subject:var(--primary)"><strong>${icon} ${title}</strong><span class="small">${desc}</span></button>`;
                     return appFrame(`<div class="page">${header('Tools','Extra study tools that don\'t fit neatly anywhere else.','')}
@@ -7804,6 +8295,11 @@ ${pointsSvg}
           ${tile('cao','◎','CAO Points Calculator','Work out your best-6 CAO points, or find grade combinations that reach a target.')}
           ${tile('quadratic','➗','Quadratic Solver','Enter a, b and c and see the roots instantly — as exact fractions or decimals.')}
           ${tile('translate','🌐','Translate','Quick, natural translations between languages, powered by AI.')}
+          ${tile('suvat','🚀','Motion Solver','Enter any 3 of u, v, a, t, s and the rest are solved for — for Physics mechanics.')}
+          ${tile('statistics','📊','Statistics Calculator','Mean, median, mode, quartiles and standard deviation from a list of numbers.')}
+          ${tile('periodic','🧪','Periodic Table','All 118 elements — searchable, with atomic mass and category at a glance.')}
+          ${tile('units','📐','Unit Converter','Length, mass, volume, temperature, time and speed, converted instantly.')}
+          ${tile('wordcount','📝','Word Counter','Word/character counts, reading time, and a readability score for essays.')}
         </div>
         </div>`); }
                 const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (
@@ -7818,6 +8314,26 @@ ${pointsSvg}
                 if (toolsActiveTool === 'translate') return appFrame(`<div class="page">${back}
         ${header('Translate','Quick, natural translations between languages.','')}
         ${translateToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'suvat') return appFrame(`<div class="page">${back}
+        ${header('Motion Solver','Solves the SUVAT equations of motion for constant acceleration.','')}
+        ${suvatToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'statistics') return appFrame(`<div class="page">${back}
+        ${header('Statistics Calculator','Paste or type a list of numbers to get an instant summary.','')}
+        ${statisticsToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'periodic') return appFrame(`<div class="page">${back}
+        ${header('Periodic Table','All 118 elements — search by name, symbol or atomic number.','')}
+        ${periodicTableHtml()}
+        </div>`);
+                if (toolsActiveTool === 'units') return appFrame(`<div class="page">${back}
+        ${header('Unit Converter','Convert between common units used across school subjects.','')}
+        ${unitConverterHtml()}
+        </div>`);
+                if (toolsActiveTool === 'wordcount') return appFrame(`<div class="page">${back}
+        ${header('Word Counter & Readability','Paste your essay or answer to check it against a word limit and see how readable it is.','')}
+        ${wordCounterToolHtml()}
         </div>`);
                 return appFrame(`<div class="page">${back}
         ${header('CAO Points Calculator','A quick standalone scratchpad — it doesn\'t touch your logged exam results.','')}
@@ -9925,6 +10441,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                             <h1>Study smarter, not just harder.</h1>
                             <p>A timetable, a study planner, and an AI study assistant built for Irish secondary school — Simple Study works out what to study and when, so you don't have to.</p>
                             <button type="button" class="button primary" style="padding:14px 28px;font-size:16px" data-action="landing-go-auth" data-mode="signup">Get started — it's free</button>
+                            <div><button type="button" class="landing-guest-link" data-action="start-guest">Or just try it now — no account needed →</button></div>
                             <div class="landing-mock" style="margin-top:32px;max-width:520px;margin-left:auto;margin-right:auto">
                                 <div class="landing-mock-title">Good morning, Aoife 👋</div>
                                 <div class="landing-mock-sub">Tuesday · 6 classes today</div>
@@ -10000,10 +10517,32 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                             </div>
                             <div><h2>Track your CAO points</h2><p>See where you stand against your target, and how each exam and test moves the needle.</p></div>
                         </section>
+                        <section class="landing-feature">
+                            <div class="landing-mock">
+                                <div class="landing-mock-title">💬 6th Years</div>
+                                <div class="landing-mock-chat">
+                                    <div class="landing-mock-bubble system">Anyone else stuck on Q7 of the maths mock? 😅</div>
+                                    <div class="landing-mock-bubble user">Try factoring first — it clicks after that</div>
+                                    <div class="landing-mock-bubble system">omg thank you 🙏</div>
+                                </div>
+                            </div>
+                            <div><h2>Chat with your year group</h2><p>Join your school's chat room, or start one with friends — share photos, ask questions, and keep each other on track.</p></div>
+                        </section>
+                        <section class="landing-feature">
+                            <div class="landing-mock">
+                                <div class="landing-mock-title">🛠 Tools</div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#5E45CE"></span>Periodic table</div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#1E83C7"></span>Unit converter</div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#2D9B6C"></span>Statistics calculator</div>
+                                <div class="landing-mock-row"><span class="landing-mock-dot" style="background:#E38A27"></span>Motion solver</div>
+                            </div>
+                            <div><h2>A full toolbox, built in</h2><p>Formula book, quadratic and motion solvers, statistics, unit conversion, a periodic table, translate and more — no extra apps, no subscriptions.</p></div>
+                        </section>
                         ${statsSection}
                         <section class="landing-cta-band">
                             <h2 style="margin-bottom:14px">Ready to get started?</h2>
                             <button type="button" class="button primary" style="padding:14px 28px;font-size:16px" data-action="landing-go-auth" data-mode="signup">Get started — it's free</button>
+                            <div style="margin-top:10px"><button type="button" class="landing-guest-link" data-action="start-guest">Or just try it now — no account needed →</button></div>
                         </section>
                     </div>
                     <footer class="landing-footer">Simple Study · <button type="button" data-action="landing-go-privacy">Privacy</button></footer>`;
@@ -10045,6 +10584,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         <button type="button" class="button" style="width:100%" data-action="sign-in-google">Continue with Google</button>
                         ${emailFormHtml}
                         <div class="auth-switch">${isSignup ? 'Already have an account?' : "Don't have an account?"} <button type="button" data-action="auth-toggle-mode">${isSignup ? 'Sign in' : 'Sign up'}</button></div>
+                        ${isSignup ? `<div class="auth-switch" style="margin-top:2px">Not ready to sign up? <button type="button" data-action="start-guest">Try it without an account</button></div>` : ''}
                     </div>`;
             }
 
@@ -11119,6 +11659,12 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 name = name || (type === 'sleep' ? 'Sleep' : 'Planned study'); if (slots.some(s => !s.start || !s
                         .end || (weekly && !s.days.length))) { toast(
                         'Give every time a start, an end, and at least one day.'); return; }
+                // A slot whose start equals its end is ambiguous between "zero-length" and
+                // "wraps overnight to the same clock time" -- segmentsForDate treats end<=start as an
+                // overnight wraparound, so letting this through would silently turn one slot into a
+                // full 24-hour block instead of showing an error.
+                if (slots.some(s => s.start === s.end)) { toast(
+                        "Start and end time can't be the same."); return; }
                 const color = type === 'study' ? studyColorFor(modal.event?.studyKind || old?.studyKind || 'self') :
                     type === 'meal' ? MEAL_COLOR :
                     type === 'travel' ? TRAVEL_COLOR :
@@ -13138,6 +13684,9 @@ If the user asks about how to study or study methods generally, answer from your
                     renderLandingLayer();
                     return; } if (a === 'landing-go-privacy') { landingScreen = 'privacy';
                     renderLandingLayer();
+                    return; } if (a === 'start-guest') { showLanding = false;
+                    save();
+                    render();
                     return; } if (a === 'open-privacy') { viewingPrivacyFromApp = true;
                     landingScreen = 'privacy';
                     render();
@@ -13850,6 +14399,11 @@ If the user asks about how to study or study methods generally, answer from your
                         target = parseInt(raw, 10); if (!raw || isNaN(target) || target <= 0) { toast('Enter a target points total first.'); return; }
                     caoCalcTargetInput = raw; caoCalcTargetResults = caoCalcFindCombos(target); render(); }
                 else if (a === 'quad-format') { quadFormat = b.dataset.format; render(); }
+                else if (a === 'periodic-select') { periodicSelected = Number(b.dataset.z); render(); }
+                else if (a === 'periodic-filter') { periodicCategoryFilter = b.dataset.cat; render(); }
+                else if (a === 'units-category') { unitsCategory = b.dataset.cat;
+                    const pair = UNITS_DEFAULT_PAIR[unitsCategory]; unitsFrom = pair[0]; unitsTo = pair[1]; render(); }
+                else if (a === 'units-swap') { [unitsFrom, unitsTo] = [unitsTo, unitsFrom]; render(); }
             });
             document.addEventListener('keydown', e => { if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value);
                 else if (e.target && e.target.id === 'cao-target-input' && e.key === 'Enter') { const target = parseInt(e.target.value, 10); if (!isNaN(target) && target > 0) { caoCalcTargetInput = e.target.value; caoCalcTargetResults = caoCalcFindCombos(target); render(); } } });
@@ -13868,6 +14422,20 @@ If the user asks about how to study or study methods generally, answer from your
                     else quadC = e.target.value;
                     const id = e.target.id, pos = e.target.selectionStart;
                     render(); const input = document.getElementById(id);
+                    if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) {} } }
+                const newToolFieldIds = ['suvat-input-u', 'suvat-input-v', 'suvat-input-a', 'suvat-input-t', 'suvat-input-s',
+                    'stats-input', 'units-value-input', 'periodic-search-input', 'word-counter-input'];
+                if (newToolFieldIds.includes(e.target.id)) { const id = e.target.id, pos = e.target.selectionStart, val = e.target.value;
+                    if (id === 'suvat-input-u') suvatU = val;
+                    else if (id === 'suvat-input-v') suvatV = val;
+                    else if (id === 'suvat-input-a') suvatA = val;
+                    else if (id === 'suvat-input-t') suvatT = val;
+                    else if (id === 'suvat-input-s') suvatS = val;
+                    else if (id === 'stats-input') statsInput = val;
+                    else if (id === 'units-value-input') unitsValue = val;
+                    else if (id === 'periodic-search-input') periodicSearch = val;
+                    else if (id === 'word-counter-input') wordCounterText = val;
+                    render(); const input = document.getElementById(id);
                     if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) {} } } });
 
             document.addEventListener('change', e => { const t = e.target, action = t.dataset && t.dataset.action;
@@ -13883,6 +14451,8 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (action === 'sm-log-toggle-topic') { if (studyModeLogDraft) { if (t.checked) studyModeLogDraft
                         .checkedTopicIds.add(t.dataset.id);
                     else studyModeLogDraft.checkedTopicIds.delete(t.dataset.id); } }
+                else if (t.id === 'units-from-select') { unitsFrom = t.value; render(); }
+                else if (t.id === 'units-to-select') { unitsTo = t.value; render(); }
                 else if (t.id === 'vocab-ocr-file') { const file = t.files?.[0]; const subjectId = t.dataset.subject; t.value = '';
                     if (file) runVocabOcr(subjectId, file); }
                 else if (t.id === 'essay-photo-file') { const file = t.files?.[0]; t.value = '';
