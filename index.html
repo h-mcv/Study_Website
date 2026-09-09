@@ -3942,6 +3942,31 @@
                 } catch (err) { toast(err.message); adminBusy = false; render(); }
             }
 
+            // Sets a user's school from the admin panel -- e.g. onboarding them onto St Andrew's College without
+            // needing them to do it themselves. Writes schoolId/schoolName/graduationYear straight into their
+            // study_state via patch-state (a shallow merge of the whole `settings` sub-object, so every other
+            // settings field survives untouched) and, for a school with a period schedule, sets
+            // needsScheduleSync so THEIR OWN client runs the freeform-timetable sync (see
+            // syncEventsToSchoolSchedule/maybeRunPendingScheduleSync) the next time they load the app --
+            // that logic reads and rewrites their events/subjects, which only makes sense running as them,
+            // not from here as the admin.
+            async function adminSetUserSchool(userId, schoolId) {
+                adminBusy = true; render();
+                try {
+                    const cur = adminUserDetail?.state?.settings || {};
+                    const sc = schoolById(schoolId);
+                    // See applyUserSchoolChoice's comment: periodAssignments is keyed by the PREVIOUS school's
+                    // own period ids, so switching to a different school must not carry it over.
+                    const periodAssignments = cur.schoolId !== schoolId ? {} : (cur.periodAssignments || {});
+                    const patch = { settings: { ...cur, schoolId, schoolName: sc ? sc.name : '', periodAssignments,
+                        graduationYear: cur.yearGroup ? computeGraduationYear(cur.yearGroup) : (cur.graduationYear ?? null),
+                        needsScheduleSync: !!(sc && sc.periods) } };
+                    await adminFetch('patch-state', { userId, patch });
+                    toast(sc ? `School set to ${sc.name}.` : 'School cleared.');
+                    await loadAdminUserDetail(userId);
+                } catch (err) { toast(err.message); adminBusy = false; render(); }
+            }
+
             async function adminDeleteUserConfirmed(userId, email) {
                 const typed = document.getElementById('admin-delete-confirm')?.value || '';
                 if (typed.trim().toLowerCase() !== email.toLowerCase()) {
@@ -5214,7 +5239,7 @@
                     theme: 'light', onboarded: false, sidebarMode: 'hover', studyEngineDisabled: false,
                     notificationsEnabled: false, tourVersion: 0, tourBannerDismissedVersion: 0,
                     dyslexiaMode: false, cabbageCount: 0,
-                    schoolId: '', schoolName: '', graduationYear: null, periodAssignments: {},
+                    schoolId: '', schoolName: '', graduationYear: null, periodAssignments: {}, needsScheduleSync: false,
                     studyPreferences: { intensity: '', pointsTarget: '', timeOfDay: '', weekendBalance: '',
                         sessionLength: '', temporaryBoostUntil: '', notes: '' } },
                 subjects: [],
@@ -9560,6 +9585,101 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 });
             }
 
+            // The contiguous run of `school`'s period ids on `day` whose combined span exactly equals
+            // [start, end) -- e.g. two adjoining 40-minute periods for a double -- or null if no such run
+            // exists (including when start/end straddle a break/lunch gap, which never counts as one run).
+            function periodsCoveringRange(school, day, start, end) {
+                const periods = (school.periods[day] || []).filter(p => p.kind === 'period');
+                const startIdx = periods.findIndex(p => p.start === start);
+                if (startIdx === -1) return null;
+                let endIdx = startIdx, cur = periods[startIdx];
+                while (cur.end !== end) {
+                    const next = periods[endIdx + 1];
+                    if (!next || next.start !== cur.end) return null;
+                    endIdx++; cur = next;
+                }
+                return periods.slice(startIdx, endIdx + 1).map(p => p.id);
+            }
+
+            // Matches a student's EXISTING freeform timetable against the current school's period schedule --
+            // for a student who signs up (or is switched to a school by an admin) after already building their
+            // own timetable by hand. A class slot whose day+time exactly covers one period or an unbroken run
+            // of periods (a double/triple) is lifted into periodAssignments and removed from the freeform
+            // event, so it becomes editable in the period grid exactly like anything built there from scratch;
+            // rebuildPeriodEvents() then regenerates the actual class events from periodAssignments afterwards,
+            // which is what naturally re-merges doubles/triples and collapses matching days into one slot. A
+            // study/meal/activity slot that exactly matches one of the school's preset events (same type, same
+            // day+time) is tagged with that preset's id instead of being duplicated, so it shows up already
+            // ticked on the period builder's preset list. Anything that doesn't cleanly match either is left
+            // exactly as it was.
+            function syncEventsToSchoolSchedule() {
+                const school = currentSchool();
+                if (!school || !school.periods) return { classesMatched: 0, presetsMatched: 0 };
+                const pa = state.settings.periodAssignments;
+                const carryMeta = {}; // subjectId -> {teacher, details} carried over from the freeform event it came from
+                let classesMatched = 0, presetsMatched = 0;
+                const remainingEvents = [];
+                state.events.forEach(e => {
+                    if (e.type === 'class' && !e.periodBased) {
+                        const keptSlots = [];
+                        e.slots.forEach(slot => {
+                            const unmatchedDays = [];
+                            slot.days.forEach(day => {
+                                const ids = school.periods[day] && periodsCoveringRange(school, day, slot.start, slot.end);
+                                if (!ids) { unmatchedDays.push(day); return; }
+                                const subjectId = e.subjectId || findOrCreateSubjectByClassName(e.name, e.color, '');
+                                if (!pa[day]) pa[day] = {};
+                                ids.forEach(pid => { pa[day][pid] = subjectId; });
+                                if (!carryMeta[subjectId]) carryMeta[subjectId] = { teacher: e.teacher || '', details: e.details || '' };
+                                classesMatched++;
+                            });
+                            if (unmatchedDays.length) keptSlots.push({ ...slot, days: unmatchedDays });
+                        });
+                        if (keptSlots.length) remainingEvents.push({ ...e, slots: keptSlots });
+                    } else if (['study', 'meal', 'activity'].includes(e.type) && !e.presetKey) {
+                        // Only matched against presets actually offered to this student's year group -- otherwise
+                        // this could silently tag e.g. a 1st year's own "Homework Club" as a senior-only preset
+                        // it would never even see listed in the period builder.
+                        const match = schoolPresetEventsFor(school, state.settings.yearGroup).find(preset => preset.type === e.type &&
+                            preset.slots.some(ps => e.slots.some(es => es.start === ps.start && es.end === ps.end &&
+                                es.days.some(d => ps.days.includes(d)))));
+                        if (match) { e.presetKey = match.id; presetsMatched++; }
+                        remainingEvents.push(e);
+                    } else remainingEvents.push(e);
+                });
+                state.events = remainingEvents;
+                rebuildPeriodEvents();
+                state.events.filter(e => e.type === 'class' && e.periodBased && carryMeta[e.subjectId]).forEach(e => {
+                    const meta = carryMeta[e.subjectId];
+                    if (!e.teacher && meta.teacher) e.teacher = meta.teacher;
+                    if (!e.details && meta.details) e.details = meta.details;
+                });
+                save();
+                return { classesMatched, presetsMatched };
+            }
+
+            let schoolPromptDismissed = false; // "ask me later" on the existing-user school prompt -- re-asks next full load, not every render
+            let pendingScheduleSyncHandled = false; // guards runPendingScheduleSync so it fires at most once per page load
+
+            // Picks up state.settings.needsScheduleSync -- set either right after this user picks a school
+            // themselves (school-prompt-pick / onboarding) or remotely by an admin (see adminSetUserSchool) --
+            // and runs the freeform-timetable sync above. Deferred via setTimeout rather than called straight
+            // from render()'s tail so the save()+render() it triggers can't recurse into the render() call this
+            // is itself running inside of (same reasoning as ensureGradYearRoom's async pattern).
+            function maybeRunPendingScheduleSync() {
+                if (pendingScheduleSyncHandled || !state.settings.needsScheduleSync) return;
+                pendingScheduleSyncHandled = true;
+                setTimeout(() => {
+                    const school = currentSchool();
+                    const result = school && school.periods ? syncEventsToSchoolSchedule() : { classesMatched: 0, presetsMatched: 0 };
+                    state.settings.needsScheduleSync = false;
+                    save();
+                    render();
+                    if (result.classesMatched || result.presetsMatched) toast(
+                        `Your school was set to ${school.name} — matched ${result.classesMatched} class period${result.classesMatched===1?'':'s'} and ${result.presetsMatched} school event${result.presetsMatched===1?'':'s'} to its schedule.`);
+                }, 0);
+            }
+
             function periodBuilderClassChips() {
                 const subs = state.subjects.filter(s => s.active).sort((a, b) => a.name.localeCompare(b.name));
                 const eraser = `<button type="button" class="period-class-chip eraser ${periodBuilderSelectedSubjectId==='__erase__'?'selected':''}" data-action="period-select-subject" data-subject="__erase__">✕ Eraser</button>`;
@@ -9722,6 +9842,39 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     `<div class="onboarding"><div class="brand-mark">🎉</div><h2>Welcome to ${nextYear?`${nextYear} Year`:'your new school year'}!</h2><p>I've cleared last year's timetable and exams so you can start fresh. Head to Settings to set this year's term dates when you're ready.</p></div>`,
                     `<button class="button primary" data-action="rollover-pick-year" data-year="${nextYear}">Sounds good</button>`,
                     false, true); }
+
+            // Asked once for any already-onboarded user with no schoolId set -- i.e. someone who signed up
+            // before this feature existed (state.settings.schoolId defaults to '' for everyone, but a NEW
+            // signup can't reach this check while onboarded is still false, so in practice this only ever
+            // fires for pre-existing accounts). Picking a school with a period schedule immediately tries to
+            // match their existing hand-built timetable onto it (see syncEventsToSchoolSchedule) and takes
+            // them to the period builder to review the result.
+            function schoolPromptModal() { return modalShell('Which school are you at?',
+                    `<div class="onboarding"><div class="brand-mark">🏫</div><h2>Which school are you at?</h2><p>Pick your school and we'll match your existing classes to its period schedule where we can, plus set up its study and activity blocks. Not listed? Choose Other.</p><div class="type-picker">${SCHOOLS.map(sc=>`<button type="button" class="type-option" data-action="school-prompt-pick" data-school="${sc.id}">${escape(sc.name)}</button>`).join('')}<button type="button" class="type-option" data-action="school-prompt-pick" data-school="other">Other / not listed</button></div></div>`,
+                    `<button class="button ghost" data-action="school-prompt-dismiss">Ask me later</button>`,
+                    false, true); }
+
+            // Shared by the school-prompt modal, onboarding, and Settings -- sets schoolId/schoolName, fixes
+            // graduationYear the same way computeGraduationYear's callers do elsewhere (recomputed from
+            // whatever yearGroup is already set; a no-op if there's none yet), and for a school with a period
+            // schedule runs the freeform-timetable sync right away so there's something to review immediately
+            // rather than waiting for the deferred needsScheduleSync path admin changes use.
+            function applyUserSchoolChoice(schoolId) { const sc = schoolById(schoolId);
+                // periodAssignments is keyed by THIS school's own period ids -- switching to a different school
+                // (once more than one with a period schedule exists) must not carry over another school's
+                // assignments under ids that may collide or simply not exist here. Re-picking the same school
+                // is a no-op for this, so in-progress period work isn't wiped by re-confirming it.
+                if (state.settings.schoolId !== schoolId) state.settings.periodAssignments = {};
+                state.settings.schoolId = schoolId;
+                state.settings.schoolName = sc ? sc.name : '';
+                if (state.settings.yearGroup) state.settings.graduationYear = computeGraduationYear(state.settings.yearGroup);
+                save();
+                if (sc && sc.periods) { const result = syncEventsToSchoolSchedule();
+                    if (result.classesMatched || result.presetsMatched) toast(
+                        `Matched ${result.classesMatched} class period${result.classesMatched===1?'':'s'} and ${result.presetsMatched} school event${result.presetsMatched===1?'':'s'} to ${sc.name}'s schedule.`);
+                }
+                ensureGradYearRoom();
+            }
 
             function performRollover(newYearGroup) { state.events = [];
                 state.exams = [];
@@ -10014,13 +10167,15 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (view === 'admin') return; if (
                     !state.settings.onboarded && !modal) openModal('onboarding');
                 else if (state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
+                else if (state.settings.onboarded && !modal && !state.settings.schoolId && !schoolPromptDismissed) openModal('school-prompt');
                 else if (state.settings.onboarded && !modal && isSophiaMode() && !sophiaWelcomeShown) {
                     sophiaWelcomeShown = true;
                     openModal('sophia-welcome'); }
                 else if (!modal) { const pop = activeAnnouncements.find(x => x.kind === 'popup' && !announcementSeen(x.id));
                     if (pop) openModal('announcement-popup', { announcement: pop }); }
                 maybeScheduleCabbageScreen();
-                maybeShowSparkyRecall(); }
+                maybeShowSparkyRecall();
+                maybeRunPendingScheduleSync(); }
 
             // Shows a small persistent "bring Sparky back" button whenever setup genuinely looks incomplete
             // (no classes or no sleep on the timetable yet — the same check the guided tour itself uses) and no
@@ -10077,7 +10232,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 layer.classList.add('open');
                 layer.setAttribute('aria-hidden', 'false'); if (!modal) return; if (modal.kind === 'onboarding')
                     return layer.innerHTML = onboardingModal(); if (modal.kind === 'year-rollover') return layer
-                    .innerHTML = yearRolloverModal(); if (modal.kind === 'settings') return layer.innerHTML =
+                    .innerHTML = yearRolloverModal(); if (modal.kind === 'school-prompt') return layer.innerHTML =
+                    schoolPromptModal(); if (modal.kind === 'settings') return layer.innerHTML =
                     settingsModal(); if (modal.kind === 'study-preferences') return layer.innerHTML =
                     studyPreferencesModal(); if (modal.kind === 'event-form') return layer.innerHTML = eventModal(modal
                     .event); if (modal.kind === 'period-class-form') return layer.innerHTML = periodClassFormModal();
@@ -10397,6 +10553,11 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     <p class="small">Joined ${adminFmtDateTime(authUser.createdAt)} · Last sign-in ${adminFmtDateTime(authUser.lastSignInAt)} · ${escape(authUser.provider)} · id ${escape(authUser.id)}</p>
                 </div>
                 ${stats}
+                <div class="card section">
+                    <h2>School</h2>
+                    <p class="small">${s?.settings?.schoolId ? `Currently: <strong>${escape(s.settings.schoolName || s.settings.schoolId)}</strong>${s.settings.graduationYear?` · Class of ${s.settings.graduationYear}`:''}` : 'No school set.'} Picking a school with a period schedule matches their existing classes and study/activity blocks onto its periods automatically, next time they open the app.</p>
+                    <div class="type-picker">${SCHOOLS.map(sc=>`<button type="button" class="type-option ${s?.settings?.schoolId===sc.id?'selected':''}" data-action="admin-set-school" data-id="${id}" data-school="${sc.id}" ${adminBusy?'disabled':''}>${escape(sc.name)}</button>`).join('')}<button type="button" class="type-option ${s?.settings?.schoolId==='other'?'selected':''}" data-action="admin-set-school" data-id="${id}" data-school="other" ${adminBusy?'disabled':''}>Other / not listed</button></div>
+                </div>
                 <div class="card section"><h2>Subjects</h2><div>${subjectsHtml}</div></div>
                 <div class="card section"><h2>Recent results</h2>${resultsHtml}</div>
                 <div class="card section"><h2>Recent feature activity</h2>${eventsHtml}</div>
@@ -13175,19 +13336,17 @@ If the user asks about how to study or study methods generally, answer from your
                     // performRollover (annual advance) deliberately never calls this path, so the normal
                     // yearly rollover still leaves graduationYear untouched.
                     state.settings.graduationYear = computeGraduationYear(b.dataset.year);
-                    renderModal(); } else if (a === 'settings-pick-school') { const id = b.dataset.school,
-                        sc = schoolById(id);
-                    state.settings.schoolId = id;
-                    state.settings.schoolName = sc ? sc.name : '';
+                    renderModal(); } else if (a === 'settings-pick-school') { applyUserSchoolChoice(b.dataset.school);
                     renderModal(); } else if (a === 'onboarding-next-3') { if (!state.settings.yearGroup) { toast(
                             'Pick your year to continue.'); return; }
                     onboardingStep = 4;
                     save();
-                    renderModal(); } else if (a === 'onboarding-pick-school') { const id = b.dataset.school,
-                        sc = schoolById(id);
-                    state.settings.schoolId = id;
-                    state.settings.schoolName = sc ? sc.name : '';
-                    renderModal(); } else if (a === 'onboarding-next-4') {
+                    renderModal(); } else if (a === 'onboarding-pick-school') { applyUserSchoolChoice(b.dataset.school);
+                    renderModal(); } else if (a === 'school-prompt-pick') { applyUserSchoolChoice(b.dataset.school);
+                    closeModal();
+                    if (schoolHasPeriods(state.settings.schoolId)) { view = 'period-builder'; }
+                    render(); } else if (a === 'school-prompt-dismiss') { schoolPromptDismissed = true;
+                    closeModal(); } else if (a === 'onboarding-next-4') {
                     onboardingStep = 5;
                     save();
                     renderModal(); } else if (a === 'onboarding-next-5') { const ts = document.getElementById(
@@ -13869,6 +14028,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'admin-magic-link') adminMagicLink(b.dataset.id, b.dataset.email);
                 else if (a === 'admin-ban') adminSetBan(b.dataset.id, true);
                 else if (a === 'admin-unban') adminSetBan(b.dataset.id, false);
+                else if (a === 'admin-set-school') adminSetUserSchool(b.dataset.id, b.dataset.school);
                 else if (a === 'admin-delete-user') adminDeleteUserConfirmed(b.dataset.id, b.dataset.email);
                 else if (a === 'admin-save-state') adminSaveRawState(b.dataset.id);
                 else if (a === 'admin-export-csv') adminExportCsv();
