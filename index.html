@@ -10,7 +10,7 @@
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com;
         font-src 'self' data:;
-        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com;
+        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://api.mymemory.translated.net;
         frame-src 'self' https://sdk.scdn.co;
         object-src 'none';
         base-uri 'self';
@@ -1953,6 +1953,141 @@
         .alert.success {
             color: var(--success);
             background: var(--success-soft);
+        }
+        .translate-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .translate-bar select {
+            flex: 1;
+            font-weight: 700;
+        }
+        .translate-panes {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .translate-pane {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: var(--surface-2);
+            display: flex;
+            flex-direction: column;
+            min-height: 220px;
+        }
+        .translate-pane textarea {
+            flex: 1;
+            border: none;
+            background: transparent;
+            resize: none;
+            min-height: 180px;
+            font-size: 16px;
+        }
+        .translate-pane textarea:focus {
+            outline: none;
+        }
+        .translate-output {
+            flex: 1;
+            padding: 9px 10px;
+            font-size: 16px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .translate-pane-foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px 10px;
+        }
+        .translate-error {
+            color: var(--danger);
+        }
+        @media (max-width: 700px) {
+            .translate-panes {
+                grid-template-columns: 1fr;
+            }
+        }
+        .flashcard-stage {
+            max-width: 620px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .flashcard-face {
+            min-height: 220px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            font-size: 22px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .flashcard-face .fc-back {
+            font-size: 17px;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .flashcard-face .fc-hint {
+            display: block;
+            margin-top: 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+        }
+        .flashcard-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+        }
+        .flashcard-progress {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .flashcard-verdict-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 11px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--surface-2);
+        }
+        .flashcard-verdict-row .pill {
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .flashcard-mcq-choice {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            border: 1.5px solid var(--line);
+            border-radius: 12px;
+            background: var(--surface);
+            color: var(--text);
+            font-size: 14px;
+        }
+        .flashcard-mcq-choice:hover:not(:disabled) {
+            border-color: var(--primary);
+        }
+        .flashcard-mcq-choice.correct {
+            border-color: var(--success);
+            background: var(--success-soft);
+            color: var(--success);
+        }
+        .flashcard-mcq-choice.wrong {
+            border-color: var(--danger);
+            background: var(--danger-soft);
+            color: var(--danger);
         }
         .event-detail {
             display: grid;
@@ -4924,6 +5059,7 @@
                 wordbankVerbs: [], // { id, subjectId, infinitive, english, addedDate, source, conjugations: { [tenseId]: { irregular, note, forms: [{pronoun, form}] } } }
                 wordbankLearnedTenses: {}, // { [subjectId]: [tenseId, ...] } — which tenses the student has said they've learnt so far
                 essayMarks: [], // { id, subjectId, topicIds: [], date, inputMode, text, overallComment, rating: 'good'|'ok'|'bad', spelling: [], grammar: [], suggestions: [] }
+                flashcardDecks: [], // { id, subjectId, topic, cards: [{id, front, back}], createdAt } — one deck per subject+topic
                 week: weekStart(localDate())
             });
             let state = load();
@@ -4987,6 +5123,27 @@
             let essayMarking = false; // true while the AI marking call is in flight
             let essayResult = null; // unsaved draft result from the last marking call, shown for review before saving
 
+            // ---- Flashcards UI state — drill-down (subject -> topic deck -> study session), plus
+            // whatever's in progress in the create-flashcards modal. Decks/cards themselves live in
+            // state.flashcardDecks (see blankState) so they sync like everything else; none of this
+            // transient stuff needs to survive a reload.
+            let flashcardsSelectedSubjectId = null; // null = showing the subject grid
+            let flashcardsSelectedDeckId = null; // null = showing that subject's topic/deck list
+            let flashcardCreateDraft = null; // { mode: 'manual'|'image', subjectId, topic, cards: [{front,back}], images: [{mimeType,data,dataUrl,name}], reviewCards: [{front,back,include}]|null }
+            let flashcardCreateLoading = false; // true while the image-extraction AI call is in flight
+            let flashcardStudySession = null; // active click-through/smart-test/mcq-test session — see startFlashcardClickThrough/SmartTest/McqTest
+            let flashcardTestChoiceDeckId = null; // deck id the "Smart Test vs Multiple Choice" chooser modal is open for
+
+            // ---- Translate tool UI state — a simple two-pane translator (no history/detect-language on
+            // the current free API), all transient (not worth syncing to the cloud).
+            let translateSourceLang = 'en';
+            let translateTargetLang = 'es';
+            let translateInputText = '';
+            let translateOutputText = '';
+            let translateLoading = false;
+            let translateError = '';
+            let translateDebounceTimer = null;
+
             // Navigates to a subject's own page, closing any open modal first (this can be triggered from inside
             // one, e.g. topic-detail's "back" button or after saving a past-paper result).
             function openSubjectDetail(subjectId, section) { closeModal();
@@ -5049,7 +5206,8 @@
                     wordbankVocab: Array.isArray(saved.wordbankVocab) ? saved.wordbankVocab : [],
                     wordbankVerbs: Array.isArray(saved.wordbankVerbs) ? saved.wordbankVerbs : [],
                     wordbankLearnedTenses: saved.wordbankLearnedTenses && typeof saved.wordbankLearnedTenses === 'object' ? saved.wordbankLearnedTenses : {},
-                    essayMarks: Array.isArray(saved.essayMarks) ? saved.essayMarks : [] };
+                    essayMarks: Array.isArray(saved.essayMarks) ? saved.essayMarks : [],
+                    flashcardDecks: Array.isArray(saved.flashcardDecks) ? saved.flashcardDecks : [] };
             }
 
             function load() {
@@ -6312,7 +6470,7 @@
                 const shellClass = `app-shell sidebar-mode-${mode}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">✦</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}${currentUser?navButton('chatrooms','💬','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
+        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('flashcards','🗂','Flashcards')}${navButton('translate','🌐','Translate')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}${currentUser?navButton('chatrooms','💬','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
       </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search">🔍 <span>Search</span></button><button data-action="open-settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
             }
 
@@ -8274,6 +8432,323 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
 
             function discardEssayResult() { essayResult = null; render(); }
 
+            function shuffle(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));
+                    [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+            // ---- Flashcards -------------------------------------------------------------------------
+            // Decks/cards live in state.flashcardDecks (one deck per subject+topic pair, created on
+            // demand by findOrCreateFlashcardDeck) so they ride the same localStorage/cloud sync as the
+            // rest of the app -- no dedicated table needed. Everything else here (which subject/deck is
+            // open, an in-progress create-flashcards draft, an active study/test session) is page-local
+            // UI state, same treatment as the Word Bank state above.
+            function flashcardDecksFor(subjectId) { return state.flashcardDecks.filter(d => d.subjectId === subjectId)
+                    .sort((a, b) => a.topic.localeCompare(b.topic)); }
+            function flashcardDeck(id) { return state.flashcardDecks.find(d => d.id === id); }
+            function findOrCreateFlashcardDeck(subjectId, topic) { topic = (topic || '').trim(); if (!topic) return null;
+                let deck = state.flashcardDecks.find(d => d.subjectId === subjectId && d.topic.toLowerCase() === topic.toLowerCase());
+                if (!deck) { deck = { id: uid(), subjectId, topic, cards: [], createdAt: Date.now() }; state.flashcardDecks.push(deck); }
+                return deck; }
+            function addFlashcardsToDeck(subjectId, topic, cards) { const deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
+                (cards || []).forEach(c => { const front = (c.front || '').trim(), back = (c.back || '').trim(); if (front && back) deck.cards.push({ id: uid(), front, back }); });
+                save(); return deck; }
+            function deleteFlashcardDeck(deckId) { state.flashcardDecks = state.flashcardDecks.filter(d => d.id !== deckId); save(); }
+            function deleteFlashcardCard(deckId, cardId) { const deck = flashcardDeck(deckId); if (!deck) return;
+                deck.cards = deck.cards.filter(c => c.id !== cardId); save(); }
+
+            function openFlashcardSubject(subjectId) { flashcardsSelectedSubjectId = subjectId; flashcardsSelectedDeckId = null; render(); }
+            function openFlashcardDeck(deckId) { flashcardsSelectedDeckId = deckId; render(); }
+            function flashcardsBackToSubjects() { flashcardsSelectedSubjectId = null; flashcardsSelectedDeckId = null; render(); }
+            function flashcardsBackToTopics() { flashcardsSelectedDeckId = null; render(); }
+
+            function openFlashcardCreateModal(mode) { flashcardCreateDraft = { mode: mode || 'manual',
+                    subjectId: flashcardsSelectedSubjectId || (state.subjects[0]?.id || ''), topic: '',
+                    cards: [{ front: '', back: '' }], images: [], reviewCards: null };
+                openModal('flashcard-create'); }
+
+            function renderFlashcardSubjects() { const subjects = state.subjects.slice().sort((a, b) => a.name.localeCompare(b.name));
+                const tile = (s) => { const decks = flashcardDecksFor(s.id), cardCount = decks.reduce((n, d) => n + d.cards.length, 0);
+                    return `<button type="button" class="class-tile" data-action="open-flashcard-subject" data-subject="${s.id}" style="--subject:${s.color}"><strong>${escape(s.name)}</strong><span class="small">${decks.length} topic${decks.length===1?'':'s'}</span><span class="class-tile-count">${cardCount?`${cardCount} card${cardCount===1?'':'s'}`:'No flashcards yet'}</span></button>`; };
+                return `<div class="page">${header('Flashcards', 'Open a subject to see flashcards organised by topic — or create some from your notes.', `<button type="button" class="button primary" data-action="open-flashcard-create" data-mode="manual">+ Create Flashcards</button>`)}
+        <div class="class-grid">${subjects.length?subjects.map(tile).join(''):'<p class="empty">Add a subject on your Timetable first.</p>'}</div>
+        </div>`; }
+
+            function renderFlashcardTopics() { const s = subject(flashcardsSelectedSubjectId);
+                if (!s) { flashcardsSelectedSubjectId = null; return renderFlashcardSubjects(); }
+                const decks = flashcardDecksFor(s.id);
+                const tile = (d) => `<button type="button" class="class-tile" data-action="open-flashcard-deck" data-deck="${d.id}" style="--subject:${s.color}"><strong>${escape(d.topic)}</strong><span class="class-tile-count">${d.cards.length} card${d.cards.length===1?'':'s'}</span></button>`;
+                return `<div class="page">${header(escape(s.name), 'Flashcard topics for this subject.', `<button type="button" class="button ghost" data-action="flashcards-back-to-subjects">← Subjects</button><button type="button" class="button primary" data-action="open-flashcard-create" data-mode="manual">+ Create Flashcards</button>`)}
+        <div class="class-grid">${decks.length?decks.map(tile).join(''):`<p class="empty">No flashcards yet for ${escape(s.name)} — create some above.</p>`}</div>
+        </div>`; }
+
+            function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
+                if (!deck) { flashcardsSelectedDeckId = null; return renderFlashcardTopics(); }
+                const s = subject(deck.subjectId);
+                const cardRow = (c) => `<div class="topic-row"><div><strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost danger" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete">🗑</button></div>`;
+                return `<div class="page">${header(escape(deck.topic), `${s?escape(s.name)+' · ':''}${deck.cards.length} card${deck.cards.length===1?'':'s'}`, `<button type="button" class="button ghost" data-action="flashcards-back-to-topics">← ${s?escape(s.name):'Topics'}</button>`)}
+        <section class="card section">
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button type="button" class="button" data-action="flashcard-start-clickthrough" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>👀 Click Through</button>
+            <button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>🧠 Test</button>
+            <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add more cards</button>
+            <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete topic</button>
+          </div>
+        </section>
+        <div class="list" style="margin-top:14px">${deck.cards.length?deck.cards.map(cardRow).join(''):'<p class="empty">No cards yet.</p>'}</div>
+        </div>`; }
+
+            function renderFlashcards() { if (flashcardStudySession) return appFrame(renderFlashcardSession());
+                if (flashcardsSelectedDeckId) return appFrame(renderFlashcardDeckDetail());
+                if (flashcardsSelectedSubjectId) return appFrame(renderFlashcardTopics());
+                return appFrame(renderFlashcardSubjects()); }
+
+            // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
+            function flashcardCreateModal() { const d = flashcardCreateDraft;
+                if (!d) return modalShell('Create Flashcards', '', '');
+                const subjectOptions = state.subjects.slice().sort((a, b) => a.name.localeCompare(b.name))
+                    .map(s => `<option value="${s.id}" ${d.subjectId===s.id?'selected':''}>${escape(s.name)}</option>`).join('');
+                const existingTopics = flashcardDecksFor(d.subjectId).map(dk => dk.topic);
+                const topicDatalist = `<datalist id="flashcard-topic-options">${existingTopics.map(t => `<option value="${escape(t)}">`).join('')}</datalist>`;
+                const modeToggle = `<div class="row" style="gap:8px;margin-bottom:14px">
+          <button type="button" class="button ${d.mode==='manual'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="manual">✍️ Manually</button>
+          <button type="button" class="button ${d.mode==='image'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="image">📷 From Photos</button>
+        </div>`;
+                const subjectTopicFields = `<div class="form-grid" style="margin-bottom:14px">
+          <div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div>
+          <div class="field"><label>Topic</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div>
+        </div>`;
+                const manualCardRow = (c, i) => `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea></div><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
+                const manualBody = `${subjectTopicFields}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
+                const imgThumb = (img, i) => `<div style="position:relative;display:inline-block;margin:0 8px 8px 0"><img src="${img.dataUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="${escape(img.name||'photo')}"><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove photo">✕</button></div>`;
+                const reviewRow = (item, i) => `<div class="topic-row" style="align-items:flex-start"><input type="checkbox" data-action="flashcard-review-toggle" data-index="${i}" ${item.include?'checked':''} style="margin-top:10px"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-review-edit-front" data-index="${i}" value="${escape(item.front)}"><textarea data-action="flashcard-review-edit-back" data-index="${i}" style="min-height:52px">${escape(item.back)}</textarea></div></div>`;
+                const imageBody = d.reviewCards ?
+                    `<p class="small">Review what was found — untick or edit anything that's wrong, then confirm.</p><div class="list" style="margin-top:10px">${d.reviewCards.length?d.reviewCards.map(reviewRow).join(''):'<p class="empty">Nothing usable was found in those photos.</p>'}</div>`
+                    : `${subjectTopicFields}<input type="file" id="flashcard-image-file" accept="image/*" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) of notes, a textbook page, or your own paper flashcards</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>${d.images.length?`<p class="small">${d.images.length} photo${d.images.length===1?'':'s'} added.</p>`:''}`;
+                const body = d.mode === 'manual' ? manualBody : imageBody;
+                let footer;
+                if (d.mode === 'manual') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-manual-save">Save flashcards</button>`;
+                else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
+                else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?'Reading photos…':'Generate flashcards'}</button>`;
+                return modalShell('Create Flashcards', modeToggle + body, footer, true); }
+
+            function saveManualFlashcards() { const d = flashcardCreateDraft; if (!d) return;
+                const topic = (d.topic || '').trim();
+                if (!d.subjectId) { toast('Choose a subject.'); return; }
+                if (!topic) { toast('Enter a topic name.'); return; }
+                const cards = d.cards.filter(c => c.front.trim() && c.back.trim());
+                if (!cards.length) { toast('Add at least one complete card (term + definition).'); return; }
+                addFlashcardsToDeck(d.subjectId, topic, cards);
+                toast(`Added ${cards.length} flashcard${cards.length===1?'':'s'} to "${topic}".`);
+                flashcardsSelectedSubjectId = d.subjectId; flashcardCreateDraft = null;
+                closeModal(); render(); }
+
+            async function runFlashcardExtract() { const d = flashcardCreateDraft; if (!d) return;
+                const topic = (d.topic || '').trim();
+                if (!d.subjectId) { toast('Choose a subject.'); return; }
+                if (!topic) { toast('Enter a topic name.'); return; }
+                if (!d.images.length) { toast('Add at least one photo first.'); return; }
+                const s = subject(d.subjectId);
+                flashcardCreateLoading = true; renderModal();
+                try {
+                    const sys = `You read photos of a student's notes, a textbook page, or their own handwritten paper flashcards for the subject "${s?.name||'this subject'}", on the topic "${topic}". Extract distinct flashcard-worthy concepts from them. For each one, write a short "front" (the key term, name, or question — the "cover word") and a "back" that is a precise, exam-ready definition or explanation, written the way a top-scoring answer would be phrased against an official exam marking scheme — include the specific terminology/buzzwords an examiner would be checking for, not just a vague paraphrase. Split compound or multi-part notes into several smaller cards rather than one huge card. If the photos are already laid out as flashcards (term on one side, definition on the other, or clearly separated), use those pairs directly rather than re-inventing them. Only include a card when you're reasonably confident of both sides. Reply with ONLY compact JSON: {"cards": [{"front": "...", "back": "..."}, ...]}. If nothing usable is found, reply {"cards": []}.`;
+                    const parts = [...d.images.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })), { text: 'Extract flashcards from these photos.' }];
+                    const result = await aiJsonOnce(sys, parts);
+                    const cards = (Array.isArray(result.cards) ? result.cards : []).filter(c => c && c.front && c.back)
+                        .map(c => ({ front: String(c.front).trim(), back: String(c.back).trim(), include: true }));
+                    if (!cards.length) toast("Couldn't find any flashcard content in those photos — try clearer photos.");
+                    d.reviewCards = cards;
+                } catch (err) { toast(err.message || 'Could not read those photos.'); }
+                flashcardCreateLoading = false; renderModal(); }
+
+            function confirmFlashcardReview() { const d = flashcardCreateDraft; if (!d || !d.reviewCards) return;
+                const chosen = d.reviewCards.filter(c => c.include && c.front.trim() && c.back.trim());
+                if (!chosen.length) { toast('Tick at least one card to add.'); return; }
+                const topic = d.topic.trim();
+                addFlashcardsToDeck(d.subjectId, topic, chosen);
+                toast(`Added ${chosen.length} flashcard${chosen.length===1?'':'s'} to "${topic}".`);
+                flashcardsSelectedSubjectId = d.subjectId; flashcardCreateDraft = null;
+                closeModal(); render(); }
+            function cancelFlashcardReview() { if (flashcardCreateDraft) flashcardCreateDraft.reviewCards = null; renderModal(); }
+
+            // ---- Flashcards: study/test sessions --------------------------------------------------
+            function exitFlashcardSession() { flashcardStudySession = null; render(); }
+
+            function startFlashcardClickThrough(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+                flashcardStudySession = { mode: 'clickthrough', deckId, cards: shuffle(deck.cards), index: 0, flipped: false };
+                render(); }
+
+            function startFlashcardSmartTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+                closeModal();
+                flashcardStudySession = { mode: 'smart-test', deckId, round: 1,
+                    queue: shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back }))),
+                    index: 0, answers: {}, phase: 'answering', results: null };
+                render(); }
+
+            function startFlashcardMcqTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+                closeModal();
+                flashcardStudySession = { mode: 'mcq-test', deckId, phase: 'generating', questions: null, index: 0, score: 0 };
+                render();
+                runMcqGenerationForSession(deck); }
+
+            async function runSmartTestGradeRound() { const s = flashcardStudySession; if (!s) return;
+                s.phase = 'grading'; render();
+                try {
+                    const sys = `You are grading a student's flashcard self-test with the rigor of an official state exam marking scheme (SEC/Leaving Cert-style). For EACH item, compare the student's typed answer against the correct definition and assign a verdict:
+- "green": essentially exactly right — hits all the key points/terminology a marking scheme would require for full marks.
+- "yellow": the general idea/concept is right, but the answer misses one or more key terms/buzzwords, or is incomplete/imprecise.
+- "red": wrong, shows a real misunderstanding of the concept, or is blank/irrelevant.
+Be as strict as a real examiner — don't award green for a vague paraphrase that's missing the actual terminology. Reply with ONLY compact JSON: {"results": [{"id": "...", "verdict": "green"|"yellow"|"red", "feedback": "one short sentence — what's missing, or confirming it's spot on"}, ...]}`;
+                    const payload = s.queue.map(c => `ID: ${c.id}\nTerm: ${c.front}\nCorrect definition: ${c.back}\nStudent's answer: ${(s.answers[c.id]||'').trim() || '(left blank)'}`).join('\n\n---\n\n');
+                    const result = await aiJsonOnce(sys, [{ text: payload }]);
+                    const byId = new Map((Array.isArray(result.results) ? result.results : []).map(r => [String(r.id), r]));
+                    s.results = s.queue.map(c => { const r = byId.get(c.id) || {};
+                        const verdict = ['green', 'yellow', 'red'].includes(r.verdict) ? r.verdict : 'yellow';
+                        return { id: c.id, front: c.front, back: c.back, answer: s.answers[c.id] || '', verdict, feedback: r.feedback || '' }; });
+                    s.phase = 'results';
+                } catch (err) { toast(err.message || 'Could not grade your answers — try again.'); s.phase = 'answering'; s.index = s.queue.length - 1; }
+                render(); }
+
+            async function runMcqGenerationForSession(deck) { const s = flashcardStudySession; if (!s) return;
+                try {
+                    const sys = `Create a hard, exam-style multiple choice quiz from these flashcards. For EACH card, write exactly 3 distractor definitions that could plausibly be mistaken for the real one — the same approximate length and level of detail as the correct definition (never short, vague, or obviously-wrong throwaway options), each testing a genuinely similar or adjacent concept, a common misconception, or one subtly wrong detail (a swapped number, a related-but-different term, a reversed cause/effect, a mixed-up name). A student who only half-knows the topic should have to think carefully — none of the four options should stand out by length or specificity alone. Reply with ONLY compact JSON: {"items": [{"id": "...", "distractors": ["...", "...", "..."]}, ...]}`;
+                    const payload = deck.cards.map(c => `ID: ${c.id}\nTerm: ${c.front}\nCorrect definition: ${c.back}`).join('\n\n---\n\n');
+                    const result = await aiJsonOnce(sys, [{ text: payload }]);
+                    const byId = new Map((Array.isArray(result.items) ? result.items : []).map(i => [String(i.id), i]));
+                    const questions = deck.cards.map(c => { const item = byId.get(c.id);
+                        const distractors = (Array.isArray(item?.distractors) ? item.distractors : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3);
+                        while (distractors.length < 3) { const filler = shuffle(deck.cards.filter(o => o.id !== c.id).map(o => o.back)).find(x => x !== c.back && !distractors.includes(x));
+                            if (!filler) break; distractors.push(filler); }
+                        return { id: c.id, front: c.front, back: c.back, choices: shuffle([c.back, ...distractors]), selected: null }; });
+                    if (flashcardStudySession !== s) return; // exited mid-generation
+                    s.questions = questions; s.phase = 'active'; s.score = 0;
+                } catch (err) { toast(err.message || 'Could not generate the quiz — try again.'); exitFlashcardSession(); return; }
+                render(); }
+
+            function renderFlashcardSession() { const sess = flashcardStudySession;
+                if (sess.mode === 'clickthrough') return renderClickThroughSession(sess);
+                if (sess.mode === 'smart-test') return renderSmartTestSession(sess);
+                if (sess.mode === 'mcq-test') return renderMcqTestSession(sess);
+                return ''; }
+
+            function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), card = sess.cards[sess.index];
+                return `<div class="page"><div class="flashcard-stage">
+        ${header('Click Through', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" data-action="flashcard-flip">${sess.flipped?`<span class="fc-back">${escape(card.back)}</span>`:`<span>${escape(card.front)}<span class="fc-hint">Tap to reveal the answer</span></span>`}</div>
+        <div class="flashcard-nav">
+          <button type="button" class="button" data-action="flashcard-prev" ${sess.index===0?'disabled':''}>‹ Prev</button>
+          <span class="flashcard-progress">${sess.index+1} / ${sess.cards.length}</span>
+          <button type="button" class="button" data-action="flashcard-next" ${sess.index===sess.cards.length-1?'disabled':''}>Next ›</button>
+        </div>
+        </div></div>`; }
+
+            function renderSmartTestSession(sess) { const deck = flashcardDeck(sess.deckId);
+                if (sess.phase === 'answering') { const card = sess.queue[sess.index], answer = sess.answers[card.id] || '';
+                    return `<div class="page"><div class="flashcard-stage">
+        ${header(`Smart Test${sess.round>1?` — Round ${sess.round}`:''}`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default"><span>${escape(card.front)}</span></div>
+        <textarea id="flashcard-smart-answer" placeholder="Type the full definition — hit the key points and terminology." style="margin-top:14px;min-height:110px">${escape(answer)}</textarea>
+        <div class="flashcard-nav">
+          <span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span>
+          <button type="button" class="button primary" data-action="flashcard-smart-next">${sess.index===sess.queue.length-1?'Finish & Grade':'Next ›'}</button>
+        </div>
+        </div></div>`; }
+                if (sess.phase === 'grading') return `<div class="page"><div class="flashcard-stage">${header('Smart Test', 'Grading your answers…', '')}<p class="empty">Checking your answers against the marking scheme…</p></div></div>`;
+                const verdictLabel = { green: 'Nailed it', yellow: 'Close — missing key points', red: 'Off the mark' };
+                const verdictPill = (v) => `<span class="pill ${v==='green'?'good':v==='yellow'?'warn':'bad'}">${verdictLabel[v]||v}</span>`;
+                const row = (r) => `<div class="flashcard-verdict-row">${verdictPill(r.verdict)}<div><strong>${escape(r.front)}</strong><div class="small" style="margin-top:2px">${escape(r.feedback||'')}</div></div></div>`;
+                const remaining = sess.results.filter(r => r.verdict !== 'green'), allGreen = remaining.length === 0;
+                const counts = { green: sess.results.filter(r => r.verdict === 'green').length, yellow: sess.results.filter(r => r.verdict === 'yellow').length, red: sess.results.filter(r => r.verdict === 'red').length };
+                return `<div class="page"><div class="flashcard-stage">
+        ${header(`Round ${sess.round} results`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <p class="small">${counts.green} green · ${counts.yellow} yellow · ${counts.red} red</p>
+        <div class="list" style="margin-top:10px;text-align:left">${sess.results.map(row).join('')}</div>
+        ${allGreen?`<div class="alert success" style="margin-top:16px">🎉 All green — every card learned this round!</div><button type="button" class="button primary" style="margin-top:10px" data-action="flashcard-exit-session">Done</button>`:`<button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-smart-retry">Retry the ${remaining.length} yellow/red card${remaining.length===1?'':'s'}</button>`}
+        </div></div>`; }
+
+            function renderMcqTestSession(sess) { const deck = flashcardDeck(sess.deckId);
+                if (sess.phase === 'generating') return `<div class="page"><div class="flashcard-stage">${header('Multiple Choice Test', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<p class="empty">Generating a tricky set of options for the whole deck…</p></div></div>`;
+                if (sess.phase === 'results') { const total = sess.questions.length, missed = sess.questions.filter(q => q.selected !== q.back);
+                    const row = (q) => `<div class="flashcard-verdict-row"><span class="pill bad">Missed</span><div><strong>${escape(q.front)}</strong><div class="small" style="margin-top:2px">Correct: ${escape(q.back)}</div></div></div>`;
+                    return `<div class="page"><div class="flashcard-stage">
+        ${header('Results', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default"><span>${sess.score} / ${total} correct</span></div>
+        ${missed.length?`<div class="list" style="margin-top:16px;text-align:left">${missed.map(row).join('')}</div>`:`<div class="alert success" style="margin-top:16px">🎉 Perfect score!</div>`}
+        <button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button>
+        </div></div>`; }
+                const q = sess.questions[sess.index], letters = ['A', 'B', 'C', 'D'];
+                const choiceBtn = (choice, i) => { const answered = q.selected != null;
+                    const cls = !answered ? '' : choice === q.back ? 'correct' : choice === q.selected ? 'wrong' : '';
+                    return `<button type="button" class="flashcard-mcq-choice ${cls}" data-action="flashcard-mcq-answer" data-choice-index="${i}" ${answered?'disabled':''}><strong>${letters[i]}.</strong> ${escape(choice)}</button>`; };
+                return `<div class="page"><div class="flashcard-stage">
+        ${header('Multiple Choice Test', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default"><span>${escape(q.front)}</span></div>
+        <div style="margin-top:16px;text-align:left">${q.choices.map(choiceBtn).join('')}</div>
+        <div class="flashcard-nav">
+          <span class="flashcard-progress">${sess.index+1} / ${sess.questions.length}</span>
+          ${q.selected!=null?`<button type="button" class="button primary" data-action="flashcard-mcq-next">${sess.index===sess.questions.length-1?'See results':'Next ›'}</button>`:''}
+        </div>
+        </div></div>`; }
+
+            function flashcardTestChoiceModal(deckId) { const deck = flashcardDeck(deckId);
+                if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
+                return modalShell(`Test: ${escape(deck.topic)}`,
+                    `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test is significantly more effective.</strong> Typing out the answer forces real recall, and it's graded against exam marking-scheme standards — that's what actually commits things to long-term memory. Multiple choice can feel good because recognising an answer is easy, but recognising isn't the same as knowing — it doesn't build the same memory.</div>
+          <div class="list">
+            <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧠 Smart Test (recommended)</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Type the definition for each card. Graded green/yellow/red by AI against a marking scheme — repeat the yellow/red ones until you've got them all.</div></div></button>
+            <button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-mcq-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🔤 Multiple Choice</strong><div class="small" style="margin-top:2px;font-weight:400">Pick the right definition from 4 close, tricky options. Quicker, but less effective for memory.</div></div></button>
+          </div>`,
+                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true); }
+
+            // ---- Translate --------------------------------------------------------------------------
+            // A simple two-pane translator via MyMemory (free, keyless — good for short text, capped
+            // around 500 chars/500 words per request and a modest daily quota). Purely transient UI
+            // state, nothing here is worth syncing to the cloud.
+            const TRANSLATE_LANGUAGES = [['en','English'],['es','Spanish'],['fr','French'],['de','German'],['it','Italian'],
+                ['pt','Portuguese'],['nl','Dutch'],['ru','Russian'],['pl','Polish'],['sv','Swedish'],['no','Norwegian'],
+                ['da','Danish'],['fi','Finnish'],['el','Greek'],['tr','Turkish'],['uk','Ukrainian'],['cs','Czech'],
+                ['ro','Romanian'],['hu','Hungarian'],['ga','Irish'],['zh','Chinese (Simplified)'],['ja','Japanese'],
+                ['ko','Korean'],['ar','Arabic'],['hi','Hindi'],['bn','Bengali'],['ur','Urdu'],['vi','Vietnamese'],
+                ['th','Thai'],['id','Indonesian'],['he','Hebrew'],['sw','Swahili'],['af','Afrikaans'],['la','Latin']];
+            function translateLangOptions(selected) { return TRANSLATE_LANGUAGES.map(([code, label]) => `<option value="${code}" ${selected===code?'selected':''}>${label}</option>`).join(''); }
+
+            function renderTranslate() { return `<div class="page">${header('Translate', 'Quick translations between languages, powered by a free translation API.', '')}
+        <div class="card section">
+          <div class="translate-bar">
+            <select id="translate-source-lang">${translateLangOptions(translateSourceLang)}</select>
+            <button type="button" class="button icon" data-action="translate-swap" aria-label="Swap languages" title="Swap languages">⇄</button>
+            <select id="translate-target-lang">${translateLangOptions(translateTargetLang)}</select>
+          </div>
+          <div class="translate-panes">
+            <div class="translate-pane">
+              <textarea id="translate-input" placeholder="Type text to translate…">${escape(translateInputText)}</textarea>
+              <div class="translate-pane-foot"><span class="small">${translateInputText.length}/500</span>${translateInputText?'<button type="button" class="button ghost" data-action="translate-clear">✕ Clear</button>':''}</div>
+            </div>
+            <div class="translate-pane">
+              <div class="translate-output">${translateLoading?'<span class="muted">Translating…</span>':translateError?`<span class="translate-error">${escape(translateError)}</span>`:translateOutputText?escape(translateOutputText):'<span class="muted">Translation</span>'}</div>
+              <div class="translate-pane-foot"><span></span>${translateOutputText&&!translateLoading?'<button type="button" class="button ghost" data-action="translate-copy">📋 Copy</button>':''}</div>
+            </div>
+          </div>
+          <p class="small" style="margin-top:12px">Free tier — best for shorter text (up to ~500 characters at a time) and a limited number of translations per day.</p>
+        </div>
+        </div>`; }
+
+            function scheduleTranslate() { clearTimeout(translateDebounceTimer); translateDebounceTimer = setTimeout(runTranslate, 500); }
+            async function runTranslate() { const text = translateInputText.trim();
+                if (!text) { translateOutputText = ''; translateError = ''; translateLoading = false; render(); return; }
+                translateLoading = true; translateError = ''; render();
+                try {
+                    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${translateSourceLang}|${translateTargetLang}`);
+                    const data = await res.json();
+                    if (!data || !data.responseData) throw new Error('Translation failed — try again.');
+                    if (data.responseStatus && Number(data.responseStatus) >= 400) throw new Error(data.responseDetails || 'Translation failed.');
+                    translateOutputText = data.responseData.translatedText || '';
+                } catch (err) { translateError = err.message || 'Could not translate right now.'; translateOutputText = ''; }
+                translateLoading = false; render(); }
+            function translateSwap() { const oldSource = translateSourceLang, oldTarget = translateTargetLang, oldOutput = translateOutputText;
+                translateSourceLang = oldTarget; translateTargetLang = oldSource;
+                translateInputText = oldOutput; translateOutputText = '';
+                render(); if (translateInputText.trim()) runTranslate(); }
+            function translateCopy() { navigator.clipboard?.writeText(translateOutputText).then(() => toast('Copied!')).catch(() => toast('Could not copy — select and copy manually.')); }
+
             // ---- Rendering: Word Bank page ------------------------------------------------------------
             function renderWordBank(s) {
                 const tabBtn = (id, label) => `<button type="button" class="button ${wordBankTab===id?'primary':'ghost'}" data-action="wordbank-tab" data-tab="${id}">${label}</button>`;
@@ -9047,7 +9522,9 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     .innerHTML = renderInsightsPage();
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
-                    .innerHTML = renderTools(); } else if (view === 'chatrooms') { document.getElementById('app')
+                    .innerHTML = renderTools(); } else if (view === 'flashcards') { document.getElementById('app')
+                    .innerHTML = renderFlashcards(); } else if (view === 'translate') { document.getElementById('app')
+                    .innerHTML = renderTranslate(); } else if (view === 'chatrooms') { document.getElementById('app')
                     .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
                     .innerHTML = renderAdminPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
                     requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (view === 'admin') return; if (
@@ -9154,7 +9631,9 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     modal.kind === 'essay-history') return layer.innerHTML = essayHistoryModal(modal.entryId); if (
                     modal.kind === 'sophia-welcome') return layer.innerHTML = sophiaWelcomeModal(); if (
                     modal.kind === 'chat-new-room') return layer.innerHTML = chatNewRoomModal(); if (
-                    modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); }
+                    modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); if (
+                    modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (
+                    modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); }
 
             function sophiaWelcomeModal() { return modalShell('✨ Sophia mode',
                     `<p>Welcome to Sophia mode!</p>`,
@@ -12847,6 +13326,76 @@ If the user asks about how to study or study methods generally, answer from your
 
             document.addEventListener('input', e => { if (e.target.id === 'chat-invite-search')
                     chatInviteSearchInput(e.target.value); });
+
+            // ---- Flashcards & Translate click actions — another self-contained delegated listener,
+            // same reasoning as the Word Bank one above.
+            document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
+                const a = b.dataset.action;
+                if (a === 'open-flashcard-subject') openFlashcardSubject(b.dataset.subject);
+                else if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
+                else if (a === 'flashcards-back-to-subjects') flashcardsBackToSubjects();
+                else if (a === 'flashcards-back-to-topics') flashcardsBackToTopics();
+                else if (a === 'open-flashcard-create') openFlashcardCreateModal(b.dataset.mode);
+                else if (a === 'open-flashcard-create-for-deck') { const deck = flashcardDeck(b.dataset.deck);
+                    if (deck) { flashcardCreateDraft = { mode: 'manual', subjectId: deck.subjectId, topic: deck.topic, cards: [{ front: '', back: '' }], images: [], reviewCards: null };
+                        openModal('flashcard-create'); } }
+                else if (a === 'flashcard-create-mode') { if (flashcardCreateDraft) { flashcardCreateDraft.mode = b.dataset.mode; renderModal(); } }
+                else if (a === 'flashcard-manual-add-row') { flashcardCreateDraft?.cards.push({ front: '', back: '' }); renderModal(); }
+                else if (a === 'flashcard-manual-remove') { const d = flashcardCreateDraft; if (d) { d.cards.splice(Number(b.dataset.index), 1);
+                        if (!d.cards.length) d.cards.push({ front: '', back: '' }); renderModal(); } }
+                else if (a === 'flashcard-manual-save') saveManualFlashcards();
+                else if (a === 'flashcard-pick-photos') document.getElementById('flashcard-image-file')?.click();
+                else if (a === 'flashcard-image-remove') { const d = flashcardCreateDraft; if (d) { d.images.splice(Number(b.dataset.index), 1); renderModal(); } }
+                else if (a === 'flashcard-extract') runFlashcardExtract();
+                else if (a === 'flashcard-review-cancel') cancelFlashcardReview();
+                else if (a === 'flashcard-review-confirm') confirmFlashcardReview();
+                else if (a === 'flashcard-delete-card') { deleteFlashcardCard(b.dataset.deck, b.dataset.card); render(); }
+                else if (a === 'flashcard-delete-deck') { if (confirm('Delete this whole topic and all its flashcards?')) { deleteFlashcardDeck(b.dataset.deck); flashcardsSelectedDeckId = null; render(); } }
+                else if (a === 'flashcard-start-clickthrough') startFlashcardClickThrough(b.dataset.deck);
+                else if (a === 'open-flashcard-test-choice') openModal('flashcard-test-choice', { deckId: b.dataset.deck });
+                else if (a === 'flashcard-start-smart-test') startFlashcardSmartTest(b.dataset.deck);
+                else if (a === 'flashcard-start-mcq-test') startFlashcardMcqTest(b.dataset.deck);
+                else if (a === 'flashcard-exit-session') exitFlashcardSession();
+                else if (a === 'flashcard-flip') { if (flashcardStudySession) { flashcardStudySession.flipped = !flashcardStudySession.flipped; render(); } }
+                else if (a === 'flashcard-prev') { const s = flashcardStudySession; if (s && s.index > 0) { s.index--; s.flipped = false; render(); } }
+                else if (a === 'flashcard-next') { const s = flashcardStudySession; if (s && s.index < s.cards.length - 1) { s.index++; s.flipped = false; render(); } }
+                else if (a === 'flashcard-smart-next') { const s = flashcardStudySession; if (!s) return;
+                    const card = s.queue[s.index]; s.answers[card.id] = document.getElementById('flashcard-smart-answer')?.value || '';
+                    if (s.index < s.queue.length - 1) { s.index++; render(); } else runSmartTestGradeRound(); }
+                else if (a === 'flashcard-smart-retry') { const s = flashcardStudySession; if (!s) return;
+                    const remaining = s.results.filter(r => r.verdict !== 'green').map(r => ({ id: r.id, front: r.front, back: r.back }));
+                    flashcardStudySession = { mode: 'smart-test', deckId: s.deckId, round: s.round + 1, queue: shuffle(remaining), index: 0, answers: {}, phase: 'answering', results: null };
+                    render(); }
+                else if (a === 'flashcard-mcq-answer') { const s = flashcardStudySession; if (!s || s.phase !== 'active') return;
+                    const q = s.questions[s.index]; if (q.selected != null) return;
+                    q.selected = q.choices[Number(b.dataset.choiceIndex)];
+                    if (q.selected === q.back) s.score = (s.score || 0) + 1;
+                    render(); }
+                else if (a === 'flashcard-mcq-next') { const s = flashcardStudySession; if (!s) return;
+                    if (s.index < s.questions.length - 1) { s.index++; render(); } else { s.phase = 'results'; render(); } }
+                else if (a === 'translate-swap') translateSwap();
+                else if (a === 'translate-clear') { translateInputText = ''; translateOutputText = ''; translateError = ''; render(); }
+                else if (a === 'translate-copy') translateCopy(); });
+
+            document.addEventListener('change', e => { const t = e.target;
+                if (t.id === 'flashcard-create-subject') { if (flashcardCreateDraft) { flashcardCreateDraft.subjectId = t.value; renderModal(); } }
+                else if (t.id === 'flashcard-image-file') { const files = Array.from(t.files || []); t.value = '';
+                    if (!files.length || !flashcardCreateDraft) return;
+                    Promise.all(files.filter(f => f.type.startsWith('image/')).map(f => fileToDataUrl(f).then(dataUrl => ({ mimeType: f.type, data: dataUrl.split(',')[1], dataUrl, name: f.name }))))
+                        .then(imgs => { if (flashcardCreateDraft) { flashcardCreateDraft.images.push(...imgs); renderModal(); } })
+                        .catch(err => toast(err.message || "Couldn't read one of those photos.")); }
+                else if (t.dataset && t.dataset.action === 'flashcard-review-toggle') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].include = t.checked; }
+                else if (t.id === 'translate-source-lang') { translateSourceLang = t.value; if (translateInputText.trim()) runTranslate(); }
+                else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
+
+            document.addEventListener('input', e => { const t = e.target;
+                if (t.id === 'flashcard-create-topic') { if (flashcardCreateDraft) flashcardCreateDraft.topic = t.value; }
+                else if (t.dataset && t.dataset.action === 'flashcard-manual-front') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].front = t.value; }
+                else if (t.dataset && t.dataset.action === 'flashcard-manual-back') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].back = t.value; }
+                else if (t.dataset && t.dataset.action === 'flashcard-review-edit-front') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].front = t.value; }
+                else if (t.dataset && t.dataset.action === 'flashcard-review-edit-back') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].back = t.value; }
+                else if (t.id === 'translate-input') { const pos = t.selectionStart; translateInputText = t.value; scheduleTranslate();
+                    render(); const el = document.getElementById('translate-input'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } } });
 
             render();
             handleSpotifyCallback();
