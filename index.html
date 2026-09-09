@@ -10,7 +10,7 @@
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com;
         font-src 'self' data:;
-        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://api.mymemory.translated.net;
+        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com;
         frame-src 'self' https://sdk.scdn.co;
         object-src 'none';
         base-uri 'self';
@@ -5123,19 +5123,19 @@
             let essayMarking = false; // true while the AI marking call is in flight
             let essayResult = null; // unsaved draft result from the last marking call, shown for review before saving
 
-            // ---- Flashcards UI state — drill-down (subject -> topic deck -> study session), plus
-            // whatever's in progress in the create-flashcards modal. Decks/cards themselves live in
-            // state.flashcardDecks (see blankState) so they sync like everything else; none of this
-            // transient stuff needs to survive a reload.
-            let flashcardsSelectedSubjectId = null; // null = showing the subject grid
+            // ---- Flashcards UI state — Flashcards is a subpage of a subject's own page (like Word
+            // Bank/Essay Marking), so which subject is always whatever selectedSubjectId already is;
+            // this only tracks drill-down into a topic deck plus whatever's in progress in the
+            // create-flashcards modal. Decks/cards themselves live in state.flashcardDecks (see
+            // blankState) so they sync like everything else; none of this transient stuff needs to
+            // survive a reload.
             let flashcardsSelectedDeckId = null; // null = showing that subject's topic/deck list
             let flashcardCreateDraft = null; // { mode: 'manual'|'image', subjectId, topic, cards: [{front,back}], images: [{mimeType,data,dataUrl,name}], reviewCards: [{front,back,include}]|null }
             let flashcardCreateLoading = false; // true while the image-extraction AI call is in flight
             let flashcardStudySession = null; // active click-through/smart-test/mcq-test session — see startFlashcardClickThrough/SmartTest/McqTest
-            let flashcardTestChoiceDeckId = null; // deck id the "Smart Test vs Multiple Choice" chooser modal is open for
 
-            // ---- Translate tool UI state — a simple two-pane translator (no history/detect-language on
-            // the current free API), all transient (not worth syncing to the cloud).
+            // ---- Translate tool UI state — lives inside Tools (toolsActiveTool === 'translate'), a
+            // simple two-pane translator, all transient (not worth syncing to the cloud).
             let translateSourceLang = 'en';
             let translateTargetLang = 'es';
             let translateInputText = '';
@@ -6470,7 +6470,7 @@
                 const shellClass = `app-shell sidebar-mode-${mode}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">✦</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('flashcards','🗂','Flashcards')}${navButton('translate','🌐','Translate')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}${currentUser?navButton('chatrooms','💬','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
+        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}${currentUser?navButton('chatrooms','💬','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
       </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search">🔍 <span>Search</span></button><button data-action="open-settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
             }
 
@@ -7478,6 +7478,7 @@ ${pointsSvg}
           ${tile('formulas','📘','Formula Book','The official Formulae & Tables booklet allowed in the exam — searchable and browsable.')}
           ${tile('cao','◎','CAO Points Calculator','Work out your best-6 CAO points, or find grade combinations that reach a target.')}
           ${tile('quadratic','➗','Quadratic Solver','Enter a, b and c and see the roots instantly — as exact fractions or decimals.')}
+          ${tile('translate','🌐','Translate','Quick, natural translations between languages, powered by AI.')}
         </div>
         </div>`); }
                 const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (
@@ -7488,6 +7489,10 @@ ${pointsSvg}
                 if (toolsActiveTool === 'quadratic') return appFrame(`<div class="page">${back}
         ${header('Quadratic Solver','Solves ax² + bx + c = 0.','')}
         ${quadraticSolverHtml()}
+        </div>`);
+                if (toolsActiveTool === 'translate') return appFrame(`<div class="page">${back}
+        ${header('Translate','Quick, natural translations between languages.','')}
+        ${translateToolHtml()}
         </div>`);
                 return appFrame(`<div class="page">${back}
         ${header('CAO Points Calculator','A quick standalone scratchpad — it doesn\'t touch your logged exam results.','')}
@@ -7676,6 +7681,8 @@ ${pointsSvg}
                     content = renderEssayMarking(s);
                 } else if (section === 'formulas') {
                     content = `<p class="small" style="margin-bottom:12px">The Formulae and Tables booklet allowed in the exam for this subject — browse the contents on the left, or search for what you need below.</p>${formulaBookHtml()}`;
+                } else if (section === 'flashcards') {
+                    content = renderSubjectFlashcards(s);
                 } else { const summary =
                     subjectPerformanceSummary(s.id);
                     content =
@@ -7690,7 +7697,7 @@ ${pointsSvg}
         <button type="button" class="subject-page-back" data-action="nav-classes">← Back to Classes</button>
         ${header(escape(s.name), `${CATEGORY_LABELS[s.category]||'Other'}${s.examSubject===false?' · not an exam subject':''}`,'')}
         <div class="subject-page-layout">
-          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}${hasFormulaBook?navBtn('formulas','Formula Book'):''}</div>
+          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}${navBtn('flashcards','Flashcards')}${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}${hasFormulaBook?navBtn('formulas','Formula Book'):''}</div>
           <div>${content}</div>
         </div>
         </div>`); }
@@ -8455,36 +8462,39 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function deleteFlashcardCard(deckId, cardId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 deck.cards = deck.cards.filter(c => c.id !== cardId); save(); }
 
-            function openFlashcardSubject(subjectId) { flashcardsSelectedSubjectId = subjectId; flashcardsSelectedDeckId = null; render(); }
             function openFlashcardDeck(deckId) { flashcardsSelectedDeckId = deckId; render(); }
-            function flashcardsBackToSubjects() { flashcardsSelectedSubjectId = null; flashcardsSelectedDeckId = null; render(); }
             function flashcardsBackToTopics() { flashcardsSelectedDeckId = null; render(); }
 
-            function openFlashcardCreateModal(mode) { flashcardCreateDraft = { mode: mode || 'manual',
-                    subjectId: flashcardsSelectedSubjectId || (state.subjects[0]?.id || ''), topic: '',
-                    cards: [{ front: '', back: '' }], images: [], reviewCards: null };
+            function openFlashcardCreateModal(subjectId, mode) { flashcardCreateDraft = { mode: mode || 'manual',
+                    subjectId, topic: '', cards: [{ front: '', back: '' }], images: [], reviewCards: null };
                 openModal('flashcard-create'); }
 
-            function renderFlashcardSubjects() { const subjects = state.subjects.slice().sort((a, b) => a.name.localeCompare(b.name));
-                const tile = (s) => { const decks = flashcardDecksFor(s.id), cardCount = decks.reduce((n, d) => n + d.cards.length, 0);
-                    return `<button type="button" class="class-tile" data-action="open-flashcard-subject" data-subject="${s.id}" style="--subject:${s.color}"><strong>${escape(s.name)}</strong><span class="small">${decks.length} topic${decks.length===1?'':'s'}</span><span class="class-tile-count">${cardCount?`${cardCount} card${cardCount===1?'':'s'}`:'No flashcards yet'}</span></button>`; };
-                return `<div class="page">${header('Flashcards', 'Open a subject to see flashcards organised by topic — or create some from your notes.', `<button type="button" class="button primary" data-action="open-flashcard-create" data-mode="manual">+ Create Flashcards</button>`)}
-        <div class="class-grid">${subjects.length?subjects.map(tile).join(''):'<p class="empty">Add a subject on your Timetable first.</p>'}</div>
-        </div>`; }
+            // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
+            // top-level nav item -- so subject comes from the subject page's own context, never a
+            // separate flashcards-level "which subject" state. Deck ids are global (not namespaced by
+            // subject), so a stale deck/session left over from switching subjects via the tab bar --
+            // without hitting Exit/back first -- is explicitly dropped here rather than leaking another
+            // subject's deck into view.
+            function renderSubjectFlashcards(s) { if (flashcardStudySession) {
+                    const sessDeck = flashcardDeck(flashcardStudySession.deckId);
+                    if (sessDeck && sessDeck.subjectId === s.id) return renderFlashcardSession();
+                    flashcardStudySession = null; }
+                if (flashcardsSelectedDeckId) { const deck = flashcardDeck(flashcardsSelectedDeckId);
+                    if (deck && deck.subjectId === s.id) return renderFlashcardDeckDetail();
+                    flashcardsSelectedDeckId = null; }
+                return renderFlashcardTopicsFor(s); }
 
-            function renderFlashcardTopics() { const s = subject(flashcardsSelectedSubjectId);
-                if (!s) { flashcardsSelectedSubjectId = null; return renderFlashcardSubjects(); }
-                const decks = flashcardDecksFor(s.id);
+            function renderFlashcardTopicsFor(s) { const decks = flashcardDecksFor(s.id);
                 const tile = (d) => `<button type="button" class="class-tile" data-action="open-flashcard-deck" data-deck="${d.id}" style="--subject:${s.color}"><strong>${escape(d.topic)}</strong><span class="class-tile-count">${d.cards.length} card${d.cards.length===1?'':'s'}</span></button>`;
-                return `<div class="page">${header(escape(s.name), 'Flashcard topics for this subject.', `<button type="button" class="button ghost" data-action="flashcards-back-to-subjects">← Subjects</button><button type="button" class="button primary" data-action="open-flashcard-create" data-mode="manual">+ Create Flashcards</button>`)}
-        <div class="class-grid">${decks.length?decks.map(tile).join(''):`<p class="empty">No flashcards yet for ${escape(s.name)} — create some above.</p>`}</div>
-        </div>`; }
+                return `<div class="row" style="justify-content:flex-end;margin-bottom:14px"><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${s.id}">+ Create Flashcards</button></div>
+        <div class="class-grid">${decks.length?decks.map(tile).join(''):`<p class="empty">No flashcards yet for ${escape(s.name)} — create some above.</p>`}</div>`; }
 
             function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
-                if (!deck) { flashcardsSelectedDeckId = null; return renderFlashcardTopics(); }
-                const s = subject(deck.subjectId);
+                if (!deck) { flashcardsSelectedDeckId = null; const s = subject(selectedSubjectId); return s ? renderFlashcardTopicsFor(s) : ''; }
                 const cardRow = (c) => `<div class="topic-row"><div><strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost danger" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete">🗑</button></div>`;
-                return `<div class="page">${header(escape(deck.topic), `${s?escape(s.name)+' · ':''}${deck.cards.length} card${deck.cards.length===1?'':'s'}`, `<button type="button" class="button ghost" data-action="flashcards-back-to-topics">← ${s?escape(s.name):'Topics'}</button>`)}
+                return `<button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← Topics</button>
+        <h2 style="margin-bottom:4px">${escape(deck.topic)}</h2>
+        <p class="small" style="margin-bottom:14px">${deck.cards.length} card${deck.cards.length===1?'':'s'}</p>
         <section class="card section">
           <div class="row" style="gap:8px;flex-wrap:wrap">
             <button type="button" class="button" data-action="flashcard-start-clickthrough" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>👀 Click Through</button>
@@ -8493,36 +8503,26 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete topic</button>
           </div>
         </section>
-        <div class="list" style="margin-top:14px">${deck.cards.length?deck.cards.map(cardRow).join(''):'<p class="empty">No cards yet.</p>'}</div>
-        </div>`; }
-
-            function renderFlashcards() { if (flashcardStudySession) return appFrame(renderFlashcardSession());
-                if (flashcardsSelectedDeckId) return appFrame(renderFlashcardDeckDetail());
-                if (flashcardsSelectedSubjectId) return appFrame(renderFlashcardTopics());
-                return appFrame(renderFlashcardSubjects()); }
+        <div class="list" style="margin-top:14px">${deck.cards.length?deck.cards.map(cardRow).join(''):'<p class="empty">No cards yet.</p>'}</div>`; }
 
             // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
             function flashcardCreateModal() { const d = flashcardCreateDraft;
                 if (!d) return modalShell('Create Flashcards', '', '');
-                const subjectOptions = state.subjects.slice().sort((a, b) => a.name.localeCompare(b.name))
-                    .map(s => `<option value="${s.id}" ${d.subjectId===s.id?'selected':''}>${escape(s.name)}</option>`).join('');
+                const s = subject(d.subjectId);
                 const existingTopics = flashcardDecksFor(d.subjectId).map(dk => dk.topic);
                 const topicDatalist = `<datalist id="flashcard-topic-options">${existingTopics.map(t => `<option value="${escape(t)}">`).join('')}</datalist>`;
                 const modeToggle = `<div class="row" style="gap:8px;margin-bottom:14px">
           <button type="button" class="button ${d.mode==='manual'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="manual">✍️ Manually</button>
           <button type="button" class="button ${d.mode==='image'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="image">📷 From Photos</button>
         </div>`;
-                const subjectTopicFields = `<div class="form-grid" style="margin-bottom:14px">
-          <div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div>
-          <div class="field"><label>Topic</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div>
-        </div>`;
+                const topicField = `<div class="field" style="margin-bottom:14px"><label>Topic${s?` (${escape(s.name)})`:''}</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div>`;
                 const manualCardRow = (c, i) => `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea></div><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
-                const manualBody = `${subjectTopicFields}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
+                const manualBody = `${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
                 const imgThumb = (img, i) => `<div style="position:relative;display:inline-block;margin:0 8px 8px 0"><img src="${img.dataUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="${escape(img.name||'photo')}"><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove photo">✕</button></div>`;
                 const reviewRow = (item, i) => `<div class="topic-row" style="align-items:flex-start"><input type="checkbox" data-action="flashcard-review-toggle" data-index="${i}" ${item.include?'checked':''} style="margin-top:10px"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-review-edit-front" data-index="${i}" value="${escape(item.front)}"><textarea data-action="flashcard-review-edit-back" data-index="${i}" style="min-height:52px">${escape(item.back)}</textarea></div></div>`;
                 const imageBody = d.reviewCards ?
                     `<p class="small">Review what was found — untick or edit anything that's wrong, then confirm.</p><div class="list" style="margin-top:10px">${d.reviewCards.length?d.reviewCards.map(reviewRow).join(''):'<p class="empty">Nothing usable was found in those photos.</p>'}</div>`
-                    : `${subjectTopicFields}<input type="file" id="flashcard-image-file" accept="image/*" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) of notes, a textbook page, or your own paper flashcards</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>${d.images.length?`<p class="small">${d.images.length} photo${d.images.length===1?'':'s'} added.</p>`:''}`;
+                    : `${topicField}<input type="file" id="flashcard-image-file" accept="image/*" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) of notes, a textbook page, or your own paper flashcards</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>${d.images.length?`<p class="small">${d.images.length} photo${d.images.length===1?'':'s'} added.</p>`:''}`;
                 const body = d.mode === 'manual' ? manualBody : imageBody;
                 let footer;
                 if (d.mode === 'manual') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-manual-save">Save flashcards</button>`;
@@ -8532,18 +8532,16 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
 
             function saveManualFlashcards() { const d = flashcardCreateDraft; if (!d) return;
                 const topic = (d.topic || '').trim();
-                if (!d.subjectId) { toast('Choose a subject.'); return; }
                 if (!topic) { toast('Enter a topic name.'); return; }
                 const cards = d.cards.filter(c => c.front.trim() && c.back.trim());
                 if (!cards.length) { toast('Add at least one complete card (term + definition).'); return; }
                 addFlashcardsToDeck(d.subjectId, topic, cards);
                 toast(`Added ${cards.length} flashcard${cards.length===1?'':'s'} to "${topic}".`);
-                flashcardsSelectedSubjectId = d.subjectId; flashcardCreateDraft = null;
+                flashcardCreateDraft = null;
                 closeModal(); render(); }
 
             async function runFlashcardExtract() { const d = flashcardCreateDraft; if (!d) return;
                 const topic = (d.topic || '').trim();
-                if (!d.subjectId) { toast('Choose a subject.'); return; }
                 if (!topic) { toast('Enter a topic name.'); return; }
                 if (!d.images.length) { toast('Add at least one photo first.'); return; }
                 const s = subject(d.subjectId);
@@ -8565,7 +8563,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 const topic = d.topic.trim();
                 addFlashcardsToDeck(d.subjectId, topic, chosen);
                 toast(`Added ${chosen.length} flashcard${chosen.length===1?'':'s'} to "${topic}".`);
-                flashcardsSelectedSubjectId = d.subjectId; flashcardCreateDraft = null;
+                flashcardCreateDraft = null;
                 closeModal(); render(); }
             function cancelFlashcardReview() { if (flashcardCreateDraft) flashcardCreateDraft.reviewCards = null; renderModal(); }
 
@@ -8630,7 +8628,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 return ''; }
 
             function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), card = sess.cards[sess.index];
-                return `<div class="page"><div class="flashcard-stage">
+                return `<div class="flashcard-stage">
         ${header('Click Through', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <div class="flashcard-face" data-action="flashcard-flip">${sess.flipped?`<span class="fc-back">${escape(card.back)}</span>`:`<span>${escape(card.front)}<span class="fc-hint">Tap to reveal the answer</span></span>`}</div>
         <div class="flashcard-nav">
@@ -8638,11 +8636,11 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <span class="flashcard-progress">${sess.index+1} / ${sess.cards.length}</span>
           <button type="button" class="button" data-action="flashcard-next" ${sess.index===sess.cards.length-1?'disabled':''}>Next ›</button>
         </div>
-        </div></div>`; }
+        </div>`; }
 
             function renderSmartTestSession(sess) { const deck = flashcardDeck(sess.deckId);
                 if (sess.phase === 'answering') { const card = sess.queue[sess.index], answer = sess.answers[card.id] || '';
-                    return `<div class="page"><div class="flashcard-stage">
+                    return `<div class="flashcard-stage">
         ${header(`Smart Test${sess.round>1?` — Round ${sess.round}`:''}`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <div class="flashcard-face" style="cursor:default"><span>${escape(card.front)}</span></div>
         <textarea id="flashcard-smart-answer" placeholder="Type the full definition — hit the key points and terminology." style="margin-top:14px;min-height:110px">${escape(answer)}</textarea>
@@ -8650,35 +8648,35 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span>
           <button type="button" class="button primary" data-action="flashcard-smart-next">${sess.index===sess.queue.length-1?'Finish & Grade':'Next ›'}</button>
         </div>
-        </div></div>`; }
-                if (sess.phase === 'grading') return `<div class="page"><div class="flashcard-stage">${header('Smart Test', 'Grading your answers…', '')}<p class="empty">Checking your answers against the marking scheme…</p></div></div>`;
+        </div>`; }
+                if (sess.phase === 'grading') return `<div class="flashcard-stage">${header('Smart Test', 'Grading your answers…', '')}<p class="empty">Checking your answers against the marking scheme…</p></div>`;
                 const verdictLabel = { green: 'Nailed it', yellow: 'Close — missing key points', red: 'Off the mark' };
                 const verdictPill = (v) => `<span class="pill ${v==='green'?'good':v==='yellow'?'warn':'bad'}">${verdictLabel[v]||v}</span>`;
                 const row = (r) => `<div class="flashcard-verdict-row">${verdictPill(r.verdict)}<div><strong>${escape(r.front)}</strong><div class="small" style="margin-top:2px">${escape(r.feedback||'')}</div></div></div>`;
                 const remaining = sess.results.filter(r => r.verdict !== 'green'), allGreen = remaining.length === 0;
                 const counts = { green: sess.results.filter(r => r.verdict === 'green').length, yellow: sess.results.filter(r => r.verdict === 'yellow').length, red: sess.results.filter(r => r.verdict === 'red').length };
-                return `<div class="page"><div class="flashcard-stage">
+                return `<div class="flashcard-stage">
         ${header(`Round ${sess.round} results`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <p class="small">${counts.green} green · ${counts.yellow} yellow · ${counts.red} red</p>
         <div class="list" style="margin-top:10px;text-align:left">${sess.results.map(row).join('')}</div>
         ${allGreen?`<div class="alert success" style="margin-top:16px">🎉 All green — every card learned this round!</div><button type="button" class="button primary" style="margin-top:10px" data-action="flashcard-exit-session">Done</button>`:`<button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-smart-retry">Retry the ${remaining.length} yellow/red card${remaining.length===1?'':'s'}</button>`}
-        </div></div>`; }
+        </div>`; }
 
             function renderMcqTestSession(sess) { const deck = flashcardDeck(sess.deckId);
-                if (sess.phase === 'generating') return `<div class="page"><div class="flashcard-stage">${header('Multiple Choice Test', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<p class="empty">Generating a tricky set of options for the whole deck…</p></div></div>`;
+                if (sess.phase === 'generating') return `<div class="flashcard-stage">${header('Multiple Choice Test', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<p class="empty">Generating a tricky set of options for the whole deck…</p></div>`;
                 if (sess.phase === 'results') { const total = sess.questions.length, missed = sess.questions.filter(q => q.selected !== q.back);
                     const row = (q) => `<div class="flashcard-verdict-row"><span class="pill bad">Missed</span><div><strong>${escape(q.front)}</strong><div class="small" style="margin-top:2px">Correct: ${escape(q.back)}</div></div></div>`;
-                    return `<div class="page"><div class="flashcard-stage">
+                    return `<div class="flashcard-stage">
         ${header('Results', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <div class="flashcard-face" style="cursor:default"><span>${sess.score} / ${total} correct</span></div>
         ${missed.length?`<div class="list" style="margin-top:16px;text-align:left">${missed.map(row).join('')}</div>`:`<div class="alert success" style="margin-top:16px">🎉 Perfect score!</div>`}
         <button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button>
-        </div></div>`; }
+        </div>`; }
                 const q = sess.questions[sess.index], letters = ['A', 'B', 'C', 'D'];
                 const choiceBtn = (choice, i) => { const answered = q.selected != null;
                     const cls = !answered ? '' : choice === q.back ? 'correct' : choice === q.selected ? 'wrong' : '';
                     return `<button type="button" class="flashcard-mcq-choice ${cls}" data-action="flashcard-mcq-answer" data-choice-index="${i}" ${answered?'disabled':''}><strong>${letters[i]}.</strong> ${escape(choice)}</button>`; };
-                return `<div class="page"><div class="flashcard-stage">
+                return `<div class="flashcard-stage">
         ${header('Multiple Choice Test', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <div class="flashcard-face" style="cursor:default"><span>${escape(q.front)}</span></div>
         <div style="margin-top:16px;text-align:left">${q.choices.map(choiceBtn).join('')}</div>
@@ -8686,7 +8684,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <span class="flashcard-progress">${sess.index+1} / ${sess.questions.length}</span>
           ${q.selected!=null?`<button type="button" class="button primary" data-action="flashcard-mcq-next">${sess.index===sess.questions.length-1?'See results':'Next ›'}</button>`:''}
         </div>
-        </div></div>`; }
+        </div>`; }
 
             function flashcardTestChoiceModal(deckId) { const deck = flashcardDeck(deckId);
                 if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
@@ -8699,8 +8697,12 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true); }
 
             // ---- Translate --------------------------------------------------------------------------
-            // A simple two-pane translator via MyMemory (free, keyless — good for short text, capped
-            // around 500 chars/500 words per request and a modest daily quota). Purely transient UI
+            // A simple two-pane translator. Runs through the same Gemini-backed ai-chat function (and
+            // aiTextOnce helper) as the rest of the app's AI features, rather than a free third-party
+            // translation API — a free public MyMemory-style API was tried first but turned out to be
+            // low quality (mistranslations, and occasional garbage/inappropriate output from its
+            // crowd-sourced translation memory); Gemini gives a real, natural translation and needs no
+            // separate key. Requires sign-in like every other AI feature here. Purely transient UI
             // state, nothing here is worth syncing to the cloud.
             const TRANSLATE_LANGUAGES = [['en','English'],['es','Spanish'],['fr','French'],['de','German'],['it','Italian'],
                 ['pt','Portuguese'],['nl','Dutch'],['ru','Russian'],['pl','Polish'],['sv','Swedish'],['no','Norwegian'],
@@ -8710,8 +8712,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 ['th','Thai'],['id','Indonesian'],['he','Hebrew'],['sw','Swahili'],['af','Afrikaans'],['la','Latin']];
             function translateLangOptions(selected) { return TRANSLATE_LANGUAGES.map(([code, label]) => `<option value="${code}" ${selected===code?'selected':''}>${label}</option>`).join(''); }
 
-            function renderTranslate() { return `<div class="page">${header('Translate', 'Quick translations between languages, powered by a free translation API.', '')}
-        <div class="card section">
+            function translateToolHtml() { return `<div class="card section">
           <div class="translate-bar">
             <select id="translate-source-lang">${translateLangOptions(translateSourceLang)}</select>
             <button type="button" class="button icon" data-action="translate-swap" aria-label="Swap languages" title="Swap languages">⇄</button>
@@ -8720,27 +8721,25 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <div class="translate-panes">
             <div class="translate-pane">
               <textarea id="translate-input" placeholder="Type text to translate…">${escape(translateInputText)}</textarea>
-              <div class="translate-pane-foot"><span class="small">${translateInputText.length}/500</span>${translateInputText?'<button type="button" class="button ghost" data-action="translate-clear">✕ Clear</button>':''}</div>
+              <div class="translate-pane-foot"><span class="small">${translateInputText.length} character${translateInputText.length===1?'':'s'}</span>${translateInputText?'<button type="button" class="button ghost" data-action="translate-clear">✕ Clear</button>':''}</div>
             </div>
             <div class="translate-pane">
               <div class="translate-output">${translateLoading?'<span class="muted">Translating…</span>':translateError?`<span class="translate-error">${escape(translateError)}</span>`:translateOutputText?escape(translateOutputText):'<span class="muted">Translation</span>'}</div>
               <div class="translate-pane-foot"><span></span>${translateOutputText&&!translateLoading?'<button type="button" class="button ghost" data-action="translate-copy">📋 Copy</button>':''}</div>
             </div>
           </div>
-          <p class="small" style="margin-top:12px">Free tier — best for shorter text (up to ~500 characters at a time) and a limited number of translations per day.</p>
-        </div>
+          <p class="small" style="margin-top:12px">${currentUser?'Powered by the same AI as the rest of the app.':'Sign in with Google to use this — it\'s powered by the same AI as the rest of the app.'}</p>
         </div>`; }
 
-            function scheduleTranslate() { clearTimeout(translateDebounceTimer); translateDebounceTimer = setTimeout(runTranslate, 500); }
+            function scheduleTranslate() { clearTimeout(translateDebounceTimer); translateDebounceTimer = setTimeout(runTranslate, 600); }
             async function runTranslate() { const text = translateInputText.trim();
                 if (!text) { translateOutputText = ''; translateError = ''; translateLoading = false; render(); return; }
                 translateLoading = true; translateError = ''; render();
                 try {
-                    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${translateSourceLang}|${translateTargetLang}`);
-                    const data = await res.json();
-                    if (!data || !data.responseData) throw new Error('Translation failed — try again.');
-                    if (data.responseStatus && Number(data.responseStatus) >= 400) throw new Error(data.responseDetails || 'Translation failed.');
-                    translateOutputText = data.responseData.translatedText || '';
+                    const sourceLabel = TRANSLATE_LANGUAGES.find(([c]) => c === translateSourceLang)?.[1] || translateSourceLang;
+                    const targetLabel = TRANSLATE_LANGUAGES.find(([c]) => c === translateTargetLang)?.[1] || translateTargetLang;
+                    const sys = `Translate the given text from ${sourceLabel} to ${targetLabel}. Produce a natural, accurate translation the way a fluent native speaker would actually phrase it — not a stiff, literal word-for-word conversion — while preserving the original meaning and tone. Reply with ONLY the translation itself: no quotes, no notes, no alternatives, no explanation.`;
+                    translateOutputText = (await aiTextOnce(sys, [{ text }])).trim();
                 } catch (err) { translateError = err.message || 'Could not translate right now.'; translateOutputText = ''; }
                 translateLoading = false; render(); }
             function translateSwap() { const oldSource = translateSourceLang, oldTarget = translateTargetLang, oldOutput = translateOutputText;
@@ -9522,9 +9521,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     .innerHTML = renderInsightsPage();
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
-                    .innerHTML = renderTools(); } else if (view === 'flashcards') { document.getElementById('app')
-                    .innerHTML = renderFlashcards(); } else if (view === 'translate') { document.getElementById('app')
-                    .innerHTML = renderTranslate(); } else if (view === 'chatrooms') { document.getElementById('app')
+                    .innerHTML = renderTools(); } else if (view === 'chatrooms') { document.getElementById('app')
                     .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
                     .innerHTML = renderAdminPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
                     requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (view === 'admin') return; if (
@@ -13331,11 +13328,9 @@ If the user asks about how to study or study methods generally, answer from your
             // same reasoning as the Word Bank one above.
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
                 const a = b.dataset.action;
-                if (a === 'open-flashcard-subject') openFlashcardSubject(b.dataset.subject);
-                else if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
-                else if (a === 'flashcards-back-to-subjects') flashcardsBackToSubjects();
+                if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
                 else if (a === 'flashcards-back-to-topics') flashcardsBackToTopics();
-                else if (a === 'open-flashcard-create') openFlashcardCreateModal(b.dataset.mode);
+                else if (a === 'open-flashcard-create') openFlashcardCreateModal(b.dataset.subject, 'manual');
                 else if (a === 'open-flashcard-create-for-deck') { const deck = flashcardDeck(b.dataset.deck);
                     if (deck) { flashcardCreateDraft = { mode: 'manual', subjectId: deck.subjectId, topic: deck.topic, cards: [{ front: '', back: '' }], images: [], reviewCards: null };
                         openModal('flashcard-create'); } }
@@ -13378,8 +13373,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'translate-copy') translateCopy(); });
 
             document.addEventListener('change', e => { const t = e.target;
-                if (t.id === 'flashcard-create-subject') { if (flashcardCreateDraft) { flashcardCreateDraft.subjectId = t.value; renderModal(); } }
-                else if (t.id === 'flashcard-image-file') { const files = Array.from(t.files || []); t.value = '';
+                if (t.id === 'flashcard-image-file') { const files = Array.from(t.files || []); t.value = '';
                     if (!files.length || !flashcardCreateDraft) return;
                     Promise.all(files.filter(f => f.type.startsWith('image/')).map(f => fileToDataUrl(f).then(dataUrl => ({ mimeType: f.type, data: dataUrl.split(',')[1], dataUrl, name: f.name }))))
                         .then(imgs => { if (flashcardCreateDraft) { flashcardCreateDraft.images.push(...imgs); renderModal(); } })
