@@ -4008,7 +4008,7 @@
                 if (!error) chatMessages = data;
                 if (chatMessages && chatMessages.length) chatMarkRoomRead(chatActiveRoomId, chatMessages[chatMessages.length - 1].id);
                 await chatResolveImageUrls();
-                chatRerenderRoomPreservingState();
+                render();
             }
 
             // ------------------------------------------------------------------
@@ -4117,35 +4117,6 @@
                 for (const row of data) { if (row.signedUrl) chatImageUrlCache[row.path] = row.signedUrl; }
             }
 
-            // render() rebuilds the whole #app innerHTML, which would otherwise reset
-            // the message thread's scroll position to the top and wipe out any
-            // half-typed message every single poll tick (every 4s while a room is
-            // open -- see chatStartPolling). This captures the composer's draft text
-            // + cursor/focus and the thread's scroll position beforehand and restores
-            // them after, auto-scrolling to the new bottom only if the reader was
-            // already there (so scrolling up to read history doesn't get yanked back
-            // down by an incoming message).
-            function chatRerenderRoomPreservingState() {
-                const inputBefore = document.getElementById('chat-message-input');
-                const draft = inputBefore ? inputBefore.value : '';
-                const hadFocus = inputBefore && document.activeElement === inputBefore;
-                const cursorPos = inputBefore ? inputBefore.selectionStart : null;
-                const threadBefore = document.getElementById('chat-thread');
-                const wasNearBottom = !threadBefore ||
-                    (threadBefore.scrollHeight - threadBefore.scrollTop - threadBefore.clientHeight < 80);
-                const prevScrollTop = threadBefore ? threadBefore.scrollTop : null;
-
-                render();
-
-                const inputAfter = document.getElementById('chat-message-input');
-                if (inputAfter) {
-                    inputAfter.value = draft;
-                    if (hadFocus) { inputAfter.focus(); try { inputAfter.setSelectionRange(cursorPos, cursorPos); } catch (err) {} }
-                }
-                const threadAfter = document.getElementById('chat-thread');
-                if (threadAfter) threadAfter.scrollTop = wasNearBottom ? threadAfter.scrollHeight : prevScrollTop;
-            }
-
             async function chatLoadMembers() {
                 if (!chatActiveRoomId) return;
                 if (chatActiveRoom && (chatActiveRoom.is_global || chatActiveRoom.is_dm)) { chatMembers = null; render(); return; }
@@ -4188,7 +4159,7 @@
                 const caption = (input?.value || '').trim();
                 const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
                 const path = `${chatActiveRoomId}/${uid()}.${ext}`;
-                chatImageUploadBusy = true; chatRerenderRoomPreservingState();
+                chatImageUploadBusy = true; render();
                 try {
                     const { error: uploadError } = await supabaseClient.storage.from('chat-images')
                         .upload(path, file, { contentType: file.type });
@@ -4203,7 +4174,7 @@
                 } catch (err) {
                     toast(err.message || 'Could not send that image.');
                 } finally {
-                    chatImageUploadBusy = false; chatRerenderRoomPreservingState();
+                    chatImageUploadBusy = false; render();
                 }
             }
 
@@ -11548,6 +11519,21 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     return; }
                 aiChatWidgetEl.classList.remove('hidden');
                 if (view !== 'chatrooms' && chatPollTimer) chatStopPolling();
+                // render() gets called from all over this app for reasons that have nothing to do with
+                // chat (toasts, autosave, timers, other pages' data changes...), and it always rebuilds
+                // #app from scratch. The chat composer's draft text lives only in the DOM (there's no
+                // JS variable backing it), so any of those unrelated render() calls firing while a chat
+                // room is open used to silently wipe a half-typed message and reset the thread scroll --
+                // capturing/restoring here, once, covers every call site instead of just the ones that
+                // remember to route through a chat-specific preserving wrapper.
+                const chatInputBefore = document.getElementById('chat-message-input');
+                const chatDraft = chatInputBefore ? chatInputBefore.value : '';
+                const chatHadFocus = chatInputBefore && document.activeElement === chatInputBefore;
+                const chatCursorPos = chatInputBefore ? chatInputBefore.selectionStart : null;
+                const chatThreadBefore = document.getElementById('chat-thread');
+                const chatWasNearBottom = !chatThreadBefore ||
+                    (chatThreadBefore.scrollHeight - chatThreadBefore.scrollTop - chatThreadBefore.clientHeight < 80);
+                const chatPrevScrollTop = chatThreadBefore ? chatThreadBefore.scrollTop : null;
                 updateAiChatGateUI(); document.body.classList.toggle('dark', state.settings.theme === 'dark');
                 document.body.classList.toggle('color-mode', state.settings.theme === 'color');
                 if (state.settings.theme === 'color') applyColorModeTheme(state.settings.themeAccentColor || DEFAULT_THEME_ACCENT);
@@ -11569,7 +11555,16 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
                     .innerHTML = renderAdminPage(); } else if (view === 'period-builder') { document.getElementById(
                     'app').innerHTML = renderPeriodBuilderPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
-                    requestAnimationFrame(() => restoreTimetableScroll('timetable')); } if (view === 'admin') return; if (
+                    requestAnimationFrame(() => restoreTimetableScroll('timetable')); }
+                const chatInputAfter = document.getElementById('chat-message-input');
+                if (chatInputAfter) {
+                    chatInputAfter.value = chatDraft;
+                    if (chatHadFocus) { chatInputAfter.focus();
+                        try { chatInputAfter.setSelectionRange(chatCursorPos, chatCursorPos); } catch (err) {} }
+                }
+                const chatThreadAfter = document.getElementById('chat-thread');
+                if (chatThreadAfter) chatThreadAfter.scrollTop = chatWasNearBottom ? chatThreadAfter.scrollHeight : chatPrevScrollTop;
+                if (view === 'admin') return; if (
                     !state.settings.onboarded && !modal) openModal('onboarding');
                 else if (state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
                 else if (state.settings.onboarded && !modal && !state.settings.schoolId && !schoolPromptDismissed) openModal('school-prompt');
