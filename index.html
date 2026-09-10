@@ -10,7 +10,7 @@
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com https://rlwfxvnwekkyfslxltus.supabase.co;
         font-src 'self' data:;
-        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com;
+        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://translate.googleapis.com https://api.mymemory.translated.net;
         frame-src 'self' https://sdk.scdn.co;
         object-src 'none';
         base-uri 'self';
@@ -1212,22 +1212,36 @@
             font-size: 11px;
             fill: var(--muted);
         }
-        .periodic-grid {
+        .periodic-shape-wrap {
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+        .periodic-shape {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-            gap: 6px;
+            grid-template-columns: repeat(18, minmax(38px, 1fr));
+            grid-auto-rows: minmax(38px, auto);
+            gap: 3px;
+            min-width: 760px;
+        }
+        .periodic-shape.periodic-shape-footer {
+            margin-top: 10px;
         }
         .periodic-card {
+            grid-column: var(--col);
+            grid-row: var(--row);
             border: 1px solid var(--line);
             border-top: 4px solid var(--cat-color);
-            border-radius: 10px;
+            border-radius: 8px;
             background: var(--surface-2);
-            padding: 6px 4px;
+            padding: 3px 2px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             cursor: pointer;
             font-family: inherit;
+            min-width: 0;
+            transition: opacity .15s;
         }
         .periodic-card:hover {
             background: var(--primary-soft);
@@ -1236,17 +1250,41 @@
             outline: 2px solid var(--primary);
             outline-offset: -1px;
         }
-        .periodic-card .periodic-z {
-            font-size: 10px;
+        .periodic-card.dim {
+            opacity: .22;
+        }
+        .periodic-placeholder {
+            grid-column: var(--col);
+            grid-row: var(--row);
+            border: 1px dashed var(--line);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
             color: var(--muted);
+            text-align: center;
+            padding: 2px;
+        }
+        .periodic-card .periodic-z {
+            font-size: 8px;
+            color: var(--muted);
+            line-height: 1;
         }
         .periodic-card .periodic-sym {
-            font-size: 17px;
+            font-size: 13px;
             font-weight: 800;
+            line-height: 1.2;
         }
         .periodic-card .periodic-mass {
-            font-size: 9px;
+            font-size: 7px;
             color: var(--muted);
+            line-height: 1;
+        }
+        @media (max-width: 700px) {
+            .periodic-shape {
+                grid-template-columns: repeat(18, minmax(30px, 1fr));
+            }
         }
         .periodic-legend-chip {
             border: 1px solid var(--line);
@@ -6200,6 +6238,29 @@
 
             // ---- Word Counter & Readability Checker (Tools page)
             let wordCounterText = '';
+
+            // ---- Simultaneous Equations Solver (Tools page) — solves a₁x+b₁y=c₁, a₂x+b₂y=c₂ live, via
+            // Cramer's rule on exact fractions (same fraction machinery as the Quadratic Solver).
+            let simEqA1 = '', simEqB1 = '', simEqC1 = '', simEqA2 = '', simEqB2 = '', simEqC2 = '';
+            let simEqFormat = 'fraction'; // 'fraction' | 'decimal'
+
+            // ---- Trigonometry Solver (Tools page) — right-angled triangle, SOHCAHTOA. Enter any 2 of
+            // {opposite, adjacent, hypotenuse, angle θ} and the rest are solved for live.
+            let trigOpp = '', trigAdj = '', trigHyp = '', trigAngle = '';
+
+            // ---- Chemistry Calculator (Tools page) — a pH/pOH/[H+]/[OH-] converter (any one field
+            // determines the other three at 25°C, Kw = 1×10⁻¹⁴) plus a molarity (any 2 of
+            // concentration/volume/moles solves the third) mini-calc, tabbed together.
+            let chemTab = 'ph'; // 'ph' | 'molarity'
+            let chemPhField = 'ph', chemPhValue = '';
+            let chemMolC = '', chemMolV = '', chemMolN = '';
+
+            // ---- Significant Figures & Scientific Notation (Tools page)
+            let sigFigInput = '', sigFigCount = '3';
+
+            // ---- Grade & CAO Points Finder (Tools page) — quick single-mark → LC grade band lookup,
+            // reusing the same LC_BANDS/CAO_POINTS tables as the CAO Calculator and exam results.
+            let gradeFinderPercent = '';
             // Computes CAO points for a real Leaving Cert or Mock exam once results are in: best six subjects
             // count, plus 25 bonus points for Higher Level Mathematics specifically (not Applied Maths) at grade
             // H6 or above. Returns null if this isn't an LC/mock exam. While any sitting is missing a result,
@@ -8209,13 +8270,49 @@ ${pointsSvg}
                 { id: 'halogen', label: 'Halogen', color: '#9fd7e3' }, { id: 'noble gas', label: 'Noble gas', color: '#d0a6f4' },
                 { id: 'unknown', label: 'Not yet classified', color: '#d7d7d7' },
             ];
+            // Maps an atomic number to its real {row, col} position in the standard 18-column periodic
+            // table shape (rows 1-7 are the periods; rows 8-9 are the pulled-out lanthanide/actinide
+            // series, rendered in their own grid below so the main 7-row grid stays a true rectangle).
+            function periodicPos(z) {
+                if (z >= 57 && z <= 71) return { row: 8, col: 4 + (z - 57) };
+                if (z >= 89 && z <= 103) return { row: 9, col: 4 + (z - 89) };
+                if (z === 1) return { row: 1, col: 1 };
+                if (z === 2) return { row: 1, col: 18 };
+                if (z === 3) return { row: 2, col: 1 };
+                if (z === 4) return { row: 2, col: 2 };
+                if (z >= 5 && z <= 10) return { row: 2, col: 13 + (z - 5) };
+                if (z === 11) return { row: 3, col: 1 };
+                if (z === 12) return { row: 3, col: 2 };
+                if (z >= 13 && z <= 18) return { row: 3, col: 13 + (z - 13) };
+                if (z === 19) return { row: 4, col: 1 };
+                if (z === 20) return { row: 4, col: 2 };
+                if (z >= 21 && z <= 30) return { row: 4, col: 3 + (z - 21) };
+                if (z >= 31 && z <= 36) return { row: 4, col: 13 + (z - 31) };
+                if (z === 37) return { row: 5, col: 1 };
+                if (z === 38) return { row: 5, col: 2 };
+                if (z >= 39 && z <= 48) return { row: 5, col: 3 + (z - 39) };
+                if (z >= 49 && z <= 54) return { row: 5, col: 13 + (z - 49) };
+                if (z === 55) return { row: 6, col: 1 };
+                if (z === 56) return { row: 6, col: 2 };
+                if (z >= 72 && z <= 80) return { row: 6, col: 4 + (z - 72) };
+                if (z >= 81 && z <= 86) return { row: 6, col: 13 + (z - 81) };
+                if (z === 87) return { row: 7, col: 1 };
+                if (z === 88) return { row: 7, col: 2 };
+                if (z >= 104 && z <= 112) return { row: 7, col: 4 + (z - 104) };
+                if (z >= 113 && z <= 118) return { row: 7, col: 13 + (z - 113) };
+                return { row: 1, col: 1 };
+            }
             function periodicTableHtml() { const q = periodicSearch.trim().toLowerCase();
-                const filtered = ELEMENTS.filter(e => { if (periodicCategoryFilter !== 'all' && e.cat !== periodicCategoryFilter) return false;
-                    if (!q) return true;
-                    return e.name.toLowerCase().includes(q) || e.sym.toLowerCase() === q || String(e.z) === q; });
+                const matches = e => (periodicCategoryFilter === 'all' || e.cat === periodicCategoryFilter) &&
+                    (!q || e.name.toLowerCase().includes(q) || e.sym.toLowerCase() === q || String(e.z) === q);
+                const matchCount = ELEMENTS.filter(matches).length;
                 const catColor = cat => (PERIODIC_CATEGORIES.find(c => c.id === cat) || {}).color || '#d7d7d7',
                     catLabel = cat => (PERIODIC_CATEGORIES.find(c => c.id === cat) || {}).label || cat;
-                const card = e => `<button type="button" class="periodic-card ${periodicSelected===e.z?'selected':''}" style="--cat-color:${catColor(e.cat)}" data-action="periodic-select" data-z="${e.z}" title="${escape(e.name)}"><span class="periodic-z">${e.z}</span><span class="periodic-sym">${e.sym}</span><span class="periodic-mass">${e.mass}</span></button>`;
+                const card = (e, rowOffset) => { const pos = periodicPos(e.z);
+                    return `<button type="button" class="periodic-card ${periodicSelected===e.z?'selected':''} ${matches(e)?'':'dim'}" style="--cat-color:${catColor(e.cat)};--col:${pos.col};--row:${pos.row-rowOffset}" data-action="periodic-select" data-z="${e.z}" title="${escape(e.name)}"><span class="periodic-z">${e.z}</span><span class="periodic-sym">${e.sym}</span><span class="periodic-mass">${e.mass}</span></button>`; };
+                const mainCards = ELEMENTS.filter(e => periodicPos(e.z).row <= 7).map(e => card(e, 0)).join('');
+                const footerCards = ELEMENTS.filter(e => periodicPos(e.z).row > 7).map(e => card(e, 7)).join('');
+                const placeholder = (row, label) => `<div class="periodic-placeholder" style="--col:3;--row:${row}">${label}</div>`;
                 const selected = periodicSelected != null ? ELEMENTS.find(e => e.z === periodicSelected) : null;
                 const detail = selected ? `<div class="periodic-detail" style="--cat-color:${catColor(selected.cat)}">
             <div class="periodic-detail-sym">${selected.sym}</div>
@@ -8228,10 +8325,14 @@ ${pointsSvg}
             <button type="button" class="periodic-legend-chip ${periodicCategoryFilter==='all'?'active':''}" data-action="periodic-filter" data-cat="all">All</button>
             ${legend}
           </div>
+          ${(q||periodicCategoryFilter!=='all')&&!matchCount?'<p class="small" style="margin-top:8px">No elements match — the rest of the table is shown dimmed below.</p>':''}
         </section>
         <section class="card section" style="margin-top:14px">${detail}</section>
         <section class="card section" style="margin-top:14px">
-          ${filtered.length?`<div class="periodic-grid">${filtered.map(card).join('')}</div>`:'<p class="empty">No elements match that search.</p>'}
+          <div class="periodic-shape-wrap">
+            <div class="periodic-shape">${mainCards}${placeholder(6,'57–71')}${placeholder(7,'89–103')}</div>
+            <div class="periodic-shape periodic-shape-footer">${footerCards}</div>
+          </div>
         </section>`; }
 
             // ---- Unit Converter (Tools page) — factors are all relative to a base unit per category;
@@ -8309,6 +8410,210 @@ ${pointsSvg}
         </section>
         <section class="card section" style="margin-top:14px">${body}</section>`; }
 
+            // ---- Simultaneous Equations Solver (Tools page) — a₁x+b₁y=c₁, a₂x+b₂y=c₂ via Cramer's rule,
+            // on the same exact-fraction machinery the Quadratic Solver uses.
+            function simultaneousSolve(A1, B1, C1, A2, B2, C2) { const det = subFrac(mulFrac(A1, B2), mulFrac(A2, B1));
+                if (fracIsZero(det)) { const cross1 = subFrac(mulFrac(A1, C2), mulFrac(A2, C1)),
+                        cross2 = subFrac(mulFrac(B1, C2), mulFrac(B2, C1));
+                    if (fracIsZero(cross1) && fracIsZero(cross2)) return { status: 'infinite' };
+                    return { status: 'no-solution' }; }
+                const x = divFrac(subFrac(mulFrac(C1, B2), mulFrac(C2, B1)), det),
+                    y = divFrac(subFrac(mulFrac(A1, C2), mulFrac(A2, C1)), det);
+                return { status: 'ok', x, y }; }
+            function simEqToolHtml() { const hasAll = [simEqA1, simEqB1, simEqC1, simEqA2, simEqB2, simEqC2]
+                    .every(v => v.trim() !== '');
+                const A1 = decimalToFraction(simEqA1), B1 = decimalToFraction(simEqB1), C1 = decimalToFraction(simEqC1),
+                    A2 = decimalToFraction(simEqA2), B2 = decimalToFraction(simEqB2), C2 = decimalToFraction(simEqC2),
+                    valid = hasAll && A1 && B1 && C1 && A2 && B2 && C2;
+                let resultHtml;
+                if (!hasAll) resultHtml = '<p class="empty">Enter all six coefficients to see x and y.</p>';
+                else if (!valid) resultHtml = '<p class="empty">Enter valid numbers for every coefficient.</p>';
+                else { const r = simultaneousSolve(A1, B1, C1, A2, B2, C2);
+                    if (r.status === 'no-solution') resultHtml = '<p class="empty">No solution — these two lines are parallel and never meet.</p>';
+                    else if (r.status === 'infinite') resultHtml = '<p class="empty">Infinitely many solutions — these two equations describe the same line.</p>';
+                    else { const fmt = f => simEqFormat === 'fraction' ? signedFracHtml(f) : formatDecimal(fracToDecimal(f));
+                        resultHtml = `<div class="cao-subjects-row">
+            <div class="cao-subject-chip"><strong>x</strong><span class="small">${fmt(r.x)}</span></div>
+            <div class="cao-subject-chip"><strong>y</strong><span class="small">${fmt(r.y)}</span></div>
+          </div>`; } }
+                const field = (id, label, val) =>
+                    `<div class="field"><label for="${id}">${label}</label><input type="text" inputmode="decimal" autocomplete="off" id="${id}" placeholder="0" value="${escape(val)}"></div>`;
+                return `<section class="card section">
+          <p class="small">Solves a₁x + b₁y = c₁ and a₂x + b₂y = c₂ — the answer updates automatically as you type.</p>
+          <p class="small" style="margin-top:10px;font-weight:700">Equation 1</p>
+          <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:6px">
+            ${field('simeq-input-a1','a₁',simEqA1)}${field('simeq-input-b1','b₁',simEqB1)}${field('simeq-input-c1','c₁',simEqC1)}
+          </div>
+          <p class="small" style="margin-top:12px;font-weight:700">Equation 2</p>
+          <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:6px">
+            ${field('simeq-input-a2','a₂',simEqA2)}${field('simeq-input-b2','b₂',simEqB2)}${field('simeq-input-c2','c₂',simEqC2)}
+          </div>
+          <div class="row" style="gap:8px;margin-top:12px">
+            <button type="button" class="button ${simEqFormat==='fraction'?'primary':'ghost'}" data-action="simeq-format" data-format="fraction">Fractions</button>
+            <button type="button" class="button ${simEqFormat==='decimal'?'primary':'ghost'}" data-action="simeq-format" data-format="decimal">Decimals</button>
+          </div>
+        </section>
+        <section class="card section" style="margin-top:14px">${resultHtml}</section>`; }
+
+            // ---- Trigonometry Solver (Tools page) — right-angled triangle via SOHCAHTOA. Enter any 2 of
+            // {opposite, adjacent, hypotenuse, angle θ} and the rest are solved for live, mirroring the
+            // SUVAT Motion Solver's "any N of M" pattern.
+            function trigSolve(vals) { const known = Object.keys(vals).filter(k => vals[k] !== null);
+                if (known.length < 2) return { status: 'need-more', count: known.length };
+                if (known.length > 2) return { status: 'too-many' };
+                let { opp: O, adj: A, hyp: H, angle: T } = vals;
+                const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI, bad = { status: 'error', message:
+                    "Those values can't form a valid right-angled triangle — check a side isn't longer than the hypotenuse, and the angle is between 0° and 90°." };
+                if (O != null && A != null) { if (O <= 0 || A <= 0) return bad; H = Math.sqrt(O * O + A * A); T = deg(Math.atan2(O, A)); }
+                else if (O != null && H != null) { if (O <= 0 || H <= 0 || O >= H) return bad; A = Math.sqrt(H * H - O * O); T = deg(Math.asin(O / H)); }
+                else if (A != null && H != null) { if (A <= 0 || H <= 0 || A >= H) return bad; O = Math.sqrt(H * H - A * A); T = deg(Math.acos(A / H)); }
+                else if (O != null && T != null) { if (O <= 0 || T <= 0 || T >= 90) return bad; H = O / Math.sin(rad(T)); A = O / Math.tan(rad(T)); }
+                else if (A != null && T != null) { if (A <= 0 || T <= 0 || T >= 90) return bad; H = A / Math.cos(rad(T)); O = A * Math.tan(rad(T)); }
+                else { if (H <= 0 || T <= 0 || T >= 90) return bad; O = H * Math.sin(rad(T)); A = H * Math.cos(rad(T)); }
+                return { status: 'ok', values: { opp: O, adj: A, hyp: H, angle: T, otherAngle: 90 - T } }; }
+            function trigToolHtml() { const parse = str => { const t = (str || '').trim();
+                    if (t === '') return null; const n = Number(t); return isNaN(n) ? undefined : n; };
+                const raw = { opp: trigOpp, adj: trigAdj, hyp: trigHyp, angle: trigAngle },
+                    bad = Object.keys(raw).filter(k => parse(raw[k]) === undefined);
+                const field = (id, label, unit, val) =>
+                    `<div class="field"><label for="${id}">${label} <span class="small">(${unit})</span></label><input type="text" inputmode="decimal" autocomplete="off" id="${id}" placeholder="?" value="${escape(val)}"></div>`;
+                let resultHtml;
+                if (bad.length) resultHtml = `<p class="empty">Enter a valid number for ${bad.join(', ')}, or leave it blank if you don't know it.</p>`;
+                else { const vals = { opp: parse(raw.opp), adj: parse(raw.adj), hyp: parse(raw.hyp), angle: parse(raw.angle) },
+                        result = trigSolve(vals);
+                    if (result.status === 'need-more') resultHtml = `<p class="empty">Enter any 2 of the 4 values above to solve for the rest (${result.count}/2 so far).</p>`;
+                    else if (result.status === 'too-many') resultHtml = `<p class="empty">Clear a couple of fields — enter only the 2 you know, and the rest will be solved for automatically.</p>`;
+                    else if (result.status === 'error') resultHtml = `<p class="empty">${escape(result.message)}</p>`;
+                    else { const r = result.values;
+                        resultHtml = `<div class="cao-subjects-row">
+            <div class="cao-subject-chip"><strong>Opposite</strong><span class="small">${formatDecimal(r.opp)}</span></div>
+            <div class="cao-subject-chip"><strong>Adjacent</strong><span class="small">${formatDecimal(r.adj)}</span></div>
+            <div class="cao-subject-chip"><strong>Hypotenuse</strong><span class="small">${formatDecimal(r.hyp)}</span></div>
+            <div class="cao-subject-chip"><strong>Angle θ</strong><span class="small">${formatDecimal(r.angle)}°</span></div>
+            <div class="cao-subject-chip"><strong>Other angle</strong><span class="small">${formatDecimal(r.otherAngle)}°</span></div>
+          </div>`; } }
+                return `<section class="card section">
+          <p class="small">Right-angled triangle — θ is the angle opposite the "opposite" side. Enter any 2 of the 4 values and the rest update automatically.</p>
+          <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-top:12px">
+            ${field('trig-input-opp','Opposite','units',trigOpp)}${field('trig-input-adj','Adjacent','units',trigAdj)}${field('trig-input-hyp','Hypotenuse','units',trigHyp)}${field('trig-input-angle','Angle θ','°',trigAngle)}
+          </div>
+        </section>
+        <section class="card section" style="margin-top:14px">${resultHtml}</section>`; }
+
+            // ---- Chemistry Calculator (Tools page) — a pH/pOH/[H+]/[OH-] converter (any one field
+            // determines the other three at 25°C, Kw = 1×10⁻¹⁴) plus a molarity mini-calc, tabbed together.
+            function formatSci(n) { if (!isFinite(n) || n === 0) return '0';
+                const exp = Math.floor(Math.log10(Math.abs(n))), mantissa = n / Math.pow(10, exp),
+                    supers = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' },
+                    expStr = String(exp).split('').map(c => supers[c] || c).join('');
+                return `${formatDecimal(Math.round(mantissa * 1000) / 1000)} × 10${expStr}`; }
+            function phFromField(field, value) { const v = Number(value); if (!isFinite(v)) return null;
+                let pH; if (field === 'ph') { if (v < 0 || v > 14) return null; pH = v; }
+                else if (field === 'poh') { if (v < 0 || v > 14) return null; pH = 14 - v; }
+                else if (field === 'h') { if (v <= 0) return null; pH = -Math.log10(v); }
+                else { if (v <= 0) return null; pH = 14 - (-Math.log10(v)); }
+                if (!isFinite(pH)) return null;
+                const poh = 14 - pH; return { ph: pH, poh, h: Math.pow(10, -pH), oh: Math.pow(10, -poh) }; }
+            function molaritySolve(c, v, n) { const known = [c, v, n].filter(x => x !== null).length;
+                if (known < 2) return { status: 'need-more', count: known };
+                if (known > 2) return { status: 'too-many' };
+                let C = c, V = v, N = n; if (C == null) C = N / V; else if (V == null) V = N / C; else N = C * V;
+                if (!isFinite(C) || !isFinite(V) || !isFinite(N) || V <= 0 || C < 0 || N < 0)
+                    return { status: 'error', message: 'Check the numbers — volume must be greater than zero.' };
+                return { status: 'ok', values: { c: C, v: V, n: N } }; }
+            function chemPhHtml() { const r = chemPhValue.trim() !== '' ? phFromField(chemPhField, chemPhValue) : null;
+                const fieldLabel = { ph: 'pH', poh: 'pOH', h: '[H⁺] mol/L', oh: '[OH⁻] mol/L' };
+                const selectHtml = `<select id="chem-ph-field">${Object.keys(fieldLabel).map(k=>`<option value="${k}" ${chemPhField===k?'selected':''}>${fieldLabel[k]}</option>`).join('')}</select>`;
+                const body = !r ? (chemPhValue.trim() === '' ? '<p class="empty">Enter a value above to see pH, pOH, [H⁺] and [OH⁻].</p>' :
+                    '<p class="empty">Enter a valid value (pH/pOH between 0–14, concentrations greater than 0).</p>') :
+                    `<div class="cao-subjects-row">
+            <div class="cao-subject-chip"><strong>pH</strong><span class="small">${formatDecimal(r.ph)}</span></div>
+            <div class="cao-subject-chip"><strong>pOH</strong><span class="small">${formatDecimal(r.poh)}</span></div>
+            <div class="cao-subject-chip"><strong>[H⁺]</strong><span class="small">${formatSci(r.h)} mol/L</span></div>
+            <div class="cao-subject-chip"><strong>[OH⁻]</strong><span class="small">${formatSci(r.oh)} mol/L</span></div>
+          </div>
+          <p class="small" style="margin-top:10px">${r.ph<7?'Acidic':r.ph>7?'Basic (alkaline)':'Neutral'} at 25°C.</p>`;
+                return `<section class="card section">
+          <p class="small">Enter any one value — the other three are worked out automatically (assumes 25°C, Kw = 1×10⁻¹⁴).</p>
+          <div class="row" style="gap:8px;margin-top:10px">${selectHtml}<input type="text" inputmode="decimal" autocomplete="off" id="chem-ph-value" placeholder="e.g. 7" value="${escape(chemPhValue)}" style="flex:1"></div>
+        </section>
+        <section class="card section" style="margin-top:14px">${body}</section>`; }
+            function chemMolarityHtml() { const parse = str => { const t = (str || '').trim();
+                    if (t === '') return null; const n = Number(t); return isNaN(n) ? undefined : n; };
+                const raw = { c: chemMolC, v: chemMolV, n: chemMolN }, bad = Object.keys(raw).filter(k => parse(raw[k]) === undefined);
+                const field = (id, label, unit, val) =>
+                    `<div class="field"><label for="${id}">${label} <span class="small">(${unit})</span></label><input type="text" inputmode="decimal" autocomplete="off" id="${id}" placeholder="?" value="${escape(val)}"></div>`;
+                let resultHtml;
+                if (bad.length) resultHtml = `<p class="empty">Enter a valid number for ${bad.join(', ')}, or leave it blank if you don't know it.</p>`;
+                else { const result = molaritySolve(parse(raw.c), parse(raw.v), parse(raw.n));
+                    if (result.status === 'need-more') resultHtml = `<p class="empty">Enter any 2 of the 3 values above to solve for the third (${result.count}/2 so far).</p>`;
+                    else if (result.status === 'too-many') resultHtml = `<p class="empty">Clear a field — enter only the 2 you know, and the third will be solved for automatically.</p>`;
+                    else if (result.status === 'error') resultHtml = `<p class="empty">${escape(result.message)}</p>`;
+                    else { const r = result.values;
+                        resultHtml = `<div class="cao-subjects-row">
+            <div class="cao-subject-chip"><strong>Concentration</strong><span class="small">${formatDecimal(r.c)} mol/L</span></div>
+            <div class="cao-subject-chip"><strong>Volume</strong><span class="small">${formatDecimal(r.v)} L</span></div>
+            <div class="cao-subject-chip"><strong>Moles</strong><span class="small">${formatDecimal(r.n)} mol</span></div>
+          </div>`; } }
+                return `<section class="card section">
+          <p class="small">Concentration = moles ÷ volume. Enter any 2 of the 3 and the third updates automatically.</p>
+          <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-top:12px">
+            ${field('chem-mol-c','Concentration','mol/L',chemMolC)}${field('chem-mol-v','Volume','L',chemMolV)}${field('chem-mol-n','Moles','mol',chemMolN)}
+          </div>
+        </section>
+        <section class="card section" style="margin-top:14px">${resultHtml}</section>`; }
+            function chemistryToolHtml() { const tabBtn = (id, label) =>
+                    `<button type="button" class="button ${chemTab===id?'primary':'ghost'}" data-action="chem-tab" data-tab="${id}">${label}</button>`;
+                return `<div class="row" style="gap:8px;margin-bottom:14px">${tabBtn('ph','pH / pOH')}${tabBtn('molarity','Molarity')}</div>${chemTab==='ph'?chemPhHtml():chemMolarityHtml()}`; }
+
+            // ---- Significant Figures & Scientific Notation (Tools page)
+            function toSigFigs(numStr, sig) { const n = Number(numStr); if (!isFinite(n)) return null;
+                sig = Math.max(1, Math.min(15, Math.round(sig) || 1));
+                if (n === 0) return { rounded: 0, exp: 0, mantissa: 0, sig };
+                const neg = n < 0, abs = Math.abs(n); let exp = Math.floor(Math.log10(abs));
+                const factor = Math.pow(10, sig - 1 - exp); let mantissaInt = Math.round(abs * factor);
+                if (mantissaInt >= Math.pow(10, sig)) { mantissaInt = Math.round(mantissaInt / 10); exp += 1; }
+                const rounded = (neg ? -1 : 1) * mantissaInt / Math.pow(10, sig - 1 - exp),
+                    mantissa = (neg ? -1 : 1) * mantissaInt / Math.pow(10, sig - 1);
+                return { rounded, exp, mantissa, sig }; }
+            function sigFigToolHtml() { const n = sigFigInput.trim(), sig = Number(sigFigCount);
+                let body;
+                if (n === '') body = '<p class="empty">Enter a number above to round it to the chosen number of significant figures.</p>';
+                else if (!isFinite(Number(n))) body = '<p class="empty">Enter a valid number.</p>';
+                else if (!(sig >= 1 && sig <= 15)) body = '<p class="empty">Choose between 1 and 15 significant figures.</p>';
+                else { const r = toSigFigs(n, sig), decimalPlaces = Math.max(0, r.sig - 1 - r.exp),
+                        supers = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' },
+                        expStr = String(r.exp).split('').map(c => supers[c] || c).join('');
+                    body = `<div class="cao-subjects-row">
+            <div class="cao-subject-chip"><strong>${r.sig} sig. fig.</strong><span class="small">${r.rounded.toFixed(decimalPlaces)}</span></div>
+            <div class="cao-subject-chip"><strong>Scientific notation</strong><span class="small">${r.mantissa.toFixed(r.sig-1)} × 10${expStr}</span></div>
+          </div>`; }
+                return `<section class="card section">
+          <div class="form-grid" style="grid-template-columns:2fr 1fr">
+            <div class="field"><label for="sigfig-input">Number</label><input type="text" inputmode="decimal" autocomplete="off" id="sigfig-input" placeholder="e.g. 0.004821" value="${escape(sigFigInput)}"></div>
+            <div class="field"><label for="sigfig-count">Sig. figures</label><input type="number" min="1" max="15" id="sigfig-count" value="${escape(sigFigCount)}"></div>
+          </div>
+        </section>
+        <section class="card section" style="margin-top:14px">${body}</section>`; }
+
+            // ---- Grade & CAO Points Finder (Tools page) — quick single-mark → LC grade band lookup,
+            // reusing the same LC_BANDS/CAO_POINTS tables as the CAO Calculator and exam results.
+            function gradeFinderHtml() { const pctStr = gradeFinderPercent.trim(), pct = pctStr === '' ? null : Number(pctStr);
+                let body;
+                if (pctStr === '') body = '<p class="empty">Enter a raw percentage mark above to see the matching grade bands and CAO points.</p>';
+                else if (!isFinite(pct) || pct < 0 || pct > 100) body = '<p class="empty">Enter a percentage between 0 and 100.</p>';
+                else { const band = LC_BANDS.find(b => pct >= b.min && pct <= b.max),
+                        hGrade = `H${band.band}`, oGrade = `O${band.band}`;
+                    body = `<div class="cao-subjects-row">
+            <div class="cao-subject-chip"><strong>${hGrade}</strong><span class="small">Higher · ${CAO_POINTS[hGrade]}pts</span></div>
+            <div class="cao-subject-chip"><strong>${oGrade}</strong><span class="small">Ordinary · ${CAO_POINTS[oGrade]}pts</span></div>
+          </div>
+          <p class="small" style="margin-top:10px">Band ${band.band} (${escape(band.label)}). Higher and Ordinary Level share the same percentage bands — only the points differ.</p>`; }
+                return `<section class="card section">
+          <div class="field"><label for="grade-finder-input">Raw percentage mark</label><input type="text" inputmode="decimal" autocomplete="off" id="grade-finder-input" placeholder="e.g. 73" value="${escape(gradeFinderPercent)}"></div>
+        </section>
+        <section class="card section" style="margin-top:14px">${body}</section>`; }
+
             function renderTools() { if (!toolsActiveTool) { const tile = (id, icon, title, desc) =>
                         `<button type="button" class="class-tile" data-action="tools-open" data-tool="${id}" style="--subject:var(--primary)"><strong>${icon} ${title}</strong><span class="small">${desc}</span></button>`;
                     return appFrame(`<div class="page">${header('Tools','Extra study tools that don\'t fit neatly anywhere else.','')}
@@ -8316,12 +8621,17 @@ ${pointsSvg}
           ${tile('formulas','📘','Formula Book','The official Formulae & Tables booklet allowed in the exam — searchable and browsable.')}
           ${tile('cao','◎','CAO Points Calculator','Work out your best-6 CAO points, or find grade combinations that reach a target.')}
           ${tile('quadratic','➗','Quadratic Solver','Enter a, b and c and see the roots instantly — as exact fractions or decimals.')}
-          ${tile('translate','🌐','Translate','Quick, natural translations between languages, powered by AI.')}
+          ${tile('translate','🌐','Translate','Quick translations between languages — free, instant, no sign-in needed.')}
           ${tile('suvat','🚀','Motion Solver','Enter any 3 of u, v, a, t, s and the rest are solved for — for Physics mechanics.')}
           ${tile('statistics','📊','Statistics Calculator','Mean, median, mode, quartiles and standard deviation from a list of numbers.')}
           ${tile('periodic','🧪','Periodic Table','All 118 elements — searchable, with atomic mass and category at a glance.')}
           ${tile('units','📐','Unit Converter','Length, mass, volume, temperature, time and speed, converted instantly.')}
           ${tile('wordcount','📝','Word Counter','Word/character counts, reading time, and a readability score for essays.')}
+          ${tile('simeq','🔢','Simultaneous Equations','Solves two linear equations in x and y — as exact fractions or decimals.')}
+          ${tile('trig','📏','Trigonometry Solver','Enter any 2 sides/angles of a right-angled triangle and the rest are solved for.')}
+          ${tile('chemistry','⚗️','Chemistry Calculator','pH, pOH, [H⁺] and [OH⁻] conversions, plus a quick molarity calculator.')}
+          ${tile('sigfig','🔬','Significant Figures','Round any number to a chosen number of sig figs, with scientific notation.')}
+          ${tile('gradefinder','🎯','Grade & Points Finder','Enter a raw percentage mark to see its LC grade band and CAO points.')}
         </div>
         </div>`); }
                 const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (
@@ -8356,6 +8666,26 @@ ${pointsSvg}
                 if (toolsActiveTool === 'wordcount') return appFrame(`<div class="page">${back}
         ${header('Word Counter & Readability','Paste your essay or answer to check it against a word limit and see how readable it is.','')}
         ${wordCounterToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'simeq') return appFrame(`<div class="page">${back}
+        ${header('Simultaneous Equations','Solves two linear equations in x and y.','')}
+        ${simEqToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'trig') return appFrame(`<div class="page">${back}
+        ${header('Trigonometry Solver','Solves a right-angled triangle using SOHCAHTOA.','')}
+        ${trigToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'chemistry') return appFrame(`<div class="page">${back}
+        ${header('Chemistry Calculator','pH/pOH conversions and a quick molarity calculator.','')}
+        ${chemistryToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'sigfig') return appFrame(`<div class="page">${back}
+        ${header('Significant Figures','Round a number to a chosen number of significant figures.','')}
+        ${sigFigToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'gradefinder') return appFrame(`<div class="page">${back}
+        ${header('Grade & Points Finder','Look up the Leaving Cert grade band and CAO points for a raw percentage mark.','')}
+        ${gradeFinderHtml()}
         </div>`);
                 return appFrame(`<div class="page">${back}
         ${header('CAO Points Calculator','A quick standalone scratchpad — it doesn\'t touch your logged exam results.','')}
@@ -9560,13 +9890,14 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true); }
 
             // ---- Translate --------------------------------------------------------------------------
-            // A simple two-pane translator. Runs through the same Gemini-backed ai-chat function (and
-            // aiTextOnce helper) as the rest of the app's AI features, rather than a free third-party
-            // translation API — a free public MyMemory-style API was tried first but turned out to be
-            // low quality (mistranslations, and occasional garbage/inappropriate output from its
-            // crowd-sourced translation memory); Gemini gives a real, natural translation and needs no
-            // separate key. Requires sign-in like every other AI feature here. Purely transient UI
-            // state, nothing here is worth syncing to the cloud.
+            // A simple two-pane translator — deliberately NOT routed through the app's AI backend, so it
+            // works instantly with no sign-in and no AI cost. Tries Google Translate's public "gtx" web
+            // endpoint first (no key, good quality, same engine translate.google.com itself uses); if
+            // that's ever blocked or offline it falls back to the free MyMemory API. Plain MyMemory used
+            // naively is known to be low quality (its top "match" is picked by string-similarity, not
+            // translation quality, so it can return an unrelated crowd-sourced phrase) — the fallback
+            // below instead picks the highest-"quality"-scored candidate out of its match list, which
+            // fixes most of that. Purely transient UI state, nothing here is worth syncing to the cloud.
             const TRANSLATE_LANGUAGES = [['en','English'],['es','Spanish'],['fr','French'],['de','German'],['it','Italian'],
                 ['pt','Portuguese'],['nl','Dutch'],['ru','Russian'],['pl','Polish'],['sv','Swedish'],['no','Norwegian'],
                 ['da','Danish'],['fi','Finnish'],['el','Greek'],['tr','Turkish'],['uk','Ukrainian'],['cs','Czech'],
@@ -9591,19 +9922,39 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
               <div class="translate-pane-foot"><span></span>${translateOutputText&&!translateLoading?'<button type="button" class="button ghost" data-action="translate-copy">📋 Copy</button>':''}</div>
             </div>
           </div>
-          <p class="small" style="margin-top:12px">${currentUser?'Powered by the same AI as the rest of the app.':'Sign in with Google to use this — it\'s powered by the same AI as the rest of the app.'}</p>
+          <p class="small" style="margin-top:12px">Free machine translation — good for the gist, but always double-check anything you're handing in.</p>
         </div>`; }
 
             function scheduleTranslate() { clearTimeout(translateDebounceTimer); translateDebounceTimer = setTimeout(runTranslate, 600); }
+            // Tries the Google Translate "gtx" endpoint first (client=gtx is the same public, keyless
+            // endpoint the official Chrome extension uses); its JSON reply is a nested array whose first
+            // element is a list of [translatedChunk, originalChunk, ...] tuples — join the translated
+            // chunks back together.
+            async function googleTranslateOnce(text, source, target) {
+                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(source)}&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
+                const res = await fetch(url); if (!res.ok) throw new Error('Google Translate unavailable');
+                const data = await res.json();
+                const chunks = data?.[0]; if (!Array.isArray(chunks) || !chunks.length) throw new Error('Unexpected response');
+                return chunks.map(c => c[0]).join('').trim(); }
+            // Fallback: MyMemory's free API. Its top-level responseData.translatedText is chosen by string
+            // match score rather than translation quality and can return an unrelated crowd-sourced phrase,
+            // so instead pick the candidate in its `matches` list with the highest numeric `quality`.
+            async function myMemoryTranslateOnce(text, source, target) {
+                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(source)}|${encodeURIComponent(target)}`;
+                const res = await fetch(url); if (!res.ok) throw new Error('MyMemory unavailable');
+                const data = await res.json();
+                const matches = Array.isArray(data?.matches) ? data.matches : [];
+                const best = matches.filter(m => Number(m.quality) > 0).sort((a, b) => Number(b.quality) - Number(a.quality))[0];
+                const out = best ? best.translation : data?.responseData?.translatedText;
+                if (!out) throw new Error('No translation returned'); return out.trim(); }
             async function runTranslate() { const text = translateInputText.trim();
                 if (!text) { translateOutputText = ''; translateError = ''; translateLoading = false; render(); return; }
                 translateLoading = true; translateError = ''; render();
-                try {
-                    const sourceLabel = TRANSLATE_LANGUAGES.find(([c]) => c === translateSourceLang)?.[1] || translateSourceLang;
-                    const targetLabel = TRANSLATE_LANGUAGES.find(([c]) => c === translateTargetLang)?.[1] || translateTargetLang;
-                    const sys = `Translate the given text from ${sourceLabel} to ${targetLabel}. Produce a natural, accurate translation the way a fluent native speaker would actually phrase it — not a stiff, literal word-for-word conversion — while preserving the original meaning and tone. Reply with ONLY the translation itself: no quotes, no notes, no alternatives, no explanation.`;
-                    translateOutputText = (await aiTextOnce(sys, [{ text }])).trim();
-                } catch (err) { translateError = err.message || 'Could not translate right now.'; translateOutputText = ''; }
+                try { translateOutputText = await googleTranslateOnce(text, translateSourceLang, translateTargetLang); }
+                catch (err1) {
+                    try { translateOutputText = await myMemoryTranslateOnce(text, translateSourceLang, translateTargetLang); }
+                    catch (err2) { translateError = 'Could not translate right now — check your connection and try again.'; translateOutputText = ''; }
+                }
                 translateLoading = false; render(); }
             function translateSwap() { const oldSource = translateSourceLang, oldTarget = translateTargetLang, oldOutput = translateOutputText;
                 translateSourceLang = oldTarget; translateTargetLang = oldSource;
@@ -14426,6 +14777,8 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'units-category') { unitsCategory = b.dataset.cat;
                     const pair = UNITS_DEFAULT_PAIR[unitsCategory]; unitsFrom = pair[0]; unitsTo = pair[1]; render(); }
                 else if (a === 'units-swap') { [unitsFrom, unitsTo] = [unitsTo, unitsFrom]; render(); }
+                else if (a === 'simeq-format') { simEqFormat = b.dataset.format; render(); }
+                else if (a === 'chem-tab') { chemTab = b.dataset.tab; render(); }
             });
             document.addEventListener('keydown', e => { if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value);
                 else if (e.target && e.target.id === 'cao-target-input' && e.key === 'Enter') { const target = parseInt(e.target.value, 10); if (!isNaN(target) && target > 0) { caoCalcTargetInput = e.target.value; caoCalcTargetResults = caoCalcFindCombos(target); render(); } } });
@@ -14446,7 +14799,11 @@ If the user asks about how to study or study methods generally, answer from your
                     render(); const input = document.getElementById(id);
                     if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) {} } }
                 const newToolFieldIds = ['suvat-input-u', 'suvat-input-v', 'suvat-input-a', 'suvat-input-t', 'suvat-input-s',
-                    'stats-input', 'units-value-input', 'periodic-search-input', 'word-counter-input'];
+                    'stats-input', 'units-value-input', 'periodic-search-input', 'word-counter-input',
+                    'simeq-input-a1', 'simeq-input-b1', 'simeq-input-c1', 'simeq-input-a2', 'simeq-input-b2', 'simeq-input-c2',
+                    'trig-input-opp', 'trig-input-adj', 'trig-input-hyp', 'trig-input-angle',
+                    'chem-ph-value', 'chem-mol-c', 'chem-mol-v', 'chem-mol-n',
+                    'sigfig-input', 'sigfig-count', 'grade-finder-input'];
                 if (newToolFieldIds.includes(e.target.id)) { const id = e.target.id, pos = e.target.selectionStart, val = e.target.value;
                     if (id === 'suvat-input-u') suvatU = val;
                     else if (id === 'suvat-input-v') suvatV = val;
@@ -14457,6 +14814,23 @@ If the user asks about how to study or study methods generally, answer from your
                     else if (id === 'units-value-input') unitsValue = val;
                     else if (id === 'periodic-search-input') periodicSearch = val;
                     else if (id === 'word-counter-input') wordCounterText = val;
+                    else if (id === 'simeq-input-a1') simEqA1 = val;
+                    else if (id === 'simeq-input-b1') simEqB1 = val;
+                    else if (id === 'simeq-input-c1') simEqC1 = val;
+                    else if (id === 'simeq-input-a2') simEqA2 = val;
+                    else if (id === 'simeq-input-b2') simEqB2 = val;
+                    else if (id === 'simeq-input-c2') simEqC2 = val;
+                    else if (id === 'trig-input-opp') trigOpp = val;
+                    else if (id === 'trig-input-adj') trigAdj = val;
+                    else if (id === 'trig-input-hyp') trigHyp = val;
+                    else if (id === 'trig-input-angle') trigAngle = val;
+                    else if (id === 'chem-ph-value') chemPhValue = val;
+                    else if (id === 'chem-mol-c') chemMolC = val;
+                    else if (id === 'chem-mol-v') chemMolV = val;
+                    else if (id === 'chem-mol-n') chemMolN = val;
+                    else if (id === 'sigfig-input') sigFigInput = val;
+                    else if (id === 'sigfig-count') sigFigCount = val;
+                    else if (id === 'grade-finder-input') gradeFinderPercent = val;
                     render(); const input = document.getElementById(id);
                     if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) {} } } });
 
@@ -14475,6 +14849,7 @@ If the user asks about how to study or study methods generally, answer from your
                     else studyModeLogDraft.checkedTopicIds.delete(t.dataset.id); } }
                 else if (t.id === 'units-from-select') { unitsFrom = t.value; render(); }
                 else if (t.id === 'units-to-select') { unitsTo = t.value; render(); }
+                else if (t.id === 'chem-ph-field') { chemPhField = t.value; render(); }
                 else if (t.id === 'vocab-ocr-file') { const file = t.files?.[0]; const subjectId = t.dataset.subject; t.value = '';
                     if (file) runVocabOcr(subjectId, file); }
                 else if (t.id === 'essay-photo-file') { const file = t.files?.[0]; t.value = '';
