@@ -2725,6 +2725,24 @@
         .diagram-pin.active {
             background: var(--warning);
         }
+        .examsim-bar {
+            height: 8px;
+            border-radius: 999px;
+            background: var(--surface-2);
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .examsim-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            animation-name: examsim-shrink;
+            animation-timing-function: linear;
+            animation-fill-mode: forwards;
+        }
+        @keyframes examsim-shrink {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
         .event-detail {
             display: grid;
             gap: 13px;
@@ -10668,6 +10686,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
 
             // ---- Flashcards: study/test sessions --------------------------------------------------
             function exitFlashcardSession() { if (gravityTimeoutId) { clearTimeout(gravityTimeoutId); gravityTimeoutId = null; }
+                if (examSimTimeoutId) { clearTimeout(examSimTimeoutId); examSimTimeoutId = null; }
                 flashcardStudySession = null; render(); }
 
             function startFlashcardClickThrough(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
@@ -10732,6 +10751,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (sess.mode === 'listening') return renderListeningSession(sess);
                 if (sess.mode === 'srs-review') return renderSrsReviewSession(sess);
                 if (sess.mode === 'diagram') return renderDiagramSession(sess);
+                if (sess.mode === 'exam-sim') return renderExamSimSession(sess);
                 return ''; }
 
             function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), card = sess.cards[sess.index];
@@ -10811,6 +10831,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             ${deck.cards.length>=4?opt('flashcard-start-gravity','☄️','Gravity', "A definition falls in — type the term before it lands. Limited lives."):''}
             ${opt('flashcard-start-listening', '🔊', 'Listening', 'Hear the term read aloud, answer, then self-check against the definition.')}
             ${deck.diagram&&deck.diagram.points.length?opt('flashcard-start-diagram','🖼','Diagram Labeling', 'Identify what each numbered point on your diagram is.'):''}
+            ${deck.cards.length>=3?opt('flashcard-start-examsim','⏱','Exam Simulation', `Timed mixed round (~${Math.round(Math.max(120,deck.cards.length*25)/60)} min) — true/false, fill-in-blank, and recall under the clock.`):''}
           </div>`,
                     `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true); }
 
@@ -11098,6 +11119,55 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     toast(`Imported "${data.topic}" (${cards.length} card${cards.length===1?'':'s'}) from ${data.owner_name || 'a classmate'}.`);
                     render();
                 } catch (err) { toast(err.message || 'Could not import that set.'); } }
+
+            // ---- Flashcards: Exam Simulation (mixed True/False, cloze, and recall under one countdown
+            // — deliberately no AI-generated MCQ here, so a whole timed mock exam costs zero API calls;
+            // the countdown bar is pure CSS with a negative animation-delay computed from elapsed time,
+            // same trick as Gravity's falling word, so it survives render() rebuilding the DOM) ---------
+            let examSimTimeoutId = null;
+            function armExamSimTimer() { if (examSimTimeoutId) clearTimeout(examSimTimeoutId);
+                const s = flashcardStudySession; if (!s || s.mode !== 'exam-sim') return;
+                const remaining = s.endAt - Date.now(); if (remaining <= 0) { finishExamSim(); return; }
+                examSimTimeoutId = setTimeout(finishExamSim, remaining); }
+            function finishExamSim() { const s = flashcardStudySession; if (!s || s.mode !== 'exam-sim') return;
+                if (examSimTimeoutId) { clearTimeout(examSimTimeoutId); examSimTimeoutId = null; }
+                s.finished = true; render(); }
+            function startFlashcardExamSim(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 3) { toast('Add at least 3 cards first.'); return; }
+                closeModal();
+                const durationMs = Math.max(120, deck.cards.length * 25) * 1000;
+                const items = shuffle(deck.cards).map(c => { const roll = Math.random();
+                    if (roll < 0.34) { const cz = clozeForCard(c); if (cz) return { type: 'cloze', id: c.id, blanked: cz.blanked, answer: cz.answer }; }
+                    if (roll < 0.67) return { type: 'recall', id: c.id, back: c.back, answer: c.front };
+                    let shownBack = c.back, isTrue = true;
+                    if (Math.random() < 0.5) { const alt = shuffle(deck.cards.filter(o => o.id !== c.id))[0]; if (alt) { shownBack = alt.back; isTrue = false; } }
+                    return { type: 'tf', id: c.id, front: c.front, shownBack, isTrue }; });
+                flashcardStudySession = { mode: 'exam-sim', deckId, items, index: 0, score: 0, answered: null, revealed: false, lastCorrect: null, finished: false, endAt: Date.now() + durationMs, durationMs };
+                render(); armExamSimTimer(); }
+            function renderExamSimSession(sess) { const deck = flashcardDeck(sess.deckId);
+                if (sess.finished || sess.index >= sess.items.length) return `<div class="flashcard-stage">${header('Exam Simulation — Results', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default"><span>${sess.score} / ${sess.items.length} correct</span></div>
+        <button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                const item = sess.items[sess.index];
+                const elapsed = Math.max(0, sess.durationMs - Math.max(0, sess.endAt - Date.now())) / 1000, totalSec = sess.durationMs / 1000;
+                const bar = `<div class="examsim-bar"><div class="examsim-bar-fill" style="animation-duration:${totalSec}s;animation-delay:-${elapsed}s"></div></div>`;
+                let body;
+                if (item.type === 'tf') { const answered = sess.answered != null;
+                    const btn = (val, label) => { let cls = ''; if (answered) { if (val === item.isTrue) cls = 'correct'; else if (val === sess.answered) cls = 'wrong'; }
+                        return `<button type="button" class="flashcard-mcq-choice ${cls}" data-action="flashcard-examsim-tf" data-value="${val}" ${answered?'disabled':''}>${label}</button>`; };
+                    body = `<div class="flashcard-face" style="cursor:default;flex-direction:column;gap:8px"><span>${escape(item.front)}</span><span class="fc-back" style="font-size:15px">${escape(item.shownBack)}</span></div><div style="margin-top:16px;display:flex;gap:10px;justify-content:center">${btn(true,'✅ True')}${btn(false,'❌ False')}</div>`; }
+                else if (item.type === 'cloze') body = `<div class="flashcard-face" style="cursor:default;font-size:17px;font-weight:500">${escape(item.blanked)}</div><input type="text" id="flashcard-examsim-answer" placeholder="Type the missing word" style="margin-top:14px" ${sess.revealed?'disabled':''}>`;
+                else body = `<p class="small" style="margin-bottom:6px">What's the term?</p><div class="flashcard-face" style="cursor:default">${escape(item.back)}</div><input type="text" id="flashcard-examsim-answer" placeholder="Type the term" style="margin-top:14px" ${sess.revealed?'disabled':''}>`;
+                const revealHtml = (item.type !== 'tf' && sess.revealed) ? `<div class="alert ${sess.lastCorrect?'success':''}" style="margin-top:10px">${sess.lastCorrect?'✅ Correct!':`❌ It was "${escape(item.answer)}"`}</div>` : '';
+                const actionBtn = item.type === 'tf' ?
+                    (sess.answered != null ? `<button type="button" class="button primary" data-action="flashcard-examsim-next">${sess.index===sess.items.length-1?'Finish':'Next ›'}</button>` : '') :
+                    (sess.revealed ? `<button type="button" class="button primary" data-action="flashcard-examsim-next">${sess.index===sess.items.length-1?'Finish':'Next ›'}</button>` : `<button type="button" class="button primary" data-action="flashcard-examsim-check">Check</button>`);
+                return `<div class="flashcard-stage">
+        ${header('Exam Simulation', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        ${bar}
+        ${body}
+        ${revealHtml}
+        <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.items.length}</span>${actionBtn}</div>
+        </div>`; }
 
             // ---- Translate --------------------------------------------------------------------------
             // A simple two-pane translator — deliberately NOT routed through the app's AI backend, so it
@@ -16470,6 +16540,18 @@ If the user asks about how to study or study methods generally, answer from your
                     s.lastCorrect = val === point.label.trim().toLowerCase(); s.revealed = true; if (s.lastCorrect) s.score++;
                     render(); }
                 else if (a === 'flashcard-diagram-next') { const s = flashcardStudySession; if (!s) return; s.index++; s.revealed = false; render(); }
+                else if (a === 'flashcard-start-examsim') startFlashcardExamSim(b.dataset.deck);
+                else if (a === 'flashcard-examsim-tf') { const s = flashcardStudySession; if (!s || s.mode !== 'exam-sim') return;
+                    const item = s.items[s.index]; if (s.answered != null) return;
+                    const val = b.dataset.value === 'true'; s.answered = val; if (val === item.isTrue) s.score++;
+                    render(); }
+                else if (a === 'flashcard-examsim-check') { const s = flashcardStudySession; if (!s || s.mode !== 'exam-sim') return;
+                    const item = s.items[s.index], val = (document.getElementById('flashcard-examsim-answer')?.value || '').trim().toLowerCase();
+                    s.lastCorrect = !!val && val === (item.answer || '').trim().toLowerCase(); s.revealed = true; if (s.lastCorrect) s.score++;
+                    render(); }
+                else if (a === 'flashcard-examsim-next') { const s = flashcardStudySession; if (!s) return;
+                    if (s.index >= s.items.length - 1) { finishExamSim(); return; }
+                    s.index++; s.answered = null; s.revealed = false; render(); }
                 else if (a === 'create-flashcard-folder') createFlashcardFolder(b.dataset.subject);
                 else if (a === 'delete-flashcard-folder') { if (confirm('Delete this folder? Decks inside it are not deleted.')) deleteFlashcardFolder(b.dataset.folder); }
                 else if (a === 'share-flashcard-deck') shareFlashcardDeck(b.dataset.deck);
@@ -16496,7 +16578,8 @@ If the user asks about how to study or study methods generally, answer from your
             document.addEventListener('keydown', e => { if (e.key !== 'Enter') return;
                 if (e.target.id === 'flashcard-gravity-answer') { e.preventDefault(); submitGravityAnswer(); }
                 else if (e.target.id === 'flashcard-cloze-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-cloze-check"]')?.click(); }
-                else if (e.target.id === 'flashcard-diagram-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-diagram-check"]')?.click(); } });
+                else if (e.target.id === 'flashcard-diagram-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-diagram-check"]')?.click(); }
+                else if (e.target.id === 'flashcard-examsim-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-examsim-check"]')?.click(); } });
 
             document.addEventListener('input', e => { const t = e.target;
                 if (t.id === 'flashcard-create-topic') { if (flashcardCreateDraft) flashcardCreateDraft.topic = t.value; }
