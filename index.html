@@ -149,6 +149,18 @@
             flex-shrink: 0;
             box-shadow: 0 8px 16px rgba(46, 99, 246, .28);
         }
+        .sidebar .brand-mark .nav-icon {
+            width: 17px;
+            height: 17px;
+            stroke: none;
+            fill: currentColor;
+        }
+        .nav-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+            flex-shrink: 0;
+        }
         .sidebar.collapsed .brand {
             justify-content: center;
             padding: 0;
@@ -6928,9 +6940,9 @@
                 const mode = state.settings.sidebarMode || 'hover';
                 const shellClass = `app-shell sidebar-mode-${mode}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
-                return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">✦</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','⌂','Dashboard')}${navButton('tasks','☑','Tasks')}${navButton('study','✎','Study')}${navButton('classes','◫','Classes')}${navButton('tests-exams','▤','Tests & Exams')}${navButton('closet','✦',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','◎','CAO Planning'):''}${navButton('insights','📈','Insights')}${navButton('timetable','▦','Timetable')}${navButton('tools','🛠','Tools')}${currentUser?navButton('chatrooms','💬','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
-      </nav><div class="sidebar-footer">${accountFooterButtonHtml()}<button data-action="open-search" aria-label="Search">🔍 <span>Search</span></button><button data-action="open-settings" aria-label="Settings">⚙ <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
+                return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">${sidebarIcon('star')}</span><span class="brand-label">Simple Study</span></div><nav class="nav">
+        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${currentUser?navButton('chatrooms','message-circle','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
+      </nav><div class="sidebar-footer"><button data-action="open-search" aria-label="Search">${sidebarIcon('search')} <span>Search</span></button><button data-action="open-settings" aria-label="Settings">${sidebarIcon('settings')} <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
             }
 
             // Whether a given announcement id has already been shown/dismissed on this
@@ -6971,15 +6983,6 @@
                         "The guided tour's been expanded with a lot more detail — worth another look, even if you've taken it before." :
                         "Not sure what everything does? Sparky can walk you through every page with a quick example week — takes a few minutes.";
                 return `<div class="settings-row" style="margin:14px var(--main-px) 0"><div><strong>${title}</strong><span class="small">${body}</span></div><div class="row"><button class="button primary" data-action="start-guided-tour">Take the tour</button><button class="button ghost" data-action="dismiss-tour-banner">Dismiss</button></div></div>`;
-            }
-
-            function accountFooterButtonHtml() {
-                if (currentUser) {
-                    const label = currentUser.user_metadata?.full_name || currentUser.email || 'Account';
-                    const initial = (label[0] || '?').toUpperCase();
-                    return `<button data-action="open-settings" aria-label="${escape(label)}" title="${escape(label)} — signed in, synced to the cloud">${escape(initial)} <span>${escape(label)}</span></button>`;
-                }
-                return `<button data-action="sign-in-google" aria-label="Sign in" title="Sign in with Google to sync your data across devices">☁ <span>Sign in</span></button>`;
             }
 
             function accountSettingsRowHtml() {
@@ -7054,7 +7057,26 @@
                 renderModal();
             }
 
-            function navButton(id, icon, label, badge = '') { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}" aria-label="${escape(label)}"><b aria-hidden="true">${icon}</b><span>${label}</span>${badge}</button>`; }
+            // Simple stroke-style icon set for the sidebar (nav, footer, brand mark) —
+            // plain SVGs rather than emoji so they render identically across platforms.
+            const SIDEBAR_ICON_PATHS = {
+                star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
+                home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
+                'check-square': '<polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>',
+                edit: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>',
+                grid: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>',
+                'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line>',
+                target: '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>',
+                'trending-up': '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline>',
+                calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+                tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>',
+                'message-circle': '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>',
+                search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
+                settings: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>',
+            };
+            function sidebarIcon(name) { return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SIDEBAR_ICON_PATHS[name] || ''}</svg>`; }
+
+            function navButton(id, icon, label, badge = '') { return `<button class="${view===id?'active':''}" data-action="view" data-view="${id}" aria-label="${escape(label)}"><b aria-hidden="true">${sidebarIcon(icon)}</b><span>${label}</span>${badge}</button>`; }
 
             function header(title, description, tools = '') { return `<div class="page-header"><div><h1>${title}</h1><p class="muted">${description}</p></div><div class="toolbar">${tools}</div></div>`; }
 
