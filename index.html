@@ -3907,6 +3907,28 @@
             let chatRoomTab = 'chat';      // 'chat' | 'settings' -- which panel is showing inside an open room
             let chatImageUploadBusy = false;
             let chatImageUrlCache = {};    // image_path -> signed URL, resolved lazily as messages carrying one are seen
+            let chatDmSearchQuery = '';
+            let chatDmSearchResults = null;
+            let chatDmSearchBusy = false;
+            let chatDmSearchTimer = null;
+
+            // ------------------------------------------------------------------
+            // Unread tracking + notifications. chatLastSeen (roomId -> last-seen
+            // message id) is persisted to localStorage per-account, same
+            // "namespaced by user id" pattern STORE_USER_ID uses, so unread state
+            // survives a reload. chatUnread (roomId -> true) is the in-memory
+            // source of truth for badges, rebuilt from chatLastSeen on every poll
+            // tick. chatStartGlobalPoll runs independently of whatever page is
+            // open (started from onAuthStateChange, not renderChatRoomsPage) so a
+            // new-message toast/badge shows up no matter where in the app you are
+            // -- the in-room 4s poll (chatPollTimer above) is separate and only
+            // runs while a room is actually open.
+            // ------------------------------------------------------------------
+            let chatLastSeen = {};
+            let chatUnread = {};
+            let chatGlobalPollTimer = null;
+            let chatPollBaselineDone = false; // first poll after sign-in only seeds state -- never toasts/notifies for pre-existing unread history
+            let chatNotifyBannerDismissed = false; // session-only dismissal of the "enable desktop notifications" prompt
 
             async function loadChatInvites() {
                 if (!currentUser) { chatInvites = null; return; }
@@ -3929,7 +3951,7 @@
                 chatRoomsBusy = true; chatRoomsError = ''; chatRoomsAttempted = true;
                 try {
                     const { data, error } = await supabaseClient.from('chat_rooms')
-                        .select('id, name, is_global, auto_key, created_at, created_by, created_by_name')
+                        .select('id, name, is_global, auto_key, is_dm, dm_user_a, dm_user_b, dm_a_name, dm_b_name, created_at, created_by, created_by_name')
                         .order('is_global', { ascending: false }).order('created_at', { ascending: true });
                     if (error) throw error;
                     chatRooms = data;
@@ -3958,6 +3980,7 @@
                 chatActiveRoomId = roomId;
                 chatActiveRoom = (chatRooms || []).find(r => r.id === roomId) || null;
                 chatMessages = null; chatMembers = null; chatRoomTab = 'chat';
+                if (chatUnread[roomId]) { delete chatUnread[roomId]; }
                 render();
                 await Promise.all([chatLoadMessages(), chatLoadMembers()]);
                 const thread = document.getElementById('chat-thread');
@@ -3983,9 +4006,100 @@
                     .select('id, user_id, author_name, body, image_path, created_at')
                     .eq('room_id', chatActiveRoomId).order('created_at', { ascending: true }).limit(200);
                 if (!error) chatMessages = data;
+                if (chatMessages && chatMessages.length) chatMarkRoomRead(chatActiveRoomId, chatMessages[chatMessages.length - 1].id);
                 await chatResolveImageUrls();
                 chatRerenderRoomPreservingState();
             }
+
+            // ------------------------------------------------------------------
+            // Unread badges + notifications (see the state block above for how
+            // chatLastSeen/chatUnread relate). Namespaced by user id so signing
+            // into a different account on the same device/browser doesn't bleed
+            // one account's read state into another's, same reasoning as
+            // STORE_USER_ID.
+            // ------------------------------------------------------------------
+            function chatLastSeenStorageKey() { return currentUser ? `simple-study-chat-last-seen:${currentUser.id}` : null; }
+
+            function loadChatLastSeen() {
+                const key = chatLastSeenStorageKey();
+                if (!key) { chatLastSeen = {}; return; }
+                try { chatLastSeen = JSON.parse(localStorage.getItem(key)) || {}; } catch (err) { chatLastSeen = {}; }
+            }
+            function saveChatLastSeen() { const key = chatLastSeenStorageKey(); if (key) localStorage.setItem(key, JSON.stringify(chatLastSeen)); }
+
+            function chatMarkRoomRead(roomId, messageId) {
+                if (!roomId || messageId == null) return;
+                if (!chatLastSeen[roomId] || messageId > chatLastSeen[roomId]) chatLastSeen[roomId] = messageId;
+                if (chatUnread[roomId]) delete chatUnread[roomId];
+                saveChatLastSeen();
+            }
+
+            function chatUnreadCount() { return Object.keys(chatUnread).length; }
+            function chatBadgeCount() { return (chatInvites ? chatInvites.length : 0) + chatUnreadCount(); }
+
+            function chatStartGlobalPoll() {
+                chatStopGlobalPoll();
+                loadChatLastSeen();
+                chatPollBaselineDone = false;
+                chatPollForNewMessages();
+                chatGlobalPollTimer = setInterval(chatPollForNewMessages, 15000);
+            }
+            function chatStopGlobalPoll() { if (chatGlobalPollTimer) { clearInterval(chatGlobalPollTimer); chatGlobalPollTimer = null; } }
+
+            // Polls the single latest message in every room the signed-in user belongs to --
+            // RLS (is_chat_room_member) narrows the result set automatically, same "no explicit
+            // room list needed" trick the rest of this feature leans on. Runs app-wide (started
+            // from onAuthStateChange, see below), not just while the Chat Rooms page is open, so a
+            // DM or room message shows up as a toast/badge no matter what page you're on.
+            async function chatPollForNewMessages() {
+                if (!currentUser) return;
+                const { data, error } = await supabaseClient.from('chat_messages')
+                    .select('id, room_id, user_id, author_name, body, image_path, created_at')
+                    .order('created_at', { ascending: false }).limit(50);
+                if (error || !data) return;
+                const latestByRoom = {};
+                for (const m of data) { if (!latestByRoom[m.room_id]) latestByRoom[m.room_id] = m; }
+
+                let changed = false;
+                for (const roomId of Object.keys(latestByRoom)) {
+                    const m = latestByRoom[roomId];
+                    const seen = chatLastSeen[roomId] || 0;
+                    if (m.id <= seen) continue;
+                    const isMine = currentUser && m.user_id === currentUser.id;
+                    const isOpenRoom = roomId === chatActiveRoomId;
+                    if (isMine || isOpenRoom) { chatMarkRoomRead(roomId, m.id); changed = true; continue; }
+                    chatUnread[roomId] = true;
+                    chatLastSeen[roomId] = m.id; // recorded even though unread, so the same message isn't re-toasted next poll
+                    changed = true;
+                    if (chatPollBaselineDone) chatNotifyNewMessage(roomId, m);
+                }
+                if (changed) saveChatLastSeen();
+                chatPollBaselineDone = true;
+                if (changed) render();
+            }
+
+            // In-website notification (a toast) fires unconditionally -- that's the always-on
+            // default. The desktop/OS notification on top of it is opt-in twice over: the browser's
+            // own Notification permission, and this app's separate chatNotificationsEnabled setting.
+            function chatNotifyNewMessage(roomId, m) {
+                const room = (chatRooms || []).find(r => r.id === roomId);
+                const title = room ? chatRoomDisplayName(room) : m.author_name;
+                const preview = m.body ? (m.body.length > 120 ? m.body.slice(0, 117) + '…' : m.body) :
+                    (m.image_path ? '📷 Sent an image' : 'New message');
+                toast(`💬 ${m.author_name}: ${preview}`);
+                if (state.settings.chatNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+                    try {
+                        const notif = new Notification(title || 'Simple Study', { body: `${m.author_name}: ${preview}`, icon: MASCOT_ICON_IMG });
+                        notif.onclick = () => { window.focus(); view = 'chatrooms'; chatOpenRoom(roomId); notif.close(); };
+                    } catch (err) {}
+                }
+            }
+
+            function chatRequestDesktopNotifications() {
+                if (!('Notification' in window)) return;
+                Notification.requestPermission().then(() => render());
+            }
+            function chatDismissNotifyBanner() { chatNotifyBannerDismissed = true; render(); }
 
             // Chat images live in a private bucket (see migration 0012), so
             // there's no public URL to just read off the row -- each image_path
@@ -4034,7 +4148,7 @@
 
             async function chatLoadMembers() {
                 if (!chatActiveRoomId) return;
-                if (chatActiveRoom && chatActiveRoom.is_global) { chatMembers = null; render(); return; }
+                if (chatActiveRoom && (chatActiveRoom.is_global || chatActiveRoom.is_dm)) { chatMembers = null; render(); return; }
                 const { data, error } = await supabaseClient.from('chat_room_members')
                     .select('user_id, member_name, member_email, joined_at')
                     .eq('room_id', chatActiveRoomId).order('joined_at', { ascending: true });
@@ -4179,6 +4293,48 @@
                 if (error) { toast(error.message || 'Could not leave room.'); return; }
                 chatCloseRoom();
                 loadChatRooms();
+            }
+
+            function chatRoomDisplayName(r) {
+                if (!r) return '';
+                if (r.is_dm) { const mine = currentUser && r.dm_user_a === currentUser.id;
+                    return (mine ? r.dm_b_name : r.dm_a_name) || 'Direct message'; }
+                return r.name || '';
+            }
+
+            function chatOpenNewDmModal() { chatDmSearchQuery = ''; chatDmSearchResults = null; chatDmSearchBusy = false; openModal('chat-new-dm'); }
+
+            function chatRerenderNewDmModal() {
+                const before = document.getElementById('chat-dm-search');
+                const hadFocus = before && document.activeElement === before;
+                const pos = before ? before.selectionStart : null;
+                renderModal();
+                if (hadFocus) { const el = document.getElementById('chat-dm-search');
+                    if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } }
+            }
+
+            function chatDmSearchInput(value) {
+                chatDmSearchQuery = value;
+                clearTimeout(chatDmSearchTimer);
+                if (value.trim().length < 2) { chatDmSearchResults = null; chatRerenderNewDmModal(); return; }
+                chatDmSearchTimer = setTimeout(chatRunDmSearch, 300);
+            }
+
+            async function chatRunDmSearch() {
+                chatDmSearchBusy = true; chatRerenderNewDmModal();
+                const { data, error } = await supabaseClient.rpc('chat_search_users', { p_query: chatDmSearchQuery.trim() });
+                chatDmSearchResults = error ? [] : data;
+                chatDmSearchBusy = false; chatRerenderNewDmModal();
+            }
+
+            // Idempotent -- messaging someone you already have a DM with just reopens the existing
+            // room (start_dm's on_conflict lookup, see migration 0014), never creates a duplicate.
+            async function chatStartDm(userId) {
+                const { data, error } = await supabaseClient.rpc('start_dm', { p_other_user_id: userId });
+                if (error) { toast(error.message || 'Could not start that conversation.'); return; }
+                closeModal();
+                await loadChatRooms();
+                chatOpenRoom(data.id);
             }
 
             function chatFmtTime(iso) {
@@ -5101,8 +5257,10 @@
                     loadCloudState();
                     spotifySyncOnSignIn();
                     loadChatInvites();
+                    chatStartGlobalPoll();
                 }
-                else if (!currentUser && previousUserId) { chatInvites = null; render(); }
+                else if (!currentUser && previousUserId) { chatInvites = null; chatStopGlobalPoll();
+                    chatLastSeen = {}; chatUnread = {}; chatPollBaselineDone = false; render(); }
                 else if (!currentUser && !previousUserId) { cloudResolutionPending = false; // a cached session token
                     render(); } // turned out not to restore a real session — nothing left to wait for
             });
@@ -5683,7 +5841,7 @@
             const blankState = () => ({
                 settings: { firstName: '', lastName: '', dob: '', yearGroup: '', termStart: '', termEnd: '',
                     theme: 'light', themeAccentColor: DEFAULT_THEME_ACCENT, onboarded: false, sidebarMode: 'hover', studyEngineDisabled: false,
-                    notificationsEnabled: false, tourVersion: 0, tourBannerDismissedVersion: 0,
+                    notificationsEnabled: false, chatNotificationsEnabled: true, tourVersion: 0, tourBannerDismissedVersion: 0,
                     dyslexiaMode: false, cabbageCount: 0,
                     timetableStyle: 'boxes', timetableAccentColor: DEFAULT_TIMETABLE_ACCENT,
                     schoolId: '', schoolName: '', graduationYear: null, periodAssignments: {}, needsScheduleSync: false,
@@ -7275,7 +7433,7 @@
                 const shellClass = `app-shell sidebar-mode-${mode}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">${sidebarIcon('star')}</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${currentUser?navButton('chatrooms','message-circle','Chat Rooms',(chatInvites&&chatInvites.length)?`<span class="pill bad" style="margin-left:6px">${chatInvites.length}</span>`:''):''}
+        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
       </nav><div class="sidebar-footer"><button data-action="open-search" aria-label="Search">${sidebarIcon('search')} <span>Search</span></button><button data-action="open-settings" aria-label="Settings">${sidebarIcon('settings')} <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
             }
 
@@ -11520,6 +11678,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     modal.kind === 'sophia-welcome') return layer.innerHTML = sophiaWelcomeModal(); if (
                     modal.kind === 'chat-new-room') return layer.innerHTML = chatNewRoomModal(); if (
                     modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); if (
+                    modal.kind === 'chat-new-dm') return layer.innerHTML = chatNewDmModal(); if (
                     modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (
                     modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
                     modal.kind === 'duplicate-classes') return layer.innerHTML = dupClassesModal(); }
@@ -11562,6 +11721,17 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
 
             function modalShell(title, body, foot = '', large = false, noClose = false) { return `<div class="modal ${large?'large':''}" role="dialog" aria-modal="true" aria-label="${escape(title)}"><div class="modal-head"><h2>${title}</h2>${noClose?'':'<button class="button icon" data-action="close-modal" aria-label="Close">×</button>'}</div><div class="modal-body">${body}</div>${foot?`<div class="modal-foot">${foot}</div>`:''}</div>`; }
 
+            function chatNotifyBannerHtml() {
+                if (!currentUser || !('Notification' in window) || Notification.permission !== 'default' || chatNotifyBannerDismissed) return '';
+                return `<div class="chat-invite-card">
+                    <div><strong>Get notified of new messages</strong><br><span class="small">Turn on desktop notifications so you don't miss a DM or room message while Simple Study isn't the active tab.</span></div>
+                    <div class="row" style="gap:8px">
+                        <button class="button primary" data-action="chat-enable-notifications">Enable</button>
+                        <button class="button ghost" data-action="chat-dismiss-notify-banner">Not now</button>
+                    </div>
+                </div>`;
+            }
+
             function renderChatRoomsPage() {
                 if (chatRooms === null && !chatRoomsBusy && !chatRoomsAttempted) loadChatRooms();
                 if (chatInvites === null) loadChatInvites();
@@ -11569,9 +11739,10 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 const body = chatActiveRoomId ? renderChatRoomDetail() : renderChatRoomsList();
                 const errorHtml = chatRoomsError ? `<p class="empty" style="color:var(--danger)">${escape(chatRoomsError)}
                     <button class="button ghost" style="margin-left:8px" data-action="chat-retry-rooms">Retry</button></p>` : '';
-                return appFrame(`<div class="page">${header('Chat Rooms', "Chat with everyone, or create a room and invite people to it.",
+                return appFrame(`<div class="page">${header('Chat', "Message a friend directly, or chat with everyone in a room.",
                     chatActiveRoomId ? '' : `<button class="button primary" data-action="chat-new-room">+ New room</button>`)}
                     ${errorHtml}
+                    ${chatActiveRoomId ? '' : chatNotifyBannerHtml()}
                     ${body}</div>`);
             }
 
@@ -11588,29 +11759,50 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         </div>`).join('')}
                     </section>` : '';
 
+                const rooms = chatRooms || [];
+                const dmRooms = rooms.filter(r => r.is_dm);
+                const groupRooms = rooms.filter(r => !r.is_dm);
+
+                let dmHtml;
+                if (chatRoomsBusy && !chatRooms) dmHtml = '<p class="empty">Loading…</p>';
+                else if (!dmRooms.length) dmHtml = '<p class="empty">No direct messages yet.</p>';
+                else dmHtml = `<div class="list">${dmRooms.map(r => `<div class="topic-row" style="cursor:pointer" data-action="chat-open-room" data-id="${r.id}">
+                        <span>👤 <strong>${escape(chatRoomDisplayName(r))}</strong>${chatUnread[r.id] ? ' <span class="pill bad">New</span>' : ''}</span>
+                        <span class="small">Direct message</span>
+                    </div>`).join('')}</div>`;
+
                 let roomsHtml;
                 if (chatRoomsBusy && !chatRooms) roomsHtml = '<p class="empty">Loading rooms…</p>';
-                else if (!chatRooms || !chatRooms.length) roomsHtml = '<p class="empty">No rooms yet.</p>';
-                else roomsHtml = `<div class="list">${chatRooms.map(r => `<div class="topic-row" style="cursor:pointer" data-action="chat-open-room" data-id="${r.id}">
-                        <span>${r.is_global ? '🌐' : r.auto_key ? '🎓' : '💬'} <strong>${escape(r.name)}</strong>${r.is_global ? ' <span class="pill neutral">Everyone</span>' : ''}</span>
+                else if (!groupRooms.length) roomsHtml = '<p class="empty">No rooms yet.</p>';
+                else roomsHtml = `<div class="list">${groupRooms.map(r => `<div class="topic-row" style="cursor:pointer" data-action="chat-open-room" data-id="${r.id}">
+                        <span>${r.is_global ? '🌐' : r.auto_key ? '🎓' : '💬'} <strong>${escape(r.name)}</strong>${r.is_global ? ' <span class="pill neutral">Everyone</span>' : ''}${chatUnread[r.id] ? ' <span class="pill bad">New</span>' : ''}</span>
                         <span class="small">${r.is_global ? 'Built in' : r.auto_key ? 'Your year group' : `Created by ${escape(r.created_by_name || 'someone')}`}</span>
                     </div>`).join('')}</div>`;
 
-                return `${invitesHtml}<section class="card section"><h2>Your rooms</h2>${roomsHtml}</section>`;
+                return `${invitesHtml}
+                    <section class="card section">
+                        <div class="row" style="justify-content:space-between;align-items:center">
+                            <h2 style="margin:0">Direct Messages</h2>
+                            <button class="button ghost" data-action="chat-new-dm">+ New message</button>
+                        </div>
+                        ${dmHtml}
+                    </section>
+                    <section class="card section"><h2>Rooms</h2>${roomsHtml}</section>`;
             }
 
             function renderChatRoomDetail() {
                 const room = chatActiveRoom;
-                const back = `<button class="button ghost" data-action="chat-close-room" style="margin-bottom:14px">← All rooms</button>`;
-                const tabs = `<div class="chat-room-tabs">
+                const isDm = !!(room && room.is_dm);
+                const back = `<button class="button ghost" data-action="chat-close-room" style="margin-bottom:14px">← All chats</button>`;
+                const tabs = isDm ? '' : `<div class="chat-room-tabs">
                         <button class="button ${chatRoomTab!=='settings'?'primary':'ghost'}" data-action="chat-room-tab" data-tab="chat">💬 Chat</button>
                         <button class="button ${chatRoomTab==='settings'?'primary':'ghost'}" data-action="chat-room-tab" data-tab="settings">⚙ Settings</button>
                     </div>`;
-                const body = chatRoomTab === 'settings' ? renderChatRoomSettingsTab(room) : renderChatRoomChatTab();
+                const body = (!isDm && chatRoomTab === 'settings') ? renderChatRoomSettingsTab(room) : renderChatRoomChatTab();
 
                 return `${back}
                 <div class="card section">
-                    <h2 style="margin:0">${room && room.is_global ? '🌐' : room && room.auto_key ? '🎓' : '💬'} ${escape(room ? room.name : '')}</h2>
+                    <h2 style="margin:0">${room && room.is_global ? '🌐' : room && room.auto_key ? '🎓' : isDm ? '👤' : '💬'} ${escape(chatRoomDisplayName(room))}</h2>
                     ${tabs}
                     ${body}
                 </div>`;
@@ -11664,6 +11856,20 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     `<div class="field"><label for="chat-new-room-name">Room name</label><input id="chat-new-room-name" placeholder="e.g. Maths study group" maxlength="60" autofocus></div>
                      ${chatNewRoomError ? `<p class="empty" style="color:var(--danger)">${escape(chatNewRoomError)}</p>` : ''}`,
                     `<button class="button ghost" data-action="close-modal">Cancel</button><button class="button primary" data-action="chat-create-room-submit" ${chatNewRoomBusy?'disabled':''}>${chatNewRoomBusy?'Creating…':'Create'}</button>`);
+            }
+
+            function chatNewDmModal() {
+                const resultsHtml = chatDmSearchBusy ? '<p class="empty">Searching…</p>' :
+                    chatDmSearchResults === null ? '<p class="small">Type at least 2 characters of a name or email.</p>' :
+                    !chatDmSearchResults.length ? '<p class="empty">No matches.</p>' :
+                    `<div class="chat-search-results">${chatDmSearchResults.map(u => `<div class="topic-row">
+                        <span><strong>${escape(u.name)}</strong><br><span class="small">${escape(u.email)}</span></span>
+                        <button class="button primary" data-action="chat-start-dm" data-id="${u.user_id}">Message</button>
+                    </div>`).join('')}</div>`;
+                return modalShell('New message',
+                    `<div class="field"><label for="chat-dm-search">Full name or email</label><input id="chat-dm-search" placeholder="e.g. Bob Smith or bob@example.com" value="${escape(chatDmSearchQuery)}" autofocus></div>
+                     ${resultsHtml}`,
+                    `<button class="button ghost" data-action="close-modal">Close</button>`);
             }
 
             function chatInviteModal(roomId) {
@@ -12002,6 +12208,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           ${spotifySettingsRowHtml()}
           ${garminSettingsRowHtml()}
           <div class="settings-row"><div><strong>Notifications</strong><span class="small">Only for genuinely important things — a test tomorrow, a CAO hard deadline in the next couple of days. Nothing more frequent than that.</span></div><label class="switch-row"><input id="setting-notifications" type="checkbox" ${s.notificationsEnabled?'checked':''}> Enable browser notifications</label></div>
+          <div class="settings-row"><div><strong>Chat notifications</strong><span class="small">Desktop notifications when you get a new direct message or chat room message. In-app toasts and unread badges always show, regardless of this setting.</span></div><label class="switch-row"><input id="setting-chat-notifications" type="checkbox" ${s.chatNotificationsEnabled?'checked':''}> Enable desktop notifications for chat</label></div>
           <div class="settings-row"><div><strong>Dyslexia-friendly</strong><span class="small">Slows down the guided tour, giving more time to read each step before it moves on.</span></div><label class="switch-row"><input id="setting-dyslexia" type="checkbox" ${s.dyslexiaMode?'checked':''}> Slow down guided tours</label></div>
           <div class="settings-row"><div><strong>Backup your data</strong><span class="small">${backupNote} An Export is the only way to get everything back if you switch browsers or devices, or this browser's storage ever gets cleared.</span></div><div class="row"><button class="button" data-action="export-data">Export backup</button><label class="button">Import backup<input id="import-data" type="file" accept="application/json" class="hidden"></label></div></div>
           <div class="settings-row"><div><strong>Sample data</strong><span class="small">Fills in a full week of classes, activities, and study — handy for testing.</span></div><button class="button" data-action="sample-data">Add sample week</button></div>
@@ -15210,6 +15417,10 @@ If the user asks about how to study or study methods generally, answer from your
                     .target.checked; if (e.target.checked && 'Notification' in window && Notification
                         .permission === 'default') Notification.requestPermission();
                     save();
+                    return; } if (e.target.id === 'setting-chat-notifications') { state.settings
+                    .chatNotificationsEnabled = e.target.checked; if (e.target.checked && 'Notification' in window &&
+                        Notification.permission === 'default') Notification.requestPermission();
+                    save();
                     return; } if (e.target.id === 'setting-dyslexia') { state.settings.dyslexiaMode = e.target.checked;
                     save();
                     return; } if (e.target.classList.contains('examwizard-topic-check')) {
@@ -15375,7 +15586,11 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'chat-decline-invite') chatDeclineInvite(b.dataset.id);
                 else if (a === 'chat-leave-room') chatLeaveRoom(b.dataset.id);
                 else if (a === 'chat-room-tab') { chatRoomTab = b.dataset.tab; render(); }
-                else if (a === 'chat-attach-image') chatAttachImage(); });
+                else if (a === 'chat-attach-image') chatAttachImage();
+                else if (a === 'chat-new-dm') chatOpenNewDmModal();
+                else if (a === 'chat-start-dm') chatStartDm(b.dataset.id);
+                else if (a === 'chat-enable-notifications') chatRequestDesktopNotifications();
+                else if (a === 'chat-dismiss-notify-banner') chatDismissNotifyBanner(); });
 
             document.addEventListener('keydown', e => { if (e.target && e.target.id === 'chat-message-input' &&
                     e.key === 'Enter') chatSendMessage();
@@ -15392,7 +15607,8 @@ If the user asks about how to study or study methods generally, answer from your
                     if (file) chatImageFileChanged(file); } });
 
             document.addEventListener('input', e => { if (e.target.id === 'chat-invite-search')
-                    chatInviteSearchInput(e.target.value); });
+                    chatInviteSearchInput(e.target.value);
+                else if (e.target.id === 'chat-dm-search') chatDmSearchInput(e.target.value); });
 
             // ---- Flashcards & Translate click actions — another self-contained delegated listener,
             // same reasoning as the Word Bank one above.
