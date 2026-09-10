@@ -127,6 +127,15 @@
         .app-shell.sidebar-mode-hover .sidebar:not(:hover) .sidebar-footer span {
             display: none;
         }
+        .app-shell.focus-mode .sidebar {
+            display: none;
+        }
+        .app-shell.focus-mode main {
+            margin-left: 0;
+            max-width: 720px;
+            margin-left: auto;
+            margin-right: auto;
+        }
         .brand {
             display: flex;
             align-items: center;
@@ -7620,7 +7629,8 @@
 
             function appFrame(content) {
                 const mode = state.settings.sidebarMode || 'hover';
-                const shellClass = `app-shell sidebar-mode-${mode}`;
+                const focusActive = state.settings.flashcardFocusMode && !!flashcardStudySession;
+                const shellClass = `app-shell sidebar-mode-${mode}${focusActive?' focus-mode':''}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">${sidebarIcon('star')}</span><span class="brand-label">Simple Study</span></div><nav class="nav">
         ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
@@ -10459,7 +10469,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function flashcardsBackToTopics() { flashcardsSelectedDeckId = null; render(); }
 
             function openFlashcardCreateModal(subjectId, mode) { flashcardCreateDraft = { mode: mode || 'manual',
-                    subjectId, topic: '', cards: [{ front: '', back: '' }], images: [], reviewCards: null };
+                    subjectId, topic: '', cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '' };
                 openModal('flashcard-create'); }
 
             // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
@@ -10509,6 +10519,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 const modeToggle = `<div class="row" style="gap:8px;margin-bottom:14px">
           <button type="button" class="button ${d.mode==='manual'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="manual">✍️ Manually</button>
           <button type="button" class="button ${d.mode==='image'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="image">📷 From Photos</button>
+          <button type="button" class="button ${d.mode==='paste'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="paste">📋 Paste / Import</button>
         </div>`;
                 const topicField = `<div class="field" style="margin-bottom:14px"><label>Topic${s?` (${escape(s.name)})`:''}</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div>`;
                 const manualCardRow = (c, i) => `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea></div><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
@@ -10518,12 +10529,38 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 const imageBody = d.reviewCards ?
                     `<p class="small">Review what was found — untick or edit anything that's wrong, then confirm.</p><div class="list" style="margin-top:10px">${d.reviewCards.length?d.reviewCards.map(reviewRow).join(''):'<p class="empty">Nothing usable was found in those photos.</p>'}</div>`
                     : `${topicField}<input type="file" id="flashcard-image-file" accept="image/*" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) of notes, a textbook page, or your own paper flashcards</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>${d.images.length?`<p class="small">${d.images.length} photo${d.images.length===1?'':'s'} added.</p>`:''}`;
-                const body = d.mode === 'manual' ? manualBody : imageBody;
+                const pasteCount = d.mode === 'paste' ? parsePastedFlashcards(d.pasteText || '').length : 0;
+                const pasteBody = `${topicField}<p class="small" style="margin-bottom:8px">One card per line: <code>term - definition</code>, <code>term, definition</code>, or paste straight from a spreadsheet (tab-separated). Also works with lines copied from Quizlet's own export.</p><textarea id="flashcard-paste-text" placeholder="Mitochondria - The powerhouse of the cell&#10;Photosynthesis - The process plants use to convert light into energy" style="min-height:180px">${escape(d.pasteText || '')}</textarea><p class="small" style="margin-top:8px">${pasteCount} card${pasteCount===1?'':'s'} detected</p>`;
+                const body = d.mode === 'manual' ? manualBody : d.mode === 'paste' ? pasteBody : imageBody;
                 let footer;
                 if (d.mode === 'manual') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-manual-save">Save flashcards</button>`;
+                else if (d.mode === 'paste') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-paste-save" ${pasteCount?'':'disabled'}>Import ${pasteCount||''} card${pasteCount===1?'':'s'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
                 else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?'Reading photos…':'Generate flashcards'}</button>`;
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
+
+            function parsePastedFlashcards(text) { const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                const cards = [];
+                for (const line of lines) { let sep = null;
+                    if (line.includes('\t')) sep = '\t';
+                    else if (line.includes(' - ')) sep = ' - ';
+                    else if (line.includes(' – ')) sep = ' – ';
+                    else if (line.includes(',')) sep = ',';
+                    else if (line.includes(':')) sep = ':';
+                    if (!sep) continue;
+                    const idx = line.indexOf(sep), front = line.slice(0, idx).trim(), back = line.slice(idx + sep.length).trim();
+                    if (front && back) cards.push({ front, back }); }
+                return cards; }
+
+            function savePastedFlashcards() { const d = flashcardCreateDraft; if (!d) return;
+                const topic = (d.topic || '').trim();
+                if (!topic) { toast('Enter a topic name.'); return; }
+                const cards = parsePastedFlashcards(d.pasteText || '');
+                if (!cards.length) { toast('No cards detected — check the format.'); return; }
+                addFlashcardsToDeck(d.subjectId, topic, cards);
+                toast(`Imported ${cards.length} flashcard${cards.length===1?'':'s'} into "${topic}".`);
+                flashcardCreateDraft = null;
+                closeModal(); render(); }
 
             function saveManualFlashcards() { const d = flashcardCreateDraft; if (!d) return;
                 const topic = (d.topic || '').trim();
@@ -12741,6 +12778,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <div class="settings-row"><div><strong>Notifications</strong><span class="small">Only for genuinely important things — a test tomorrow, a CAO hard deadline in the next couple of days. Nothing more frequent than that.</span></div><label class="switch-row"><input id="setting-notifications" type="checkbox" ${s.notificationsEnabled?'checked':''}> Enable browser notifications</label></div>
           <div class="settings-row"><div><strong>Chat notifications</strong><span class="small">Desktop notifications when you get a new direct message or chat room message. In-app toasts and unread badges always show, regardless of this setting.</span></div><label class="switch-row"><input id="setting-chat-notifications" type="checkbox" ${s.chatNotificationsEnabled?'checked':''}> Enable desktop notifications for chat</label></div>
           <div class="settings-row"><div><strong>Dyslexia-friendly</strong><span class="small">Slows down the guided tour, giving more time to read each step before it moves on.</span></div><label class="switch-row"><input id="setting-dyslexia" type="checkbox" ${s.dyslexiaMode?'checked':''}> Slow down guided tours</label></div>
+          <div class="settings-row"><div><strong>Flashcard audio</strong><span class="small">Reads terms aloud in Click Through, Listening mode, and Gravity — uses your browser's built-in voice, no extra sign-in.</span></div><label class="switch-row"><input id="setting-flashcard-tts" type="checkbox" ${s.flashcardTtsEnabled?'checked':''}> Speak flashcard terms aloud</label></div>
+          <div class="settings-row"><div><strong>Flashcard focus mode</strong><span class="small">Hides the sidebar and header while you're in an active flashcard session, to cut down on distractions.</span></div><label class="switch-row"><input id="setting-flashcard-focus" type="checkbox" ${s.flashcardFocusMode?'checked':''}> Hide navigation during flashcard sessions</label></div>
           <div class="settings-row"><div><strong>Backup your data</strong><span class="small">${backupNote} An Export is the only way to get everything back if you switch browsers or devices, or this browser's storage ever gets cleared.</span></div><div class="row"><button class="button" data-action="export-data">Export backup</button><label class="button">Import backup<input id="import-data" type="file" accept="application/json" class="hidden"></label></div></div>
           <div class="settings-row"><div><strong>Sample data</strong><span class="small">Fills in a full week of classes, activities, and study — handy for testing.</span></div><button class="button" data-action="sample-data">Add sample week</button></div>
           <div class="settings-row"><div><strong>Start over</strong><span class="small">This clears only Simple Study's saved data.</span></div><button class="button danger" data-action="reset-data">Reset</button></div>
@@ -15967,6 +16006,10 @@ If the user asks about how to study or study methods generally, answer from your
                     save();
                     return; } if (e.target.id === 'setting-dyslexia') { state.settings.dyslexiaMode = e.target.checked;
                     save();
+                    return; } if (e.target.id === 'setting-flashcard-tts') { state.settings.flashcardTtsEnabled = e.target.checked;
+                    save();
+                    return; } if (e.target.id === 'setting-flashcard-focus') { state.settings.flashcardFocusMode = e.target.checked;
+                    save(); render();
                     return; } if (e.target.classList.contains('examwizard-topic-check')) {
                     const id = e.target.dataset.topic; if (e.target.checked) examWizard.pendingTopics = [...(
                         examWizard.pendingTopics || []), id];
@@ -16162,13 +16205,14 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcards-back-to-topics') flashcardsBackToTopics();
                 else if (a === 'open-flashcard-create') openFlashcardCreateModal(b.dataset.subject, 'manual');
                 else if (a === 'open-flashcard-create-for-deck') { const deck = flashcardDeck(b.dataset.deck);
-                    if (deck) { flashcardCreateDraft = { mode: 'manual', subjectId: deck.subjectId, topic: deck.topic, cards: [{ front: '', back: '' }], images: [], reviewCards: null };
+                    if (deck) { flashcardCreateDraft = { mode: 'manual', subjectId: deck.subjectId, topic: deck.topic, cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '' };
                         openModal('flashcard-create'); } }
                 else if (a === 'flashcard-create-mode') { if (flashcardCreateDraft) { flashcardCreateDraft.mode = b.dataset.mode; renderModal(); } }
                 else if (a === 'flashcard-manual-add-row') { flashcardCreateDraft?.cards.push({ front: '', back: '' }); renderModal(); }
                 else if (a === 'flashcard-manual-remove') { const d = flashcardCreateDraft; if (d) { d.cards.splice(Number(b.dataset.index), 1);
                         if (!d.cards.length) d.cards.push({ front: '', back: '' }); renderModal(); } }
                 else if (a === 'flashcard-manual-save') saveManualFlashcards();
+                else if (a === 'flashcard-paste-save') savePastedFlashcards();
                 else if (a === 'flashcard-pick-photos') document.getElementById('flashcard-image-file')?.click();
                 else if (a === 'flashcard-image-remove') { const d = flashcardCreateDraft; if (d) { d.images.splice(Number(b.dataset.index), 1); renderModal(); } }
                 else if (a === 'flashcard-extract') runFlashcardExtract();
@@ -16267,7 +16311,10 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset && t.dataset.action === 'flashcard-review-edit-front') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].front = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-edit-back') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].back = t.value; }
                 else if (t.id === 'translate-input') { const pos = t.selectionStart; translateInputText = t.value; scheduleTranslate();
-                    render(); const el = document.getElementById('translate-input'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } } });
+                    render(); const el = document.getElementById('translate-input'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } }
+                else if (t.id === 'flashcard-paste-text') { if (!flashcardCreateDraft) return; const pos = t.selectionStart;
+                    flashcardCreateDraft.pasteText = t.value; renderModal();
+                    const el = document.getElementById('flashcard-paste-text'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } } });
 
             render();
             handleSpotifyCallback();
