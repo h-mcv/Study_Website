@@ -837,6 +837,7 @@
             border: 1px solid var(--line);
             border-left: 5px solid var(--subject, var(--primary));
             background: var(--surface);
+            color: var(--text);
         }
         .class-tile:hover {
             background: var(--surface-2);
@@ -6212,9 +6213,6 @@
             // ---- Significant Figures & Scientific Notation (Tools page)
             let sigFigInput = '', sigFigCount = '3';
 
-            // ---- Grade & CAO Points Finder (Tools page) — quick single-mark → LC grade band lookup,
-            // reusing the same LC_BANDS/CAO_POINTS tables as the CAO Calculator and exam results.
-            let gradeFinderPercent = '';
             // Computes CAO points for a real Leaving Cert or Mock exam once results are in: best six subjects
             // count, plus 25 bonus points for Higher Level Mathematics specifically (not Applied Maths) at grade
             // H6 or above. Returns null if this isn't an LC/mock exam. While any sitting is missing a result,
@@ -8552,22 +8550,6 @@ ${pointsSvg}
 
             // ---- Grade & CAO Points Finder (Tools page) — quick single-mark → LC grade band lookup,
             // reusing the same LC_BANDS/CAO_POINTS tables as the CAO Calculator and exam results.
-            function gradeFinderHtml() { const pctStr = gradeFinderPercent.trim(), pct = pctStr === '' ? null : Number(pctStr);
-                let body;
-                if (pctStr === '') body = '<p class="empty">Enter a raw percentage mark above to see the matching grade bands and CAO points.</p>';
-                else if (!isFinite(pct) || pct < 0 || pct > 100) body = '<p class="empty">Enter a percentage between 0 and 100.</p>';
-                else { const band = LC_BANDS.find(b => pct >= b.min && pct <= b.max),
-                        hGrade = `H${band.band}`, oGrade = `O${band.band}`;
-                    body = `<div class="cao-subjects-row">
-            <div class="cao-subject-chip"><strong>${hGrade}</strong><span class="small">Higher · ${CAO_POINTS[hGrade]}pts</span></div>
-            <div class="cao-subject-chip"><strong>${oGrade}</strong><span class="small">Ordinary · ${CAO_POINTS[oGrade]}pts</span></div>
-          </div>
-          <p class="small" style="margin-top:10px">Band ${band.band} (${escape(band.label)}). Higher and Ordinary Level share the same percentage bands — only the points differ.</p>`; }
-                return `<section class="card section">
-          <div class="field"><label for="grade-finder-input">Raw percentage mark</label><input type="text" inputmode="decimal" autocomplete="off" id="grade-finder-input" placeholder="e.g. 73" value="${escape(gradeFinderPercent)}"></div>
-        </section>
-        <section class="card section" style="margin-top:14px">${body}</section>`; }
-
             function renderTools() { if (!toolsActiveTool) { const tile = (id, icon, title, desc) =>
                         `<button type="button" class="class-tile" data-action="tools-open" data-tool="${id}" style="--subject:var(--primary)"><strong>${icon} ${title}</strong><span class="small">${desc}</span></button>`;
                     return appFrame(`<div class="page">${header('Tools','Extra study tools that don\'t fit neatly anywhere else.','')}
@@ -8585,7 +8567,6 @@ ${pointsSvg}
           ${tile('trig','📏','Trigonometry Solver','Enter any 2 sides/angles of a right-angled triangle and the rest are solved for.')}
           ${tile('chemistry','⚗️','Chemistry Calculator','pH, pOH, [H⁺] and [OH⁻] conversions, plus a quick molarity calculator.')}
           ${tile('sigfig','🔬','Significant Figures','Round any number to a chosen number of sig figs, with scientific notation.')}
-          ${tile('gradefinder','🎯','Grade & Points Finder','Enter a raw percentage mark to see its LC grade band and CAO points.')}
         </div>
         </div>`); }
                 const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (
@@ -8636,10 +8617,6 @@ ${pointsSvg}
                 if (toolsActiveTool === 'sigfig') return appFrame(`<div class="page">${back}
         ${header('Significant Figures','Round a number to a chosen number of significant figures.','')}
         ${sigFigToolHtml()}
-        </div>`);
-                if (toolsActiveTool === 'gradefinder') return appFrame(`<div class="page">${back}
-        ${header('Grade & Points Finder','Look up the Leaving Cert grade band and CAO points for a raw percentage mark.','')}
-        ${gradeFinderHtml()}
         </div>`);
                 return appFrame(`<div class="page">${back}
         ${header('CAO Points Calculator','A quick standalone scratchpad — it doesn\'t touch your logged exam results.','')}
@@ -14739,7 +14716,7 @@ If the user asks about how to study or study methods generally, answer from your
                     'simeq-input-a1', 'simeq-input-b1', 'simeq-input-c1', 'simeq-input-a2', 'simeq-input-b2', 'simeq-input-c2',
                     'trig-input-opp', 'trig-input-adj', 'trig-input-hyp', 'trig-input-angle',
                     'chem-ph-value', 'chem-mol-c', 'chem-mol-v', 'chem-mol-n',
-                    'sigfig-input', 'sigfig-count', 'grade-finder-input'];
+                    'sigfig-input', 'sigfig-count'];
                 if (newToolFieldIds.includes(e.target.id)) { const id = e.target.id, pos = e.target.selectionStart, val = e.target.value;
                     if (id === 'suvat-input-u') suvatU = val;
                     else if (id === 'suvat-input-v') suvatV = val;
@@ -14766,7 +14743,6 @@ If the user asks about how to study or study methods generally, answer from your
                     else if (id === 'chem-mol-n') chemMolN = val;
                     else if (id === 'sigfig-input') sigFigInput = val;
                     else if (id === 'sigfig-count') sigFigCount = val;
-                    else if (id === 'grade-finder-input') gradeFinderPercent = val;
                     render(); const input = document.getElementById(id);
                     if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) {} } } });
 
