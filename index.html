@@ -18,6 +18,9 @@
         frame-ancestors 'self';
     ">
     <title>Simple Study</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
     <style>
         :root {
             --bg: #f5f5fb;
@@ -16595,6 +16598,13 @@ If the user asks about how to study or study methods generally, answer from your
 
             render();
             handleSpotifyCallback();
+
+            // PWA offline caching — lets the app shell load with no connection so already-synced
+            // flashcard data (in localStorage) can still be reviewed; installable via "Add to Home
+            // Screen". Best-effort only: an unsupported browser or a failed registration just means no
+            // offline caching, never a broken app.
+            if ('serviceWorker' in navigator) window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {}); });
         })();
     </script>
 </body>
