@@ -10892,6 +10892,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             function dueCardsForDeck(deck) { return deck.cards.filter(isCardDue); }
             function scheduleCardReview(card, grade) { const srs = ensureCardSrs(card);
                 if (grade === 'again') { srs.reps = 0; srs.interval = 0; srs.ease = Math.max(1.3, srs.ease - 0.2);
+                    srs.lapses = (srs.lapses || 0) + 1; // survives the reps reset above, so weakCardsForDeck can still tell "keeps failing" from "just started"
                     srs.dueDate = Date.now() + 10 * 60 * 1000; }
                 else { srs.reps = (srs.reps || 0) + 1;
                     if (grade === 'hard') { srs.ease = Math.max(1.3, srs.ease - 0.15); srs.interval = Math.max(1, Math.round((srs.interval || 1) * 1.2)); }
@@ -11023,15 +11024,17 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             function gravityWordExpired() { endGravityWord(false); }
             function endGravityWord(correct) { const s = flashcardStudySession; if (!s) return;
                 if (gravityTimeoutId) { clearTimeout(gravityTimeoutId); gravityTimeoutId = null; }
+                const q = s.queue[s.index], card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id);
+                if (card) scheduleCardReview(card, correct ? 'good' : 'again');
+                save();
                 if (correct) s.score++; else s.lives--;
                 if (s.lives <= 0 || s.index >= s.queue.length - 1) { s.phase = 'results'; render(); return; }
                 s.index++; render(); armGravityTimer(); }
             function submitGravityAnswer() { const s = flashcardStudySession; if (!s || s.mode !== 'gravity' || s.phase !== 'active') return;
                 const val = (document.getElementById('flashcard-gravity-answer')?.value || '').trim().toLowerCase();
                 const q = s.queue[s.index], correct = !!val && val === q.front.trim().toLowerCase();
-                const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id); if (card) scheduleCardReview(card, correct ? 'good' : 'again');
                 if (!correct) toast(`It was "${q.front}"`);
-                save(); endGravityWord(correct); }
+                endGravityWord(correct); }
             function startFlashcardGravity(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 4) { toast('Add at least 4 cards first.'); return; }
                 closeModal();
                 flashcardStudySession = { mode: 'gravity', deckId, queue: shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back }))),
@@ -11072,24 +11075,26 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             // ---- Flashcards: per-card SRS review session (Review due cards) -------------------------
             function startFlashcardSrsReview(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 const due = dueCardsForDeck(deck); if (!due.length) { toast('No cards due for review right now — nice work.'); return; }
-                flashcardStudySession = { mode: 'srs-review', deckId, queue: shuffle(due).map(c => ({ id: c.id })), index: 0, flipped: false };
+                flashcardStudySession = { mode: 'srs-review', deckId, label: 'Review Due Cards', queue: shuffle(due).map(c => ({ id: c.id })), index: 0, flipped: false };
                 render(); }
 
             // ---- Flashcards: weak-topic detector — entirely derived from existing per-card SRS data
-            // (low ease / short interval despite repeated reviews is a direct proxy for "keeps getting
-            // this wrong"), so this costs zero AI calls. Reuses the srs-review session/UI verbatim —
-            // "weak cards" is just a different queue into the same review flow.
-            function weakCardsForDeck(deck) { return deck.cards.filter(c => c.srs && c.srs.reps > 0 && (c.srs.ease <= 1.6 || c.srs.interval <= 1)); }
+            // (2+ lapses, or a low ease surviving even after a pass, is a direct proxy for "keeps getting
+            // this wrong" — interval/reps alone aren't enough, since a card fails 'again' resets reps to 0,
+            // and a single correct review always starts at interval 1 regardless of how easy it was), so
+            // this costs zero AI calls. Reuses the srs-review session/UI verbatim — "weak cards" is just a
+            // different queue (and label) into the same review flow.
+            function weakCardsForDeck(deck) { return deck.cards.filter(c => c.srs && ((c.srs.lapses || 0) >= 2 || (c.srs.reps > 0 && c.srs.ease <= 1.5))); }
             function startFlashcardWeakReview(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 const weak = weakCardsForDeck(deck); if (!weak.length) { toast('No weak cards right now — nice work.'); return; }
-                flashcardStudySession = { mode: 'srs-review', deckId, queue: shuffle(weak).map(c => ({ id: c.id })), index: 0, flipped: false };
+                flashcardStudySession = { mode: 'srs-review', deckId, label: 'Practice Weak Cards', queue: shuffle(weak).map(c => ({ id: c.id })), index: 0, flipped: false };
                 render(); }
-            function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId);
+            function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId), label = sess.label || 'Review Due Cards';
                 while (sess.index < sess.queue.length && !deck.cards.find(c => c.id === sess.queue[sess.index].id)) sess.index++;
-                if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header('Review — Done', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<div class="alert success">All due cards reviewed.</div><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header(`${label} — Done`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<div class="alert success">All done for now.</div><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
                 const card = deck.cards.find(c => c.id === sess.queue[sess.index].id);
                 return `<div class="flashcard-stage">
-        ${header('Review Due Cards', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        ${header(label, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <div class="flashcard-face" data-action="flashcard-flip">${sess.flipped?`<span class="fc-back">${escape(card.back)}</span>`:`<span>${escape(card.front)}<span class="fc-hint">Tap to reveal</span></span>`}</div>
         ${sess.flipped?`<div style="margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
           <button type="button" class="button ghost danger" data-action="flashcard-srs-grade" data-grade="again">Again</button>
