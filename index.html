@@ -2651,6 +2651,35 @@
             background: var(--danger-soft);
             color: var(--danger);
         }
+        .gravity-well {
+            position: relative;
+            height: 140px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface-2);
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .gravity-word {
+            position: absolute;
+            left: 50%;
+            top: -10%;
+            transform: translateX(-50%);
+            max-width: 92%;
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            animation-name: gravity-fall;
+            animation-timing-function: linear;
+            animation-fill-mode: forwards;
+        }
+        @keyframes gravity-fall {
+            from { top: -10%; }
+            to { top: 100%; }
+        }
         .event-detail {
             display: grid;
             gap: 13px;
@@ -5999,9 +6028,12 @@
                     dyslexiaMode: false, cabbageCount: 0,
                     timetableStyle: 'boxes', timetableAccentColor: DEFAULT_TIMETABLE_ACCENT,
                     schoolId: '', schoolName: '', graduationYear: null, periodAssignments: {}, needsScheduleSync: false,
+                    flashcardTtsEnabled: true, flashcardFocusMode: false,
                     studyPreferences: { intensity: '', pointsTarget: '', timeOfDay: '', weekendBalance: '',
                         sessionLength: '', temporaryBoostUntil: '', notes: '' } },
                 subjects: [],
+                flashcardFolders: [], // { id, subjectId, name, deckIds: [] } — purely organisational, decks stay the source of truth
+                sharedFlashcardSets: [], // local cache of {id, shareCode, deckSnapshot, importedAt} sets imported from someone else's share code
                 events: [],
                 tasks: [],
                 holidays: [],
@@ -6105,7 +6137,10 @@
             let flashcardsSelectedDeckId = null; // null = showing that subject's topic/deck list
             let flashcardCreateDraft = null; // { mode: 'manual'|'image', subjectId, topic, cards: [{front,back}], images: [{mimeType,data,dataUrl,name}], reviewCards: [{front,back,include}]|null }
             let flashcardCreateLoading = false; // true while the image-extraction AI call is in flight
-            let flashcardStudySession = null; // active click-through/smart-test/mcq-test session — see startFlashcardClickThrough/SmartTest/McqTest
+            let flashcardStudySession = null; // active click-through/smart-test/mcq-test/match/gravity/cloze/tf/listening/srs-review session — see startFlashcard*
+            let gravityTimeoutId = null; // single in-flight per-word timer for the Gravity typing game (cleared on submit/exit)
+            let sparkySetChatOpen = false; // whether the "Ask about this set" mini Q&A panel is open during a flashcard session
+            let sparkySetChatLoading = false;
 
             // ---- Translate tool UI state — lives inside Tools (toolsActiveTool === 'translate'), a
             // simple two-pane translator, all transient (not worth syncing to the cloud).
@@ -10449,14 +10484,16 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
 
             function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
                 if (!deck) { flashcardsSelectedDeckId = null; const s = subject(selectedSubjectId); return s ? renderFlashcardTopicsFor(s) : ''; }
-                const cardRow = (c) => `<div class="topic-row"><div><strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost danger" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete">🗑</button></div>`;
+                const cardRow = (c) => `<div class="topic-row"><div><strong>${escape(c.front)}${c.known?' ⭐':''}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost danger" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete">🗑</button></div>`;
+                const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck);
                 return `<button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← Topics</button>
         <h2 style="margin-bottom:4px">${escape(deck.topic)}</h2>
-        <p class="small" style="margin-bottom:14px">${deck.cards.length} card${deck.cards.length===1?'':'s'}</p>
+        <p class="small" style="margin-bottom:14px">${deck.cards.length} card${deck.cards.length===1?'':'s'} · Memory score ${score}%${dueCount?` · <strong>${dueCount} due for review</strong>`:''}</p>
         <section class="card section">
           <div class="row" style="gap:8px;flex-wrap:wrap">
             <button type="button" class="button" data-action="flashcard-start-clickthrough" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>👀 Click Through</button>
             <button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>🧠 Test</button>
+            ${dueCount?`<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>`:''}
             <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add more cards</button>
             <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete topic</button>
           </div>
@@ -10526,7 +10563,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function cancelFlashcardReview() { if (flashcardCreateDraft) flashcardCreateDraft.reviewCards = null; renderModal(); }
 
             // ---- Flashcards: study/test sessions --------------------------------------------------
-            function exitFlashcardSession() { flashcardStudySession = null; render(); }
+            function exitFlashcardSession() { if (gravityTimeoutId) { clearTimeout(gravityTimeoutId); gravityTimeoutId = null; }
+                flashcardStudySession = null; render(); }
 
             function startFlashcardClickThrough(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
                 flashcardStudySession = { mode: 'clickthrough', deckId, cards: shuffle(deck.cards), index: 0, flipped: false };
@@ -10583,12 +10621,22 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (sess.mode === 'clickthrough') return renderClickThroughSession(sess);
                 if (sess.mode === 'smart-test') return renderSmartTestSession(sess);
                 if (sess.mode === 'mcq-test') return renderMcqTestSession(sess);
+                if (sess.mode === 'tf') return renderTfSession(sess);
+                if (sess.mode === 'cloze') return renderClozeSession(sess);
+                if (sess.mode === 'match') return renderMatchSession(sess);
+                if (sess.mode === 'gravity') return renderGravitySession(sess);
+                if (sess.mode === 'listening') return renderListeningSession(sess);
+                if (sess.mode === 'srs-review') return renderSrsReviewSession(sess);
                 return ''; }
 
             function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), card = sess.cards[sess.index];
                 return `<div class="flashcard-stage">
         ${header('Click Through', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <div class="flashcard-face" data-action="flashcard-flip">${sess.flipped?`<span class="fc-back">${escape(card.back)}</span>`:`<span>${escape(card.front)}<span class="fc-hint">Tap to reveal the answer</span></span>`}</div>
+        <div class="row" style="justify-content:center;gap:8px;margin-top:10px">
+          <button type="button" class="button ghost icon" data-action="flashcard-speak" aria-label="Listen">🔊</button>
+          <button type="button" class="button ghost ${card.known?'primary':''}" data-action="flashcard-toggle-known" data-deck="${deck?deck.id:''}" data-card="${card.id}">${card.known?'⭐ Known':'☆ Mark known'}</button>
+        </div>
         <div class="flashcard-nav">
           <button type="button" class="button" data-action="flashcard-prev" ${sess.index===0?'disabled':''}>‹ Prev</button>
           <span class="flashcard-progress">${sess.index+1} / ${sess.cards.length}</span>
@@ -10646,13 +10694,210 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
 
             function flashcardTestChoiceModal(deckId) { const deck = flashcardDeck(deckId);
                 if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
+                const opt = (action, emoji, title, desc) => `<button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="${action}" data-deck="${deck.id}"><div style="text-align:left"><strong>${emoji} ${title}</strong><div class="small" style="margin-top:2px;font-weight:400">${desc}</div></div></button>`;
                 return modalShell(`Test: ${escape(deck.topic)}`,
                     `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test is significantly more effective.</strong> Typing out the answer forces real recall, and it's graded against exam marking-scheme standards — that's what actually commits things to long-term memory. Multiple choice can feel good because recognising an answer is easy, but recognising isn't the same as knowing — it doesn't build the same memory.</div>
           <div class="list">
             <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧠 Smart Test (recommended)</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Type the definition for each card. Graded green/yellow/red by AI against a marking scheme — repeat the yellow/red ones until you've got them all.</div></div></button>
             <button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-mcq-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🔤 Multiple Choice</strong><div class="small" style="margin-top:2px;font-weight:400">Pick the right definition from 4 close, tricky options. Quicker, but less effective for memory.</div></div></button>
+            ${opt('flashcard-start-tf', '✅', 'True / False', 'Quick-fire — is the definition shown actually correct for this term?')}
+            ${opt('flashcard-start-cloze', '✏️', 'Fill in the Blank', 'A key word is blanked out of each definition — type the missing word.')}
+            ${deck.cards.length>=4?opt('flashcard-start-match','🧩','Match', 'Pair every term to its definition against the clock.'):''}
+            ${deck.cards.length>=4?opt('flashcard-start-gravity','☄️','Gravity', "A definition falls in — type the term before it lands. Limited lives."):''}
+            ${opt('flashcard-start-listening', '🔊', 'Listening', 'Hear the term read aloud, answer, then self-check against the definition.')}
           </div>`,
                     `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true); }
+
+            // ---- Flashcards: per-card SRS (SM-2-lite) + Memory Score --------------------------------
+            // Additive fields on card objects (card.srs, card.known) — rides the existing whole-blob
+            // study_state sync, no schema change, and never read by classTopicReviewInterval/isClassTopicDue
+            // (those only ever touch state.classTopics, a separate array) so this can't regress the
+            // existing topic-level review scheduling.
+            function srsDefaultForCard() { return { dueDate: null, interval: 0, ease: 2.5, reps: 0, lastReviewed: null }; }
+            function ensureCardSrs(card) { if (!card.srs) card.srs = srsDefaultForCard(); return card.srs; }
+            function isCardDue(card) { return !card.srs || !card.srs.dueDate || Date.now() >= card.srs.dueDate; }
+            function dueCardsForDeck(deck) { return deck.cards.filter(isCardDue); }
+            function scheduleCardReview(card, grade) { const srs = ensureCardSrs(card);
+                if (grade === 'again') { srs.reps = 0; srs.interval = 0; srs.ease = Math.max(1.3, srs.ease - 0.2);
+                    srs.dueDate = Date.now() + 10 * 60 * 1000; }
+                else { srs.reps = (srs.reps || 0) + 1;
+                    if (grade === 'hard') { srs.ease = Math.max(1.3, srs.ease - 0.15); srs.interval = Math.max(1, Math.round((srs.interval || 1) * 1.2)); }
+                    else if (grade === 'good') srs.interval = srs.reps <= 1 ? 1 : Math.round((srs.interval || 1) * srs.ease);
+                    else { srs.ease += 0.15; srs.interval = Math.max(1, Math.round((srs.interval || 1) * srs.ease * 1.3)); }
+                    srs.dueDate = Date.now() + srs.interval * 24 * 60 * 60 * 1000; }
+                srs.lastReviewed = Date.now(); }
+            function deckMemoryScore(deck) { if (!deck.cards.length) return 0;
+                const per = deck.cards.map(c => { if (!c.srs || !c.srs.reps) return c.known ? 40 : 0;
+                    return Math.round(Math.min(60, c.srs.interval * 4) + Math.min(25, (c.srs.ease - 1.3) * 20) + Math.min(15, c.srs.reps * 3)); });
+                return Math.round(per.reduce((a, b) => a + b, 0) / per.length); }
+            function toggleCardKnown(deckId, cardId) { const deck = flashcardDeck(deckId); if (!deck) return;
+                const card = deck.cards.find(c => c.id === cardId); if (!card) return;
+                card.known = !card.known; save(); render(); }
+
+            // ---- Flashcards: audio pronunciation (Web Speech API — free, no backend/API cost) --------
+            function speakText(text) { if (!state.settings.flashcardTtsEnabled || !('speechSynthesis' in window) || !text) return;
+                try { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; window.speechSynthesis.speak(u); } catch {} }
+
+            // ---- Flashcards: client-side cloze generation (no AI call — just pick a real word out of
+            // the existing definition) -----------------------------------------------------------------
+            const CLOZE_STOPWORDS = new Set(['the','a','an','and','or','but','of','in','on','at','to','for','is',
+                'are','was','were','be','been','it','this','that','with','as','by','from','which','their','its','has','have']);
+            function clozeForCard(card) { const words = card.back.split(/(\s+)/);
+                const candidates = []; words.forEach((w, i) => { const m = w.match(/[A-Za-z']{4,}/);
+                    if (m && !CLOZE_STOPWORDS.has(m[0].toLowerCase())) candidates.push({ i, word: m[0] }); });
+                if (!candidates.length) return null;
+                const pick = candidates[Math.floor(Math.random() * candidates.length)];
+                const blanked = words.map((w, i) => i === pick.i ? w.replace(pick.word, '_'.repeat(Math.max(5, pick.word.length))) : w).join('');
+                return { blanked, answer: pick.word }; }
+
+            // ---- Flashcards: True/False mode --------------------------------------------------------
+            function startFlashcardTf(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 2) { toast('Add at least 2 cards first.'); return; }
+                closeModal();
+                const questions = shuffle(deck.cards).map(c => { let shownBack = c.back;
+                    if (Math.random() < 0.5) { const alt = shuffle(deck.cards.filter(o => o.id !== c.id))[0]; if (alt) shownBack = alt.back; }
+                    return { id: c.id, front: c.front, shownBack, isTrue: shownBack === c.back, answered: null }; });
+                flashcardStudySession = { mode: 'tf', deckId, questions, index: 0, score: 0 };
+                render(); }
+            function renderTfSession(sess) { const deck = flashcardDeck(sess.deckId);
+                if (sess.index >= sess.questions.length) return `<div class="flashcard-stage">${header('True / False — Results', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default"><span>${sess.score} / ${sess.questions.length} correct</span></div>
+        <button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                const q = sess.questions[sess.index];
+                const btn = (val, label) => { const answered = q.answered != null;
+                    let cls = ''; if (answered) { if (val === q.isTrue) cls = 'correct'; else if (val === q.answered) cls = 'wrong'; }
+                    return `<button type="button" class="flashcard-mcq-choice ${cls}" data-action="flashcard-tf-answer" data-value="${val}" ${answered?'disabled':''}>${label}</button>`; };
+                return `<div class="flashcard-stage">
+        ${header('True / False', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default;flex-direction:column;gap:8px"><span>${escape(q.front)}</span><span class="fc-back" style="font-size:15px">${escape(q.shownBack)}</span></div>
+        <div style="margin-top:16px;display:flex;gap:10px;justify-content:center">${btn(true,'✅ True')}${btn(false,'❌ False')}</div>
+        <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.questions.length}</span>${q.answered!=null?`<button type="button" class="button primary" data-action="flashcard-tf-next">${sess.index===sess.questions.length-1?'See results':'Next ›'}</button>`:''}</div>
+        </div>`; }
+
+            // ---- Flashcards: Fill in the Blank (cloze) mode -----------------------------------------
+            function startFlashcardCloze(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+                closeModal();
+                const queue = shuffle(deck.cards).map(c => { const cz = clozeForCard(c);
+                    return cz ? { id: c.id, front: c.front, blanked: cz.blanked, answer: cz.answer } : null; }).filter(Boolean);
+                if (!queue.length) { toast('Definitions are too short to blank a word out of — try Smart Test instead.'); return; }
+                flashcardStudySession = { mode: 'cloze', deckId, queue, index: 0, score: 0, revealed: false, lastCorrect: null };
+                render(); }
+            function renderClozeSession(sess) { const deck = flashcardDeck(sess.deckId);
+                if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header('Fill in the Blank — Results', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default"><span>${sess.score} / ${sess.queue.length} correct</span></div>
+        <button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                const q = sess.queue[sess.index];
+                return `<div class="flashcard-stage">
+        ${header('Fill in the Blank', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <p class="small" style="margin-bottom:6px">${escape(q.front)}</p>
+        <div class="flashcard-face" style="cursor:default;font-size:17px;font-weight:500">${escape(q.blanked)}</div>
+        <input type="text" id="flashcard-cloze-answer" placeholder="Type the missing word" style="margin-top:14px" ${sess.revealed?'disabled':''}>
+        ${sess.revealed?`<div class="alert ${sess.lastCorrect?'success':''}" style="margin-top:10px">${sess.lastCorrect?'✅ Correct!':`❌ It was "${escape(q.answer)}"`}</div>`:''}
+        <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span>
+        ${sess.revealed?`<button type="button" class="button primary" data-action="flashcard-cloze-next">${sess.index===sess.queue.length-1?'See results':'Next ›'}</button>`:`<button type="button" class="button primary" data-action="flashcard-cloze-check">Check</button>`}</div>
+        </div>`; }
+
+            // ---- Flashcards: Match game --------------------------------------------------------------
+            function startFlashcardMatch(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 4) { toast('Add at least 4 cards first.'); return; }
+                closeModal();
+                const pool = shuffle(deck.cards).slice(0, Math.min(8, deck.cards.length));
+                flashcardStudySession = { mode: 'match', deckId,
+                    fronts: shuffle(pool.map(c => ({ id: c.id, text: c.front }))),
+                    backs: shuffle(pool.map(c => ({ id: c.id, text: c.back }))),
+                    matched: [], selectedFront: null, selectedBack: null, mistakes: 0, startedAt: Date.now(), finishedAt: null };
+                render(); }
+            function renderMatchSession(sess) { const deck = flashcardDeck(sess.deckId);
+                if (sess.finishedAt) { const secs = Math.max(1, Math.round((sess.finishedAt - sess.startedAt) / 1000));
+                    return `<div class="flashcard-stage">${header('Match — Done', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default;flex-direction:column;gap:6px"><span>⏱ ${secs}s</span><span class="small">${sess.mistakes} mistake${sess.mistakes===1?'':'s'}</span></div>
+        <button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`; }
+                const tile = (item, col) => { const isMatched = sess.matched.includes(item.id);
+                    const isSelected = (col === 'front' ? sess.selectedFront : sess.selectedBack) === item.id;
+                    return `<button type="button" class="flashcard-mcq-choice" style="${isMatched?'visibility:hidden;':''}${isSelected?'border-color:var(--primary);background:var(--primary-soft);':''}" data-action="flashcard-match-pick" data-col="${col}" data-id="${item.id}" ${isMatched?'disabled':''}>${escape(item.text)}</button>`; };
+                return `<div class="flashcard-stage">
+        ${header('Match', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <p class="small" style="margin-bottom:10px">${sess.matched.length} / ${sess.fronts.length} paired · ${sess.mistakes} mistake${sess.mistakes===1?'':'s'}</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:left">
+          <div>${sess.fronts.map(f => tile(f,'front')).join('')}</div>
+          <div>${sess.backs.map(bk => tile(bk,'back')).join('')}</div>
+        </div>
+        </div>`; }
+
+            // ---- Flashcards: Gravity typing game ------------------------------------------------------
+            // Falling motion is pure CSS (@keyframes gravity-fall, restarted for free each render() since
+            // render() always rebuilds #app's innerHTML from scratch, so a fresh .gravity-word element is
+            // created every word). JS only needs one setTimeout per word to detect "hit the ground".
+            function armGravityTimer() { if (gravityTimeoutId) clearTimeout(gravityTimeoutId);
+                const s = flashcardStudySession; if (!s || s.mode !== 'gravity' || s.phase !== 'active') return;
+                gravityTimeoutId = setTimeout(gravityWordExpired, s.timePerWordMs); }
+            function gravityWordExpired() { endGravityWord(false); }
+            function endGravityWord(correct) { const s = flashcardStudySession; if (!s) return;
+                if (gravityTimeoutId) { clearTimeout(gravityTimeoutId); gravityTimeoutId = null; }
+                if (correct) s.score++; else s.lives--;
+                if (s.lives <= 0 || s.index >= s.queue.length - 1) { s.phase = 'results'; render(); return; }
+                s.index++; render(); armGravityTimer(); }
+            function submitGravityAnswer() { const s = flashcardStudySession; if (!s || s.mode !== 'gravity' || s.phase !== 'active') return;
+                const val = (document.getElementById('flashcard-gravity-answer')?.value || '').trim().toLowerCase();
+                const q = s.queue[s.index], correct = !!val && val === q.front.trim().toLowerCase();
+                const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id); if (card) scheduleCardReview(card, correct ? 'good' : 'again');
+                if (!correct) toast(`It was "${q.front}"`);
+                save(); endGravityWord(correct); }
+            function startFlashcardGravity(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 4) { toast('Add at least 4 cards first.'); return; }
+                closeModal();
+                flashcardStudySession = { mode: 'gravity', deckId, queue: shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back }))),
+                    index: 0, score: 0, lives: 3, timePerWordMs: 12000, phase: 'active' };
+                render(); armGravityTimer(); }
+            function renderGravitySession(sess) { const deck = flashcardDeck(sess.deckId);
+                if (sess.phase === 'results') return `<div class="flashcard-stage">${header('Gravity — Results', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default"><span>${sess.score} / ${sess.index+1} caught</span></div>
+        <button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                const q = sess.queue[sess.index];
+                return `<div class="flashcard-stage">
+        ${header('Gravity', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <p class="small" style="margin-bottom:6px">${'❤️'.repeat(Math.max(0,sess.lives))}${'🖤'.repeat(Math.max(0,3-sess.lives))} · Score ${sess.score}</p>
+        <div class="gravity-well"><div class="gravity-word" style="animation-duration:${sess.timePerWordMs}ms">${escape(q.back)}</div></div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <input type="text" id="flashcard-gravity-answer" placeholder="Type the term…" autocomplete="off" style="flex:1">
+          <button type="button" class="button primary" data-action="flashcard-gravity-submit">Go</button>
+        </div>
+        </div>`; }
+
+            // ---- Flashcards: Listening mode (TTS speaks the term, self-graded — no AI call) ---------
+            function startFlashcardListening(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+                closeModal();
+                flashcardStudySession = { mode: 'listening', deckId, queue: shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back }))), index: 0, revealed: false };
+                render(); setTimeout(() => { const s = flashcardStudySession; if (s?.mode === 'listening') speakText(s.queue[0].front); }, 200); }
+            function renderListeningSession(sess) { const deck = flashcardDeck(sess.deckId);
+                if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header('Listening — Done', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<div class="alert success">Session complete.</div><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                const q = sess.queue[sess.index];
+                return `<div class="flashcard-stage">
+        ${header('Listening', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:pointer;flex-direction:column;gap:10px" data-action="flashcard-listening-replay"><span style="font-size:34px">🔊</span><span class="small">Tap to hear it again</span></div>
+        ${sess.revealed?`<div class="flashcard-face" style="margin-top:10px;cursor:default"><span class="fc-back">${escape(q.back)}</span></div>
+          <div style="margin-top:12px;display:flex;gap:10px;justify-content:center"><button type="button" class="button" data-action="flashcard-listening-mark" data-value="no">I didn't know it</button><button type="button" class="button primary" data-action="flashcard-listening-mark" data-value="yes">I knew it</button></div>`
+          :`<button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-listening-reveal">Show definition</button>`}
+        <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span></div>
+        </div>`; }
+
+            // ---- Flashcards: per-card SRS review session (Review due cards) -------------------------
+            function startFlashcardSrsReview(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
+                const due = dueCardsForDeck(deck); if (!due.length) { toast('No cards due for review right now — nice work.'); return; }
+                flashcardStudySession = { mode: 'srs-review', deckId, queue: shuffle(due).map(c => ({ id: c.id })), index: 0, flipped: false };
+                render(); }
+            function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId);
+                while (sess.index < sess.queue.length && !deck.cards.find(c => c.id === sess.queue[sess.index].id)) sess.index++;
+                if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header('Review — Done', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<div class="alert success">All due cards reviewed.</div><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                const card = deck.cards.find(c => c.id === sess.queue[sess.index].id);
+                return `<div class="flashcard-stage">
+        ${header('Review Due Cards', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" data-action="flashcard-flip">${sess.flipped?`<span class="fc-back">${escape(card.back)}</span>`:`<span>${escape(card.front)}<span class="fc-hint">Tap to reveal</span></span>`}</div>
+        ${sess.flipped?`<div style="margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          <button type="button" class="button ghost danger" data-action="flashcard-srs-grade" data-grade="again">Again</button>
+          <button type="button" class="button ghost" data-action="flashcard-srs-grade" data-grade="hard">Hard</button>
+          <button type="button" class="button" data-action="flashcard-srs-grade" data-grade="good">Good</button>
+          <button type="button" class="button primary" data-action="flashcard-srs-grade" data-grade="easy">Easy</button>
+        </div>`:''}
+        <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span></div>
+        </div>`; }
 
             // ---- Translate --------------------------------------------------------------------------
             // A simple two-pane translator — deliberately NOT routed through the app's AI backend, so it
@@ -15953,6 +16198,50 @@ If the user asks about how to study or study methods generally, answer from your
                     render(); }
                 else if (a === 'flashcard-mcq-next') { const s = flashcardStudySession; if (!s) return;
                     if (s.index < s.questions.length - 1) { s.index++; render(); } else { s.phase = 'results'; render(); } }
+                else if (a === 'flashcard-speak') { const s = flashcardStudySession; const card = s?.cards ? s.cards[s.index] : null;
+                    if (card) speakText(s.flipped ? card.back : card.front); }
+                else if (a === 'flashcard-toggle-known') toggleCardKnown(b.dataset.deck, b.dataset.card);
+                else if (a === 'flashcard-start-srs-review') startFlashcardSrsReview(b.dataset.deck);
+                else if (a === 'flashcard-srs-grade') { const s = flashcardStudySession; if (!s || s.mode !== 'srs-review') return;
+                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === s.queue[s.index].id);
+                    if (card) scheduleCardReview(card, b.dataset.grade);
+                    s.index++; s.flipped = false; save(); render(); }
+                else if (a === 'flashcard-start-tf') startFlashcardTf(b.dataset.deck);
+                else if (a === 'flashcard-tf-answer') { const s = flashcardStudySession; if (!s || s.mode !== 'tf') return;
+                    const q = s.questions[s.index]; if (q.answered != null) return;
+                    const val = b.dataset.value === 'true'; q.answered = val;
+                    const correct = val === q.isTrue; if (correct) s.score = (s.score || 0) + 1;
+                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id); if (card) scheduleCardReview(card, correct ? 'good' : 'again');
+                    save(); render(); }
+                else if (a === 'flashcard-tf-next') { const s = flashcardStudySession; if (!s) return; s.index++; render(); }
+                else if (a === 'flashcard-start-cloze') startFlashcardCloze(b.dataset.deck);
+                else if (a === 'flashcard-cloze-check') { const s = flashcardStudySession; if (!s || s.mode !== 'cloze') return;
+                    const q = s.queue[s.index], val = (document.getElementById('flashcard-cloze-answer')?.value || '').trim().toLowerCase();
+                    s.lastCorrect = val === q.answer.toLowerCase(); s.revealed = true; if (s.lastCorrect) s.score++;
+                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id); if (card) scheduleCardReview(card, s.lastCorrect ? 'good' : 'again');
+                    save(); render(); }
+                else if (a === 'flashcard-cloze-next') { const s = flashcardStudySession; if (!s) return; s.index++; s.revealed = false; render(); }
+                else if (a === 'flashcard-start-match') startFlashcardMatch(b.dataset.deck);
+                else if (a === 'flashcard-match-pick') { const s = flashcardStudySession; if (!s || s.mode !== 'match') return;
+                    const col = b.dataset.col, id = b.dataset.id;
+                    if (col === 'front') s.selectedFront = s.selectedFront === id ? null : id;
+                    else s.selectedBack = s.selectedBack === id ? null : id;
+                    if (s.selectedFront && s.selectedBack) { if (s.selectedFront === s.selectedBack) { s.matched.push(s.selectedFront);
+                            if (s.matched.length === s.fronts.length) s.finishedAt = Date.now(); }
+                        else s.mistakes++;
+                        s.selectedFront = null; s.selectedBack = null; }
+                    render(); }
+                else if (a === 'flashcard-start-gravity') startFlashcardGravity(b.dataset.deck);
+                else if (a === 'flashcard-gravity-submit') submitGravityAnswer();
+                else if (a === 'flashcard-start-listening') startFlashcardListening(b.dataset.deck);
+                else if (a === 'flashcard-listening-replay') { const s = flashcardStudySession; if (s?.mode === 'listening') speakText(s.queue[s.index].front); }
+                else if (a === 'flashcard-listening-reveal') { const s = flashcardStudySession; if (s) { s.revealed = true; render(); } }
+                else if (a === 'flashcard-listening-mark') { const s = flashcardStudySession; if (!s) return;
+                    const q = s.queue[s.index], knew = b.dataset.value === 'yes';
+                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id);
+                    if (card) { card.known = knew; scheduleCardReview(card, knew ? 'good' : 'again'); }
+                    s.index++; s.revealed = false; save(); render();
+                    const next = flashcardStudySession; if (next?.mode === 'listening' && next.index < next.queue.length) setTimeout(() => speakText(next.queue[next.index].front), 200); }
                 else if (a === 'translate-swap') translateSwap();
                 else if (a === 'translate-clear') { translateInputText = ''; translateOutputText = ''; translateError = ''; render(); }
                 else if (a === 'translate-copy') translateCopy(); });
@@ -15966,6 +16255,10 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset && t.dataset.action === 'flashcard-review-toggle') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].include = t.checked; }
                 else if (t.id === 'translate-source-lang') { translateSourceLang = t.value; if (translateInputText.trim()) runTranslate(); }
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
+
+            document.addEventListener('keydown', e => { if (e.key !== 'Enter') return;
+                if (e.target.id === 'flashcard-gravity-answer') { e.preventDefault(); submitGravityAnswer(); }
+                else if (e.target.id === 'flashcard-cloze-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-cloze-check"]')?.click(); } });
 
             document.addEventListener('input', e => { const t = e.target;
                 if (t.id === 'flashcard-create-topic') { if (flashcardCreateDraft) flashcardCreateDraft.topic = t.value; }
