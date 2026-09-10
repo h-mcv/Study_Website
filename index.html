@@ -4139,6 +4139,7 @@
             let chatActiveRoomId = null;   // null = room list, otherwise a room's detail view
             let chatActiveRoom = null;     // the matching row from chatRooms, cached for the header
             let chatMembers = null;
+            let chatLeaderboardStats = null; // { [user_id]: {streak_days, longest_streak, cards_reviewed_total, memory_points} } for the open room's leaderboard tab
             let chatMessages = null;
             let chatMessagesBusy = false;
             let chatPollTimer = null;
@@ -4224,7 +4225,7 @@
                 chatStopPolling();
                 chatActiveRoomId = roomId;
                 chatActiveRoom = (chatRooms || []).find(r => r.id === roomId) || null;
-                chatMessages = null; chatMembers = null; chatRoomTab = 'chat';
+                chatMessages = null; chatMembers = null; chatRoomTab = 'chat'; chatLeaderboardStats = null;
                 if (chatUnread[roomId]) { delete chatUnread[roomId]; }
                 render();
                 await Promise.all([chatLoadMessages(), chatLoadMembers()]);
@@ -4235,7 +4236,7 @@
 
             function chatCloseRoom() {
                 chatStopPolling();
-                chatActiveRoomId = null; chatActiveRoom = null; chatMessages = null; chatMembers = null;
+                chatActiveRoomId = null; chatActiveRoom = null; chatMessages = null; chatMembers = null; chatLeaderboardStats = null;
                 render();
             }
 
@@ -4370,6 +4371,25 @@
                     .eq('room_id', chatActiveRoomId).order('joined_at', { ascending: true });
                 chatMembers = error ? [] : data;
                 render();
+            }
+
+            // ---- Chat rooms: streak/points leaderboard (see supabase/migrations/0015's
+            // can_view_public_stats — only visible among people who actually share a room) ------------
+            async function chatLoadLeaderboard() { if (!chatMembers || !chatMembers.length) { chatLeaderboardStats = {}; render(); return; }
+                const ids = chatMembers.map(m => m.user_id);
+                const { data, error } = await supabaseClient.from('user_public_stats').select('*').in('user_id', ids);
+                chatLeaderboardStats = {}; if (!error) (data || []).forEach(row => { chatLeaderboardStats[row.user_id] = row; });
+                render(); }
+
+            function renderChatRoomLeaderboardTab() {
+                if (!chatMembers) return '<p class="empty">Loading…</p>';
+                if (!chatLeaderboardStats) return '<p class="empty">Loading stats…</p>';
+                const rows = chatMembers.map(m => { const st = chatLeaderboardStats[m.user_id] || {};
+                    return { name: m.member_name, streak: st.streak_days || 0, points: st.memory_points || 0, reviewed: st.cards_reviewed_total || 0 }; })
+                    .sort((a, b) => b.points - a.points || b.streak - a.streak);
+                if (!rows.length) return '<p class="empty">No members yet.</p>';
+                const row = (r, i) => `<div class="topic-row"><span><strong>#${i+1}</strong> ${escape(r.name)}</span><span class="small">🔥 ${r.streak}d streak · ${r.points} pts · ${r.reviewed} cards reviewed</span></div>`;
+                return `<p class="small" style="margin-bottom:10px">Ranked by memory points, earned by studying flashcards. Only visible to people you share this room with.</p><div class="list">${rows.map(row).join('')}</div>`;
             }
 
             async function chatSendMessage() {
@@ -10523,10 +10543,16 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     flashcardsSelectedDeckId = null; }
                 return renderFlashcardTopicsFor(s); }
 
-            function renderFlashcardTopicsFor(s) { const decks = flashcardDecksFor(s.id);
+            function renderFlashcardTopicsFor(s) { const decks = flashcardDecksFor(s.id), folders = foldersFor(s.id);
                 const tile = (d) => `<button type="button" class="class-tile" data-action="open-flashcard-deck" data-deck="${d.id}" style="--subject:${s.color}"><strong>${escape(d.topic)}</strong><span class="class-tile-count">${d.cards.length} card${d.cards.length===1?'':'s'}</span></button>`;
-                return `<div class="row" style="justify-content:flex-end;margin-bottom:14px"><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${s.id}">+ Create Flashcards</button></div>
-        <div class="class-grid">${decks.length?decks.map(tile).join(''):`<p class="empty">No flashcards yet for ${escape(s.name)} — create some above.</p>`}</div>`; }
+                const grouped = new Set(folders.flatMap(f => f.deckIds));
+                const ungrouped = decks.filter(d => !grouped.has(d.id));
+                const folderSection = (f) => { const fDecks = decks.filter(d => f.deckIds.includes(d.id));
+                    return `<div class="card section" style="margin-bottom:12px"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px"><strong>📁 ${escape(f.name)}</strong><button type="button" class="button ghost danger" data-action="delete-flashcard-folder" data-folder="${f.id}">Delete folder</button></div><div class="class-grid">${fDecks.length?fDecks.map(tile).join(''):'<p class="empty">No decks in this folder yet — assign one from its Test/Click Through page.</p>'}</div></div>`; };
+                return `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:14px;flex-wrap:wrap"><button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${s.id}">📁 New folder</button><button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${s.id}">+ Create Flashcards</button></div>
+        ${folders.map(folderSection).join('')}
+        ${folders.length?'<p class="small" style="margin:10px 0">Ungrouped</p>':''}
+        <div class="class-grid">${ungrouped.length?ungrouped.map(tile).join(''):(decks.length?'':`<p class="empty">No flashcards yet for ${escape(s.name)} — create some above.</p>`)}</div>`; }
 
             function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
                 if (!deck) { flashcardsSelectedDeckId = null; const s = subject(selectedSubjectId); return s ? renderFlashcardTopicsFor(s) : ''; }
@@ -10542,8 +10568,12 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             ${dueCount?`<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>`:''}
             <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add more cards</button>
             <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram&&deck.diagram.points.length?'🖼 Edit Diagram':'🖼 Add Diagram'}</button>
+            <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
             <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete topic</button>
           </div>
+          ${(() => { const folders = foldersFor(deck.subjectId); if (!folders.length) return '';
+              const current = folders.find(f => f.deckIds.includes(deck.id));
+              return `<div class="row" style="margin-top:10px;align-items:center;gap:8px"><span class="small">Folder:</span><select data-action="flashcard-assign-folder" data-deck="${deck.id}" style="max-width:200px"><option value="">No folder</option>${folders.map(f => `<option value="${f.id}" ${current&&current.id===f.id?'selected':''}>${escape(f.name)}</option>`).join('')}</select></div>`; })()}
         </section>
         <div class="list" style="margin-top:14px">${deck.cards.length?deck.cards.map(cardRow).join(''):'<p class="empty">No cards yet.</p>'}</div>`; }
 
@@ -10801,14 +10831,32 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     else if (grade === 'good') srs.interval = srs.reps <= 1 ? 1 : Math.round((srs.interval || 1) * srs.ease);
                     else { srs.ease += 0.15; srs.interval = Math.max(1, Math.round((srs.interval || 1) * srs.ease * 1.3)); }
                     srs.dueDate = Date.now() + srs.interval * 24 * 60 * 60 * 1000; }
-                srs.lastReviewed = Date.now(); }
+                srs.lastReviewed = Date.now(); schedulePublicStatsSync(); }
             function deckMemoryScore(deck) { if (!deck.cards.length) return 0;
                 const per = deck.cards.map(c => { if (!c.srs || !c.srs.reps) return c.known ? 40 : 0;
                     return Math.round(Math.min(60, c.srs.interval * 4) + Math.min(25, (c.srs.ease - 1.3) * 20) + Math.min(15, c.srs.reps * 3)); });
                 return Math.round(per.reduce((a, b) => a + b, 0) / per.length); }
             function toggleCardKnown(deckId, cardId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 const card = deck.cards.find(c => c.id === cardId); if (!card) return;
-                card.known = !card.known; save(); render(); }
+                card.known = !card.known; save(); render(); schedulePublicStatsSync(); }
+
+            // ---- Chat rooms: push this user's own stats to user_public_stats, debounced so a burst of
+            // card reviews (a whole Match/Gravity/Cloze session) doesn't fire one request per review —
+            // no AI involved, just a plain table upsert, and it's the only network call anywhere in the
+            // new flashcard features that isn't gated behind an explicit user action.
+            let publicStatsSyncTimer = null;
+            function schedulePublicStatsSync() { if (!currentUser) return;
+                if (publicStatsSyncTimer) clearTimeout(publicStatsSyncTimer);
+                publicStatsSyncTimer = setTimeout(syncPublicStats, 4000); }
+            async function syncPublicStats() { if (!currentUser) return;
+                const streak = computeStudyStreak();
+                if (streak > state.longestStudyStreak) { state.longestStudyStreak = streak; save(); }
+                let cardsReviewed = 0, memoryPoints = 0;
+                state.flashcardDecks.forEach(d => { d.cards.forEach(c => { if (c.srs && c.srs.reps) cardsReviewed += c.srs.reps; });
+                    memoryPoints += Math.round(deckMemoryScore(d) * d.cards.length / 100); });
+                try { await supabaseClient.from('user_public_stats').upsert({ user_id: currentUser.id,
+                    streak_days: streak, longest_streak: state.longestStudyStreak,
+                    cards_reviewed_total: cardsReviewed, memory_points: memoryPoints }); } catch (err) {} }
 
             // ---- Flashcards: audio pronunciation (Web Speech API — free, no backend/API cost) --------
             function speakText(text) { if (!state.settings.flashcardTtsEnabled || !('speechSynthesis' in window) || !text) return;
@@ -11015,6 +11063,41 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
         <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span>
         ${sess.revealed?`<button type="button" class="button primary" data-action="flashcard-diagram-next">${sess.index===sess.queue.length-1?'See results':'Next ›'}</button>`:`<button type="button" class="button primary" data-action="flashcard-diagram-check">Check</button>`}</div>
         </div>`; }
+
+            // ---- Flashcards: folders (client-side only — purely organisational, decks stay the source
+            // of truth in state.flashcardDecks; a folder is just a named list of deck ids) -------------
+            function foldersFor(subjectId) { return state.flashcardFolders.filter(f => f.subjectId === subjectId); }
+            function createFlashcardFolder(subjectId) { const name = prompt('Folder name:'); if (!name || !name.trim()) return;
+                state.flashcardFolders.push({ id: uid(), subjectId, name: name.trim(), deckIds: [] }); save(); render(); }
+            function deleteFlashcardFolder(folderId) { state.flashcardFolders = state.flashcardFolders.filter(f => f.id !== folderId); save(); render(); }
+            function assignDeckToFolder(deckId, folderId) { state.flashcardFolders.forEach(f => { f.deckIds = f.deckIds.filter(id => id !== deckId); });
+                if (folderId) { const f = state.flashcardFolders.find(x => x.id === folderId); if (f) f.deckIds.push(deckId); }
+                save(); render(); }
+
+            // ---- Flashcards: sharing (code-gated — see supabase/migrations/0015) --------------------
+            function generateShareCode() { const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let code = '';
+                for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]; return code; }
+            async function shareFlashcardDeck(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
+                if (!currentUser) { toast('Sign in with Google to share a set.'); return; }
+                try { const code = generateShareCode(), s = subject(deck.subjectId);
+                    const { error } = await supabaseClient.from('shared_flashcard_sets').insert({
+                        share_code: code, topic: deck.topic, subject_name: s ? s.name : null,
+                        deck_snapshot: { cards: deck.cards.map(c => ({ front: c.front, back: c.back })) } });
+                    if (error) throw error;
+                    prompt('Share this code with a classmate — they can import it from any subject\'s Flashcards page:', code);
+                } catch (err) { toast(err.message || 'Could not create a share code.'); } }
+            async function importSharedFlashcardSet() { if (!currentUser) { toast('Sign in with Google to import a shared set.'); return; }
+                const code = prompt('Enter the 6-character share code:'); if (!code || !code.trim()) return;
+                const s = subject(selectedSubjectId); if (!s) { toast('Open a subject first.'); return; }
+                try { const { data, error } = await supabaseClient.rpc('get_shared_flashcard_set', { p_code: code.trim() });
+                    if (error) throw error;
+                    if (!data) { toast('No shared set found with that code.'); return; }
+                    const cards = (data.deck_snapshot?.cards || []).filter(c => c && c.front && c.back);
+                    if (!cards.length) { toast('That shared set has no cards.'); return; }
+                    addFlashcardsToDeck(s.id, data.topic, cards);
+                    toast(`Imported "${data.topic}" (${cards.length} card${cards.length===1?'':'s'}) from ${data.owner_name || 'a classmate'}.`);
+                    render();
+                } catch (err) { toast(err.message || 'Could not import that set.'); } }
 
             // ---- Translate --------------------------------------------------------------------------
             // A simple two-pane translator — deliberately NOT routed through the app's AI backend, so it
@@ -12442,12 +12525,15 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             function renderChatRoomDetail() {
                 const room = chatActiveRoom;
                 const isDm = !!(room && room.is_dm);
+                const isGlobal = !!(room && room.is_global);
                 const back = `<button class="button ghost" data-action="chat-close-room" style="margin-bottom:14px">← All chats</button>`;
                 const tabs = isDm ? '' : `<div class="chat-room-tabs">
-                        <button class="button ${chatRoomTab!=='settings'?'primary':'ghost'}" data-action="chat-room-tab" data-tab="chat">💬 Chat</button>
+                        <button class="button ${chatRoomTab!=='settings'&&chatRoomTab!=='leaderboard'?'primary':'ghost'}" data-action="chat-room-tab" data-tab="chat">💬 Chat</button>
+                        ${isGlobal ? '' : `<button class="button ${chatRoomTab==='leaderboard'?'primary':'ghost'}" data-action="chat-room-tab" data-tab="leaderboard">🏆 Leaderboard</button>`}
                         <button class="button ${chatRoomTab==='settings'?'primary':'ghost'}" data-action="chat-room-tab" data-tab="settings">⚙ Settings</button>
                     </div>`;
-                const body = (!isDm && chatRoomTab === 'settings') ? renderChatRoomSettingsTab(room) : renderChatRoomChatTab();
+                const body = (!isDm && chatRoomTab === 'settings') ? renderChatRoomSettingsTab(room) :
+                    (!isDm && !isGlobal && chatRoomTab === 'leaderboard') ? renderChatRoomLeaderboardTab() : renderChatRoomChatTab();
 
                 return `${back}
                 <div class="card section">
@@ -16253,7 +16339,9 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'chat-accept-invite') chatAcceptInvite(b.dataset.id);
                 else if (a === 'chat-decline-invite') chatDeclineInvite(b.dataset.id);
                 else if (a === 'chat-leave-room') chatLeaveRoom(b.dataset.id);
-                else if (a === 'chat-room-tab') { chatRoomTab = b.dataset.tab; render(); }
+                else if (a === 'chat-room-tab') { chatRoomTab = b.dataset.tab;
+                    if (chatRoomTab === 'leaderboard' && !chatLeaderboardStats) chatLoadLeaderboard();
+                    render(); }
                 else if (a === 'chat-attach-image') chatAttachImage();
                 else if (a === 'chat-new-dm') chatOpenNewDmModal();
                 else if (a === 'chat-start-dm') chatStartDm(b.dataset.id);
@@ -16382,6 +16470,10 @@ If the user asks about how to study or study methods generally, answer from your
                     s.lastCorrect = val === point.label.trim().toLowerCase(); s.revealed = true; if (s.lastCorrect) s.score++;
                     render(); }
                 else if (a === 'flashcard-diagram-next') { const s = flashcardStudySession; if (!s) return; s.index++; s.revealed = false; render(); }
+                else if (a === 'create-flashcard-folder') createFlashcardFolder(b.dataset.subject);
+                else if (a === 'delete-flashcard-folder') { if (confirm('Delete this folder? Decks inside it are not deleted.')) deleteFlashcardFolder(b.dataset.folder); }
+                else if (a === 'share-flashcard-deck') shareFlashcardDeck(b.dataset.deck);
+                else if (a === 'import-shared-set') importSharedFlashcardSet();
                 else if (a === 'translate-swap') translateSwap();
                 else if (a === 'translate-clear') { translateInputText = ''; translateOutputText = ''; translateError = ''; render(); }
                 else if (a === 'translate-copy') translateCopy(); });
@@ -16397,6 +16489,7 @@ If the user asks about how to study or study methods generally, answer from your
                     fileToDataUrl(file).then(dataUrl => { const deck = flashcardDeck(modal.deckId); if (!deck) return;
                         if (!deck.diagram) deck.diagram = { imageDataUrl: null, points: [] };
                         deck.diagram.imageDataUrl = dataUrl; save(); renderModal(); }).catch(err => toast(err.message || "Couldn't read that image.")); }
+                else if (t.dataset && t.dataset.action === 'flashcard-assign-folder') assignDeckToFolder(t.dataset.deck, t.value || null);
                 else if (t.id === 'translate-source-lang') { translateSourceLang = t.value; if (translateInputText.trim()) runTranslate(); }
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
 
