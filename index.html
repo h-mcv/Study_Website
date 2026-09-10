@@ -2689,6 +2689,42 @@
             from { top: -10%; }
             to { top: 100%; }
         }
+        .diagram-canvas {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            overflow: hidden;
+            cursor: crosshair;
+        }
+        .diagram-canvas img {
+            display: block;
+            max-width: 100%;
+            pointer-events: none;
+        }
+        .diagram-pin {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #fff;
+            border: 2px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,.25);
+        }
+        .diagram-pin.active {
+            background: var(--warning);
+        }
         .event-detail {
             display: grid;
             gap: 13px;
@@ -10505,6 +10541,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             <button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>🧠 Test</button>
             ${dueCount?`<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>`:''}
             <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add more cards</button>
+            <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram&&deck.diagram.points.length?'🖼 Edit Diagram':'🖼 Add Diagram'}</button>
             <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete topic</button>
           </div>
         </section>
@@ -10664,6 +10701,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (sess.mode === 'gravity') return renderGravitySession(sess);
                 if (sess.mode === 'listening') return renderListeningSession(sess);
                 if (sess.mode === 'srs-review') return renderSrsReviewSession(sess);
+                if (sess.mode === 'diagram') return renderDiagramSession(sess);
                 return ''; }
 
             function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), card = sess.cards[sess.index];
@@ -10742,6 +10780,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             ${deck.cards.length>=4?opt('flashcard-start-match','🧩','Match', 'Pair every term to its definition against the clock.'):''}
             ${deck.cards.length>=4?opt('flashcard-start-gravity','☄️','Gravity', "A definition falls in — type the term before it lands. Limited lives."):''}
             ${opt('flashcard-start-listening', '🔊', 'Listening', 'Hear the term read aloud, answer, then self-check against the definition.')}
+            ${deck.diagram&&deck.diagram.points.length?opt('flashcard-start-diagram','🖼','Diagram Labeling', 'Identify what each numbered point on your diagram is.'):''}
           </div>`,
                     `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true); }
 
@@ -10934,6 +10973,47 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <button type="button" class="button primary" data-action="flashcard-srs-grade" data-grade="easy">Easy</button>
         </div>`:''}
         <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span></div>
+        </div>`; }
+
+            // ---- Flashcards: Diagram labelling (one image + labelled points, per deck) --------------
+            function openDiagramEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
+                if (!deck.diagram) deck.diagram = { imageDataUrl: null, points: [] };
+                openModal('flashcard-diagram-editor', { deckId }); }
+            function diagramEditorModal(deckId) { const deck = flashcardDeck(deckId);
+                if (!deck) return modalShell('Diagram', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
+                const dg = deck.diagram || { imageDataUrl: null, points: [] };
+                const fileInput = `<input type="file" id="diagram-image-file" accept="image/*" class="hidden">`;
+                if (!dg.imageDataUrl) return modalShell(`Diagram: ${escape(deck.topic)}`,
+                    `<p class="small" style="margin-bottom:10px">Upload a diagram (e.g. a biology/geography image) — you'll click on it to drop labelled points.</p>${fileInput}
+          <button type="button" class="button" data-action="diagram-pick-image">📷 Upload diagram image</button>`,
+                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true);
+                const pin = (p, i) => `<button type="button" class="diagram-pin" style="left:${p.x}%;top:${p.y}%" data-action="diagram-remove-point" data-id="${p.id}" title="${escape(p.label)} (click to remove)">${i+1}</button>`;
+                return modalShell(`Diagram: ${escape(deck.topic)}`,
+                    `<p class="small" style="margin-bottom:8px">Click anywhere on the image to drop a labelled point. Click a pin to remove it.</p>
+          <div class="diagram-canvas" data-action="diagram-add-point"><img src="${dg.imageDataUrl}" draggable="false">${dg.points.map(pin).join('')}</div>
+          <p class="small" style="margin-top:8px">${dg.points.length} point${dg.points.length===1?'':'s'} added.</p>
+          ${fileInput}<button type="button" class="button ghost" style="margin-top:8px" data-action="diagram-replace-image">Replace image</button>`,
+                    `<button type="button" class="button ghost" data-action="close-modal">Done</button>`, true); }
+
+            function startFlashcardDiagram(deckId) { const deck = flashcardDeck(deckId);
+                if (!deck || !deck.diagram || !deck.diagram.points.length) { toast('Add a diagram with at least one labelled point first.'); return; }
+                closeModal();
+                flashcardStudySession = { mode: 'diagram', deckId, queue: shuffle(deck.diagram.points.map(p => p.id)), index: 0, revealed: false, lastCorrect: null, score: 0 };
+                render(); }
+            function renderDiagramSession(sess) { const deck = flashcardDeck(sess.deckId), dg = deck?.diagram;
+                if (!dg) { exitFlashcardSession(); return ''; }
+                if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header('Diagram — Results', escape(deck.topic), `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="flashcard-face" style="cursor:default"><span>${sess.score} / ${sess.queue.length} correct</span></div>
+        <button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                const currentId = sess.queue[sess.index], point = dg.points.find(p => p.id === currentId);
+                const pin = (p) => `<span class="diagram-pin ${p.id===currentId?'active':''}" style="left:${p.x}%;top:${p.y}%">${p.id===currentId?'?':''}</span>`;
+                return `<div class="flashcard-stage">
+        ${header('Diagram', escape(deck.topic), `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <div class="diagram-canvas" style="cursor:default"><img src="${dg.imageDataUrl}" draggable="false">${dg.points.map(pin).join('')}</div>
+        <input type="text" id="flashcard-diagram-answer" placeholder="What's labelled here?" style="margin-top:12px" ${sess.revealed?'disabled':''}>
+        ${sess.revealed?`<div class="alert ${sess.lastCorrect?'success':''}" style="margin-top:10px">${sess.lastCorrect?'✅ Correct!':`❌ It was "${escape(point.label)}"`}</div>`:''}
+        <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span>
+        ${sess.revealed?`<button type="button" class="button primary" data-action="flashcard-diagram-next">${sess.index===sess.queue.length-1?'See results':'Next ›'}</button>`:`<button type="button" class="button primary" data-action="flashcard-diagram-check">Check</button>`}</div>
         </div>`; }
 
             // ---- Translate --------------------------------------------------------------------------
@@ -12249,6 +12329,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     modal.kind === 'chat-new-dm') return layer.innerHTML = chatNewDmModal(); if (
                     modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (
                     modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
+                    modal.kind === 'flashcard-diagram-editor') return layer.innerHTML = diagramEditorModal(modal.deckId); if (
                     modal.kind === 'duplicate-classes') return layer.innerHTML = dupClassesModal(); }
 
             function dupClassesModal() { const groups = duplicateClassGroups(); if (!dupClassKeep) dupClassKeep = {};
@@ -16286,6 +16367,21 @@ If the user asks about how to study or study methods generally, answer from your
                     if (card) { card.known = knew; scheduleCardReview(card, knew ? 'good' : 'again'); }
                     s.index++; s.revealed = false; save(); render();
                     const next = flashcardStudySession; if (next?.mode === 'listening' && next.index < next.queue.length) setTimeout(() => speakText(next.queue[next.index].front), 200); }
+                else if (a === 'open-diagram-editor') openDiagramEditor(b.dataset.deck);
+                else if (a === 'diagram-pick-image' || a === 'diagram-replace-image') document.getElementById('diagram-image-file')?.click();
+                else if (a === 'diagram-add-point') { const rect = b.getBoundingClientRect();
+                    const x = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10, y = Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 10;
+                    const label = prompt('Label for this point:');
+                    if (label && label.trim()) { const deck = flashcardDeck(modal?.deckId); if (deck?.diagram) { deck.diagram.points.push({ id: uid(), x, y, label: label.trim() }); save(); renderModal(); } } }
+                else if (a === 'diagram-remove-point') { const deck = flashcardDeck(modal?.deckId);
+                    if (deck?.diagram) { deck.diagram.points = deck.diagram.points.filter(p => p.id !== b.dataset.id); save(); renderModal(); } }
+                else if (a === 'flashcard-start-diagram') startFlashcardDiagram(b.dataset.deck);
+                else if (a === 'flashcard-diagram-check') { const s = flashcardStudySession; if (!s || s.mode !== 'diagram') return;
+                    const deck = flashcardDeck(s.deckId), point = deck.diagram.points.find(p => p.id === s.queue[s.index]);
+                    const val = (document.getElementById('flashcard-diagram-answer')?.value || '').trim().toLowerCase();
+                    s.lastCorrect = val === point.label.trim().toLowerCase(); s.revealed = true; if (s.lastCorrect) s.score++;
+                    render(); }
+                else if (a === 'flashcard-diagram-next') { const s = flashcardStudySession; if (!s) return; s.index++; s.revealed = false; render(); }
                 else if (a === 'translate-swap') translateSwap();
                 else if (a === 'translate-clear') { translateInputText = ''; translateOutputText = ''; translateError = ''; render(); }
                 else if (a === 'translate-copy') translateCopy(); });
@@ -16297,12 +16393,17 @@ If the user asks about how to study or study methods generally, answer from your
                         .then(imgs => { if (flashcardCreateDraft) { flashcardCreateDraft.images.push(...imgs); renderModal(); } })
                         .catch(err => toast(err.message || "Couldn't read one of those photos.")); }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-toggle') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].include = t.checked; }
+                else if (t.id === 'diagram-image-file') { const file = t.files?.[0]; t.value = ''; if (!file || !modal?.deckId) return;
+                    fileToDataUrl(file).then(dataUrl => { const deck = flashcardDeck(modal.deckId); if (!deck) return;
+                        if (!deck.diagram) deck.diagram = { imageDataUrl: null, points: [] };
+                        deck.diagram.imageDataUrl = dataUrl; save(); renderModal(); }).catch(err => toast(err.message || "Couldn't read that image.")); }
                 else if (t.id === 'translate-source-lang') { translateSourceLang = t.value; if (translateInputText.trim()) runTranslate(); }
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
 
             document.addEventListener('keydown', e => { if (e.key !== 'Enter') return;
                 if (e.target.id === 'flashcard-gravity-answer') { e.preventDefault(); submitGravityAnswer(); }
-                else if (e.target.id === 'flashcard-cloze-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-cloze-check"]')?.click(); } });
+                else if (e.target.id === 'flashcard-cloze-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-cloze-check"]')?.click(); }
+                else if (e.target.id === 'flashcard-diagram-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-diagram-check"]')?.click(); } });
 
             document.addEventListener('input', e => { const t = e.target;
                 if (t.id === 'flashcard-create-topic') { if (flashcardCreateDraft) flashcardCreateDraft.topic = t.value; }
