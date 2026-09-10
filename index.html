@@ -1050,6 +1050,177 @@
             display: flex;
             align-items: center;
         }
+
+        /* --- 'periods' timetable style: reuses .tt-table/.tt-cell/.tt-chip, adds a period-number label ------ */
+        .tt-period-num {
+            display: block;
+            font-weight: 800;
+            font-size: 11px;
+            color: var(--text);
+        }
+        .tt-period-time {
+            display: block;
+            font-size: 9px;
+            color: var(--muted);
+        }
+        .tt-periods .tt-table-hourcol {
+            width: 52px;
+            text-align: center;
+            padding-right: 0;
+        }
+
+        /* --- 'day' timetable style: single-day tabs + a one-column version of the normal time-grid --------- */
+        .tt-day-tabs {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+        .tt-day-tab {
+            flex: 0 0 auto;
+            padding: 8px 15px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: var(--surface-2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+            color: var(--muted);
+        }
+        .tt-day-tab .dow {
+            text-transform: uppercase;
+            font-size: 10px;
+            font-weight: 800;
+        }
+        .tt-day-tab .date {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .tt-day-tab.active {
+            background: var(--primary-soft);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .tt-day-tab.active .date {
+            color: var(--primary);
+        }
+        .tt-day-tab.dayoff {
+            background: var(--warning-soft);
+        }
+        .tt-day-tab.holiday {
+            opacity: .6;
+        }
+        .tt-day-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: clamp(26px, 6vw, 40px) 1fr;
+            position: relative;
+        }
+
+        /* --- 'subject' timetable style: grouped-by-class cards, each listing its weekly slots -------------- */
+        .tt-subject-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .tt-subject-card {
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--chip-color);
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+        .tt-subject-head {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        .tt-subject-slots {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .tt-subject-slot {
+            border: 1px solid var(--line);
+            background: color-mix(in srgb, var(--chip-color) 14%, var(--surface));
+            border-radius: 8px;
+            padding: 4px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text);
+            cursor: pointer;
+        }
+        .tt-subject-empty {
+            color: var(--muted);
+            text-align: center;
+            padding: 30px 0;
+            font-size: 13px;
+        }
+
+        /* --- 'clock' timetable style: each day as a 24h radial face, events as conic-gradient arcs --------- */
+        .tt-clock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 16px;
+        }
+        .tt-clock-day {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .tt-clock-face {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(20, 40, 95, .12);
+            border: 3px solid var(--surface);
+        }
+        .tt-clock-day.today .tt-clock-face {
+            border-color: var(--primary);
+        }
+        .tt-clock-slice {
+            position: absolute;
+            inset: 0;
+            border: 0;
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+        }
+        .tt-clock-slice:hover {
+            background: rgba(255, 255, 255, .18);
+        }
+        .tt-clock-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 46%;
+            height: 46%;
+            border-radius: 50%;
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--muted);
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+        .tt-clock-center span {
+            font-size: 14px;
+            color: var(--text);
+            text-transform: none;
+            font-weight: 800;
+        }
         .due-badge {
             display: inline-grid;
             min-width: 15px;
@@ -5444,8 +5615,10 @@
             // Fixed lightness/saturation steps, cycled by a hash of the subject/event id, so the same class
             // always lands on the same shade across renders while a batch of different classes still looks
             // visually distinct — all while staying on the single hue the user picked.
-            const MONOCHROME_STEPS = [{ l: .34, s: .82 }, { l: .58, s: .7 }, { l: .46, s: .92 }, { l: .7, s: .55 },
-                { l: .26, s: .88 }, { l: .64, s: .45 }, { l: .4, s: .62 }, { l: .78, s: .4 }
+            // Lightness is capped at .62 (well under the colour-mode background's .8 lightness — see
+            // applyColorModeTheme) so a monochrome timetable never washes out against a same-hue tinted page.
+            const MONOCHROME_STEPS = [{ l: .34, s: .82 }, { l: .52, s: .7 }, { l: .44, s: .92 }, { l: .6, s: .55 },
+                { l: .26, s: .88 }, { l: .58, s: .48 }, { l: .4, s: .65 }, { l: .48, s: .78 }
             ];
             function monochromeColorFor(baseHex, seed) { const { h } = hexToHsl(baseHex),
                     step = MONOCHROME_STEPS[hashStr(String(seed)) % MONOCHROME_STEPS.length];
@@ -5453,26 +5626,36 @@
             const DEFAULT_THEME_ACCENT = '#E93D82';
             const DEFAULT_TIMETABLE_ACCENT = '#E93D82';
             // Site-wide "Colour mode" — a third option alongside Light/Dark. Rather than a fixed palette, it
-            // derives a full light-based theme (background/surfaces/text/primary) from whatever hue the user
-            // picks, so --primary and everything that reads it (buttons, links, today-marker, etc.) retints.
+            // derives a full theme (background/surfaces/text/primary) from whatever hue the user picks, so
+            // --primary and everything that reads it (buttons, links, today-marker, etc.) retints. --bg is
+            // deliberately a clearly-saturated pastel of the hue (not just a faint off-white) — the same idea
+            // as body.dark giving --bg a visibly-navy tint rather than plain black — with --surface lighter
+            // again so cards still read as "raised" above the tinted page, exactly like light/dark already do.
             const COLOR_MODE_VARS = ['--bg', '--surface', '--surface-2', '--text', '--muted', '--line', '--primary',
                 '--primary-soft'
             ];
             function applyColorModeTheme(hex) { const { h } = hexToHsl(hex);
-                const vars = { '--bg': hslToHex(h, .45, .965), '--surface': hslToHex(h, .35, .995),
-                    '--surface-2': hslToHex(h, .4, .955), '--text': hslToHex(h, .3, .16),
-                    '--muted': hslToHex(h, .18, .46), '--line': hslToHex(h, .3, .885), '--primary': hex,
-                    '--primary-soft': hslToHex(h, .55, .9) };
+                const vars = { '--bg': hslToHex(h, .58, .82), '--surface': hslToHex(h, .4, .97),
+                    '--surface-2': hslToHex(h, .48, .91), '--text': hslToHex(h, .35, .15),
+                    '--muted': hslToHex(h, .2, .4), '--line': hslToHex(h, .4, .74), '--primary': hex,
+                    '--primary-soft': hslToHex(h, .6, .88) };
                 Object.entries(vars).forEach(([k, v]) => document.body.style.setProperty(k, v)); }
             function clearColorModeTheme() { COLOR_MODE_VARS.forEach(k => document.body.style.removeProperty(k)); }
 
-            // The timetable page/dashboard can be displayed with any of these — see timetable()/eventBlocks().
+            // The timetable page/dashboard can be displayed with any of these — see timetable(). 'outline' and
+            // 'monochrome' are the same pixel-grid as 'boxes' with just a different fill treatment; every other
+            // entry is a genuinely different layout (a real table, a single-day view, grouped-by-subject, a
+            // horizontal timeline, a radial clock) built straight off the same segment data.
             const TIMETABLE_STYLES = [{ id: 'boxes', label: 'Boxes', desc: 'The classic rounded time-grid (default).' },
                 { id: 'outline', label: 'Outline', desc: 'Same grid, ghost cards with just a coloured border.' },
                 { id: 'monochrome', label: 'Monochrome', desc: 'Same grid, every class shaded from one colour you pick.' },
-                { id: 'table', label: 'Table', desc: 'A period-table look with translucent class chips.' },
+                { id: 'table', label: 'Table', desc: 'A period-table look, hour rows with translucent class chips.' },
+                { id: 'periods', label: 'Periods', desc: 'A compact table indexed by class period, not the clock.' },
                 { id: 'agenda', label: 'Agenda', desc: 'Each day as a simple scrollable list, no time-grid.' },
-                { id: 'gantt', label: 'Timeline', desc: 'Each day as one row, classes as horizontal bars.' }
+                { id: 'day', label: 'Day view', desc: 'One day at a time, full width, with tabs to switch.' },
+                { id: 'subject', label: 'By subject', desc: 'Grouped by class instead of by day.' },
+                { id: 'gantt', label: 'Timeline', desc: 'Each day as one row, classes as horizontal bars.' },
+                { id: 'clock', label: 'Clock', desc: 'Each day as a 24-hour clock face.' }
             ];
 
             const DEFAULT_SESSION_MIN = 45; // default study chunk length, now that focus windows/session length aren't user settings
@@ -5869,6 +6052,7 @@
                     `<span class="event-name event-icon-only" title="${plainName}">${icon}</span>`;
                 return `<span class="event-name"><span class="event-icon">${icon}</span>${richHtml}</span>${height>34?timeHtml:''}`; }
             let timetableScrollTop = { dashboard: null, timetable: null }; // remembered scroll position per view
+            let timetableDayViewIndex = null; // 0-6 (Mon-based) tab picked in the 'day' timetable style; null = default to today
             let studyViewDate = localDate(); // which day the Study page is showing
             let activeLogItem = null; // { itemId } of the check-in form currently open on the Study page
             let editingTopicId = null; // which class topic (if any) is being inline-edited on the subject detail modal
@@ -7863,13 +8047,17 @@
 
             // Dispatches to whichever display style the user picked in Settings → Timetable style. 'boxes',
             // 'outline' and 'monochrome' all share the same pixel-positioned time-grid (timetableGrid) and only
-            // differ in how eventBlocks() colours each block; 'table', 'agenda' and 'gantt' are fully separate
-            // layouts built straight off the same segment data (segmentsForDate/templateSegmentsForDate).
+            // differ in how eventBlocks() colours each block; every other entry is a fully separate layout built
+            // straight off the same segment data (segmentsForDate/templateSegmentsForDate).
             function timetable(target) {
                 const style = state.settings.timetableStyle || 'boxes';
                 if (style === 'table') return timetableTable(target);
+                if (style === 'periods') return timetablePeriods(target);
                 if (style === 'agenda') return timetableAgenda(target);
+                if (style === 'day') return timetableDay(target);
+                if (style === 'subject') return timetableSubject(target);
                 if (style === 'gantt') return timetableGantt(target);
+                if (style === 'clock') return timetableClock(target);
                 return timetableGrid(target, style);
             }
 
@@ -7986,6 +8174,109 @@
                         segs = isTemplate ? templateSegmentsForDate(d) : segmentsForDate(d);
                     html +=
                         `<div class="tt-gantt-row ${today?'today':''} ${st==='holiday'?'holiday':st!=='normal'?'dayoff':''}"><div class="tt-gantt-daylabel"><span class="dow">${DAY_NAMES[mondayIndex(d)]}</span>${isTemplate?'':`<span class="date">${dateFrom(d).getDate()}</span>`}</div><div class="tt-gantt-track">${timetableGanttGridlines()}${segs.map(x=>{const e=x.event,left=x.start/1440*100,width=Math.max((x.end-x.start)/1440*100,.7);return `<button class="tt-gantt-bar" data-action="open-event" data-id="${e.id}" data-slot="${x.slot.id}" data-date="${d}" ${target==='dashboard'?'data-dashboard="1"':''} style="left:${left}%;width:${width}%;background:${e.color};color:${contrast(e.color)}" title="${escape(e.name)}">${width>5?`<span>${escape(e.name)}</span>`:''}</button>`;}).join('')}</div></div>`; });
+                html += `</div>`;
+                return html;
+            }
+
+            // --- 'periods' display style: a table like 'table', but rows are the week's actual class periods
+            // (derived from where classes actually start/end) rather than clock hours. For a school with
+            // consistent period times this collapses to the real ~7-8 period rows instead of a full hour-by-
+            // hour grid, which is how most people are used to seeing a school timetable on paper.
+            function timetablePeriods(target) {
+                const isTemplate = target === 'timetable',
+                    anchor = isTemplate ? weekStart(localDate()) : state.week,
+                    dates = range(anchor, 7),
+                    daySegs = dates.map(d => (isTemplate ? templateSegmentsForDate(d) : segmentsForDate(d)).slice()
+                        .sort((a, b) => a.start - b.start));
+                const boundarySet = new Set();
+                daySegs.forEach(segs => segs.forEach(x => { boundarySet.add(x.start);
+                    boundarySet.add(x.end); }));
+                let boundaries = [...boundarySet].sort((a, b) => a - b);
+                if (boundaries.length < 2) boundaries = [480, 540, 600, 660, 720, 780, 840, 900, 960];
+                let html = `<div class="tt-table-scroll"><table class="tt-table tt-periods"><thead><tr><th class="tt-table-hourcol"></th>`;
+                dates.forEach(d => { const st = isTemplate ? 'normal' : dayStatus(d),
+                        today = !isTemplate && d === localDate();
+                    html +=
+                        `<th class="${today?'today':''} ${st==='holiday'?'holiday':st!=='normal'?'dayoff':''}"><div class="dow">${DAY_NAMES[mondayIndex(d)]}</div>${isTemplate?'':`<div class="date">${dateFrom(d).getDate()}</div>`}</th>`; });
+                html += `</tr></thead><tbody>`;
+                for (let i = 0; i < boundaries.length - 1; i++) { const rowStart = boundaries[i],
+                        rowEnd = boundaries[i + 1]; if (rowEnd <= rowStart) continue;
+                    html +=
+                        `<tr><td class="tt-table-hourcol"><span class="tt-period-num">P${i+1}</span><span class="tt-period-time">${time(rowStart)}</span></td>`;
+                    dates.forEach((d, di) => { const segs = daySegs[di].filter(x => x.start < rowEnd && x.end >
+                            rowStart); if (!segs.length) { html += `<td class="tt-cell empty"></td>`;
+                            return; }
+                        const cellHtml = segs.map(x => { const e = x.event,
+                                isFirst = x.start === rowStart; return isFirst ?
+                                `<button class="tt-chip" data-action="open-event" data-id="${e.id}" data-slot="${x.slot.id}" data-date="${d}" ${target==='dashboard'?'data-dashboard="1"':''} style="--chip-color:${e.color}"><span class="tt-chip-name">${TYPE_INFO[e.type].icon} ${escape(e.name)}</span><span class="tt-chip-time">${time(x.start)}–${time(x.end)}</span></button>` :
+                                `<div class="tt-chip-cont" style="--chip-color:${e.color}"></div>`; }).join('');
+                        html += `<td class="tt-cell filled">${cellHtml}</td>`; });
+                    html += `</tr>`; }
+                html += `</tbody></table></div>`;
+                return html;
+            }
+
+            // --- 'day' display style: one day at a time, full width, switched with a row of tabs -------------
+            function timetableDay(target) {
+                const isTemplate = target === 'timetable',
+                    anchor = isTemplate ? weekStart(localDate()) : state.week,
+                    dates = range(anchor, 7),
+                    todayIdx = !isTemplate && dates.includes(localDate()) ? mondayIndex(localDate()) : 0,
+                    idx = clamp(timetableDayViewIndex == null ? todayIdx : timetableDayViewIndex, 0, 6),
+                    d = dates[idx],
+                    totalHeight = Math.round(1440 * PX_PER_MIN);
+                const tabsHtml = dates.map((dt, i) => { const today = !isTemplate && dt === localDate(),
+                        st = isTemplate ? 'normal' : dayStatus(dt); return `<button type="button" class="tt-day-tab ${i===idx?'active':''} ${today?'today':''} ${st==='holiday'?'holiday':st!=='normal'?'dayoff':''}" data-action="set-day-view-day" data-index="${i}"><span class="dow">${DAY_NAMES[i]}</span>${isTemplate?'':`<span class="date">${dateFrom(dt).getDate()}</span>`}</button>`; })
+                    .join('');
+                return `<div class="tt-day-tabs">${tabsHtml}</div><div class="timetable-scroll ${target}" data-target="${target}"><div class="tt-day-grid" style="--table-height:${totalHeight}px"><div class="time-body">${hourLines(true)}</div><div class="day-body">${hourLines(false)}${eventBlocks(d,target,'boxes')}</div></div></div>`;
+            }
+
+            // --- 'subject' display style: grouped by class across the whole week, not by day ------------------
+            function timetableSubject(target) {
+                const isTemplate = target === 'timetable',
+                    anchor = isTemplate ? weekStart(localDate()) : state.week,
+                    dates = range(anchor, 7),
+                    groups = new Map();
+                dates.forEach((d, i) => { (isTemplate ? templateSegmentsForDate(d) : segmentsForDate(d)).forEach(
+                    x => { const e = x.event,
+                            key = e.subjectId || e.id; if (!groups.has(key)) groups.set(key, { name: e.name,
+                                color: e.color, type: e.type, items: [] });
+                        groups.get(key).items.push({ dayIdx: i, date: d, start: x.start, end: x.end, eventId: e
+                            .id, slotId: x.slot.id }); }); });
+                const sorted = [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+                if (!sorted.length) return `<div class="tt-subject-empty">Nothing on the timetable yet.</div>`;
+                return `<div class="tt-subject-list">${sorted.map(g=>`<div class="tt-subject-card" style="--chip-color:${g.color}"><div class="tt-subject-head">${TYPE_INFO[g.type].icon} ${escape(g.name)}</div><div class="tt-subject-slots">${g.items.map(it=>`<button class="tt-subject-slot" data-action="open-event" data-id="${it.eventId}" data-slot="${it.slotId}" data-date="${it.date}" ${target==='dashboard'?'data-dashboard="1"':''}>${DAY_NAMES[it.dayIdx]} · ${time(it.start)}–${time(it.end)}</button>`).join('')}</div></div>`).join('')}</div>`;
+            }
+
+            // --- 'clock' display style: each day as a 24h radial clock face, events as coloured arcs ---------
+            // Slices are clickable: each event gets an invisible pie-slice button on top of the CSS
+            // conic-gradient face, its shape approximated with a clip-path polygon sampled every ~6°.
+            function timetableClockSlicePoints(startDeg, endDeg) { const pts = ['50% 50%'],
+                    steps = Math.max(2, Math.ceil((endDeg - startDeg) / 6)); for (let i = 0; i <= steps; i++) {
+                    const a = (startDeg + (endDeg - startDeg) * i / steps) * Math.PI / 180,
+                        x = 50 + 50 * Math.sin(a), y = 50 - 50 * Math.cos(a);
+                    pts.push(`${x.toFixed(2)}% ${y.toFixed(2)}%`); }
+                return pts.join(','); }
+            function timetableClock(target) {
+                const isTemplate = target === 'timetable',
+                    anchor = isTemplate ? weekStart(localDate()) : state.week,
+                    dates = range(anchor, 7);
+                let html = `<div class="tt-clock-grid">`;
+                dates.forEach(d => { const today = !isTemplate && d === localDate(),
+                        segs = (isTemplate ? templateSegmentsForDate(d) : segmentsForDate(d)).slice().sort((a, b) =>
+                            a.start - b.start);
+                    let stops = [], slices = [], cursor = 0;
+                    segs.forEach(x => { const s = clamp(x.start, 0, 1440),
+                            e = clamp(x.end, 0, 1440); if (e <= s) return; if (s > cursor) stops.push(
+                            `var(--surface-2) ${(cursor/1440*100).toFixed(2)}% ${(s/1440*100).toFixed(2)}%`);
+                        stops.push(`${x.event.color} ${(s/1440*100).toFixed(2)}% ${(e/1440*100).toFixed(2)}%`);
+                        slices.push(
+                            `<button class="tt-clock-slice" data-action="open-event" data-id="${x.event.id}" data-slot="${x.slot.id}" data-date="${d}" ${target==='dashboard'?'data-dashboard="1"':''} style="clip-path:polygon(${timetableClockSlicePoints(s/1440*360,e/1440*360)})" aria-label="${escape(x.event.name)}, ${time(s)} to ${time(e)}"></button>`);
+                        cursor = Math.max(cursor, e); }); if (cursor < 1440) stops.push(
+                        `var(--surface-2) ${(cursor/1440*100).toFixed(2)}% 100%`);
+                    const gradient = stops.length ? `conic-gradient(${stops.join(',')})` : 'var(--surface-2)';
+                    html +=
+                        `<div class="tt-clock-day ${today?'today':''}"><div class="tt-clock-face" style="background:${gradient}">${slices.join('')}<div class="tt-clock-center">${DAY_NAMES[mondayIndex(d)]}${isTemplate?'':`<span>${dateFrom(d).getDate()}</span>`}</div></div></div>`; });
                 html += `</div>`;
                 return html;
             }
@@ -12195,7 +12486,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Year</strong><span class="small">Used to tailor advice where relevant.</span></div><div class="type-picker">${YEAR_GROUPS.map(y=>`<button type="button" class="type-option ${s.yearGroup===y?'selected':''}" style="min-height:52px;display:grid;place-items:center;font-weight:800;font-size:15px" data-action="settings-pick-year" data-year="${y}">${y} Year</button>`).join('')}</div></div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>School</strong><span class="small">Picking your school sets up its period times and study/activity blocks.</span></div><div class="type-picker">${SCHOOLS.map(sc=>`<button type="button" class="type-option ${s.schoolId===sc.id?'selected':''}" data-action="settings-pick-school" data-school="${sc.id}">${escape(sc.name)}</button>`).join('')}<button type="button" class="type-option ${s.schoolId==='other'?'selected':''}" data-action="settings-pick-school" data-school="other">Other / not listed</button></div></div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>School year</strong><span class="small">Your timetable only applies between these dates.</span></div><div class="form-grid"><div class="field"><label for="setting-term-start">Term starts</label>${pickerFieldHtml('id="setting-term-start"','date',s.termStart)}</div><div class="field"><label for="setting-term-end">Term ends</label>${pickerFieldHtml('id="setting-term-end"','date',s.termEnd)}</div></div></div>
-          <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Appearance</strong><span class="small">Light, a darker surface after sunset, or a colour of your own.</span></div><div class="row">${[['light','☀ Light'],['dark','☾ Dark'],['color','🎨 Colour']].map(([m,l])=>`<button type="button" class="button ${((s.theme||'light')===m)?'primary':'ghost'}" data-action="set-site-theme" data-theme="${m}">${l}</button>`).join('')}</div>${s.theme==='color'?`<div class="field" style="max-width:170px"><label for="setting-theme-accent">Site colour</label><input id="setting-theme-accent" type="color" value="${s.themeAccentColor||DEFAULT_THEME_ACCENT}"></div>`:''}</div>
+          <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Appearance</strong><span class="small">Light, a darker surface after sunset, or a colour of your own — Colour also tints the timetable's classes to match.</span></div><div class="row">${[['light','☀ Light'],['dark','☾ Dark'],['color','🎨 Colour']].map(([m,l])=>`<button type="button" class="button ${((s.theme||'light')===m)?'primary':'ghost'}" data-action="set-site-theme" data-theme="${m}">${l}</button>`).join('')}</div>${s.theme==='color'?`<div class="field" style="max-width:170px"><label for="setting-theme-accent">Site colour</label><input id="setting-theme-accent" type="color" value="${s.themeAccentColor||DEFAULT_THEME_ACCENT}"></div>`:''}</div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Timetable style</strong><span class="small">How your weekly timetable and dashboard schedule are displayed.</span></div><div class="type-picker">${TIMETABLE_STYLES.map(t=>`<button type="button" class="type-option ${((s.timetableStyle||'boxes')===t.id)?'selected':''}" data-action="set-timetable-style" data-style="${t.id}"><strong>${t.label}</strong><span>${t.desc}</span></button>`).join('')}</div>${s.timetableStyle==='monochrome'?`<div class="field" style="max-width:170px"><label for="setting-timetable-accent">Timetable colour</label><input id="setting-timetable-accent" type="color" value="${s.timetableAccentColor||DEFAULT_TIMETABLE_ACCENT}"></div>`:''}</div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Sidebar</strong><span class="small">How the sidebar behaves.</span></div><div class="row">${[['hover','Expand on hover'],['expanded','Always expanded'],['collapsed','Always collapsed']].map(([m,l])=>`<button type="button" class="button ${((s.sidebarMode||'hover')===m)?'primary':'ghost'}" data-action="set-sidebar-mode" data-mode="${m}">${l}</button>`).join('')}</div></div>
           <div class="settings-row"><div><strong>Study preferences</strong><span class="small">How much and when you'd like to study.</span></div><button class="button" data-action="open-study-preferences">Edit</button></div>
@@ -14667,6 +14958,13 @@ If the user asks about how to study or study methods generally, answer from your
                     save();
                     render();
                     renderModal(); } else if (a === 'set-site-theme') { state.settings.theme = b.dataset.theme;
+                    // Turning on site-wide Colour mode also switches the timetable to Monochrome at the same
+                    // hue, so "the whole thing is pink" (say) means the timetable too, not just chrome/buttons —
+                    // matches Monochrome's own lightness cap staying under the colour-mode background's, so
+                    // classes never wash out against the same-hue page.
+                    if (state.settings.theme === 'color') { state.settings.timetableStyle = 'monochrome';
+                        state.settings.timetableAccentColor = state.settings.themeAccentColor ||
+                        DEFAULT_THEME_ACCENT; }
                     save();
                     render();
                     renderModal(); } else if (a === 'set-timetable-style') { state.settings.timetableStyle = b
@@ -14692,6 +14990,8 @@ If the user asks about how to study or study methods generally, answer from your
                     save(); render(); } else if (a === 'open-search') { searchQuery = '';
                     openModal('search'); } else if (a === 'perform-undo') performUndo(); else if (a ===
                     'toggle-dashboard-zoom') { dashboardZoomedOut = !dashboardZoomedOut;
+                    render(); } else if (a === 'set-day-view-day') { timetableDayViewIndex = Number(b.dataset
+                    .index);
                     render(); } else if (a === 'open-print-choice') openModal('print-choice'); else if (a ===
                     'do-print') { const mode = b.dataset.mode; if (mode === 'schedule') runSelfStudyAutoPlan();
                     document.getElementById('print-area').innerHTML = printableTimetableContent(mode);
@@ -15397,8 +15697,12 @@ If the user asks about how to study or study methods generally, answer from your
                     fileToDataUrl(file).then(dataUrl => { essayPhoto = { mimeType: file.type, data: dataUrl.split(',')[1], dataUrl, name: file.name }; render(); })
                         .catch(err => toast(err.message || "Couldn't read that photo, try again.")); } });
             document.addEventListener('change', e => { if (e.target.id === 'setting-theme-accent') {
-                    state.settings.themeAccentColor = e.target.value; if (state.settings.theme === 'color')
+                    state.settings.themeAccentColor = e.target.value; if (state.settings.theme === 'color') {
                         applyColorModeTheme(state.settings.themeAccentColor);
+                        // Keep the timetable's own colour picker following the site colour while Colour mode
+                        // is on, so "the same colour" holds even after the initial switch-over.
+                        state.settings.timetableAccentColor = state.settings.themeAccentColor;
+                        render(); }
                     save();
                     return; } if (e.target.id === 'setting-timetable-accent') { state.settings.timetableAccentColor =
                     e.target.value;
