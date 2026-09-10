@@ -54,7 +54,15 @@ Deno.serve(async (req) => {
     const { data: { user } } = await authClient.auth.getUser();
     if (!user) return jsonResponse({ error: "Sign in with Google to use the AI Study Assistant." }, 401);
 
-    const { contents, systemInstruction, tools, preferProvider } = await req.json();
+    // Cheap guard against using this signed-in-only endpoint as a free, unmetered
+    // relay to burn through the shared Gemini/Groq/OpenRouter quota (or run up
+    // API cost) -- any signed-in account can otherwise send an arbitrarily large
+    // payload with no per-request limit. This is a size cap, not a rate limit;
+    // a determined abuser could still fire many small requests, which would need
+    // real per-user throttling (e.g. a request-count table) to stop.
+    const rawBody = await req.text();
+    if (rawBody.length > 200_000) return jsonResponse({ error: "Request too large." }, 413);
+    const { contents, systemInstruction, tools, preferProvider } = JSON.parse(rawBody || "{}");
     if (!Array.isArray(contents) || !contents.length) {
       return jsonResponse({ error: "Missing 'contents'." }, 400);
     }
