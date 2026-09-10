@@ -10549,7 +10549,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function flashcardsBackToTopics() { flashcardsSelectedDeckId = null; render(); }
 
             function openFlashcardCreateModal(subjectId, mode) { flashcardCreateDraft = { mode: mode || 'manual',
-                    subjectId, topic: '', cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '' };
+                    subjectId, topic: '', cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                 openModal('flashcard-create'); }
 
             // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
@@ -10609,10 +10609,11 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 const s = subject(d.subjectId);
                 const existingTopics = flashcardDecksFor(d.subjectId).map(dk => dk.topic);
                 const topicDatalist = `<datalist id="flashcard-topic-options">${existingTopics.map(t => `<option value="${escape(t)}">`).join('')}</datalist>`;
-                const modeToggle = `<div class="row" style="gap:8px;margin-bottom:14px">
+                const modeToggle = `<div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">
           <button type="button" class="button ${d.mode==='manual'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="manual">✍️ Manually</button>
           <button type="button" class="button ${d.mode==='image'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="image">📷 From Photos</button>
           <button type="button" class="button ${d.mode==='paste'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="paste">📋 Paste / Import</button>
+          <button type="button" class="button ${d.mode==='magic'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="magic">🪄 Magic Notes (AI)</button>
         </div>`;
                 const topicField = `<div class="field" style="margin-bottom:14px"><label>Topic${s?` (${escape(s.name)})`:''}</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div>`;
                 const manualCardRow = (c, i) => `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea></div><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
@@ -10624,13 +10625,47 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     : `${topicField}<input type="file" id="flashcard-image-file" accept="image/*" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) of notes, a textbook page, or your own paper flashcards</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>${d.images.length?`<p class="small">${d.images.length} photo${d.images.length===1?'':'s'} added.</p>`:''}`;
                 const pasteCount = d.mode === 'paste' ? parsePastedFlashcards(d.pasteText || '').length : 0;
                 const pasteBody = `${topicField}<p class="small" style="margin-bottom:8px">One card per line: <code>term - definition</code>, <code>term, definition</code>, or paste straight from a spreadsheet (tab-separated). Also works with lines copied from Quizlet's own export.</p><textarea id="flashcard-paste-text" placeholder="Mitochondria - The powerhouse of the cell&#10;Photosynthesis - The process plants use to convert light into energy" style="min-height:180px">${escape(d.pasteText || '')}</textarea><p class="small" style="margin-top:8px">${pasteCount} card${pasteCount===1?'':'s'} detected</p>`;
-                const body = d.mode === 'manual' ? manualBody : d.mode === 'paste' ? pasteBody : imageBody;
+                const magicReviewRow = (item, i) => `<div class="topic-row" style="align-items:flex-start"><input type="checkbox" data-action="magic-review-toggle" data-index="${i}" ${item.include?'checked':''} style="margin-top:10px"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="magic-review-edit-front" data-index="${i}" value="${escape(item.front)}"><textarea data-action="magic-review-edit-back" data-index="${i}" style="min-height:52px">${escape(item.back)}</textarea></div></div>`;
+                const magicBody = d.magicResult ?
+                    `${d.magicResult.outline?`<div class="alert" style="white-space:pre-line;margin-bottom:10px;text-align:left"><strong>Summary / outline</strong><br>${escape(d.magicResult.outline)}</div>`:''}
+          <p class="small">Review the flashcards found — untick or edit anything wrong, then confirm.</p>
+          <div class="list" style="margin-top:10px">${d.magicResult.cards.length?d.magicResult.cards.map(magicReviewRow).join(''):'<p class="empty">Nothing usable was found in those notes.</p>'}</div>`
+                    : `${topicField}<p class="small" style="margin-bottom:8px">Paste your raw class notes — Sparky pulls out a short summary/outline and a set of flashcards in one go.</p><textarea id="flashcard-magic-notes" placeholder="Paste your notes here…" style="min-height:180px">${escape(d.notesText || '')}</textarea>`;
+                const body = d.mode === 'manual' ? manualBody : d.mode === 'paste' ? pasteBody : d.mode === 'magic' ? magicBody : imageBody;
                 let footer;
                 if (d.mode === 'manual') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-manual-save">Save flashcards</button>`;
                 else if (d.mode === 'paste') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-paste-save" ${pasteCount?'':'disabled'}>Import ${pasteCount||''} card${pasteCount===1?'':'s'}</button>`;
+                else if (d.mode === 'magic' && d.magicResult) footer = `<button type="button" class="button ghost" data-action="magic-review-cancel">Back</button><button type="button" class="button primary" data-action="magic-review-confirm">Add ticked cards</button>`;
+                else if (d.mode === 'magic') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-magic-extract" ${flashcardCreateLoading||!(d.notesText&&d.notesText.trim())?'disabled':''}>${flashcardCreateLoading?'Reading notes…':'✨ Generate with AI'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
                 else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?'Reading photos…':'Generate flashcards'}</button>`;
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
+
+            async function runMagicNotesExtract() { const d = flashcardCreateDraft; if (!d) return;
+                const topic = (d.topic || '').trim();
+                if (!topic) { toast('Enter a topic name.'); return; }
+                if (!d.notesText || !d.notesText.trim()) { toast('Paste your notes first.'); return; }
+                const s = subject(d.subjectId);
+                flashcardCreateLoading = true; renderModal();
+                try {
+                    const sys = `You convert a student's raw class notes for the subject "${s?.name||'this subject'}", topic "${topic}", into exam-ready study material, in one pass. Produce two things: (1) "outline" — a short plain-text summary of the topic, 3-8 short lines separated by newlines (no markdown, no bullet characters), capturing the key structure of the notes; (2) "cards" — flashcards for every distinct testable concept, written to the standard of an official exam marking scheme (precise terminology, not vague paraphrase) — split compound notes into multiple smaller cards rather than one huge card. Reply with ONLY compact JSON: {"outline": "...", "cards": [{"front":"...","back":"..."}, ...]}`;
+                    const result = await aiJsonOnce(sys, [{ text: d.notesText }]);
+                    const cards = (Array.isArray(result.cards) ? result.cards : []).filter(c => c && c.front && c.back)
+                        .map(c => ({ front: String(c.front).trim(), back: String(c.back).trim(), include: true }));
+                    if (!cards.length) toast("Couldn't find flashcard-worthy content in those notes.");
+                    d.magicResult = { outline: String(result.outline || '').trim(), cards };
+                } catch (err) { toast(err.message || 'Could not process those notes.'); }
+                flashcardCreateLoading = false; renderModal(); }
+
+            function confirmMagicNotes() { const d = flashcardCreateDraft; if (!d || !d.magicResult) return;
+                const chosen = d.magicResult.cards.filter(c => c.include && c.front.trim() && c.back.trim());
+                if (!chosen.length) { toast('Tick at least one card to add.'); return; }
+                const topic = d.topic.trim();
+                addFlashcardsToDeck(d.subjectId, topic, chosen);
+                toast(`Added ${chosen.length} flashcard${chosen.length===1?'':'s'} to "${topic}".`);
+                flashcardCreateDraft = null;
+                closeModal(); render(); }
+            function cancelMagicNotes() { if (flashcardCreateDraft) flashcardCreateDraft.magicResult = null; renderModal(); }
 
             function parsePastedFlashcards(text) { const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
                 const cards = [];
@@ -16507,7 +16542,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcards-back-to-topics') flashcardsBackToTopics();
                 else if (a === 'open-flashcard-create') openFlashcardCreateModal(b.dataset.subject, 'manual');
                 else if (a === 'open-flashcard-create-for-deck') { const deck = flashcardDeck(b.dataset.deck);
-                    if (deck) { flashcardCreateDraft = { mode: 'manual', subjectId: deck.subjectId, topic: deck.topic, cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '' };
+                    if (deck) { flashcardCreateDraft = { mode: 'manual', subjectId: deck.subjectId, topic: deck.topic, cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                         openModal('flashcard-create'); } }
                 else if (a === 'flashcard-create-mode') { if (flashcardCreateDraft) { flashcardCreateDraft.mode = b.dataset.mode; renderModal(); } }
                 else if (a === 'flashcard-manual-add-row') { flashcardCreateDraft?.cards.push({ front: '', back: '' }); renderModal(); }
@@ -16515,6 +16550,9 @@ If the user asks about how to study or study methods generally, answer from your
                         if (!d.cards.length) d.cards.push({ front: '', back: '' }); renderModal(); } }
                 else if (a === 'flashcard-manual-save') saveManualFlashcards();
                 else if (a === 'flashcard-paste-save') savePastedFlashcards();
+                else if (a === 'flashcard-magic-extract') runMagicNotesExtract();
+                else if (a === 'magic-review-cancel') cancelMagicNotes();
+                else if (a === 'magic-review-confirm') confirmMagicNotes();
                 else if (a === 'flashcard-pick-photos') document.getElementById('flashcard-image-file')?.click();
                 else if (a === 'flashcard-image-remove') { const d = flashcardCreateDraft; if (d) { d.images.splice(Number(b.dataset.index), 1); renderModal(); } }
                 else if (a === 'flashcard-extract') runFlashcardExtract();
@@ -16634,6 +16672,7 @@ If the user asks about how to study or study methods generally, answer from your
                         .then(imgs => { if (flashcardCreateDraft) { flashcardCreateDraft.images.push(...imgs); renderModal(); } })
                         .catch(err => toast(err.message || "Couldn't read one of those photos.")); }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-toggle') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].include = t.checked; }
+                else if (t.dataset && t.dataset.action === 'magic-review-toggle') { if (flashcardCreateDraft?.magicResult) flashcardCreateDraft.magicResult.cards[Number(t.dataset.index)].include = t.checked; }
                 else if (t.id === 'diagram-image-file') { const file = t.files?.[0]; t.value = ''; if (!file || !modal?.deckId) return;
                     fileToDataUrl(file).then(dataUrl => { const deck = flashcardDeck(modal.deckId); if (!deck) return;
                         if (!deck.diagram) deck.diagram = { imageDataUrl: null, points: [] };
@@ -16655,6 +16694,11 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-back') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].back = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-edit-front') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].front = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-edit-back') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].back = t.value; }
+                else if (t.dataset && t.dataset.action === 'magic-review-edit-front') { if (flashcardCreateDraft?.magicResult) flashcardCreateDraft.magicResult.cards[Number(t.dataset.index)].front = t.value; }
+                else if (t.dataset && t.dataset.action === 'magic-review-edit-back') { if (flashcardCreateDraft?.magicResult) flashcardCreateDraft.magicResult.cards[Number(t.dataset.index)].back = t.value; }
+                else if (t.id === 'flashcard-magic-notes') { if (!flashcardCreateDraft) return; const pos = t.selectionStart;
+                    flashcardCreateDraft.notesText = t.value; renderModal();
+                    const el = document.getElementById('flashcard-magic-notes'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } }
                 else if (t.id === 'translate-input') { const pos = t.selectionStart; translateInputText = t.value; scheduleTranslate();
                     render(); const el = document.getElementById('translate-input'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } }
                 else if (t.id === 'flashcard-paste-text') { if (!flashcardCreateDraft) return; const pos = t.selectionStart;
