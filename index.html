@@ -6225,8 +6225,11 @@
             let flashcardCreateLoading = false; // true while the image-extraction AI call is in flight
             let flashcardStudySession = null; // active click-through/smart-test/mcq-test/match/gravity/cloze/tf/listening/srs-review session — see startFlashcard*
             let gravityTimeoutId = null; // single in-flight per-word timer for the Gravity typing game (cleared on submit/exit)
-            let sparkySetChatOpen = false; // whether the "Ask about this set" mini Q&A panel is open during a flashcard session
+            let sparkySetChatDeckId = null; // which deck the "Ask Sparky about this set" modal is scoped to
+            let sparkySetChatHistory = []; // [{role:'user'|'assistant', text}] for the open modal, reset each time it opens
             let sparkySetChatLoading = false;
+            let sparkyWhyLoading = null; // "front|back" key of the card currently getting an on-demand explanation
+            let sparkyWhyAnswers = {}; // { "front|back": explanation text } — cached per card so re-asking is free
 
             // ---- Translate tool UI state — lives inside Tools (toolsActiveTool === 'translate'), a
             // simple two-pane translator, all transient (not worth syncing to the cloud).
@@ -10578,7 +10581,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
                 if (!deck) { flashcardsSelectedDeckId = null; const s = subject(selectedSubjectId); return s ? renderFlashcardTopicsFor(s) : ''; }
                 const cardRow = (c) => `<div class="topic-row"><div><strong>${escape(c.front)}${c.known?' ⭐':''}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost danger" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete">🗑</button></div>`;
-                const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck);
+                const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck), weakCount = weakCardsForDeck(deck).length;
                 return `<button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← Topics</button>
         <h2 style="margin-bottom:4px">${escape(deck.topic)}</h2>
         <p class="small" style="margin-bottom:14px">${deck.cards.length} card${deck.cards.length===1?'':'s'} · Memory score ${score}%${dueCount?` · <strong>${dueCount} due for review</strong>`:''}</p>
@@ -10587,9 +10590,11 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             <button type="button" class="button" data-action="flashcard-start-clickthrough" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>👀 Click Through</button>
             <button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>🧠 Test</button>
             ${dueCount?`<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>`:''}
+            ${weakCount?`<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>`:''}
             <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add more cards</button>
             <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram&&deck.diagram.points.length?'🖼 Edit Diagram':'🖼 Add Diagram'}</button>
             <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
+            <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">💬 Ask Sparky</button>
             <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete topic</button>
           </div>
           ${(() => { const folders = foldersFor(deck.subjectId); if (!folders.length) return '';
@@ -10799,7 +10804,10 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             function renderMcqTestSession(sess) { const deck = flashcardDeck(sess.deckId);
                 if (sess.phase === 'generating') return `<div class="flashcard-stage">${header('Multiple Choice Test', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<p class="empty">Generating a tricky set of options for the whole deck…</p></div>`;
                 if (sess.phase === 'results') { const total = sess.questions.length, missed = sess.questions.filter(q => q.selected !== q.back);
-                    const row = (q) => `<div class="flashcard-verdict-row"><span class="pill bad">Missed</span><div><strong>${escape(q.front)}</strong><div class="small" style="margin-top:2px">Correct: ${escape(q.back)}</div></div></div>`;
+                    const row = (q) => { const key = `${q.front}|${q.back}`, explanation = sparkyWhyAnswers[key];
+                        return `<div class="flashcard-verdict-row"><span class="pill bad">Missed</span><div style="flex:1"><strong>${escape(q.front)}</strong><div class="small" style="margin-top:2px">Correct: ${escape(q.back)}</div>
+        ${explanation?`<div class="alert" style="margin-top:6px;font-size:12px">💡 ${escape(explanation)}</div>`:`<button type="button" class="button ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-action="ask-sparky-why" data-front="${escape(q.front)}" data-back="${escape(q.back)}" data-topic="${escape(deck?deck.topic:'')}" ${sparkyWhyLoading===key?'disabled':''}>${sparkyWhyLoading===key?'Thinking…':'❓ Why?'}</button>`}
+        </div></div>`; };
                     return `<div class="flashcard-stage">
         ${header('Results', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <div class="flashcard-face" style="cursor:default"><span>${sess.score} / ${total} correct</span></div>
@@ -11031,6 +11039,16 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 const due = dueCardsForDeck(deck); if (!due.length) { toast('No cards due for review right now — nice work.'); return; }
                 flashcardStudySession = { mode: 'srs-review', deckId, queue: shuffle(due).map(c => ({ id: c.id })), index: 0, flipped: false };
                 render(); }
+
+            // ---- Flashcards: weak-topic detector — entirely derived from existing per-card SRS data
+            // (low ease / short interval despite repeated reviews is a direct proxy for "keeps getting
+            // this wrong"), so this costs zero AI calls. Reuses the srs-review session/UI verbatim —
+            // "weak cards" is just a different queue into the same review flow.
+            function weakCardsForDeck(deck) { return deck.cards.filter(c => c.srs && c.srs.reps > 0 && (c.srs.ease <= 1.6 || c.srs.interval <= 1)); }
+            function startFlashcardWeakReview(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
+                const weak = weakCardsForDeck(deck); if (!weak.length) { toast('No weak cards right now — nice work.'); return; }
+                flashcardStudySession = { mode: 'srs-review', deckId, queue: shuffle(weak).map(c => ({ id: c.id })), index: 0, flipped: false };
+                render(); }
             function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId);
                 while (sess.index < sess.queue.length && !deck.cards.find(c => c.id === sess.queue[sess.index].id)) sess.index++;
                 if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header('Review — Done', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<div class="alert success">All due cards reviewed.</div><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
@@ -11122,6 +11140,47 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     toast(`Imported "${data.topic}" (${cards.length} card${cards.length===1?'':'s'}) from ${data.owner_name || 'a classmate'}.`);
                     render();
                 } catch (err) { toast(err.message || 'Could not import that set.'); } }
+
+            // ---- Flashcards: "Ask Sparky about this set" — a Q-Chat equivalent scoped to one deck.
+            // Deliberately reuses the lightweight single-shot aiTextOnce (same choke point as Smart
+            // Test/MCQ-gen), NOT Sparky's full multi-turn tool-calling loop (callGemini/processUserPrompt)
+            // — a scoped Q&A over a fixed set of flashcards has no need for function-calling, and each
+            // question this way costs exactly one API call, with recent turns passed as plain text
+            // context instead of a growing conversation array re-sent every message.
+            function openSparkySetChat(deckId) { sparkySetChatDeckId = deckId; sparkySetChatHistory = []; openModal('flashcard-set-chat', { deckId }); }
+            async function sendSparkySetChatMessage(question) { const deck = flashcardDeck(sparkySetChatDeckId);
+                if (!deck || !question.trim() || sparkySetChatLoading) return;
+                sparkySetChatHistory.push({ role: 'user', text: question.trim() });
+                sparkySetChatLoading = true; renderModal();
+                try {
+                    const cardsText = deck.cards.map(c => `${c.front}: ${c.back}`).join('\n');
+                    const historyText = sparkySetChatHistory.slice(0, -1).slice(-4).map(m => `${m.role === 'user' ? 'Student' : 'Sparky'}: ${m.text}`).join('\n');
+                    const sys = `You are Sparky, a friendly study tutor. A student is studying this flashcard set${deck.topic?` ("${deck.topic}")`:''}:\n${cardsText}\n\nAnswer only using this material and closely related general knowledge — if asked something unrelated, gently steer back to this topic. Keep answers short (2-4 sentences) and encouraging.${historyText?`\n\nRecent conversation:\n${historyText}`:''}`;
+                    const answer = await aiTextOnce(sys, [{ text: question.trim() }]);
+                    sparkySetChatHistory.push({ role: 'assistant', text: answer.trim() });
+                } catch (err) { sparkySetChatHistory.push({ role: 'assistant', text: `Sorry, I couldn't answer that — ${err.message || 'try again.'}` }); }
+                sparkySetChatLoading = false; renderModal(); }
+            function sparkySetChatModal(deckId) { const deck = flashcardDeck(deckId);
+                if (!deck) return modalShell('Ask Sparky', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
+                const msg = (m) => `<div class="topic-row" style="${m.role==='user'?'background:var(--primary-soft)':''}"><div><strong>${m.role==='user'?'You':'Sparky'}:</strong> ${escape(m.text)}</div></div>`;
+                return modalShell(`Ask Sparky: ${escape(deck.topic)}`,
+                    `<p class="small" style="margin-bottom:10px">Ask about anything in this set — Sparky only uses these flashcards and closely related context.</p>
+          <div class="list" style="max-height:280px;overflow-y:auto">${sparkySetChatHistory.length?sparkySetChatHistory.map(msg).join(''):'<p class="empty">Ask a question below to get started.</p>'}${sparkySetChatLoading?'<p class="small">Sparky is thinking…</p>':''}</div>
+          <div class="row" style="margin-top:10px;gap:8px"><input type="text" id="sparky-set-chat-input" placeholder="Ask a question…" style="flex:1" ${sparkySetChatLoading?'disabled':''}><button type="button" class="button primary" data-action="sparky-set-chat-send" ${sparkySetChatLoading?'disabled':''}>Send</button></div>`,
+                    `<button type="button" class="button ghost" data-action="close-modal">Close</button>`, true); }
+
+            // ---- Flashcards: "Ask Sparky why" — an on-demand, per-card explanation offered only after a
+            // wrong answer (never automatic), one aiTextOnce call per unique card, cached in
+            // sparkyWhyAnswers so re-showing the same missed card never re-asks.
+            async function askSparkyWhy(front, back, topic) { const key = `${front}|${back}`;
+                if (sparkyWhyLoading || sparkyWhyAnswers[key]) return;
+                sparkyWhyLoading = key; render();
+                try {
+                    const sys = `You are Sparky, a friendly study tutor. A student got this flashcard wrong while studying${topic?` "${topic}"`:''}. Term: "${front}". Correct definition: "${back}". In 2-3 short, encouraging sentences, explain the concept simply and give a memory trick to help it stick.`;
+                    const answer = await aiTextOnce(sys, [{ text: 'Explain this.' }]);
+                    sparkyWhyAnswers[key] = answer.trim();
+                } catch (err) { sparkyWhyAnswers[key] = "Couldn't get an explanation — try again."; }
+                sparkyWhyLoading = null; render(); }
 
             // ---- Flashcards: Exam Simulation (mixed True/False, cloze, and recall under one countdown
             // — deliberately no AI-generated MCQ here, so a whole timed mock exam costs zero API calls;
@@ -12486,6 +12545,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (
                     modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
                     modal.kind === 'flashcard-diagram-editor') return layer.innerHTML = diagramEditorModal(modal.deckId); if (
+                    modal.kind === 'flashcard-set-chat') return layer.innerHTML = sparkySetChatModal(modal.deckId); if (
                     modal.kind === 'duplicate-classes') return layer.innerHTML = dupClassesModal(); }
 
             function dupClassesModal() { const groups = duplicateClassGroups(); if (!dupClassKeep) dupClassKeep = {};
@@ -16488,6 +16548,7 @@ If the user asks about how to study or study methods generally, answer from your
                     if (card) speakText(s.flipped ? card.back : card.front); }
                 else if (a === 'flashcard-toggle-known') toggleCardKnown(b.dataset.deck, b.dataset.card);
                 else if (a === 'flashcard-start-srs-review') startFlashcardSrsReview(b.dataset.deck);
+                else if (a === 'flashcard-start-weak-review') startFlashcardWeakReview(b.dataset.deck);
                 else if (a === 'flashcard-srs-grade') { const s = flashcardStudySession; if (!s || s.mode !== 'srs-review') return;
                     const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === s.queue[s.index].id);
                     if (card) scheduleCardReview(card, b.dataset.grade);
@@ -16559,6 +16620,9 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'delete-flashcard-folder') { if (confirm('Delete this folder? Decks inside it are not deleted.')) deleteFlashcardFolder(b.dataset.folder); }
                 else if (a === 'share-flashcard-deck') shareFlashcardDeck(b.dataset.deck);
                 else if (a === 'import-shared-set') importSharedFlashcardSet();
+                else if (a === 'open-sparky-set-chat') openSparkySetChat(b.dataset.deck);
+                else if (a === 'sparky-set-chat-send') { const val = document.getElementById('sparky-set-chat-input')?.value || ''; sendSparkySetChatMessage(val); }
+                else if (a === 'ask-sparky-why') askSparkyWhy(b.dataset.front, b.dataset.back, b.dataset.topic);
                 else if (a === 'translate-swap') translateSwap();
                 else if (a === 'translate-clear') { translateInputText = ''; translateOutputText = ''; translateError = ''; render(); }
                 else if (a === 'translate-copy') translateCopy(); });
@@ -16582,7 +16646,8 @@ If the user asks about how to study or study methods generally, answer from your
                 if (e.target.id === 'flashcard-gravity-answer') { e.preventDefault(); submitGravityAnswer(); }
                 else if (e.target.id === 'flashcard-cloze-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-cloze-check"]')?.click(); }
                 else if (e.target.id === 'flashcard-diagram-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-diagram-check"]')?.click(); }
-                else if (e.target.id === 'flashcard-examsim-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-examsim-check"]')?.click(); } });
+                else if (e.target.id === 'flashcard-examsim-answer') { e.preventDefault(); document.querySelector('[data-action="flashcard-examsim-check"]')?.click(); }
+                else if (e.target.id === 'sparky-set-chat-input') { e.preventDefault(); document.querySelector('[data-action="sparky-set-chat-send"]')?.click(); } });
 
             document.addEventListener('input', e => { const t = e.target;
                 if (t.id === 'flashcard-create-topic') { if (flashcardCreateDraft) flashcardCreateDraft.topic = t.value; }
