@@ -3846,10 +3846,53 @@
             align-self: flex-end;
             background: var(--primary-soft);
         }
+        .chat-message.mentions-me {
+            box-shadow: 0 0 0 2px var(--primary);
+        }
         .chat-message .chat-message-meta {
             font-size: 11px;
             color: var(--muted);
             margin-bottom: 2px;
+        }
+        .chat-mention {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        .chat-mention-me {
+            background: var(--primary-soft);
+            border-radius: 4px;
+            padding: 0 3px;
+        }
+        .chat-composer-wrap {
+            position: relative;
+        }
+        .chat-mention-dropdown {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            margin-bottom: 6px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            overflow: hidden;
+            z-index: 5;
+        }
+        .chat-mention-option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            border-radius: 0;
+            font: inherit;
+            color: inherit;
+            cursor: pointer;
+        }
+        .chat-mention-option:hover, .chat-mention-option:focus {
+            background: var(--surface-2);
         }
         .chat-composer {
             display: flex;
@@ -4004,6 +4047,9 @@
     <div id="study-mode-pip" class="hidden"></div>
     <div id="spotify-widget" class="hidden"></div>
     <div id="print-area"></div>
+    <!-- Lives outside #app (never rebuilt by render()) so the file it's mid-picking
+         survives the chat room's 4s poll re-render -- see chatAttachImage/chatImageFileChanged. -->
+    <input type="file" id="chat-image-input" accept="image/*" class="hidden">
 
     <!-- AI Assistant UI -->
     <div id="ai-chat-widget">
@@ -4178,6 +4224,12 @@
             let chatDmSearchResults = null;
             let chatDmSearchBusy = false;
             let chatDmSearchTimer = null;
+            // @mention autocomplete: chatMentionQuery is the text typed after "@" (null when not
+            // actively tagging someone), chatMentionStart is the index of that "@" in the composer's
+            // value, used to splice the picked name back in. Only ever active in rooms whose member
+            // list is loaded (chatMembers) -- the "Everyone" room and DMs have no client-side roster.
+            let chatMentionQuery = null;
+            let chatMentionStart = null;
 
             // ------------------------------------------------------------------
             // Unread tracking + notifications. chatLastSeen (roomId -> last-seen
@@ -4247,6 +4299,7 @@
                 chatActiveRoomId = roomId;
                 chatActiveRoom = (chatRooms || []).find(r => r.id === roomId) || null;
                 chatMessages = null; chatMembers = null; chatRoomTab = 'chat'; chatLeaderboardStats = null;
+                chatMentionQuery = null; chatMentionStart = null;
                 if (chatUnread[roomId]) { delete chatUnread[roomId]; }
                 render();
                 await Promise.all([chatLoadMessages(), chatLoadMembers()]);
@@ -4350,10 +4403,12 @@
             // own Notification permission, and this app's separate chatNotificationsEnabled setting.
             function chatNotifyNewMessage(roomId, m) {
                 const room = (chatRooms || []).find(r => r.id === roomId);
-                const title = room ? chatRoomDisplayName(room) : m.author_name;
-                const preview = m.body ? (m.body.length > 120 ? m.body.slice(0, 117) + '…' : m.body) :
+                const mentioned = chatMessageMentionsMe(m.body);
+                const title = (room ? chatRoomDisplayName(room) : m.author_name) + (mentioned ? ' — you were mentioned' : '');
+                const rawPreview = m.body ? (m.body.length > 120 ? m.body.slice(0, 117) + '…' : m.body) :
                     (m.image_path ? '📷 Sent an image' : 'New message');
-                toast(`💬 ${m.author_name}: ${preview}`);
+                const preview = rawPreview.replace(/@\[([^\[\]<>]{1,60})\]/g, '@$1'); // strip mention markup for plain-text display
+                toast(`${mentioned ? '📣 Mentioned you — ' : '💬 '}${m.author_name}: ${preview}`);
                 if (state.settings.chatNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
                     try {
                         const notif = new Notification(title || 'Simple Study', { body: `${m.author_name}: ${preview}`, icon: MASCOT_ICON_IMG });
@@ -4413,11 +4468,92 @@
                 return `<p class="small" style="margin-bottom:10px">Ranked by memory points, earned by studying flashcards. Only visible to people you share this room with.</p><div class="list">${rows.map(row).join('')}</div>`;
             }
 
+            // ------------------------------------------------------------------
+            // @mentions. Stored inline in the message body as "@[Full Name]" --
+            // no schema change, just a text convention this app both writes (via
+            // the composer's autocomplete) and reads back (chatFormatMessageBody,
+            // chatMessageMentionsMe) -- so a mention always names one exact member,
+            // never ambiguous with the words around it the way bare "@Ann Marie"
+            // would be against a plain-text search.
+            // ------------------------------------------------------------------
+            function chatMyDisplayName() {
+                if (!currentUser) return '';
+                const full = `${state.settings.firstName || ''} ${state.settings.lastName || ''}`.trim();
+                return full || (currentUser.email || '').split('@')[0] || '';
+            }
+
+            function chatMentionMatchList() {
+                if (chatMentionQuery === null || !chatMembers || !currentUser) return [];
+                const q = chatMentionQuery.trim().toLowerCase();
+                return chatMembers.filter(m => m.user_id !== currentUser.id &&
+                    (!q || m.member_name.toLowerCase().includes(q))).slice(0, 6);
+            }
+
+            function chatMentionDropdownHtml() {
+                const matches = chatMentionMatchList();
+                if (!matches.length) return '';
+                return `<div class="chat-mention-dropdown">${matches.map(m =>
+                    `<button type="button" class="chat-mention-option" data-action="chat-pick-mention" data-name="${escape(m.member_name)}">👤 ${escape(m.member_name)}</button>`).join('')}</div>`;
+            }
+
+            // Fires on every keystroke in the composer (see the delegated 'input' listener below) --
+            // only actually re-renders when whether/what we're tagging changes, so ordinary typing
+            // doesn't pay for a full #app rebuild per character.
+            function chatComposerInputChanged(el) {
+                const pos = el.selectionStart;
+                const uptoCursor = el.value.slice(0, pos);
+                const m = uptoCursor.match(/(?:^|\s)@([\w'-]{0,40})$/);
+                const nextQuery = (m && chatMembers && chatMembers.length) ? m[1] : null;
+                const nextStart = nextQuery !== null ? pos - nextQuery.length - 1 : null;
+                if (nextQuery === chatMentionQuery && nextStart === chatMentionStart) return;
+                chatMentionQuery = nextQuery; chatMentionStart = nextStart;
+                render();
+            }
+
+            // Splices the picked name in as "@[Name] " and sets the input's value/cursor BEFORE
+            // calling render() -- render()'s chat-draft-preserving logic (see its top) captures
+            // whatever's currently in the DOM and reapplies it after the rebuild, so setting both
+            // here is enough to land the cursor right after the inserted mention.
+            function chatPickMention(name) {
+                const input = document.getElementById('chat-message-input');
+                if (!input || chatMentionStart === null) return;
+                const val = input.value;
+                const queryLen = (chatMentionQuery || '').length;
+                const before = val.slice(0, chatMentionStart);
+                const after = val.slice(chatMentionStart + 1 + queryLen);
+                const inserted = `@[${name}] `;
+                const pos = (before + inserted).length;
+                chatMentionQuery = null; chatMentionStart = null;
+                input.value = before + inserted + after;
+                input.focus();
+                try { input.setSelectionRange(pos, pos); } catch (err) {}
+                render();
+            }
+
+            function chatMessageMentionsMe(body) {
+                if (!body || !currentUser) return false;
+                const myName = chatMyDisplayName().toLowerCase();
+                if (!myName) return false;
+                const re = /@\[([^\[\]<>]{1,60})\]/g;
+                let mm;
+                while ((mm = re.exec(body))) { if (mm[1].trim().toLowerCase() === myName) return true; }
+                return false;
+            }
+
+            function chatFormatMessageBody(body) {
+                const myName = chatMyDisplayName().toLowerCase();
+                return escape(body).replace(/@\[([^\[\]<>]{1,60})\]/g, (full, name) => {
+                    const mine = !!myName && name.trim().toLowerCase() === myName;
+                    return `<span class="chat-mention${mine ? ' chat-mention-me' : ''}">@${name}</span>`;
+                });
+            }
+
             async function chatSendMessage() {
                 const input = document.getElementById('chat-message-input');
                 const body = (input?.value || '').trim();
                 if (!body || !chatActiveRoomId) return;
                 if (input) input.value = '';
+                chatMentionQuery = null; chatMentionStart = null;
                 const { error } = await supabaseClient.from('chat_messages')
                     .insert({ room_id: chatActiveRoomId, body });
                 if (error) { toast(error.message || 'Could not send message.'); if (input) input.value = body; return; }
@@ -4454,6 +4590,7 @@
                         .insert({ room_id: chatActiveRoomId, body: caption || null, image_path: path });
                     if (insertError) throw insertError;
                     if (input) input.value = '';
+                    chatMentionQuery = null; chatMentionStart = null;
                     await chatLoadMessages();
                     const thread = document.getElementById('chat-thread');
                     if (thread) thread.scrollTop = thread.scrollHeight;
@@ -7714,7 +7851,7 @@
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">${sidebarIcon('star')}</span><span class="brand-label">Simple Study</span></div><nav class="nav">
         ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
-      </nav><div class="sidebar-footer"><button data-action="open-search" aria-label="Search">${sidebarIcon('search')} <span>Search</span></button><button data-action="open-settings" aria-label="Settings">${sidebarIcon('settings')} <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${content}</main></div>`;
+      </nav><div class="sidebar-footer"><button data-action="open-search" aria-label="Search">${sidebarIcon('search')} <span>Search</span></button><button data-action="open-settings" aria-label="Settings">${sidebarIcon('settings')} <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${chatNotifyBannerHtml()}${content}</main></div>`;
             }
 
             // Whether a given announcement id has already been shown/dismissed on this
@@ -12626,15 +12763,13 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
 
             function modalShell(title, body, foot = '', large = false, noClose = false) { return `<div class="modal ${large?'large':''}" role="dialog" aria-modal="true" aria-label="${escape(title)}"><div class="modal-head"><h2>${title}</h2>${noClose?'':'<button class="button icon" data-action="close-modal" aria-label="Close">×</button>'}</div><div class="modal-body">${body}</div>${foot?`<div class="modal-foot">${foot}</div>`:''}</div>`; }
 
+            // Shown app-wide (via appFrame, not just the Chat page) so anyone who opens the site while
+            // signed in gets a chance to turn desktop notifications on, not only people who happen to
+            // click into Chat. Session-only dismissal (chatNotifyBannerDismissed): declining "for now"
+            // shouldn't permanently hide it if they change their mind on a later visit.
             function chatNotifyBannerHtml() {
                 if (!currentUser || !('Notification' in window) || Notification.permission !== 'default' || chatNotifyBannerDismissed) return '';
-                return `<div class="chat-invite-card">
-                    <div><strong>Get notified of new messages</strong><br><span class="small">Turn on desktop notifications so you don't miss a DM or room message while Simple Study isn't the active tab.</span></div>
-                    <div class="row" style="gap:8px">
-                        <button class="button primary" data-action="chat-enable-notifications">Enable</button>
-                        <button class="button ghost" data-action="chat-dismiss-notify-banner">Not now</button>
-                    </div>
-                </div>`;
+                return `<div class="settings-row" style="margin:14px var(--main-px) 0"><div><strong>Get notified of new messages</strong><span class="small">Turn on desktop notifications so you don't miss a DM, room message, or @mention while Simple Study isn't the active tab.</span></div><div class="row" style="gap:8px"><button class="button primary" data-action="chat-enable-notifications">Enable</button><button class="button ghost" data-action="chat-dismiss-notify-banner">Not now</button></div></div>`;
             }
 
             function renderChatRoomsPage() {
@@ -12647,7 +12782,6 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 return appFrame(`<div class="page">${header('Chat', "Message a friend directly, or chat with everyone in a room.",
                     chatActiveRoomId ? '' : `<button class="button primary" data-action="chat-new-room">+ New room</button>`)}
                     ${errorHtml}
-                    ${chatActiveRoomId ? '' : chatNotifyBannerHtml()}
                     ${body}</div>`);
             }
 
@@ -12726,19 +12860,21 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             function renderChatRoomChatTab() {
                 const messagesHtml = !chatMessages ? '<p class="empty">Loading messages…</p>' :
                     !chatMessages.length ? '<p class="empty">No messages yet — say hello.</p>' :
-                    chatMessages.map(m => `<div class="chat-message${currentUser && m.user_id === currentUser.id ? ' mine' : ''}">
+                    chatMessages.map(m => `<div class="chat-message${currentUser && m.user_id === currentUser.id ? ' mine' : ''}${chatMessageMentionsMe(m.body) ? ' mentions-me' : ''}">
                         <div class="chat-message-meta">${escape(m.author_name)} · ${chatFmtTime(m.created_at)}</div>
                         ${m.image_path ? chatMessageImageHtml(m) : ''}
-                        ${m.body ? `<div${m.image_path?' style="margin-top:6px"':''}>${escape(m.body)}</div>` : ''}
+                        ${m.body ? `<div${m.image_path?' style="margin-top:6px"':''}>${chatFormatMessageBody(m.body)}</div>` : ''}
                     </div>`).join('');
 
                 return `<div class="chat-thread" id="chat-thread">${messagesHtml}</div>
                     ${chatImageUploadBusy ? '<p class="small">Sending image…</p>' : ''}
-                    <div class="chat-composer">
-                        <button class="button icon" data-action="chat-attach-image" title="Attach an image" ${chatImageUploadBusy?'disabled':''}>📎</button>
-                        <input type="file" id="chat-image-input" accept="image/*" class="hidden">
-                        <input type="text" id="chat-message-input" placeholder="Message…" maxlength="4000">
-                        <button class="button primary" data-action="chat-send-message" ${chatImageUploadBusy?'disabled':''}>Send</button>
+                    <div class="chat-composer-wrap">
+                        ${chatMentionDropdownHtml()}
+                        <div class="chat-composer">
+                            <button class="button icon" data-action="chat-attach-image" title="Attach an image" ${chatImageUploadBusy?'disabled':''}>📎</button>
+                            <input type="text" id="chat-message-input" placeholder="Message… (@ to mention someone)" maxlength="4000">
+                            <button class="button primary" data-action="chat-send-message" ${chatImageUploadBusy?'disabled':''}>Send</button>
+                        </div>
                     </div>`;
             }
 
@@ -16519,25 +16655,31 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'chat-new-dm') chatOpenNewDmModal();
                 else if (a === 'chat-start-dm') chatStartDm(b.dataset.id);
                 else if (a === 'chat-enable-notifications') chatRequestDesktopNotifications();
-                else if (a === 'chat-dismiss-notify-banner') chatDismissNotifyBanner(); });
+                else if (a === 'chat-dismiss-notify-banner') chatDismissNotifyBanner();
+                else if (a === 'chat-pick-mention') chatPickMention(b.dataset.name); });
 
-            document.addEventListener('keydown', e => { if (e.target && e.target.id === 'chat-message-input' &&
-                    e.key === 'Enter') chatSendMessage();
+            document.addEventListener('keydown', e => { if (e.target && e.target.id === 'chat-message-input') {
+                    const matches = chatMentionMatchList();
+                    if ((e.key === 'Enter' || e.key === 'Tab') && matches.length) { e.preventDefault(); chatPickMention(matches[0].member_name); }
+                    else if (e.key === 'Escape' && chatMentionQuery !== null) { chatMentionQuery = null; chatMentionStart = null; render(); }
+                    else if (e.key === 'Enter') chatSendMessage(); }
                 else if (e.target && e.target.id === 'chat-new-room-name' && e.key === 'Enter') chatCreateRoom(); });
 
-            // The chat image input lives inside dynamically re-rendered room HTML
-            // (replaced on every render()), so a directly-attached listener like
-            // ai-chat-file's would stop working after the first re-render -- this
-            // delegates on document instead, same as the admin-user-filter/
-            // chat-invite-search 'input' listeners below.
-            document.addEventListener('change', e => { if (e.target.id === 'chat-image-input') {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (file) chatImageFileChanged(file); } });
+            // chat-image-input is a persistent element declared once outside #app (see near
+            // print-area), so a directly-attached listener works fine here -- same as ai-chat-file's.
+            // (It used to live inside the dynamically re-rendered room HTML and get replaced by the
+            // in-room 4s poll mid-pick, which silently ate the file the user had just chosen.)
+            const chatImageInput = document.getElementById('chat-image-input');
+            chatImageInput.addEventListener('change', () => {
+                const file = chatImageInput.files?.[0];
+                chatImageInput.value = '';
+                if (file) chatImageFileChanged(file);
+            });
 
             document.addEventListener('input', e => { if (e.target.id === 'chat-invite-search')
                     chatInviteSearchInput(e.target.value);
-                else if (e.target.id === 'chat-dm-search') chatDmSearchInput(e.target.value); });
+                else if (e.target.id === 'chat-dm-search') chatDmSearchInput(e.target.value);
+                else if (e.target.id === 'chat-message-input') chatComposerInputChanged(e.target); });
 
             // ---- Flashcards & Translate click actions — another self-contained delegated listener,
             // same reasoning as the Word Bank one above.
