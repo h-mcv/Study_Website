@@ -24,6 +24,12 @@
 // valid JWT (role "anon"), so we additionally call auth.getUser() below to
 // make sure the caller is an actually signed-in user, not just holding the
 // public anon key.
+//
+// A per-user daily request cap (DAILY_REQUEST_LIMIT below) backstops the size cap further down:
+// the size cap alone doesn't stop a script from firing many small requests to burn through the
+// shared Gemini/Groq/OpenRouter quota. The counter lives in ai_usage_daily (see migration 0018),
+// touched only through the service-role client below, so a caller can't reset or inflate its own
+// count -- it can only ever go up, once per request, from the server side.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -32,6 +38,10 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+// Generous on purpose -- a normal study session, even a heavy one with lots of multi-step tool
+// calls, comes nowhere near this. It exists to stop sustained scripted abuse, not to meter real use.
+const DAILY_REQUEST_LIMIT = 500;
 
 const GEMINI_MODEL_TEXT = "gemini-3.5-flash-lite";
 const GEMINI_MODEL_TEXT_FALLBACK = "gemini-3.1-flash-lite";
@@ -54,12 +64,22 @@ Deno.serve(async (req) => {
     const { data: { user } } = await authClient.auth.getUser();
     if (!user) return jsonResponse({ error: "Sign in with Google to use the AI Study Assistant." }, 401);
 
+    // Atomic per-user daily counter -- see DAILY_REQUEST_LIMIT above. Uses the service-role client
+    // (bypasses RLS; ai_usage_daily grants no access to `authenticated`/`anon` at all, see 0018) so
+    // this can never be reset or read by the caller themselves.
+    const db = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: usageCount, error: usageError } = await db.rpc("increment_ai_usage", { p_user_id: user.id });
+    if (!usageError && typeof usageCount === "number" && usageCount > DAILY_REQUEST_LIMIT) {
+      return jsonResponse({ error: "Daily AI usage limit reached. Try again tomorrow." }, 429);
+    }
+
     // Cheap guard against using this signed-in-only endpoint as a free, unmetered
     // relay to burn through the shared Gemini/Groq/OpenRouter quota (or run up
     // API cost) -- any signed-in account can otherwise send an arbitrarily large
-    // payload with no per-request limit. This is a size cap, not a rate limit;
-    // a determined abuser could still fire many small requests, which would need
-    // real per-user throttling (e.g. a request-count table) to stop.
+    // payload with no per-request limit. This is a size cap, not a rate limit.
     const rawBody = await req.text();
     if (rawBody.length > 200_000) return jsonResponse({ error: "Request too large." }, 413);
     const { contents, systemInstruction, tools, preferProvider } = JSON.parse(rawBody || "{}");

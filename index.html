@@ -4940,8 +4940,70 @@
                     await pushStateToCloud(true);
                     localStorage.setItem(STORE_USER_ID, currentUser.id);
                 }
+                await syncClosetFromServer();
                 cloudResolutionPending = false;
                 render();
+            }
+
+            // Coins/unlocks are server-authoritative once signed in (see migration 0017) -- re-synced
+            // from user_wallet/user_unlocks every time cloud state loads, overwriting whatever
+            // state.coins/unlockedExpressions/unlockedColors happened to already be in memory. Those
+            // fields are still written into the study_state blob by save() (so guest/local-only mode
+            // and the offline cache still work), but once signed in they're never trusted as-is --
+            // only this sync's result is.
+            async function syncClosetFromServer() {
+                if (!currentUser) return;
+                try {
+                    const [walletRes, unlocksRes] = await Promise.all([
+                        supabaseClient.from('user_wallet').select('coins').eq('user_id', currentUser.id).maybeSingle(),
+                        supabaseClient.from('user_unlocks').select('item_id').eq('user_id', currentUser.id)
+                    ]);
+                    if (walletRes.error) throw walletRes.error;
+                    if (unlocksRes.error) throw unlocksRes.error;
+                    state.coins = walletRes.data?.coins ?? 0;
+                    const unlockedIds = new Set((unlocksRes.data || []).map(u => u.item_id));
+                    state.unlockedExpressions = UNLOCKABLE_EXPRESSIONS.concat(SUBJECT_EXPRESSIONS)
+                        .map(x => x.id).filter(id => unlockedIds.has(id));
+                    state.unlockedColors = ['classic'].concat(COLOR_THEMES.filter(c => unlockedIds.has(c.id)).map(c => c.id));
+                } catch (err) { console.error('Closet sync failed:', err); }
+            }
+
+            // Coins are earned server-side once signed in: the client still reports minutes studied
+            // (like every other study-time field in this app, self-reported with no independent
+            // verification), but the coin AMOUNT and a daily cap are enforced by earn_study_coins()
+            // itself, never trusted as a client-computed total (see migration 0017). Guest/local-only
+            // mode has no server to defer to, so it keeps the old local arithmetic -- there's no
+            // shared backend to cheat when signed out. Returns the number of coins actually granted.
+            async function earnStudyCoins(minutes) {
+                if (!minutes || minutes <= 0) return 0;
+                if (!currentUser) { const coinsEarned = Math.round(minutes / 60 * COIN_RATE_PER_HOUR);
+                    state.coins = (state.coins || 0) + coinsEarned; return coinsEarned; }
+                const before = state.coins || 0;
+                try {
+                    const { data, error } = await supabaseClient.rpc('earn_study_coins', { p_minutes: minutes });
+                    if (error) throw error;
+                    if (typeof data === 'number') state.coins = data;
+                } catch (err) { console.error('Coin sync failed:', err); }
+                return Math.max(0, (state.coins || 0) - before);
+            }
+
+            // Closet purchases are an atomic server-side check-and-deduct against closet_catalog once
+            // signed in (see migration 0017) -- the caller here only updates state.coins/save()/render()
+            // on success; it never decides for itself that the purchase is affordable. Returns whether
+            // it succeeded; on failure it re-syncs from the server (covers a stale local cache, e.g. two
+            // tabs open) and shows why.
+            async function unlockClosetItem(itemId) {
+                try {
+                    const { data, error } = await supabaseClient.rpc('unlock_closet_item', { p_item_id: itemId });
+                    if (error) throw error;
+                    if (typeof data?.coins === 'number') state.coins = data.coins;
+                    return true;
+                } catch (err) {
+                    await syncClosetFromServer();
+                    render();
+                    toast(err?.message || "Couldn't unlock — try again.");
+                    return false;
+                }
             }
 
             // Debounced by default so rapid local edits (typing, drag-resizing events,
@@ -7674,7 +7736,7 @@
                     topic.nextReview = addDays(date, newInterval);
                     topic.label = norm; } return topic; }
 
-            function logStudyItem(date, blockEventId, blockSlotId, itemId, actualLabel) { const plan = state
+            async function logStudyItem(date, blockEventId, blockSlotId, itemId, actualLabel) { const plan = state
                 .studyPlans[date]; if (!plan) return;
                 const block = plan.blocks.find(b => b.blockEventId === blockEventId && b.blockSlotId ===
                     blockSlotId); if (!block) return;
@@ -7685,11 +7747,11 @@
                         item.classTopicId); if (ct) ct.lastStudied = date; } else recordStudyTopic(date, item
                     .subjectId, label);
                 const s = subject(item.subjectId); if (s) s.lastReview = date;
-                const coinsEarned = Math.round(item.minutes / 60 * COIN_RATE_PER_HOUR);
-                state.coins = (state.coins || 0) + coinsEarned;
                 activeLogItem = null;
                 save();
                 render();
+                const coinsEarned = await earnStudyCoins(item.minutes);
+                save();
                 toast(`Logged — scheduled for review later. +${coinsEarned} coin${coinsEarned===1?'':'s'} for Sparky's Closet!`); }
 
             function statusPill(task, cushionMap = cushions()) { if (task.done)
@@ -11749,7 +11811,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     `<button class="button primary" data-action="sm-save-log">Save</button>`,
                     true, true); }
 
-            function studyModeSaveLog() { const d = studyModeLogDraft; if (!d) { closeModal();
+            async function studyModeSaveLog() { const d = studyModeLogDraft; if (!d) { closeModal();
                     return; }
                 const today = localDate(); let itemCount = 0;
                 d.checkedTaskIds.forEach(id => { const t = state.tasks.find(x => x.id === id); if (t && !t.done) {
@@ -11759,8 +11821,6 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         .lastStudied = today;
                         itemCount++; } });
                 if (d.checkedTopicIds.size) invalidateFutureStudyPlans();
-                const coinsEarned = Math.round((d.taskMs || 0) / 3600000 * COIN_RATE_PER_HOUR); if (coinsEarned > 0)
-                    state.coins = (state.coins || 0) + coinsEarned;
                 if (itemCount || d.overallRating || d.taskMs) state.studySessionLog.push({ id: uid(), date: today,
                         overallRating: d.overallRating || null, itemCount, isSupervised: false,
                         durationMinutes: Math.round((d.taskMs || 0) / 60000) });
@@ -11768,6 +11828,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 save();
                 closeModal();
                 render();
+                const coinsEarned = await earnStudyCoins((d.taskMs || 0) / 60000);
+                save();
                 toast(coinsEarned > 0 ?
                     `Session saved. +${coinsEarned} coin${coinsEarned===1?'':'s'} for Sparky's Closet!` :
                     'Session saved.'); }
@@ -13853,16 +13915,21 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (tPhysicsMech) tPhysicsMech.lastStudied = addDays(wk, -5);
 
                 // Sparky's Closet — unlock everything so every expression and colour can actually be seen and
-                // tested, rather than needing to grind real study time first.
-                state.coins = 500;
-                state.unlockedExpressions = UNLOCKABLE_EXPRESSIONS.map(x => x.id).concat(SUBJECT_EXPRESSIONS.map(x =>
-                    x.id));
-                state.unlockedColors = COLOR_THEMES.map(x => x.id);
+                // tested, rather than needing to grind real study time first. Signed-in coins/unlocks are
+                // server-authoritative (see migration 0017) and get re-synced from there on the next cloud
+                // load, so faking them here would just silently revert; only fake them for guest/local-only
+                // mode and for the in-memory tour preview (demoModeActive), neither of which persists this
+                // to a server that could contradict it.
+                const closetCheat = !currentUser || demoModeActive;
+                if (closetCheat) { state.coins = 500;
+                    state.unlockedExpressions = UNLOCKABLE_EXPRESSIONS.map(x => x.id).concat(SUBJECT_EXPRESSIONS.map(x =>
+                        x.id));
+                    state.unlockedColors = COLOR_THEMES.map(x => x.id); }
 
                 save();
                 closeModal();
                 render();
-                toast('A full sample week was added — classes, meals, activities, study blocks, tasks, class topics, tests, exams with results, study history, and everything in Sparky\'s Closet is unlocked for testing. Edit or delete anything you don\'t need.'); }
+                toast(`A full sample week was added — classes, meals, activities, study blocks, tasks, class topics, tests, exams with results, study history${closetCheat ? ", and everything in Sparky's Closet is unlocked for testing" : ''}. Edit or delete anything you don't need.`); }
 
             // --------------------------------------------------------------------------
             // AI Chatbot Integration (generic tool-calling)
@@ -15762,15 +15829,30 @@ If the user asks about how to study or study methods generally, answer from your
                     .closetPreviewPose = b.dataset.pose;
                     save();
                     render(); } else if (a === 'closet-unlock-expression') { const item = UNLOCKABLE_EXPRESSIONS
-                    .find(x => x.id === b.dataset.id); if (!item || state.unlockedExpressions.includes(item.id) ||
-                        state.coins < item.cost) return; state.coins -= item.cost;
+                    .concat(SUBJECT_EXPRESSIONS).find(x => x.id === b.dataset.id); if (!item || state
+                        .unlockedExpressions.includes(item.id) || state.coins < item.cost) return;
+                    if (currentUser) { unlockClosetItem(item.id).then(ok => { if (!ok) return;
+                            state.unlockedExpressions.push(item.id);
+                            state.closetPreviewPose = item.pose;
+                            save();
+                            render();
+                            toast(`Unlocked "${item.label}"!`); }); return; }
+                    state.coins -= item.cost;
                     state.unlockedExpressions.push(item.id);
                     state.closetPreviewPose = item.pose;
                     save();
                     render();
                     toast(`Unlocked "${item.label}"!`); } else if (a === 'closet-unlock-color') { const theme =
                     COLOR_THEMES.find(x => x.id === b.dataset.id); if (!theme || state.unlockedColors.includes(theme
-                        .id) || state.coins < theme.cost) return; state.coins -= theme.cost;
+                        .id) || state.coins < theme.cost) return;
+                    if (currentUser) { unlockClosetItem(theme.id).then(ok => { if (!ok) return;
+                            state.unlockedColors.push(theme.id);
+                            state.equippedColor = theme.id;
+                            applyMascotColorTheme();
+                            save();
+                            render();
+                            toast(`Unlocked "${theme.label}"!`); }); return; }
+                    state.coins -= theme.cost;
                     state.unlockedColors.push(theme.id);
                     state.equippedColor = theme.id;
                     applyMascotColorTheme();
