@@ -6,7 +6,8 @@
     <meta name="theme-color" content="#2E63F6">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://eu.i.posthog.com https://eu-assets.i.posthog.com https://js-de.sentry-cdn.com https://sdk.scdn.co;
+        script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://eu.i.posthog.com https://eu-assets.i.posthog.com https://js-de.sentry-cdn.com https://sdk.scdn.co;
+        worker-src 'self' blob:;
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com https://rlwfxvnwekkyfslxltus.supabase.co;
         font-src 'self' data:;
@@ -4027,18 +4028,23 @@
         .exam-page-wrap.tool-text .exam-overlay, .exam-page-wrap.tool-checkbox .exam-overlay { cursor: copy; }
         .exam-box { position: absolute; }
         .exam-textbox { min-width: 110px; }
-        .exam-box-bar { display: flex; justify-content: space-between; align-items: center; background: var(--primary-soft); border-radius: 6px 6px 0 0; padding: 1px 3px; }
-        .exam-box-drag { cursor: grab; color: var(--primary); font-size: 12px; padding: 2px 5px; user-select: none; }
-        .exam-box-delete { border: none; background: none; color: var(--danger); font-size: 14px; line-height: 1; padding: 2px 6px; cursor: pointer; }
-        .exam-box-text { width: 100%; min-height: 40px; resize: vertical; border: 2px solid var(--primary); border-top: none; border-radius: 0 0 6px 6px; background: rgba(255,255,255,.94); font-family: inherit; font-size: 13px; padding: 6px 8px; box-sizing: border-box; color: #20202b; }
+        /* Controls float over the box's own top edge rather than sitting in a bar above it, so a
+           placed/detected box never pushes into -- or visually collides with -- whatever printed
+           content sits just above where it was positioned. Hidden until hovered/focused so a page
+           with many boxes (especially many auto-detected ones) doesn't look cluttered at rest. */
+        .exam-box-bar { position: absolute; top: -11px; left: 4px; right: 4px; z-index: 2; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0; transition: opacity .1s; }
+        .exam-textbox:hover .exam-box-bar, .exam-textbox:focus-within .exam-box-bar { opacity: 1; pointer-events: auto; }
+        .exam-box-drag { cursor: grab; color: #fff; background: var(--primary); border-radius: 5px; font-size: 11px; padding: 1px 5px; user-select: none; box-shadow: var(--shadow); }
+        .exam-box-delete { border: none; color: #fff; background: var(--danger); border-radius: 50%; width: 18px; height: 18px; line-height: 16px; text-align: center; font-size: 13px; padding: 0; cursor: pointer; box-shadow: var(--shadow); }
+        .exam-box-text { width: 100%; min-height: 40px; resize: vertical; border: 2px solid var(--primary); border-radius: 6px; background: rgba(255,255,255,.94); font-family: inherit; font-size: 13px; padding: 6px 8px; box-sizing: border-box; color: #20202b; }
         .exam-checkbox { width: 26px; height: 26px; }
-        .exam-checkbox .exam-box-delete { position: absolute; top: -10px; right: -10px; background: var(--surface); border-radius: 50%; box-shadow: var(--shadow); }
+        .exam-checkbox .exam-box-delete { position: absolute; top: -9px; right: -9px; opacity: 0; transition: opacity .1s; }
+        .exam-checkbox:hover .exam-box-delete, .exam-checkbox:focus-within .exam-box-delete { opacity: 1; }
         .exam-checkbox-mark { width: 100%; height: 100%; border: 2.5px solid var(--primary); border-radius: 5px; background: rgba(255,255,255,.85); cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .exam-checkbox.checked .exam-checkbox-mark { background: var(--primary); }
         .exam-checkbox.checked .exam-checkbox-mark::after { content: '✓'; color: #fff; font-weight: 900; font-size: 16px; }
         .exam-box.auto-detected .exam-checkbox-mark { border-style: dashed; }
         .exam-box.auto-detected .exam-box-text { border-style: dashed; background: rgba(255,255,255,.7); }
-        .exam-box.auto-detected .exam-box-bar { opacity: .75; }
         .exam-insert-blank-row { display: flex; justify-content: center; }
         .exam-insert-blank-row button { font-size: 12px; }
         .exam-remove-blank-page { position: absolute; top: 8px; right: 8px; font-size: 11px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--danger); cursor: pointer; }
@@ -4047,9 +4053,25 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script>
-        // Past Papers feature: renders locally-selected exam PDFs to <canvas> client-side.
-        // No PDF bytes are ever sent anywhere -- see the "Past Papers" section further down.
-        if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        // Past Papers feature: renders exam PDFs to <canvas> client-side. No PDF bytes are ever
+        // sent anywhere -- see the "Past Papers" section further down.
+        //
+        // Browsers block `new Worker(crossOriginUrl)` outright, and pdf.js's own fallback for
+        // that (fetch the script, run it from a blob: URL) doesn't always kick in reliably --
+        // measured degrading silently to pdf.js's single-threaded "fake worker" mode instead,
+        // which took 45+ seconds (or hung outright) rendering a single page of a real exam
+        // paper. Fetching the worker ourselves and pointing workerSrc at a blob: URL up front
+        // sidesteps the cross-origin restriction entirely, so pdf.js always gets a real worker.
+        (async () => {
+            if (!window.pdfjsLib) return;
+            const cdnUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+            try {
+                const code = await (await fetch(cdnUrl)).text();
+                pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+            } catch (e) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = cdnUrl; // better than nothing if the fetch itself failed
+            }
+        })();
     </script>
     <script>
         // The SDK below calls this itself the moment it finishes loading — often before our
@@ -6690,6 +6712,7 @@
             let examPaperSaveTimer = null;
             let examPaperSaveStatus = 'idle'; // 'idle' | 'saving' | 'saved' | 'error'
             let examPaperPageRefSize = null; // { width, height } of the first rendered pdf page, reused for blank pages
+            let examPaperNeedsDetection = false; // true while opening a paper with no saved answers yet -- runs auto-detection once rendering finishes
             let examArchiveDirHandle = null; // FileSystemDirectoryHandle, once connected this session
             let examArchiveFallbackFiles = null; // Map<relativePath, File> when using the webkitdirectory fallback
             let examArchiveStatus = 'unknown'; // 'unknown' | 'disconnected' | 'needs-permission' | 'connected' | 'unsupported'
@@ -6911,7 +6934,7 @@
                 const { fnArray, argsArray } = await page.getOperatorList();
                 let ctm = [1, 0, 0, 1, 0, 0];
                 const stack = [];
-                const squares = [], hSegs = [], vSegs = [];
+                const squares = [], hSegs = [], vSegs = [], cellRects = [];
                 const applyCtm = (x, y) => [ctm[0] * x + ctm[2] * y + ctm[4], ctm[1] * x + ctm[3] * y + ctm[5]];
                 const toDevice = (pt) => viewport.convertToViewportPoint(pt[0], pt[1]);
 
@@ -6929,6 +6952,12 @@
                     } else if (w >= 10 && w <= 55 && h >= 10 && h <= 55 && Math.abs(w - h) < Math.max(w, h) * 0.28) {
                         squares.push({ x: x0, y: y0, w, h });
                     }
+                    // Tables are often drawn as a grid of individual per-cell rectangles rather than
+                    // shared border strokes -- track every rectangle in this "cell-ish" size range
+                    // (too big to be a rule/tick-box, too small to be a whole answer area) so a later
+                    // pass can tell a real table apart from a genuine ruled writing block even when
+                    // there's no single long dividing line to detect.
+                    if (w >= 15 && h >= 12 && w <= 260 && h <= 60) cellRects.push({ x: x0, y: y0, w, h });
                 };
 
                 for (let i = 0; i < fnArray.length; i++) {
@@ -6954,7 +6983,7 @@
                         }
                     }
                 }
-                return { squares, hSegs, vSegs };
+                return { squares, hSegs, vSegs, cellRects };
             }
 
             // Groups consecutive ruled lines (consistent vertical spacing, overlapping horizontal
@@ -6976,7 +7005,7 @@
                 return out;
             }
 
-            function examPaperGroupRuledBands(hSegsRaw, vSegs, minWidth) {
+            function examPaperGroupRuledBands(hSegsRaw, vSegs, cellRects, minWidth) {
                 const lines = examPaperDedupeSegments(hSegsRaw).sort((a, b) => a.y - b.y);
                 const bands = [];
                 let cur = null;
@@ -6995,13 +7024,28 @@
                     cur = { lines: [line], firstY: line.y, lastY: line.y, x1: line.x1, x2: line.x2 };
                 }
                 if (cur) bands.push(cur);
-                return bands.map(b => {
-                    const rowGap = b.lines.length > 1 ? (b.lastY - b.firstY) / (b.lines.length - 1) : 22;
-                    return { x1: b.x1, x2: b.x2, yTop: b.firstY - rowGap * 0.85, yBottom: b.lastY + rowGap * 0.35 };
-                }).filter(band => {
-                    const crossingV = vSegs.filter(v => v.x > band.x1 + 2 && v.x < band.x2 - 2 && v.y1 < band.yBottom && v.y2 > band.yTop).length;
-                    return crossingV < 2 && (band.x2 - band.x1) > minWidth;
-                });
+                return bands
+                    // A lone line is usually just a header/instruction's own underline, not a ruled
+                    // writing block -- real writing space is (almost) always more than one line.
+                    .filter(b => b.lines.length >= 2)
+                    .map(b => {
+                        const rowGap = (b.lastY - b.firstY) / (b.lines.length - 1);
+                        // Pad down past the last line by about a third of a row (comfortable margin
+                        // before whatever comes next), but *not* up past the first line -- the first
+                        // detected line is very often a section header's own underline, and there's
+                        // no reliable way to tell "one more blank row above this" from "the header
+                        // text itself starts right above this" without reading the text. Erring
+                        // toward a slightly short box beats erring toward covering real content.
+                        return { x1: b.x1, x2: b.x2, yTop: b.firstY - 3, yBottom: b.lastY + rowGap * 0.35 };
+                    })
+                    .filter(band => {
+                        const crossingV = vSegs.filter(v => v.x > band.x1 + 2 && v.x < band.x2 - 2 && v.y1 < band.yBottom && v.y2 > band.yTop).length;
+                        // Tables are often drawn as a grid of individual per-cell rectangles with no
+                        // single shared border line long enough to register as a crossing vSeg --
+                        // catch those by counting cell-sized rectangles sitting inside the band too.
+                        const cellsInside = cellRects.filter(c => c.x >= band.x1 - 2 && c.x + c.w <= band.x2 + 2 && c.y >= band.yTop - 2 && c.y + c.h <= band.yBottom + 2).length;
+                        return crossingV < 2 && cellsInside < 4 && (band.x2 - band.x1) > minWidth;
+                    });
             }
 
             // Runs detection across every page and returns ready-to-use box objects, in the exact
@@ -7020,7 +7064,7 @@
                             fields.push({ id: uid(), type: 'checkbox', page: slotId,
                                 x: round2(sq.x / viewport.width * 100), y: round2(sq.y / viewport.height * 100), value: false, auto: true });
                         }
-                        const bands = examPaperGroupRuledBands(detected.hSegs, detected.vSegs, viewport.width * 0.15)
+                        const bands = examPaperGroupRuledBands(detected.hSegs, detected.vSegs, detected.cellRects, viewport.width * 0.15)
                             // A band sitting under a row of tick-boxes (e.g. the exam-number/date
                             // digit grid on every cover page) is that grid's own underline, not a
                             // real writing space -- skip it so it doesn't sit on top of the boxes.
@@ -7046,9 +7090,10 @@
                 examPaperTool = 'select';
                 examPaperPageRefSize = null;
                 render();
+                let buf;
                 try {
-                    const buf = await examArchiveGetPdfBytes(entry.file);
-                    const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+                    buf = await examArchiveGetPdfBytes(entry.file);
+                    const doc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
                     examPaperDoc = doc;
 
                     const local = examPaperLoadAnswersLocal(entry.file);
@@ -7061,19 +7106,44 @@
                             if (cloudMs > updatedAtMs) { data = row.answers; updatedAtMs = cloudMs; }
                         }
                     }
-                    if (data) { examPaperAnswers = data; }
-                    else {
-                        examPaperAnswers = { pageOrder: Array.from({ length: doc.numPages }, (_, i) => 'pdf-' + (i + 1)), boxes: [], strokes: [] };
-                        try { examPaperAnswers.boxes = await examPaperDetectAllFields(doc); }
-                        catch (e) { console.error('Auto-detecting answer fields failed -- opening with a blank paper instead', e); }
-                    }
+                    examPaperNeedsDetection = !data;
+                    examPaperAnswers = data || { pageOrder: Array.from({ length: doc.numPages }, (_, i) => 'pdf-' + (i + 1)), boxes: [], strokes: [] };
                     examPaperRecentsTouch(entry);
                 } catch (e) {
                     examPaperLoadError = (e && e.message === 'CONNECT_NEEDED') ? 'CONNECT_NEEDED' : ((e && e.message) || "Couldn't open this paper.");
                 }
                 examPaperLoading = false;
                 render();
-                if (examPaperDoc && examPaperAnswers) requestAnimationFrame(renderExamPaperCanvases);
+                if (examPaperDoc && examPaperAnswers) {
+                    await new Promise(r => requestAnimationFrame(r));
+                    await renderExamPaperCanvases();
+                    // Detection reads each page's raw drawing commands via pdf.js's getOperatorList().
+                    // Calling that on a page ever touches something in pdf.js's internal state for that
+                    // page (confirmed by testing) that corrupts *any future* page.render() call on that
+                    // same cached Page object into upside-down output -- and the app's own global
+                    // render() can run again at any time for unrelated reasons (closing an announcement,
+                    // a sync banner appearing, ...), regenerating this view's canvases and re-triggering
+                    // page.render() on those same Page objects. So detection runs against a throwaway,
+                    // completely separate pdf.js document parsed from the same bytes, and never touches
+                    // the Page objects the visible canvases actually render from.
+                    if (examPaperNeedsDetection && examPaperOpen === entry) {
+                        try {
+                            const detectDoc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
+                            const autoBoxes = await examPaperDetectAllFields(detectDoc);
+                            detectDoc.destroy();
+                            if (examPaperOpen === entry && examPaperAnswers) {
+                                examPaperAnswers.boxes.push(...autoBoxes);
+                                for (const box of autoBoxes) {
+                                    const overlay = document.getElementById('exam-overlay-' + box.page);
+                                    if (overlay) overlay.insertAdjacentHTML('beforeend', examPaperBoxHtml(box));
+                                }
+                                const status = document.getElementById('exam-save-status');
+                                if (status) status.parentElement.insertAdjacentHTML('afterbegin',
+                                    `<button type="button" class="button ghost" data-action="examp-clear-auto-fields">Clear auto-detected (${autoBoxes.length})</button>`);
+                            }
+                        } catch (e) { console.error('Auto-detecting answer fields failed -- opening with a blank paper instead', e); }
+                    }
+                }
             }
 
             function examPaperClose() {
@@ -7082,7 +7152,23 @@
             }
 
             // ---- Rendering pdf.js pages + blank inserted pages to canvas ---------------------
-            async function renderExamPaperCanvases() {
+            // The view's own render() dispatch (see the big view===... chain) schedules this via
+            // requestAnimationFrame on *every* app-wide re-render while this view is open -- which
+            // can happen for reasons that have nothing to do with the exam viewer (closing an
+            // announcement, a banner appearing, ...). openExamPaper also awaits this directly, so
+            // it can be sure rendering is done before running detection. Two concurrent calls
+            // would otherwise both see a page's canvas as not yet rendered and both call pdf.js's
+            // page.render() on the very same canvas at once -- which corrupts the output (this is
+            // what was actually behind pages intermittently coming out upside down, not detection
+            // ordering). Memoizing the in-flight promise makes every call -- however it was
+            // triggered -- share the one real render pass instead of racing a fresh one.
+            let examPaperRenderPromise = null;
+            function renderExamPaperCanvases() {
+                if (examPaperRenderPromise) return examPaperRenderPromise;
+                examPaperRenderPromise = examPaperRenderCanvasesOnce().finally(() => { examPaperRenderPromise = null; });
+                return examPaperRenderPromise;
+            }
+            async function examPaperRenderCanvasesOnce() {
                 if (!examPaperOpen || !examPaperAnswers) return;
                 for (const slotId of examPaperAnswers.pageOrder) {
                     const canvas = document.getElementById('exam-canvas-' + slotId);
