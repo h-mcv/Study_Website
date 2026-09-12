@@ -3214,22 +3214,28 @@
         .uttt-big-winner { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: min(14vw, 64px); font-weight: 800; background: color-mix(in srgb, var(--surface-2) 55%, transparent); border-radius: 6px; z-index: 1; }
         .uttt-big.won-x .uttt-big-winner { color: #3498db; }
         .uttt-big.won-o .uttt-big-winner { color: #e74c3c; }
+        .jb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 560px; }
         .jb-wrap { position: relative; width: 100%; display: flex; justify-content: center; }
-        .jb-canvas { background: var(--surface-2); border-radius: 14px; width: min(92vw, 560px); height: auto; aspect-ratio: 1 / 1; cursor: pointer; touch-action: manipulation; }
+        .jb-canvas { background: var(--surface-2); border-radius: 14px; width: min(92vw, 560px); height: auto; aspect-ratio: 1 / 1; }
         .jb-overlay { position: absolute; inset: 0; width: min(92vw, 560px); margin: 0 auto; display: flex; align-items: center; justify-content: center; text-align: center;
             color: #fff; font-weight: 700; font-size: 18px; background: rgba(0,0,0,.55); border-radius: 14px; padding: 16px; }
         .jb-overlay.hidden { display: none; }
-        .jb-picker { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-        .jb-pick-mini { border: 2px solid var(--line); border-radius: 10px; padding: 4px; background: var(--surface); cursor: pointer; line-height: 0; }
-        .jb-pick-mini.selected { border-color: var(--primary); }
-        .jb-pick-canvas { width: 44px; height: 44px; image-rendering: pixelated; border-radius: 6px; }
         .jb-legend { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 460px; }
         .jb-legend-item { display: flex; align-items: center; gap: 6px; }
         .jb-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-        .jb-bar { width: 54px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
-        .jb-bar-fill { height: 100%; border-radius: 4px; transition: width .2s; }
+        .jb-bar-mini { width: 54px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+        .jb-bar-mini-fill { height: 100%; border-radius: 4px; transition: width .2s; }
+        .jb-bar { display: flex; gap: 10px; justify-content: center; padding: 10px; background: var(--surface-2); border-radius: 12px; min-height: 62px; align-items: center; }
+        .jb-bar-slot { width: 46px; height: 46px; border-radius: 50%; border: 2px dashed var(--line); flex-shrink: 0; }
+        .jb-columns { display: flex; gap: 10px; justify-content: center; }
+        .jb-col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+        .jb-jelly-btn { width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(0,0,0,.18); background: var(--jc, #999);
+            color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,.18); flex-shrink: 0; }
+        .jb-jelly-btn.queued { opacity: .5; cursor: default; box-shadow: none; }
+        .jb-jelly-btn:disabled { opacity: .35; cursor: default; box-shadow: none; }
         .sm-game-stage .jb-canvas { width: min(80vw, 380px); }
         .sm-game-stage .jb-overlay { width: min(80vw, 380px); }
+        .sm-game-stage .jb-jelly-btn, .sm-game-stage .jb-bar-slot { width: 38px; height: 38px; }
         #study-mode-pip {
             position: fixed;
             right: 24px;
@@ -12457,7 +12463,11 @@ ${pointsSvg}
             }
 
             // ---- Jelly Busters --------------------------------------------------------------------------------
-            const JB_GRID = 20;
+            const JB_GRID = 26;
+            const JB_RAINBOW = ['#e63946','#f3722c','#f9c74f','#90be6d','#43aa8b','#4d908e','#577590','#9b5de5'];
+            function jbBandRow(y) { return Math.max(0, Math.min(7, Math.floor(((y+1)/2) * 8))); }
+            function jbBandDist(d, maxD) { return Math.max(0, Math.min(7, Math.floor((d/maxD) * 8))); }
+            function jbRainbowColors(extra) { const o = {}; JB_RAINBOW.forEach((c,i) => o['B'+i] = c); return { ...o, ...extra }; }
             function jbMaskGrid(size, fn) { const g = [];
                 for (let row = 0; row < size; row++) { const r = [];
                     for (let col = 0; col < size; col++) { const x = (col - (size - 1) / 2) / (size / 2),
@@ -12471,33 +12481,62 @@ ${pointsSvg}
                 return inside; }
             function jbBuildPath(rect) { const { left, top, right, bottom, r } = rect;
                 const segs = [
-                    { type: 'line', from: [left+r, top], to: [right-r, top] },
-                    { type: 'arc', cx: right-r, cy: top+r, r, a0: -Math.PI/2, a1: 0 },
-                    { type: 'line', from: [right, top+r], to: [right, bottom-r] },
-                    { type: 'arc', cx: right-r, cy: bottom-r, r, a0: 0, a1: Math.PI/2 },
-                    { type: 'line', from: [right-r, bottom], to: [left+r, bottom] },
-                    { type: 'arc', cx: left+r, cy: bottom-r, r, a0: Math.PI/2, a1: Math.PI },
-                    { type: 'line', from: [left, bottom-r], to: [left, top+r] },
-                    { type: 'arc', cx: left+r, cy: top+r, r, a0: Math.PI, a1: Math.PI*1.5 },
+                    { type: 'line', from: [left+r, top], to: [right-r, top], side: 'top' },
+                    { type: 'arc', cx: right-r, cy: top+r, r, a0: -Math.PI/2, a1: 0, side: null },
+                    { type: 'line', from: [right, top+r], to: [right, bottom-r], side: 'right' },
+                    { type: 'arc', cx: right-r, cy: bottom-r, r, a0: 0, a1: Math.PI/2, side: null },
+                    { type: 'line', from: [right-r, bottom], to: [left+r, bottom], side: 'bottom' },
+                    { type: 'arc', cx: left+r, cy: bottom-r, r, a0: Math.PI/2, a1: Math.PI, side: null },
+                    { type: 'line', from: [left, bottom-r], to: [left, top+r], side: 'left' },
+                    { type: 'arc', cx: left+r, cy: top+r, r, a0: Math.PI, a1: Math.PI*1.5, side: null },
                 ];
                 segs.forEach(s => { s.length = s.type === 'line'
                     ? Math.hypot(s.to[0]-s.from[0], s.to[1]-s.from[1])
                     : Math.abs(s.a1 - s.a0) * s.r; });
                 return { segs, total: segs.reduce((a,s) => a+s.length, 0) }; }
-            function jbPathPoint(path, frac) { let s = ((frac % 1) + 1) % 1 * path.total;
+            function jbLocate(path, frac) { let s = ((frac % 1) + 1) % 1 * path.total;
                 for (const seg of path.segs) { if (s <= seg.length || seg === path.segs[path.segs.length-1]) {
                         if (seg.type === 'line') { const t = seg.length ? s/seg.length : 0;
-                            return { x: seg.from[0] + (seg.to[0]-seg.from[0])*t, y: seg.from[1] + (seg.to[1]-seg.from[1])*t }; }
+                            return { x: seg.from[0] + (seg.to[0]-seg.from[0])*t, y: seg.from[1] + (seg.to[1]-seg.from[1])*t, side: seg.side }; }
                         const a = seg.a0 + (seg.a1-seg.a0) * (s/seg.length);
-                        return { x: seg.cx + Math.cos(a)*seg.r, y: seg.cy + Math.sin(a)*seg.r }; }
+                        return { x: seg.cx + Math.cos(a)*seg.r, y: seg.cy + Math.sin(a)*seg.r, side: null }; }
                     s -= seg.length; }
-                return { x: path.segs[0].from[0], y: path.segs[0].from[1] }; }
+                return { x: path.segs[0].from[0], y: path.segs[0].from[1], side: path.segs[0].side }; }
             function jbRoundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x+r, y);
                 ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
                 ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath(); }
 
-            const JB_IMAGES = [
-                { id: 'catface', title: 'Jelly Cat', colors: { D: '#d35400', F: '#f39c12', I: '#fdebd0', K: '#2c1e12' },
+            const JB_LEVELS = [
+                { id: 'heart', title: 'Jelly Heart', colors: jbRainbowColors({ RIM: '#7a1f1f', HI: '#ffe8ec' }),
+                    build: size => jbMaskGrid(size, (x, y) => {
+                        const yy = -y, val = Math.pow(x*x+yy*yy-1,3) - x*x*Math.pow(yy,3);
+                        if (val > 0) return null;
+                        if (Math.hypot(x+0.25, y+0.35) < 0.15) return 'HI';
+                        const val2 = Math.pow(x*x+yy*yy-0.82,3) - x*x*0.82*Math.pow(yy,3);
+                        return val2 > 0 ? 'RIM' : 'B'+jbBandRow(y); }) },
+                { id: 'gem', title: 'Jelly Gem', colors: jbRainbowColors({ RIM: '#12263a' }),
+                    build: size => jbMaskGrid(size, (x, y) => {
+                        const d = Math.abs(x) + Math.abs(y);
+                        if (d > 1.02) return null;
+                        return d > 0.94 ? 'RIM' : 'B'+jbBandDist(d, 0.94); }) },
+                { id: 'star', title: 'Jelly Star', colors: jbRainbowColors({ X: '#ffffff' }),
+                    build: size => { const pts = [];
+                        for (let i = 0; i < 10; i++) { const rr = i % 2 === 0 ? 1 : 0.42, a = (Math.PI/5)*i - Math.PI/2;
+                            pts.push([Math.cos(a)*rr, Math.sin(a)*rr]); }
+                        return jbMaskGrid(size, (x, y) => {
+                            if (!jbPointInPoly(x, y, pts)) return null;
+                            const d = Math.hypot(x, y);
+                            if (d < 0.12) return 'X';
+                            return 'B'+jbBandDist(d, 1); }); } },
+                { id: 'ghost', title: 'Jelly Ghost', colors: jbRainbowColors({ K: '#1a0f1f', RIM: '#3d2645' }),
+                    build: size => jbMaskGrid(size, (x, y) => {
+                        const topCut = -0.15; let inside;
+                        if (y < topCut) inside = Math.hypot(x, y - topCut) <= 0.85 && y > -1.05;
+                        else { const wave = 0.12 * Math.sin((x+1)*Math.PI*2.5); inside = Math.abs(x) <= 0.85 && y <= 0.85 + wave; }
+                        if (!inside) return null;
+                        if (Math.hypot(x+0.32,y+0.05)<0.13 || Math.hypot(x-0.32,y+0.05)<0.13) return 'K';
+                        return (Math.abs(x) > 0.68 || y > 0.6 || y < -0.85) ? 'RIM' : 'B'+jbBandRow(y); }) },
+                { id: 'catface', title: 'Jelly Cat', colors: jbRainbowColors({ RIM: '#7a3b00', I: '#fff3e0', K: '#1c140c' }),
                     build: size => jbMaskGrid(size, (x, y) => {
                         const inHead = Math.hypot(x, y + 0.08) <= 0.82;
                         function inEar(sign) { const p0 = [0.28, -0.5], p1 = [0.92, -1.05], p2 = [0.58, -0.28], px = x * sign, py = y;
@@ -12506,59 +12545,38 @@ ${pointsSvg}
                             return !((d1<0||d2<0||d3<0) && (d1>0||d2>0||d3>0)); }
                         const earL = inEar(-1), earR = inEar(1);
                         if (!inHead && !earL && !earR) return null;
-                        if ((earL || earR) && !inHead) return Math.hypot(Math.abs(x)-0.6, y+0.65) < 0.16 ? 'I' : 'D';
+                        if ((earL || earR) && !inHead) return Math.hypot(Math.abs(x)-0.6, y+0.65) < 0.16 ? 'I' : 'RIM';
                         if (Math.hypot(x+0.28,y+0.05)<0.09 || Math.hypot(x-0.28,y+0.05)<0.09 || Math.hypot(x,y-0.24)<0.07) return 'K';
-                        return (0.82 - Math.hypot(x, y+0.08)) < 0.14 ? 'D' : 'F'; }) },
-                { id: 'heart', title: 'Jelly Heart', colors: { R: '#c0392b', F: '#e74c3c', H: '#f8c9c9' },
-                    build: size => jbMaskGrid(size, (x, y) => {
-                        const yy = -y, val = Math.pow(x*x+yy*yy-1,3) - x*x*Math.pow(yy,3);
-                        if (val > 0) return null;
-                        if (Math.hypot(x+0.25, y+0.35) < 0.15) return 'H';
-                        const val2 = Math.pow(x*x+yy*yy-0.82,3) - x*x*0.82*Math.pow(yy,3);
-                        return val2 > 0 ? 'R' : 'F'; }) },
-                { id: 'gem', title: 'Jelly Gem', colors: { D: '#1a5276', C: '#2471a3', B: '#3498db', A: '#aed6f1' },
-                    build: size => jbMaskGrid(size, (x, y) => {
-                        const d = Math.abs(x) + Math.abs(y);
-                        if (d > 1.02) return null;
-                        return 'ABCD'[Math.min(3, Math.floor((d/1.02)*4))]; }) },
-                { id: 'star', title: 'Jelly Star', colors: { R: '#f39c12', C: '#f9e79f', X: '#e67e22' },
-                    build: size => { const pts = [];
-                        for (let i = 0; i < 10; i++) { const rr = i % 2 === 0 ? 1 : 0.42, a = (Math.PI/5)*i - Math.PI/2;
-                            pts.push([Math.cos(a)*rr, Math.sin(a)*rr]); }
-                        const inner = pts.map(([px,py]) => [px*0.55, py*0.55]);
-                        return jbMaskGrid(size, (x, y) => {
-                            if (!jbPointInPoly(x, y, pts)) return null;
-                            if (Math.hypot(x, y) < 0.12) return 'X';
-                            return jbPointInPoly(x, y, inner) ? 'C' : 'R'; }); } },
-                { id: 'ghost', title: 'Jelly Ghost', colors: { R: '#8f7fd1', F: '#d8cdf0', E: '#2c2140' },
-                    build: size => jbMaskGrid(size, (x, y) => {
-                        const topCut = -0.15; let inside;
-                        if (y < topCut) inside = Math.hypot(x, y - topCut) <= 0.85 && y > -1.05;
-                        else { const wave = 0.12 * Math.sin((x+1)*Math.PI*2.5); inside = Math.abs(x) <= 0.85 && y <= 0.85 + wave; }
-                        if (!inside) return null;
-                        if (Math.hypot(x+0.32,y+0.05)<0.13 || Math.hypot(x-0.32,y+0.05)<0.13) return 'E';
-                        return (Math.abs(x) > 0.68 || y > 0.6 || y < -0.85) ? 'R' : 'F'; }) },
+                        return (0.82 - Math.hypot(x, y+0.08)) < 0.14 ? 'RIM' : 'B'+jbBandRow(y); }) },
             ];
 
             function mountJellyBusters(container) {
-                const RES = 560, ORIGIN = 100, BOARD = 360, CELL = BOARD / JB_GRID, PATH_MARGIN = 68, CORNER_R = 42;
+                const RES = 620, ORIGIN = 100, BOARD = 420, CELL = BOARD / JB_GRID, PATH_MARGIN = 70, CORNER_R = 46;
                 const PATH = jbBuildPath({ left: ORIGIN-PATH_MARGIN, top: ORIGIN-PATH_MARGIN, right: ORIGIN+BOARD+PATH_MARGIN, bottom: ORIGIN+BOARD+PATH_MARGIN, r: CORNER_R });
-                const SPEED_MULT = { chill: 0.65, normal: 1, turbo: 1.6 };
-                let settings = gameSettingsFor('jellybusters', { image: 'catface', speed: 'normal' });
+                const MAX_ACTIVE = 5, COL_COUNT = 5, COL_VISIBLE = 3, COL_QUEUE_LEN = 6, FIRE_COOLDOWN = 0.35, JELLY_POINTS = 20, JELLY_SPEED = 78;
+                let settings = gameSettingsFor('jellybusters', { levelIndex: 0 });
                 let canvas, ctx, bg, line, img, grid, activeByColor, initialCounts, totalActive, clearedCount,
-                    units, projectiles, particles, rings, score, best = gameBestScore('jellybusters'),
-                    startTime, elapsed = 0, finished = false, rafId = null, lastTs = null, frameCount = 0;
+                    jellies, columns, nextJellyId, projectiles, particles, rings, score, best = gameBestScore('jellybusters'),
+                    startTime, elapsed = 0, finished = false, paused = false, rafId = null, lastTs = null, frameCount = 0;
 
                 function cellCenter(x, y) { return { x: ORIGIN + (x + 0.5) * CELL, y: ORIGIN + (y + 0.5) * CELL }; }
                 function inBounds(x, y) { return x >= 0 && x < JB_GRID && y >= 0 && y < JB_GRID; }
                 function isOpen(x, y) { if (!inBounds(x, y)) return true; const c = grid[y][x]; return !c || c.cleared; }
-                function isExposed(x, y) { const c = grid[y][x]; if (!c || c.cleared) return false;
-                    return isOpen(x-1,y) || isOpen(x+1,y) || isOpen(x,y-1) || isOpen(x,y+1); }
-                function speedMult() { return SPEED_MULT[settings.speed] || 1; }
+                function isExposedSide(x, y, side) { const c = grid[y][x]; if (!c || c.cleared) return false;
+                    if (side === 'top') return isOpen(x, y-1); if (side === 'bottom') return isOpen(x, y+1);
+                    if (side === 'left') return isOpen(x-1, y); if (side === 'right') return isOpen(x+1, y); return false; }
 
-                function loadImage(id) {
-                    img = JB_IMAGES.find(i => i.id === id) || JB_IMAGES[0];
-                    settings = { ...settings, image: img.id }; saveGameSettingsFor('jellybusters', { image: img.id });
+                function pickWeightedColor() { const keys = Object.keys(img.colors).filter(k => (activeByColor[k]||[]).length > 0);
+                    if (!keys.length) return Object.keys(img.colors)[0];
+                    const weights = keys.map(k => activeByColor[k].length), total = weights.reduce((a,b)=>a+b,0);
+                    let r = Math.random() * total;
+                    for (let i = 0; i < keys.length; i++) { r -= weights[i]; if (r <= 0) return keys[i]; }
+                    return keys[keys.length-1]; }
+                function randomColumnEntry() { return { color: pickWeightedColor() }; }
+
+                function loadLevel(idx) {
+                    const li = ((idx % JB_LEVELS.length) + JB_LEVELS.length) % JB_LEVELS.length;
+                    img = JB_LEVELS[li]; settings = { ...settings, levelIndex: li }; saveGameSettingsFor('jellybusters', { levelIndex: li });
                     const mask = img.build(JB_GRID);
                     grid = mask.map(row => row.map(ch => ch ? { letter: ch, cleared: false, claimedUntil: 0 } : null));
                     activeByColor = {}; initialCounts = {};
@@ -12566,72 +12584,93 @@ ${pointsSvg}
                         c.x = x; c.y = y; (activeByColor[c.letter] = activeByColor[c.letter] || []).push(c); }
                     Object.keys(activeByColor).forEach(k => initialCounts[k] = activeByColor[k].length);
                     totalActive = Object.values(initialCounts).reduce((a,b) => a+b, 0);
-                    clearedCount = 0; score = 0; finished = false; startTime = performance.now(); elapsed = 0;
-                    const letters = Object.keys(img.colors), spread = letters.reduce((a,l) => a + ((activeByColor[l]||[]).length > 55 ? 2 : 1), 0);
-                    units = []; let idx = 0;
-                    letters.forEach(letter => { const count = (activeByColor[letter]||[]).length > 55 ? 2 : 1;
-                        for (let n = 0; n < count; n++) { units.push({ letter, color: img.colors[letter],
-                            t: idx / spread, dir: idx % 2 === 0 ? 1 : -1, speed: 46 * (0.9 + Math.random()*0.2),
-                            phase: Math.random()*Math.PI*2, cooldown: Math.random()*0.3, recoil: 0, cleared: false, celebrate: 0 }); idx++; } });
+                    clearedCount = 0; score = 0; finished = false; paused = false; startTime = performance.now(); elapsed = 0;
+                    jellies = []; nextJellyId = 1;
+                    columns = Array.from({ length: COL_COUNT }, () => Array.from({ length: COL_QUEUE_LEN }, () => randomColumnEntry()));
                     projectiles = []; particles = []; rings = [];
                     render(); }
 
-                function findTarget(unit) { const list = activeByColor[unit.letter]; if (!list || !list.length) return null;
-                    const now = performance.now(), pos = jbPathPoint(PATH, unit.t);
+                function launchFromColumn(ci) { if (paused || finished || jellies.length >= MAX_ACTIVE) return;
+                    const col = columns[ci]; if (!col || !col.length) return;
+                    const entry = col.shift(); col.push(randomColumnEntry());
+                    jellies.push({ id: nextJellyId++, color: entry.color, points: JELLY_POINTS, state: 'traveling',
+                        dist: 0, t: 0, cooldown: Math.random()*0.2, recoil: 0, phase: Math.random()*Math.PI*2 });
+                    renderBottomUI(); }
+
+                function relaunchParked(barIndex) { if (paused || finished) return;
+                    const j = jellies.find(x => x.state === 'parked' && x.barSlot === barIndex); if (!j) return;
+                    j.state = 'traveling'; j.dist = 0; j.t = 0; j.barSlot = undefined;
+                    renderBottomUI(); }
+
+                function parkJelly(j) { const used = new Set(jellies.filter(x => x.state === 'parked').map(x => x.barSlot));
+                    let slot = 0; while (used.has(slot)) slot++;
+                    j.state = 'parked'; j.barSlot = slot;
+                    renderBottomUI(); }
+
+                function removeJelly(j) { const i = jellies.indexOf(j); if (i >= 0) jellies.splice(i, 1); renderBottomUI(); }
+
+                function findTargetForSide(jelly, side) { const list = activeByColor[jelly.color]; if (!list || !list.length) return null;
+                    const now = performance.now(), pos = jbLocate(PATH, jelly.t);
                     let best = null, bestD = Infinity;
-                    for (const c of list) { if (c.claimedUntil > now || !isExposed(c.x, c.y)) continue;
+                    for (const c of list) { if (c.claimedUntil > now || !isExposedSide(c.x, c.y, side)) continue;
                         const p = cellCenter(c.x, c.y), d = (p.x-pos.x)**2 + (p.y-pos.y)**2;
                         if (d < bestD) { bestD = d; best = c; } }
                     return best; }
 
-                function fire(unit, cell) { cell.claimedUntil = performance.now() + 260;
-                    const from = jbPathPoint(PATH, unit.t), to = cellCenter(cell.x, cell.y);
-                    projectiles.push({ x0: from.x, y0: from.y, x1: to.x, y1: to.y, color: unit.color, t: 0,
-                        dur: 0.15 / Math.sqrt(speedMult()), cellX: cell.x, cellY: cell.y, letter: unit.letter });
-                    unit.recoil = 1;
-                    const remain = activeByColor[unit.letter].length, init = initialCounts[unit.letter] || remain;
-                    unit.cooldown = Math.max(0.1, 0.5 - (1 - remain / init) * 0.32) / speedMult(); }
+                function fireAt(jelly, cell) { cell.claimedUntil = performance.now() + 320;
+                    const from = jbLocate(PATH, jelly.t), to = cellCenter(cell.x, cell.y);
+                    projectiles.push({ x0: from.x, y0: from.y, x1: to.x, y1: to.y, color: img.colors[cell.letter], t: 0,
+                        dur: 0.13, cellX: cell.x, cellY: cell.y, jellyId: jelly.id });
+                    jelly.recoil = 1; }
 
-                function clearCell(x, y, letter, manual) { const c = grid[y][x]; if (!c || c.cleared) return;
+                function clearCell(x, y, jellyId) { const c = grid[y][x]; if (!c || c.cleared) return;
                     c.cleared = true; clearedCount++;
-                    const list = activeByColor[letter], i = list.indexOf(c); if (i >= 0) list.splice(i, 1);
-                    score += manual ? 20 : 10;
-                    const p = cellCenter(x, y), color = img.colors[letter];
-                    for (let n = 0; n < (manual ? 9 : 6); n++) { const a = Math.random()*Math.PI*2, sp = 30 + Math.random()*70;
+                    const list = activeByColor[c.letter], i = list.indexOf(c); if (i >= 0) list.splice(i, 1);
+                    score += 10;
+                    const p = cellCenter(x, y), color = img.colors[c.letter];
+                    for (let n = 0; n < 6; n++) { const a = Math.random()*Math.PI*2, sp = 30 + Math.random()*70;
                         particles.push({ x: p.x, y: p.y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 30, color,
                             life: 0.45 + Math.random()*0.2, maxLife: 0.6, size: 3 + Math.random()*3 }); }
-                    rings.push({ x: p.x, y: p.y, r: 2, maxR: manual ? 22 : 16, life: 0.35, maxLife: 0.35, color });
-                    if (clearedCount >= totalActive && !finished) finishGame(); }
+                    rings.push({ x: p.x, y: p.y, r: 2, maxR: 16, life: 0.35, maxLife: 0.35, color });
+                    const jelly = jellies.find(j => j.id === jellyId);
+                    if (jelly) { jelly.points--; if (jelly.points <= 0) removeJelly(jelly); }
+                    if (clearedCount >= totalActive && !finished) finishLevel(); }
 
-                function finishGame() { finished = true; elapsed = (performance.now() - startTime) / 1000;
-                    const bonus = Math.max(0, Math.round(1400 - elapsed * 9)); score += bonus;
+                function finishLevel() { finished = true; elapsed = (performance.now() - startTime) / 1000;
+                    const bonus = Math.max(0, Math.round(1200 - elapsed * 6)); score += bonus;
                     const improved = gameReportScore('jellybusters', score); best = gameBestScore('jellybusters');
-                    renderStat(); const ov = container.querySelector('.jb-overlay'); if (!ov) return;
-                    ov.innerHTML = `<div class="jb-overlay-inner">🎉 Picture cleared!<br>Time: ${elapsed.toFixed(1)}s &nbsp;·&nbsp; Score: ${score}${improved ? ' — new best!' : ''}
-                        <div class="game-actions" style="margin-top:10px"><button type="button" class="button primary jb-again">Play again</button></div></div>`;
+                    renderStat(); renderBottomUI(); const ov = container.querySelector('.jb-overlay'); if (!ov) return;
+                    ov.innerHTML = `<div class="jb-overlay-inner">🎉 ${escape(img.title)} cleared!<br>Time: ${elapsed.toFixed(1)}s &nbsp;·&nbsp; Score: ${score}${improved ? ' — new best!' : ''}
+                        <div class="game-actions" style="margin-top:10px"><button type="button" class="button primary jb-next">Next level →</button></div></div>`;
                     ov.classList.remove('hidden');
-                    ov.querySelector('.jb-again').addEventListener('click', () => loadImage(img.id)); }
+                    ov.querySelector('.jb-next').addEventListener('click', () => loadLevel(settings.levelIndex + 1)); }
 
-                function update(dt) { const sm = speedMult(), now = performance.now();
-                    units.forEach(u => { u.t = (u.t + u.dir * (u.speed * sm) * dt / PATH.total + 1) % 1;
-                        u.recoil = Math.max(0, u.recoil - dt * 5);
-                        if (u.cleared) { u.celebrate = Math.min(1, u.celebrate + dt); return; }
-                        if (!activeByColor[u.letter] || !activeByColor[u.letter].length) { u.cleared = true; return; }
-                        u.cooldown -= dt;
-                        if (u.cooldown <= 0) { const target = findTarget(u); if (target) fire(u, target); else u.cooldown = 0.22 / sm; } });
+                function updateJelly(j, dt) { if (j.state !== 'traveling') return;
+                    j.dist += JELLY_SPEED * dt;
+                    if (j.dist >= PATH.total) { j.dist = 0; parkJelly(j); return; }
+                    j.t = j.dist / PATH.total;
+                    j.recoil = Math.max(0, j.recoil - dt * 5);
+                    if (j.points <= 0) { removeJelly(j); return; }
+                    j.cooldown -= dt;
+                    if (j.cooldown <= 0) { const side = jbLocate(PATH, j.t).side;
+                        if (side) { const target = findTargetForSide(j, side);
+                            if (target) { fireAt(j, target); j.cooldown = FIRE_COOLDOWN; } else j.cooldown = 0.15; }
+                        else j.cooldown = 0.1; } }
+
+                function update(dt) {
+                    jellies.slice().forEach(j => updateJelly(j, dt));
                     projectiles = projectiles.filter(p => { p.t += dt / p.dur;
-                        if (p.t >= 1) { clearCell(p.cellX, p.cellY, p.letter, false); return false; } return true; });
+                        if (p.t >= 1) { clearCell(p.cellX, p.cellY, p.jellyId); return false; } return true; });
                     particles = particles.filter(pt => { pt.vy += 90 * dt; pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vx *= (1 - 2*dt);
                         pt.life -= dt; return pt.life > 0; });
                     rings = rings.filter(r => { r.life -= dt; r.r = r.maxR * (1 - r.life / r.maxLife); return r.life > 0; });
-                    if (!finished) elapsed = (now - startTime) / 1000; }
+                    if (!finished) elapsed = (performance.now() - startTime) / 1000; }
 
-                function jbDrawUnit(u, t) { if (u.cleared && u.celebrate >= 1) return;
-                    const pos = jbPathPoint(PATH, u.t), wob = Math.sin(t*4 + u.phase) * 0.07,
-                        shrink = u.cleared ? Math.max(0, 1 - u.celebrate) : 1,
-                        sx = (1 - wob*0.6 + u.recoil*0.4) * shrink, sy = (1 + wob - u.recoil*0.35) * shrink, R = 12;
+                function jbDrawUnit(j, t) {
+                    const pos = jbLocate(PATH, j.t), wob = Math.sin(t*4 + j.phase) * 0.07,
+                        sx = 1 - wob*0.6 + j.recoil*0.4, sy = 1 + wob - j.recoil*0.35, R = 13, color = img.colors[j.color];
                     ctx.save(); ctx.translate(pos.x, pos.y); ctx.scale(sx, sy);
-                    ctx.fillStyle = u.color;
+                    ctx.fillStyle = color;
                     ctx.beginPath(); ctx.moveTo(-R*0.7, -R*0.9); ctx.lineTo(-R*0.15, -R*1.5); ctx.lineTo(R*0.05, -R*0.85); ctx.closePath(); ctx.fill();
                     ctx.beginPath(); ctx.moveTo(R*0.7, -R*0.9); ctx.lineTo(R*0.15, -R*1.5); ctx.lineTo(-R*0.05, -R*0.85); ctx.closePath(); ctx.fill();
                     ctx.beginPath(); ctx.ellipse(0, 0, R, R*0.92, 0, 0, Math.PI*2); ctx.fill();
@@ -12639,12 +12678,14 @@ ${pointsSvg}
                     ctx.fillStyle = '#22232b';
                     ctx.beginPath(); ctx.arc(-R*0.32, -R*0.05, 2.4, 0, Math.PI*2); ctx.fill();
                     ctx.beginPath(); ctx.arc(R*0.32, -R*0.05, 2.4, 0, Math.PI*2); ctx.fill();
-                    ctx.restore(); }
+                    ctx.restore();
+                    ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+                    ctx.strokeText(String(j.points), pos.x, pos.y - R*1.7); ctx.fillText(String(j.points), pos.x, pos.y - R*1.7); ctx.textAlign = 'left'; }
 
                 function draw() { if (!ctx) return; ctx.clearRect(0, 0, RES, RES); ctx.fillStyle = bg; ctx.fillRect(0, 0, RES, RES);
                     jbRoundRect(ctx, ORIGIN-4, ORIGIN-4, BOARD+8, BOARD+8, 14); ctx.strokeStyle = line; ctx.lineWidth = 2; ctx.stroke();
                     for (let y = 0; y < JB_GRID; y++) for (let x = 0; x < JB_GRID; x++) { const c = grid[y][x]; if (!c || c.cleared) continue;
-                        ctx.fillStyle = img.colors[c.letter]; jbRoundRect(ctx, ORIGIN+x*CELL+1, ORIGIN+y*CELL+1, CELL-2, CELL-2, 3); ctx.fill(); }
+                        ctx.fillStyle = img.colors[c.letter]; jbRoundRect(ctx, ORIGIN+x*CELL+0.5, ORIGIN+y*CELL+0.5, CELL-1, CELL-1, 2.5); ctx.fill(); }
                     rings.forEach(r => { ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2);
                         ctx.strokeStyle = r.color; ctx.globalAlpha = Math.max(0, r.life/r.maxLife) * 0.7; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1; });
                     particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life/p.maxLife);
@@ -12655,58 +12696,50 @@ ${pointsSvg}
                         ctx.strokeStyle = pr.color; ctx.lineWidth = 3; ctx.globalAlpha = 0.85;
                         ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke(); ctx.globalAlpha = 1;
                         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx, hy, 2.6, 0, Math.PI*2); ctx.fill(); });
-                    const t = performance.now() / 1000; units.forEach(u => jbDrawUnit(u, t)); }
+                    const t = performance.now() / 1000; jellies.forEach(j => { if (j.state === 'traveling') jbDrawUnit(j, t); }); }
 
                 function renderStat() { const el = container.querySelector('.jb-stat'); if (!el) return;
-                    el.innerHTML = `Time: <strong>${elapsed.toFixed(1)}s</strong> &nbsp;·&nbsp; Cleared: <strong>${Math.round(100*clearedCount/totalActive)}%</strong> &nbsp;·&nbsp; Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`;
+                    el.innerHTML = `Level ${settings.levelIndex + 1}/${JB_LEVELS.length} &nbsp;·&nbsp; Time: <strong>${elapsed.toFixed(1)}s</strong> &nbsp;·&nbsp; Cleared: <strong>${Math.round(100*clearedCount/totalActive)}%</strong> &nbsp;·&nbsp; Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`;
                     const legend = container.querySelector('.jb-legend'); if (!legend) return;
                     legend.innerHTML = Object.keys(img.colors).map(l => { const rem = (activeByColor[l]||[]).length, init = initialCounts[l]||1,
                             pct = Math.round(100*(1 - rem/init));
-                        return `<div class="jb-legend-item"><span class="jb-swatch" style="background:${img.colors[l]}"></span><div class="jb-bar"><div class="jb-bar-fill" style="width:${pct}%;background:${img.colors[l]}"></div></div></div>`; }).join(''); }
+                        return `<div class="jb-legend-item"><span class="jb-swatch" style="background:${img.colors[l]}"></span><div class="jb-bar-mini"><div class="jb-bar-mini-fill" style="width:${pct}%;background:${img.colors[l]}"></div></div></div>`; }).join(''); }
 
-                function jbDrawThumb(cv, im) { const c2 = cv.getContext('2d'), size = 14, cell = cv.width/size, mask = im.build(size);
-                    c2.clearRect(0,0,cv.width,cv.height);
-                    for (let y=0;y<size;y++) for (let x=0;x<size;x++) { const ch = mask[y][x]; if (!ch) continue;
-                        c2.fillStyle = im.colors[ch]; c2.fillRect(x*cell, y*cell, cell+0.5, cell+0.5); } }
+                function renderBottomUI() {
+                    const barEl = container.querySelector('.jb-bar'); if (barEl) { barEl.innerHTML = Array.from({ length: MAX_ACTIVE }, (_, i) => {
+                            const j = jellies.find(x => x.state === 'parked' && x.barSlot === i);
+                            return j ? `<button type="button" class="jb-jelly-btn" data-bar="${i}" ${paused||finished?'disabled':''} style="--jc:${img.colors[j.color]}">${j.points}</button>`
+                                : `<div class="jb-bar-slot"></div>`; }).join('');
+                        barEl.querySelectorAll('.jb-jelly-btn').forEach(b => b.addEventListener('click', () => relaunchParked(Number(b.dataset.bar)))); }
+                    const colsEl = container.querySelector('.jb-columns'); if (colsEl) { const canLaunch = !paused && !finished && jellies.length < MAX_ACTIVE;
+                        colsEl.innerHTML = columns.map((col, ci) => `<div class="jb-col">${col.slice(0, COL_VISIBLE).map((entry, ri) =>
+                            `<button type="button" class="jb-jelly-btn ${ri>0?'queued':''}" data-col="${ci}" ${ri===0 && canLaunch ? '' : 'disabled'} style="--jc:${img.colors[entry.color]}">${ri===0?JELLY_POINTS:''}</button>`).join('')}</div>`).join('');
+                        colsEl.querySelectorAll('.jb-jelly-btn:not(.queued)').forEach(b => b.addEventListener('click', () => launchFromColumn(Number(b.dataset.col)))); } }
 
-                function setSpeed(v) { settings = { ...settings, speed: v }; saveGameSettingsFor('jellybusters', { speed: v });
-                    container.querySelectorAll('.jb-speed').forEach(b => { const on = b.dataset.v === v;
-                        b.classList.toggle('primary', on); b.classList.toggle('ghost', !on); }); }
-
-                function onPointer(e) { const rect = canvas.getBoundingClientRect(),
-                        cx = ((e.clientX - rect.left) / rect.width) * RES, cy = ((e.clientY - rect.top) / rect.height) * RES,
-                        x = Math.floor((cx - ORIGIN) / CELL), y = Math.floor((cy - ORIGIN) / CELL);
-                    if (!inBounds(x, y)) return; const c = grid[y][x]; if (!c || c.cleared) return;
-                    if (isExposed(x, y)) clearCell(x, y, c.letter, true);
-                    else { const p = cellCenter(x, y); rings.push({ x: p.x, y: p.y, r: 2, maxR: 20, life: 0.25, maxLife: 0.25, color: 'rgba(255,255,255,.5)' }); } }
+                function togglePause() { paused = !paused; const btn = container.querySelector('.jb-pause');
+                    if (btn) btn.textContent = paused ? '▶ Resume' : '⏸ Pause';
+                    renderBottomUI(); }
 
                 function render() {
                     bg = getComputedStyle(document.body).getPropertyValue('--surface-2') || '#eee';
                     line = getComputedStyle(document.body).getPropertyValue('--line') || '#ccc';
-                    container.innerHTML = `<div class="game-stat-line jb-stat"></div>
-        <div class="jb-picker">${JB_IMAGES.map(im => `<button type="button" class="jb-pick-mini ${im.id===settings.image?'selected':''}" data-id="${im.id}" title="${im.title}"><canvas class="jb-pick-canvas" width="56" height="56"></canvas></button>`).join('')}</div>
+                    container.innerHTML = `<div class="jb-head"><div class="game-stat-line jb-stat"></div><button type="button" class="button ghost jb-pause">⏸ Pause</button></div>
         <div class="jb-wrap"><canvas class="jb-canvas" width="${RES}" height="${RES}"></canvas><div class="jb-overlay hidden"></div></div>
-        <div class="jb-legend"></div>
-        <div class="small game-hint">Tap an exposed pixel to blast it yourself and help your jelly squads finish faster.</div>
-        <div class="game-settings-group"><span class="small">Speed</span><div class="game-settings-row">
-          ${['chill','normal','turbo'].map(v => `<button type="button" class="button ${settings.speed===v?'primary':'ghost'} jb-speed" data-v="${v}">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}
-        </div></div>`;
+        <div class="jb-bar"></div>
+        <div class="jb-columns"></div>
+        <div class="jb-legend"></div>`;
                     canvas = container.querySelector('.jb-canvas'); ctx = canvas.getContext('2d');
-                    canvas.addEventListener('pointerdown', onPointer);
-                    container.querySelectorAll('.jb-pick-mini').forEach(b => { jbDrawThumb(b.querySelector('canvas'), JB_IMAGES.find(i=>i.id===b.dataset.id));
-                        b.addEventListener('click', () => loadImage(b.dataset.id)); });
-                    container.querySelectorAll('.jb-speed').forEach(b => b.addEventListener('click', () => setSpeed(b.dataset.v)));
-                    renderStat(); draw(); }
+                    container.querySelector('.jb-pause').addEventListener('click', togglePause);
+                    renderBottomUI(); renderStat(); draw(); }
 
                 function loop(ts) { if (!ctx) return; const dt = Math.min(0.05, lastTs ? (ts-lastTs)/1000 : 0.016); lastTs = ts;
-                    update(dt); draw(); frameCount++; if (frameCount % 6 === 0) renderStat();
+                    if (!paused) update(dt); draw(); frameCount++; if (frameCount % 6 === 0) renderStat();
                     rafId = requestAnimationFrame(loop); }
 
-                loadImage(settings.image);
+                loadLevel(settings.levelIndex);
                 rafId = requestAnimationFrame(loop);
                 return () => { if (rafId) cancelAnimationFrame(rafId); ctx = null; container.innerHTML = ''; };
             }
-
             const GAMES = {
                 solitaire: { title: 'Solitaire', icon: '🃏', desc: 'Classic Klondike — click a card to pick it up, then click where it should go.', hasScore: false, mount: mountSolitaire },
                 blackjack: { title: 'Blackjack', icon: '♠️', desc: 'Get closer to 21 than the dealer without going over.', hasScore: false, mount: mountBlackjack },
@@ -12724,7 +12757,7 @@ ${pointsSvg}
                 crossword: { title: 'Crossword', icon: '📰', desc: 'A freshly generated crossword every time — click a clue or a cell to start typing.', hasScore: false, mount: mountCrossword },
                 connections: { title: 'Connections', icon: '🟪', desc: 'Find the four groups of four related words — from a bank of tricky hand-made puzzles.', hasScore: false, mount: mountConnections },
                 ultimatettt: { title: 'Ultimate Tic-Tac-Toe', icon: '🎯', desc: 'Challenge someone by name or email — play over a day, or in real time if you\'re both online.', hasScore: false, mount: mountUltimateTTT },
-                jellybusters: { title: 'Jelly Busters', icon: '🍮', desc: 'Colour squads of jelly critters patrol a pixel picture and blast their own colour off the outside edge — clear the whole picture as fast as you can.', hasScore: true, mount: mountJellyBusters },
+                jellybusters: { title: 'Jelly Busters', icon: '🍮', desc: "Send jellies from the queue onto the conveyor belt — each blasts its own colour off the picture's outside edge as it passes, then loops back for another lap. Clear every level's picture to advance.", hasScore: true, mount: mountJellyBusters },
             };
             GAME_ORDER.push('flappybird', 'blockblast', 'wordle', 'crossword', 'connections', 'ultimatettt', 'jellybusters');
 
