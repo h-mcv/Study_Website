@@ -10,7 +10,7 @@
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com https://rlwfxvnwekkyfslxltus.supabase.co;
         font-src 'self' data:;
-        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://translate.googleapis.com https://api.mymemory.translated.net;
+        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://translate.googleapis.com https://api.mymemory.translated.net https://cdn.jsdelivr.net;
         frame-src 'self' https://sdk.scdn.co;
         object-src 'none';
         base-uri 'self';
@@ -4002,6 +4002,8 @@
 
         .exam-archive-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--surface-2); margin-bottom: 18px; flex-wrap: wrap; }
         .exam-archive-banner.good { background: var(--success-soft); color: var(--success); }
+        .exam-archive-banner.subtle { background: transparent; padding: 0; margin-bottom: 14px; }
+        .exam-archive-optional-link { margin-bottom: 18px; }
         .exam-level-grid, .exam-subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
         .exam-year-list { display: flex; flex-direction: column; gap: 10px; }
         .exam-year-group { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
@@ -6666,6 +6668,13 @@
             // generic way to know where a given exam's blank space is, but the student always
             // knows exactly where they need to write.
             const EXAM_PAPER_SCALE = 1.4; // fixed pdf.js render scale -- legible without huge canvases; no zoom control in v1
+            // Public, deduplicated mirror of the archive (English/bilingual papers only) -- see
+            // sec-exam-papers-public's README for what's in it. Served free via jsDelivr's GitHub
+            // CDN, so papers load on any device with no per-device setup. REPLACE THE OWNER BELOW
+            // once that repo is pushed to GitHub (see the Past Papers section of the PR/commit
+            // message for the one-time push commands). A connected local folder (below) still
+            // works as a fallback -- e.g. for offline use, or before the repo above is set up.
+            const EXAM_ARCHIVE_CDN_BASE = 'https://cdn.jsdelivr.net/gh/REPLACE_WITH_YOUR_GITHUB_USERNAME/sec-exam-papers-public@main/';
             let examPaperLevel = null; // 'lc' | 'jc' | null while browsing
             let examPaperSubjectId = null;
             let examPaperSearch = '';
@@ -6786,11 +6795,35 @@
                 return await fileHandle.getFile();
             }
 
-            function examPaperArchiveBannerHtml() {
-                if (examArchiveStatus === 'connected') return `<div class="exam-archive-banner good"><span>Connected to your exam archive folder.</span><button type="button" class="button ghost" data-action="examp-change-folder">Change folder</button></div>`;
-                if (examArchiveStatus === 'needs-permission') return `<div class="exam-archive-banner"><span>Reconnect to your exam archive folder — your browser needs to confirm access again each session.</span><button type="button" class="button primary" data-action="examp-reconnect-folder">Reconnect</button></div>`;
-                if (examArchiveStatus === 'unsupported') return `<div class="exam-archive-banner"><span>Your browser can't remember a folder between visits — choose it below (works in any browser, just needs reselecting each time).</span><label class="button primary" style="cursor:pointer">Choose folder<input type="file" webkitdirectory multiple data-examp-folder-fallback style="display:none"></label></div>`;
-                return `<div class="exam-archive-banner"><span>Connect the folder where you keep your downloaded past papers — nothing is uploaded, the files stay on this device.</span><button type="button" class="button primary" data-action="examp-connect-folder">Connect folder</button></div>`;
+            function examArchiveHasLocalFallback() { return !!(examArchiveFallbackFiles || examArchiveDirHandle); }
+
+            // Primary path: fetch the PDF straight from the public CDN mirror -- works on any
+            // device, no setup. Only falls back to a connected local folder (optional, e.g. for
+            // offline use) if the CDN fetch fails; only throws CONNECT_NEEDED if neither works.
+            async function examArchiveGetPdfBytes(relativePath) {
+                try {
+                    const resp = await fetch(EXAM_ARCHIVE_CDN_BASE + relativePath);
+                    if (resp.ok) return await resp.arrayBuffer();
+                } catch (e) { /* offline, or the CDN mirror isn't set up yet -- try a local folder next */ }
+                if (examArchiveHasLocalFallback()) {
+                    const file = await examArchiveResolveFile(relativePath);
+                    return await file.arrayBuffer();
+                }
+                throw new Error('CONNECT_NEEDED');
+            }
+
+            // mode 'optional': a low-key line for the browse page, offered as a fallback students
+            // can ignore. mode 'error': the prominent version shown when the CDN fetch actually
+            // failed and there's no local folder to fall back to.
+            function examPaperArchiveBannerHtml(mode = 'optional') {
+                if (examArchiveStatus === 'connected') return `<div class="exam-archive-banner good"><span>Using your own local copy of these papers.</span><button type="button" class="button ghost" data-action="examp-change-folder">Change folder</button></div>`;
+                if (examArchiveStatus === 'needs-permission') return `<div class="exam-archive-banner${mode === 'error' ? '' : ' subtle'}"><span>Reconnect your local papers folder — your browser needs to confirm access again each session.</span><button type="button" class="button primary" data-action="examp-reconnect-folder">Reconnect</button></div>`;
+                if (mode !== 'error') {
+                    if (examArchiveStatus === 'unsupported') return `<p class="small exam-archive-optional-link">Papers load automatically online. Your browser can't remember a local folder between visits, but you can choose one each time you visit if you'd rather use your own copies: <label class="button ghost" style="cursor:pointer;display:inline-flex">Choose folder<input type="file" webkitdirectory multiple data-examp-folder-fallback style="display:none"></label></p>`;
+                    return `<p class="small exam-archive-optional-link">Papers load automatically online. Prefer your own local copies instead? <button type="button" class="button ghost" data-action="examp-connect-folder">Connect a folder</button></p>`;
+                }
+                if (examArchiveStatus === 'unsupported') return `<div class="exam-archive-banner"><span>Couldn't reach the exam archive online, and your browser can't remember a folder between visits — choose one below each time you visit instead.</span><label class="button primary" style="cursor:pointer">Choose folder<input type="file" webkitdirectory multiple data-examp-folder-fallback style="display:none"></label></div>`;
+                return `<div class="exam-archive-banner"><span>Couldn't reach the exam archive online (check your connection) — you can connect a local folder of downloaded papers instead.</span><button type="button" class="button primary" data-action="examp-connect-folder">Connect folder</button></div>`;
             }
 
             // ---- Saved answers (local-first, synced to the cloud when signed in) ------------
@@ -6856,8 +6889,7 @@
                 examPaperPageRefSize = null;
                 render();
                 try {
-                    const file = await examArchiveResolveFile(entry.file);
-                    const buf = await file.arrayBuffer();
+                    const buf = await examArchiveGetPdfBytes(entry.file);
                     const doc = await pdfjsLib.getDocument({ data: buf }).promise;
                     examPaperDoc = doc;
 
@@ -7009,7 +7041,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 const back = `<button type="button" class="subject-page-back" data-action="examp-close-paper">← Back to Past Papers</button>`;
                 const titleHtml = header(meta.name + ' — ' + entry.label, entry.level.toUpperCase() + ' · ' + entry.year, '');
                 if (examPaperLoading) return appFrame(`<div class="page">${back}${titleHtml}<p class="empty">Opening this paper…</p></div>`);
-                if (examPaperLoadError === 'CONNECT_NEEDED') return appFrame(`<div class="page">${back}${titleHtml}${examPaperArchiveBannerHtml()}<p class="small">Once connected, try opening this paper again.</p><button type="button" class="button primary" data-action="examp-retry-open">Try again</button></div>`);
+                if (examPaperLoadError === 'CONNECT_NEEDED') return appFrame(`<div class="page">${back}${titleHtml}${examPaperArchiveBannerHtml('error')}<p class="small">Once connected, try opening this paper again.</p><button type="button" class="button primary" data-action="examp-retry-open">Try again</button></div>`);
                 if (examPaperLoadError) return appFrame(`<div class="page">${back}${titleHtml}<p class="empty">${escape(examPaperLoadError)}</p></div>`);
 
                 const toolbarHtml = `<div class="exam-viewer-toolbar">
