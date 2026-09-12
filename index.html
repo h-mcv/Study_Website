@@ -12464,10 +12464,6 @@ ${pointsSvg}
 
             // ---- Jelly Busters --------------------------------------------------------------------------------
             const JB_GRID = 26;
-            const JB_RAINBOW = ['#e63946','#f3722c','#f9c74f','#90be6d','#43aa8b','#4d908e','#577590','#9b5de5'];
-            function jbBandRow(y) { return Math.max(0, Math.min(7, Math.floor(((y+1)/2) * 8))); }
-            function jbBandDist(d, maxD) { return Math.max(0, Math.min(7, Math.floor((d/maxD) * 8))); }
-            function jbRainbowColors(extra) { const o = {}; JB_RAINBOW.forEach((c,i) => o['B'+i] = c); return { ...o, ...extra }; }
             function jbMaskGrid(size, fn) { const g = [];
                 for (let row = 0; row < size; row++) { const r = [];
                     for (let col = 0; col < size; col++) { const x = (col - (size - 1) / 2) / (size / 2),
@@ -12475,10 +12471,15 @@ ${pointsSvg}
                         r.push(fn(x, y)); }
                     g.push(r); }
                 return g; }
-            function jbPointInPoly(px, py, poly) { let inside = false;
-                for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j];
-                    if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside; }
-                return inside; }
+            function jbNear(x, y, pts, r) { for (let i = 0; i < pts.length; i++) if (Math.hypot(x-pts[i][0], y-pts[i][1]) < r) return true; return false; }
+            function jbNearIndex(x, y, pts, r) { for (let i = 0; i < pts.length; i++) if (Math.hypot(x-pts[i][0], y-pts[i][1]) < r) return i; return -1; }
+            function jbWedge(x, y) { const dx = x, dy = y - 0.85, rad = Math.hypot(dx, dy),
+                    ang = Math.atan2(dy, dx) * 180 / Math.PI;
+                if (ang < -150 || ang > -30 || rad > 1.55) return null;
+                return rad / 1.55; }
+            function jbInTri(px, py, p0, p1, p2) { const s = (a,b,c) => (a[0]-c[0])*(b[1]-c[1]) - (b[0]-c[0])*(a[1]-c[1]);
+                const d1 = s([px,py],p0,p1), d2 = s([px,py],p1,p2), d3 = s([px,py],p2,p0);
+                return !((d1<0||d2<0||d3<0) && (d1>0||d2>0||d3>0)); }
             function jbBuildPath(rect) { const { left, top, right, bottom, r } = rect;
                 const segs = [
                     { type: 'line', from: [left+r, top], to: [right-r, top], side: 'top' },
@@ -12506,65 +12507,88 @@ ${pointsSvg}
                 ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
                 ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath(); }
 
+            const JB_WATERMELON_SEEDS = [[-0.25,0.3],[0.15,0.25],[-0.05,0.5],[0.3,0.5],[-0.35,0.6],[0.05,0.65],[0.35,0.15],[-0.15,0.1]];
+            const JB_PIZZA_PEPPERONI = [[-0.3,0.3],[0.25,0.35],[0,0.5],[-0.15,0.6],[0.3,0.6],[-0.35,0.15]];
+            const JB_PIZZA_PEPPER = [[0.1,0.2],[-0.2,0.45]];
+            const JB_PIZZA_MUSHROOM = [[0.35,0.45],[-0.05,0.15]];
+            const JB_BFLY_SPOTS = [[0.55,-0.2],[0.35,0.05]];
+            const JB_BFLY_SPOTS_L = JB_BFLY_SPOTS.map(([x,y]) => [-x,y]);
+            const JB_BFLY_SPOT2 = [0.42,0.4];
+            const JB_DONUT_SPRINKLES = [[-0.4,-0.35],[-0.15,-0.5],[0.1,-0.4],[0.35,-0.3],[-0.3,-0.15],[0.25,-0.55],[0,-0.2],[0.45,-0.1],[-0.5,0.0]];
+            const JB_DONUT_SPRINKLE_KEY = ['SP1','SP2','SP3','SP1','SP3','SP2','SP1','SP2','SP3'];
+
             const JB_LEVELS = [
-                { id: 'heart', title: 'Jelly Heart', colors: jbRainbowColors({ RIM: '#7a1f1f', HI: '#ffe8ec' }),
+                { id: 'watermelon', title: 'Watermelon Wedge',
+                    colors: { G2: '#1b4332', G1: '#40916c', W: '#f1faee', R: '#e5383b', K: '#1a1a1a' },
+                    build: size => jbMaskGrid(size, (x, y) => { const rad = jbWedge(x, y); if (rad === null) return null;
+                        if (rad > 0.9) return 'G2'; if (rad > 0.8) return 'G1'; if (rad > 0.72) return 'W';
+                        if (jbNear(x, y, JB_WATERMELON_SEEDS, 0.045)) return 'K'; return 'R'; }) },
+                { id: 'pizza', title: 'Pizza Slice',
+                    colors: { C2: '#8a5a2b', C1: '#e3a857', Y: '#ffd60a', P: '#c1121f', M: '#8d6e63', G: '#40916c' },
+                    build: size => jbMaskGrid(size, (x, y) => { const rad = jbWedge(x, y); if (rad === null) return null;
+                        if (rad > 0.88) return 'C2'; if (rad > 0.78) return 'C1';
+                        if (jbNear(x, y, JB_PIZZA_PEPPERONI, 0.09)) return 'P';
+                        if (jbNear(x, y, JB_PIZZA_PEPPER, 0.06)) return 'G';
+                        if (jbNear(x, y, JB_PIZZA_MUSHROOM, 0.06)) return 'M'; return 'Y'; }) },
+                { id: 'rocket', title: 'Rocket Ship',
+                    colors: { N: '#e63946', B: '#f1faee', RV: '#6c757d', WR: '#1d3557', GL: '#48cae4', S: '#7209b7', F: '#fb6f92', FL1: '#ffd60a', FL2: '#fb8500', FL3: '#d00000' },
                     build: size => jbMaskGrid(size, (x, y) => {
-                        const yy = -y, val = Math.pow(x*x+yy*yy-1,3) - x*x*Math.pow(yy,3);
-                        if (val > 0) return null;
-                        if (Math.hypot(x+0.25, y+0.35) < 0.15) return 'HI';
-                        const val2 = Math.pow(x*x+yy*yy-0.82,3) - x*x*0.82*Math.pow(yy,3);
-                        return val2 > 0 ? 'RIM' : 'B'+jbBandRow(y); }) },
-                { id: 'gem', title: 'Jelly Gem', colors: jbRainbowColors({ RIM: '#12263a' }),
+                        if (y >= -0.85 && y < -0.4) { const t = (y + 0.85) / 0.45; return Math.abs(x) <= 0.32 * t ? 'N' : null; }
+                        if (jbInTri(x,y,[0.32,0.30],[0.32,0.58],[0.68,0.62])) return 'F';
+                        if (jbInTri(x,y,[-0.32,0.30],[-0.32,0.58],[-0.68,0.62])) return 'F';
+                        if (y >= 0.55) { const t = (y - 0.55) / 0.35; if (t > 1) return null;
+                            if (Math.abs(x) <= 0.22 * (1-t)) return t < 0.35 ? 'FL1' : t < 0.7 ? 'FL2' : 'FL3'; return null; }
+                        if (Math.abs(x) <= 0.32 && y >= -0.4 && y < 0.55) {
+                            if (y > 0.14 && y < 0.22) return 'S';
+                            if (jbNear(x, y, [[-0.18,-0.32],[0.18,-0.32]], 0.05)) return 'RV';
+                            const d = Math.hypot(x, y+0.05); if (d < 0.17) return d < 0.14 ? 'GL' : 'WR';
+                            return 'B'; }
+                        return null; }) },
+                { id: 'butterfly', title: 'Butterfly',
+                    colors: { BD: '#22223b', RIM: '#3a0ca3', WING: '#4361ee', SPOT1: '#f9c74f', SPOTC: '#ffffff', WING2: '#2a9d8f', SPOT2: '#f72585' },
                     build: size => jbMaskGrid(size, (x, y) => {
-                        const d = Math.abs(x) + Math.abs(y);
-                        if (d > 1.02) return null;
-                        return d > 0.94 ? 'RIM' : 'B'+jbBandDist(d, 0.94); }) },
-                { id: 'star', title: 'Jelly Star', colors: jbRainbowColors({ X: '#ffffff' }),
-                    build: size => { const pts = [];
-                        for (let i = 0; i < 10; i++) { const rr = i % 2 === 0 ? 1 : 0.42, a = (Math.PI/5)*i - Math.PI/2;
-                            pts.push([Math.cos(a)*rr, Math.sin(a)*rr]); }
-                        return jbMaskGrid(size, (x, y) => {
-                            if (!jbPointInPoly(x, y, pts)) return null;
-                            const d = Math.hypot(x, y);
-                            if (d < 0.12) return 'X';
-                            return 'B'+jbBandDist(d, 1); }); } },
-                { id: 'ghost', title: 'Jelly Ghost', colors: jbRainbowColors({ K: '#1a0f1f', RIM: '#3d2645' }),
-                    build: size => jbMaskGrid(size, (x, y) => {
-                        const topCut = -0.15; let inside;
-                        if (y < topCut) inside = Math.hypot(x, y - topCut) <= 0.85 && y > -1.05;
-                        else { const wave = 0.12 * Math.sin((x+1)*Math.PI*2.5); inside = Math.abs(x) <= 0.85 && y <= 0.85 + wave; }
-                        if (!inside) return null;
-                        if (Math.hypot(x+0.32,y+0.05)<0.13 || Math.hypot(x-0.32,y+0.05)<0.13) return 'K';
-                        return (Math.abs(x) > 0.68 || y > 0.6 || y < -0.85) ? 'RIM' : 'B'+jbBandRow(y); }) },
-                { id: 'catface', title: 'Jelly Cat', colors: jbRainbowColors({ RIM: '#7a3b00', I: '#fff3e0', K: '#1c140c' }),
-                    build: size => jbMaskGrid(size, (x, y) => {
-                        const inHead = Math.hypot(x, y + 0.08) <= 0.82;
-                        function inEar(sign) { const p0 = [0.28, -0.5], p1 = [0.92, -1.05], p2 = [0.58, -0.28], px = x * sign, py = y;
-                            const s = (a, b, c) => (a[0]-c[0])*(b[1]-c[1]) - (b[0]-c[0])*(a[1]-c[1]);
-                            const d1 = s([px,py], p0, p1), d2 = s([px,py], p1, p2), d3 = s([px,py], p2, p0);
-                            return !((d1<0||d2<0||d3<0) && (d1>0||d2>0||d3>0)); }
-                        const earL = inEar(-1), earR = inEar(1);
-                        if (!inHead && !earL && !earR) return null;
-                        if ((earL || earR) && !inHead) return Math.hypot(Math.abs(x)-0.6, y+0.65) < 0.16 ? 'I' : 'RIM';
-                        if (Math.hypot(x+0.28,y+0.05)<0.09 || Math.hypot(x-0.28,y+0.05)<0.09 || Math.hypot(x,y-0.24)<0.07) return 'K';
-                        return (0.82 - Math.hypot(x, y+0.08)) < 0.14 ? 'RIM' : 'B'+jbBandRow(y); }) },
+                        if (Math.abs(x) <= 0.055 && y >= -0.55 && y <= 0.6) return 'BD';
+                        if (jbNear(x,y,[[-0.1,-0.62],[0.1,-0.62]],0.045)) return 'BD';
+                        for (const side of [-1,1]) { const spots = side < 0 ? JB_BFLY_SPOTS_L : JB_BFLY_SPOTS;
+                            const ux=(x-side*0.5)/0.48, uy=(y+0.12)/0.42, uEdge = ux*ux+uy*uy;
+                            if (x*side >= 0.03 && uEdge <= 1) { if (uEdge > 0.72) return 'RIM';
+                                if (jbNear(x,y,spots,0.045)) return 'SPOTC'; if (jbNear(x,y,spots,0.09)) return 'SPOT1'; return 'WING'; }
+                            const lx=(x-side*0.4)/0.34, ly=(y-0.38)/0.28, lEdge = lx*lx+ly*ly;
+                            if (x*side >= 0.03 && lEdge <= 1) { if (lEdge > 0.7) return 'RIM';
+                                if (jbNear(x,y,[[side*JB_BFLY_SPOT2[0],JB_BFLY_SPOT2[1]]],0.08)) return 'SPOT2'; return 'WING2'; } }
+                        return null; }) },
+                { id: 'donut', title: 'Sprinkle Donut',
+                    colors: { ICE1: '#ff8fa3', ICE2: '#ff477e', D1: '#e3a857', D2: '#c17817', SP1: '#ffd60a', SP2: '#48cae4', SP3: '#06d6a0' },
+                    build: size => jbMaskGrid(size, (x, y) => { const d = Math.hypot(x, y);
+                        if (d > 0.85 || d < 0.35) return null;
+                        const icingLine = 0.05 + 0.1 * Math.sin(x * 9);
+                        if (y < icingLine) { const si = jbNearIndex(x, y, JB_DONUT_SPRINKLES, 0.05);
+                            if (si >= 0) return JB_DONUT_SPRINKLE_KEY[si]; return d > 0.75 ? 'ICE2' : 'ICE1'; }
+                        return d > 0.75 ? 'D2' : 'D1'; }) },
             ];
 
             function mountJellyBusters(container) {
                 const RES = 620, ORIGIN = 100, BOARD = 420, CELL = BOARD / JB_GRID, PATH_MARGIN = 70, CORNER_R = 46;
                 const PATH = jbBuildPath({ left: ORIGIN-PATH_MARGIN, top: ORIGIN-PATH_MARGIN, right: ORIGIN+BOARD+PATH_MARGIN, bottom: ORIGIN+BOARD+PATH_MARGIN, r: CORNER_R });
-                const MAX_ACTIVE = 5, COL_COUNT = 5, COL_VISIBLE = 3, COL_QUEUE_LEN = 6, FIRE_COOLDOWN = 0.35, JELLY_POINTS = 20, JELLY_SPEED = 78;
+                const MAX_BAR = 5, COL_COUNT = 5, COL_VISIBLE = 3, COL_QUEUE_LEN = 6, FIRE_COOLDOWN = 0.35, JELLY_POINTS = 20, JELLY_SPEED = 78;
                 let settings = gameSettingsFor('jellybusters', { levelIndex: 0 });
                 let canvas, ctx, bg, line, img, grid, activeByColor, initialCounts, totalActive, clearedCount,
                     jellies, columns, nextJellyId, projectiles, particles, rings, score, best = gameBestScore('jellybusters'),
                     startTime, elapsed = 0, finished = false, paused = false, rafId = null, lastTs = null, frameCount = 0;
 
                 function cellCenter(x, y) { return { x: ORIGIN + (x + 0.5) * CELL, y: ORIGIN + (y + 0.5) * CELL }; }
-                function inBounds(x, y) { return x >= 0 && x < JB_GRID && y >= 0 && y < JB_GRID; }
-                function isOpen(x, y) { if (!inBounds(x, y)) return true; const c = grid[y][x]; return !c || c.cleared; }
-                function isExposedSide(x, y, side) { const c = grid[y][x]; if (!c || c.cleared) return false;
-                    if (side === 'top') return isOpen(x, y-1); if (side === 'bottom') return isOpen(x, y+1);
-                    if (side === 'left') return isOpen(x-1, y); if (side === 'right') return isOpen(x+1, y); return false; }
+                function rowFromWorldY(y) { return Math.max(0, Math.min(JB_GRID-1, Math.floor((y-ORIGIN)/CELL))); }
+                function colFromWorldX(x) { return Math.max(0, Math.min(JB_GRID-1, Math.floor((x-ORIGIN)/CELL))); }
+                function frontCellForSide(side, pos) {
+                    if (side === 'left') { const row = rowFromWorldY(pos.y);
+                        for (let x = 0; x < JB_GRID; x++) { const c = grid[row][x]; if (c && !c.cleared) return c; } return null; }
+                    if (side === 'right') { const row = rowFromWorldY(pos.y);
+                        for (let x = JB_GRID-1; x >= 0; x--) { const c = grid[row][x]; if (c && !c.cleared) return c; } return null; }
+                    if (side === 'top') { const col = colFromWorldX(pos.x);
+                        for (let y = 0; y < JB_GRID; y++) { const c = grid[y][col]; if (c && !c.cleared) return c; } return null; }
+                    if (side === 'bottom') { const col = colFromWorldX(pos.x);
+                        for (let y = JB_GRID-1; y >= 0; y--) { const c = grid[y][col]; if (c && !c.cleared) return c; } return null; }
+                    return null; }
 
                 function pickWeightedColor() { const keys = Object.keys(img.colors).filter(k => (activeByColor[k]||[]).length > 0);
                     if (!keys.length) return Object.keys(img.colors)[0];
@@ -12578,7 +12602,7 @@ ${pointsSvg}
                     const li = ((idx % JB_LEVELS.length) + JB_LEVELS.length) % JB_LEVELS.length;
                     img = JB_LEVELS[li]; settings = { ...settings, levelIndex: li }; saveGameSettingsFor('jellybusters', { levelIndex: li });
                     const mask = img.build(JB_GRID);
-                    grid = mask.map(row => row.map(ch => ch ? { letter: ch, cleared: false, claimedUntil: 0 } : null));
+                    grid = mask.map(row => row.map(ch => ch ? { letter: ch, cleared: false } : null));
                     activeByColor = {}; initialCounts = {};
                     for (let y = 0; y < JB_GRID; y++) for (let x = 0; x < JB_GRID; x++) { const c = grid[y][x]; if (!c) continue;
                         c.x = x; c.y = y; (activeByColor[c.letter] = activeByColor[c.letter] || []).push(c); }
@@ -12590,7 +12614,7 @@ ${pointsSvg}
                     projectiles = []; particles = []; rings = [];
                     render(); }
 
-                function launchFromColumn(ci) { if (paused || finished || jellies.length >= MAX_ACTIVE) return;
+                function launchFromColumn(ci) { if (paused || finished) return;
                     const col = columns[ci]; if (!col || !col.length) return;
                     const entry = col.shift(); col.push(randomColumnEntry());
                     jellies.push({ id: nextJellyId++, color: entry.color, points: JELLY_POINTS, state: 'traveling',
@@ -12602,48 +12626,56 @@ ${pointsSvg}
                     j.state = 'traveling'; j.dist = 0; j.t = 0; j.barSlot = undefined;
                     renderBottomUI(); }
 
-                function parkJelly(j) { const used = new Set(jellies.filter(x => x.state === 'parked').map(x => x.barSlot));
+                function parkJelly(j) { const existing = jellies.find(x => x.state === 'parked' && x.color === j.color && x !== j);
+                    if (existing) { existing.points += j.points; removeJelly(j); return; }
+                    const used = new Set(jellies.filter(x => x.state === 'parked').map(x => x.barSlot));
+                    if (used.size >= MAX_BAR) { loseLevel(); return; }
                     let slot = 0; while (used.has(slot)) slot++;
                     j.state = 'parked'; j.barSlot = slot;
                     renderBottomUI(); }
 
                 function removeJelly(j) { const i = jellies.indexOf(j); if (i >= 0) jellies.splice(i, 1); renderBottomUI(); }
 
-                function findTargetForSide(jelly, side) { const list = activeByColor[jelly.color]; if (!list || !list.length) return null;
-                    const now = performance.now(), pos = jbLocate(PATH, jelly.t);
-                    let best = null, bestD = Infinity;
-                    for (const c of list) { if (c.claimedUntil > now || !isExposedSide(c.x, c.y, side)) continue;
-                        const p = cellCenter(c.x, c.y), d = (p.x-pos.x)**2 + (p.y-pos.y)**2;
-                        if (d < bestD) { bestD = d; best = c; } }
-                    return best; }
+                function purgeColor(letter) { jellies = jellies.filter(j => j.color !== letter);
+                    columns.forEach(col => { for (let i = 0; i < col.length; i++) if (col[i].color === letter) col[i] = randomColumnEntry(); });
+                    renderBottomUI(); }
 
-                function fireAt(jelly, cell) { cell.claimedUntil = performance.now() + 320;
-                    const from = jbLocate(PATH, jelly.t), to = cellCenter(cell.x, cell.y);
+                function fireAt(jelly, cell) { const from = jbLocate(PATH, jelly.t), to = cellCenter(cell.x, cell.y);
                     projectiles.push({ x0: from.x, y0: from.y, x1: to.x, y1: to.y, color: img.colors[cell.letter], t: 0,
                         dur: 0.13, cellX: cell.x, cellY: cell.y, jellyId: jelly.id });
                     jelly.recoil = 1; }
 
                 function clearCell(x, y, jellyId) { const c = grid[y][x]; if (!c || c.cleared) return;
-                    c.cleared = true; clearedCount++;
-                    const list = activeByColor[c.letter], i = list.indexOf(c); if (i >= 0) list.splice(i, 1);
+                    c.cleared = true; clearedCount++; const letter = c.letter;
+                    const list = activeByColor[letter], i = list.indexOf(c); if (i >= 0) list.splice(i, 1);
                     score += 10;
-                    const p = cellCenter(x, y), color = img.colors[c.letter];
+                    const p = cellCenter(x, y), color = img.colors[letter];
                     for (let n = 0; n < 6; n++) { const a = Math.random()*Math.PI*2, sp = 30 + Math.random()*70;
                         particles.push({ x: p.x, y: p.y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 30, color,
                             life: 0.45 + Math.random()*0.2, maxLife: 0.6, size: 3 + Math.random()*3 }); }
                     rings.push({ x: p.x, y: p.y, r: 2, maxR: 16, life: 0.35, maxLife: 0.35, color });
                     const jelly = jellies.find(j => j.id === jellyId);
                     if (jelly) { jelly.points--; if (jelly.points <= 0) removeJelly(jelly); }
+                    if (list.length === 0) purgeColor(letter);
                     if (clearedCount >= totalActive && !finished) finishLevel(); }
 
-                function finishLevel() { finished = true; elapsed = (performance.now() - startTime) / 1000;
+                function freezeControls() { const btn = container.querySelector('.jb-pause'); if (btn) btn.disabled = true; }
+
+                function finishLevel() { finished = true; paused = true; elapsed = (performance.now() - startTime) / 1000;
                     const bonus = Math.max(0, Math.round(1200 - elapsed * 6)); score += bonus;
                     const improved = gameReportScore('jellybusters', score); best = gameBestScore('jellybusters');
-                    renderStat(); renderBottomUI(); const ov = container.querySelector('.jb-overlay'); if (!ov) return;
+                    renderStat(); renderBottomUI(); freezeControls(); const ov = container.querySelector('.jb-overlay'); if (!ov) return;
                     ov.innerHTML = `<div class="jb-overlay-inner">🎉 ${escape(img.title)} cleared!<br>Time: ${elapsed.toFixed(1)}s &nbsp;·&nbsp; Score: ${score}${improved ? ' — new best!' : ''}
                         <div class="game-actions" style="margin-top:10px"><button type="button" class="button primary jb-next">Next level →</button></div></div>`;
                     ov.classList.remove('hidden');
                     ov.querySelector('.jb-next').addEventListener('click', () => loadLevel(settings.levelIndex + 1)); }
+
+                function loseLevel() { finished = true; paused = true;
+                    renderBottomUI(); freezeControls(); const ov = container.querySelector('.jb-overlay'); if (!ov) return;
+                    ov.innerHTML = `<div class="jb-overlay-inner">💥 The bar's full and nothing matched!<br>Score: ${score}
+                        <div class="game-actions" style="margin-top:10px"><button type="button" class="button primary jb-retry">Retry level</button></div></div>`;
+                    ov.classList.remove('hidden');
+                    ov.querySelector('.jb-retry').addEventListener('click', () => loadLevel(settings.levelIndex)); }
 
                 function updateJelly(j, dt) { if (j.state !== 'traveling') return;
                     j.dist += JELLY_SPEED * dt;
@@ -12652,10 +12684,11 @@ ${pointsSvg}
                     j.recoil = Math.max(0, j.recoil - dt * 5);
                     if (j.points <= 0) { removeJelly(j); return; }
                     j.cooldown -= dt;
-                    if (j.cooldown <= 0) { const side = jbLocate(PATH, j.t).side;
-                        if (side) { const target = findTargetForSide(j, side);
-                            if (target) { fireAt(j, target); j.cooldown = FIRE_COOLDOWN; } else j.cooldown = 0.15; }
-                        else j.cooldown = 0.1; } }
+                    if (j.cooldown <= 0) { const pos = jbLocate(PATH, j.t);
+                        if (pos.side) { const front = frontCellForSide(pos.side, pos);
+                            if (front && front.letter === j.color) { fireAt(j, front); j.cooldown = FIRE_COOLDOWN; }
+                            else j.cooldown = 0.1; }
+                        else j.cooldown = 0.08; } }
 
                 function update(dt) {
                     jellies.slice().forEach(j => updateJelly(j, dt));
@@ -12706,12 +12739,12 @@ ${pointsSvg}
                         return `<div class="jb-legend-item"><span class="jb-swatch" style="background:${img.colors[l]}"></span><div class="jb-bar-mini"><div class="jb-bar-mini-fill" style="width:${pct}%;background:${img.colors[l]}"></div></div></div>`; }).join(''); }
 
                 function renderBottomUI() {
-                    const barEl = container.querySelector('.jb-bar'); if (barEl) { barEl.innerHTML = Array.from({ length: MAX_ACTIVE }, (_, i) => {
+                    const barEl = container.querySelector('.jb-bar'); if (barEl) { barEl.innerHTML = Array.from({ length: MAX_BAR }, (_, i) => {
                             const j = jellies.find(x => x.state === 'parked' && x.barSlot === i);
                             return j ? `<button type="button" class="jb-jelly-btn" data-bar="${i}" ${paused||finished?'disabled':''} style="--jc:${img.colors[j.color]}">${j.points}</button>`
                                 : `<div class="jb-bar-slot"></div>`; }).join('');
                         barEl.querySelectorAll('.jb-jelly-btn').forEach(b => b.addEventListener('click', () => relaunchParked(Number(b.dataset.bar)))); }
-                    const colsEl = container.querySelector('.jb-columns'); if (colsEl) { const canLaunch = !paused && !finished && jellies.length < MAX_ACTIVE;
+                    const colsEl = container.querySelector('.jb-columns'); if (colsEl) { const canLaunch = !paused && !finished;
                         colsEl.innerHTML = columns.map((col, ci) => `<div class="jb-col">${col.slice(0, COL_VISIBLE).map((entry, ri) =>
                             `<button type="button" class="jb-jelly-btn ${ri>0?'queued':''}" data-col="${ci}" ${ri===0 && canLaunch ? '' : 'disabled'} style="--jc:${img.colors[entry.color]}">${ri===0?JELLY_POINTS:''}</button>`).join('')}</div>`).join('');
                         colsEl.querySelectorAll('.jb-jelly-btn:not(.queued)').forEach(b => b.addEventListener('click', () => launchFromColumn(Number(b.dataset.col)))); } }
@@ -12757,7 +12790,7 @@ ${pointsSvg}
                 crossword: { title: 'Crossword', icon: '📰', desc: 'A freshly generated crossword every time — click a clue or a cell to start typing.', hasScore: false, mount: mountCrossword },
                 connections: { title: 'Connections', icon: '🟪', desc: 'Find the four groups of four related words — from a bank of tricky hand-made puzzles.', hasScore: false, mount: mountConnections },
                 ultimatettt: { title: 'Ultimate Tic-Tac-Toe', icon: '🎯', desc: 'Challenge someone by name or email — play over a day, or in real time if you\'re both online.', hasScore: false, mount: mountUltimateTTT },
-                jellybusters: { title: 'Jelly Busters', icon: '🍮', desc: "Send jellies from the queue onto the conveyor belt — each blasts its own colour off the picture's outside edge as it passes, then loops back for another lap. Clear every level's picture to advance.", hasScore: true, mount: mountJellyBusters },
+                jellybusters: { title: 'Jelly Busters', icon: '🍮', desc: "Send jellies from the queue onto the conveyor belt — each shoots straight into the picture and clears the first pixel it lines up with, if it's a colour match. Jellies that finish a lap wait on the bar (same colours combine); if the bar's full and nothing matches, it's game over.", hasScore: true, mount: mountJellyBusters },
             };
             GAME_ORDER.push('flappybird', 'blockblast', 'wordle', 'crossword', 'connections', 'ultimatettt', 'jellybusters');
 
