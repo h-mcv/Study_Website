@@ -3214,6 +3214,22 @@
         .uttt-big-winner { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: min(14vw, 64px); font-weight: 800; background: color-mix(in srgb, var(--surface-2) 55%, transparent); border-radius: 6px; z-index: 1; }
         .uttt-big.won-x .uttt-big-winner { color: #3498db; }
         .uttt-big.won-o .uttt-big-winner { color: #e74c3c; }
+        .jb-wrap { position: relative; width: 100%; display: flex; justify-content: center; }
+        .jb-canvas { background: var(--surface-2); border-radius: 14px; width: min(92vw, 560px); height: auto; aspect-ratio: 1 / 1; cursor: pointer; touch-action: manipulation; }
+        .jb-overlay { position: absolute; inset: 0; width: min(92vw, 560px); margin: 0 auto; display: flex; align-items: center; justify-content: center; text-align: center;
+            color: #fff; font-weight: 700; font-size: 18px; background: rgba(0,0,0,.55); border-radius: 14px; padding: 16px; }
+        .jb-overlay.hidden { display: none; }
+        .jb-picker { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        .jb-pick-mini { border: 2px solid var(--line); border-radius: 10px; padding: 4px; background: var(--surface); cursor: pointer; line-height: 0; }
+        .jb-pick-mini.selected { border-color: var(--primary); }
+        .jb-pick-canvas { width: 44px; height: 44px; image-rendering: pixelated; border-radius: 6px; }
+        .jb-legend { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 460px; }
+        .jb-legend-item { display: flex; align-items: center; gap: 6px; }
+        .jb-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+        .jb-bar { width: 54px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+        .jb-bar-fill { height: 100%; border-radius: 4px; transition: width .2s; }
+        .sm-game-stage .jb-canvas { width: min(80vw, 380px); }
+        .sm-game-stage .jb-overlay { width: min(80vw, 380px); }
         #study-mode-pip {
             position: fixed;
             right: 24px;
@@ -12440,6 +12456,257 @@ ${pointsSvg}
                 return () => { stopMatchPoll(); container.innerHTML = ''; };
             }
 
+            // ---- Jelly Busters --------------------------------------------------------------------------------
+            const JB_GRID = 20;
+            function jbMaskGrid(size, fn) { const g = [];
+                for (let row = 0; row < size; row++) { const r = [];
+                    for (let col = 0; col < size; col++) { const x = (col - (size - 1) / 2) / (size / 2),
+                            y = (row - (size - 1) / 2) / (size / 2);
+                        r.push(fn(x, y)); }
+                    g.push(r); }
+                return g; }
+            function jbPointInPoly(px, py, poly) { let inside = false;
+                for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j];
+                    if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside; }
+                return inside; }
+            function jbBuildPath(rect) { const { left, top, right, bottom, r } = rect;
+                const segs = [
+                    { type: 'line', from: [left+r, top], to: [right-r, top] },
+                    { type: 'arc', cx: right-r, cy: top+r, r, a0: -Math.PI/2, a1: 0 },
+                    { type: 'line', from: [right, top+r], to: [right, bottom-r] },
+                    { type: 'arc', cx: right-r, cy: bottom-r, r, a0: 0, a1: Math.PI/2 },
+                    { type: 'line', from: [right-r, bottom], to: [left+r, bottom] },
+                    { type: 'arc', cx: left+r, cy: bottom-r, r, a0: Math.PI/2, a1: Math.PI },
+                    { type: 'line', from: [left, bottom-r], to: [left, top+r] },
+                    { type: 'arc', cx: left+r, cy: top+r, r, a0: Math.PI, a1: Math.PI*1.5 },
+                ];
+                segs.forEach(s => { s.length = s.type === 'line'
+                    ? Math.hypot(s.to[0]-s.from[0], s.to[1]-s.from[1])
+                    : Math.abs(s.a1 - s.a0) * s.r; });
+                return { segs, total: segs.reduce((a,s) => a+s.length, 0) }; }
+            function jbPathPoint(path, frac) { let s = ((frac % 1) + 1) % 1 * path.total;
+                for (const seg of path.segs) { if (s <= seg.length || seg === path.segs[path.segs.length-1]) {
+                        if (seg.type === 'line') { const t = seg.length ? s/seg.length : 0;
+                            return { x: seg.from[0] + (seg.to[0]-seg.from[0])*t, y: seg.from[1] + (seg.to[1]-seg.from[1])*t }; }
+                        const a = seg.a0 + (seg.a1-seg.a0) * (s/seg.length);
+                        return { x: seg.cx + Math.cos(a)*seg.r, y: seg.cy + Math.sin(a)*seg.r }; }
+                    s -= seg.length; }
+                return { x: path.segs[0].from[0], y: path.segs[0].from[1] }; }
+            function jbRoundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x+r, y);
+                ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+                ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath(); }
+
+            const JB_IMAGES = [
+                { id: 'catface', title: 'Jelly Cat', colors: { D: '#d35400', F: '#f39c12', I: '#fdebd0', K: '#2c1e12' },
+                    build: size => jbMaskGrid(size, (x, y) => {
+                        const inHead = Math.hypot(x, y + 0.08) <= 0.82;
+                        function inEar(sign) { const p0 = [0.28, -0.5], p1 = [0.92, -1.05], p2 = [0.58, -0.28], px = x * sign, py = y;
+                            const s = (a, b, c) => (a[0]-c[0])*(b[1]-c[1]) - (b[0]-c[0])*(a[1]-c[1]);
+                            const d1 = s([px,py], p0, p1), d2 = s([px,py], p1, p2), d3 = s([px,py], p2, p0);
+                            return !((d1<0||d2<0||d3<0) && (d1>0||d2>0||d3>0)); }
+                        const earL = inEar(-1), earR = inEar(1);
+                        if (!inHead && !earL && !earR) return null;
+                        if ((earL || earR) && !inHead) return Math.hypot(Math.abs(x)-0.6, y+0.65) < 0.16 ? 'I' : 'D';
+                        if (Math.hypot(x+0.28,y+0.05)<0.09 || Math.hypot(x-0.28,y+0.05)<0.09 || Math.hypot(x,y-0.24)<0.07) return 'K';
+                        return (0.82 - Math.hypot(x, y+0.08)) < 0.14 ? 'D' : 'F'; }) },
+                { id: 'heart', title: 'Jelly Heart', colors: { R: '#c0392b', F: '#e74c3c', H: '#f8c9c9' },
+                    build: size => jbMaskGrid(size, (x, y) => {
+                        const yy = -y, val = Math.pow(x*x+yy*yy-1,3) - x*x*Math.pow(yy,3);
+                        if (val > 0) return null;
+                        if (Math.hypot(x+0.25, y+0.35) < 0.15) return 'H';
+                        const val2 = Math.pow(x*x+yy*yy-0.82,3) - x*x*0.82*Math.pow(yy,3);
+                        return val2 > 0 ? 'R' : 'F'; }) },
+                { id: 'gem', title: 'Jelly Gem', colors: { D: '#1a5276', C: '#2471a3', B: '#3498db', A: '#aed6f1' },
+                    build: size => jbMaskGrid(size, (x, y) => {
+                        const d = Math.abs(x) + Math.abs(y);
+                        if (d > 1.02) return null;
+                        return 'ABCD'[Math.min(3, Math.floor((d/1.02)*4))]; }) },
+                { id: 'star', title: 'Jelly Star', colors: { R: '#f39c12', C: '#f9e79f', X: '#e67e22' },
+                    build: size => { const pts = [];
+                        for (let i = 0; i < 10; i++) { const rr = i % 2 === 0 ? 1 : 0.42, a = (Math.PI/5)*i - Math.PI/2;
+                            pts.push([Math.cos(a)*rr, Math.sin(a)*rr]); }
+                        const inner = pts.map(([px,py]) => [px*0.55, py*0.55]);
+                        return jbMaskGrid(size, (x, y) => {
+                            if (!jbPointInPoly(x, y, pts)) return null;
+                            if (Math.hypot(x, y) < 0.12) return 'X';
+                            return jbPointInPoly(x, y, inner) ? 'C' : 'R'; }); } },
+                { id: 'ghost', title: 'Jelly Ghost', colors: { R: '#8f7fd1', F: '#d8cdf0', E: '#2c2140' },
+                    build: size => jbMaskGrid(size, (x, y) => {
+                        const topCut = -0.15; let inside;
+                        if (y < topCut) inside = Math.hypot(x, y - topCut) <= 0.85 && y > -1.05;
+                        else { const wave = 0.12 * Math.sin((x+1)*Math.PI*2.5); inside = Math.abs(x) <= 0.85 && y <= 0.85 + wave; }
+                        if (!inside) return null;
+                        if (Math.hypot(x+0.32,y+0.05)<0.13 || Math.hypot(x-0.32,y+0.05)<0.13) return 'E';
+                        return (Math.abs(x) > 0.68 || y > 0.6 || y < -0.85) ? 'R' : 'F'; }) },
+            ];
+
+            function mountJellyBusters(container) {
+                const RES = 560, ORIGIN = 100, BOARD = 360, CELL = BOARD / JB_GRID, PATH_MARGIN = 68, CORNER_R = 42;
+                const PATH = jbBuildPath({ left: ORIGIN-PATH_MARGIN, top: ORIGIN-PATH_MARGIN, right: ORIGIN+BOARD+PATH_MARGIN, bottom: ORIGIN+BOARD+PATH_MARGIN, r: CORNER_R });
+                const SPEED_MULT = { chill: 0.65, normal: 1, turbo: 1.6 };
+                let settings = gameSettingsFor('jellybusters', { image: 'catface', speed: 'normal' });
+                let canvas, ctx, bg, line, img, grid, activeByColor, initialCounts, totalActive, clearedCount,
+                    units, projectiles, particles, rings, score, best = gameBestScore('jellybusters'),
+                    startTime, elapsed = 0, finished = false, rafId = null, lastTs = null, frameCount = 0;
+
+                function cellCenter(x, y) { return { x: ORIGIN + (x + 0.5) * CELL, y: ORIGIN + (y + 0.5) * CELL }; }
+                function inBounds(x, y) { return x >= 0 && x < JB_GRID && y >= 0 && y < JB_GRID; }
+                function isOpen(x, y) { if (!inBounds(x, y)) return true; const c = grid[y][x]; return !c || c.cleared; }
+                function isExposed(x, y) { const c = grid[y][x]; if (!c || c.cleared) return false;
+                    return isOpen(x-1,y) || isOpen(x+1,y) || isOpen(x,y-1) || isOpen(x,y+1); }
+                function speedMult() { return SPEED_MULT[settings.speed] || 1; }
+
+                function loadImage(id) {
+                    img = JB_IMAGES.find(i => i.id === id) || JB_IMAGES[0];
+                    settings = { ...settings, image: img.id }; saveGameSettingsFor('jellybusters', { image: img.id });
+                    const mask = img.build(JB_GRID);
+                    grid = mask.map(row => row.map(ch => ch ? { letter: ch, cleared: false, claimedUntil: 0 } : null));
+                    activeByColor = {}; initialCounts = {};
+                    for (let y = 0; y < JB_GRID; y++) for (let x = 0; x < JB_GRID; x++) { const c = grid[y][x]; if (!c) continue;
+                        c.x = x; c.y = y; (activeByColor[c.letter] = activeByColor[c.letter] || []).push(c); }
+                    Object.keys(activeByColor).forEach(k => initialCounts[k] = activeByColor[k].length);
+                    totalActive = Object.values(initialCounts).reduce((a,b) => a+b, 0);
+                    clearedCount = 0; score = 0; finished = false; startTime = performance.now(); elapsed = 0;
+                    const letters = Object.keys(img.colors), spread = letters.reduce((a,l) => a + ((activeByColor[l]||[]).length > 55 ? 2 : 1), 0);
+                    units = []; let idx = 0;
+                    letters.forEach(letter => { const count = (activeByColor[letter]||[]).length > 55 ? 2 : 1;
+                        for (let n = 0; n < count; n++) { units.push({ letter, color: img.colors[letter],
+                            t: idx / spread, dir: idx % 2 === 0 ? 1 : -1, speed: 46 * (0.9 + Math.random()*0.2),
+                            phase: Math.random()*Math.PI*2, cooldown: Math.random()*0.3, recoil: 0, cleared: false, celebrate: 0 }); idx++; } });
+                    projectiles = []; particles = []; rings = [];
+                    render(); }
+
+                function findTarget(unit) { const list = activeByColor[unit.letter]; if (!list || !list.length) return null;
+                    const now = performance.now(), pos = jbPathPoint(PATH, unit.t);
+                    let best = null, bestD = Infinity;
+                    for (const c of list) { if (c.claimedUntil > now || !isExposed(c.x, c.y)) continue;
+                        const p = cellCenter(c.x, c.y), d = (p.x-pos.x)**2 + (p.y-pos.y)**2;
+                        if (d < bestD) { bestD = d; best = c; } }
+                    return best; }
+
+                function fire(unit, cell) { cell.claimedUntil = performance.now() + 260;
+                    const from = jbPathPoint(PATH, unit.t), to = cellCenter(cell.x, cell.y);
+                    projectiles.push({ x0: from.x, y0: from.y, x1: to.x, y1: to.y, color: unit.color, t: 0,
+                        dur: 0.15 / Math.sqrt(speedMult()), cellX: cell.x, cellY: cell.y, letter: unit.letter });
+                    unit.recoil = 1;
+                    const remain = activeByColor[unit.letter].length, init = initialCounts[unit.letter] || remain;
+                    unit.cooldown = Math.max(0.1, 0.5 - (1 - remain / init) * 0.32) / speedMult(); }
+
+                function clearCell(x, y, letter, manual) { const c = grid[y][x]; if (!c || c.cleared) return;
+                    c.cleared = true; clearedCount++;
+                    const list = activeByColor[letter], i = list.indexOf(c); if (i >= 0) list.splice(i, 1);
+                    score += manual ? 20 : 10;
+                    const p = cellCenter(x, y), color = img.colors[letter];
+                    for (let n = 0; n < (manual ? 9 : 6); n++) { const a = Math.random()*Math.PI*2, sp = 30 + Math.random()*70;
+                        particles.push({ x: p.x, y: p.y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 30, color,
+                            life: 0.45 + Math.random()*0.2, maxLife: 0.6, size: 3 + Math.random()*3 }); }
+                    rings.push({ x: p.x, y: p.y, r: 2, maxR: manual ? 22 : 16, life: 0.35, maxLife: 0.35, color });
+                    if (clearedCount >= totalActive && !finished) finishGame(); }
+
+                function finishGame() { finished = true; elapsed = (performance.now() - startTime) / 1000;
+                    const bonus = Math.max(0, Math.round(1400 - elapsed * 9)); score += bonus;
+                    const improved = gameReportScore('jellybusters', score); best = gameBestScore('jellybusters');
+                    renderStat(); const ov = container.querySelector('.jb-overlay'); if (!ov) return;
+                    ov.innerHTML = `<div class="jb-overlay-inner">🎉 Picture cleared!<br>Time: ${elapsed.toFixed(1)}s &nbsp;·&nbsp; Score: ${score}${improved ? ' — new best!' : ''}
+                        <div class="game-actions" style="margin-top:10px"><button type="button" class="button primary jb-again">Play again</button></div></div>`;
+                    ov.classList.remove('hidden');
+                    ov.querySelector('.jb-again').addEventListener('click', () => loadImage(img.id)); }
+
+                function update(dt) { const sm = speedMult(), now = performance.now();
+                    units.forEach(u => { u.t = (u.t + u.dir * (u.speed * sm) * dt / PATH.total + 1) % 1;
+                        u.recoil = Math.max(0, u.recoil - dt * 5);
+                        if (u.cleared) { u.celebrate = Math.min(1, u.celebrate + dt); return; }
+                        if (!activeByColor[u.letter] || !activeByColor[u.letter].length) { u.cleared = true; return; }
+                        u.cooldown -= dt;
+                        if (u.cooldown <= 0) { const target = findTarget(u); if (target) fire(u, target); else u.cooldown = 0.22 / sm; } });
+                    projectiles = projectiles.filter(p => { p.t += dt / p.dur;
+                        if (p.t >= 1) { clearCell(p.cellX, p.cellY, p.letter, false); return false; } return true; });
+                    particles = particles.filter(pt => { pt.vy += 90 * dt; pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vx *= (1 - 2*dt);
+                        pt.life -= dt; return pt.life > 0; });
+                    rings = rings.filter(r => { r.life -= dt; r.r = r.maxR * (1 - r.life / r.maxLife); return r.life > 0; });
+                    if (!finished) elapsed = (now - startTime) / 1000; }
+
+                function jbDrawUnit(u, t) { if (u.cleared && u.celebrate >= 1) return;
+                    const pos = jbPathPoint(PATH, u.t), wob = Math.sin(t*4 + u.phase) * 0.07,
+                        shrink = u.cleared ? Math.max(0, 1 - u.celebrate) : 1,
+                        sx = (1 - wob*0.6 + u.recoil*0.4) * shrink, sy = (1 + wob - u.recoil*0.35) * shrink, R = 12;
+                    ctx.save(); ctx.translate(pos.x, pos.y); ctx.scale(sx, sy);
+                    ctx.fillStyle = u.color;
+                    ctx.beginPath(); ctx.moveTo(-R*0.7, -R*0.9); ctx.lineTo(-R*0.15, -R*1.5); ctx.lineTo(R*0.05, -R*0.85); ctx.closePath(); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(R*0.7, -R*0.9); ctx.lineTo(R*0.15, -R*1.5); ctx.lineTo(-R*0.05, -R*0.85); ctx.closePath(); ctx.fill();
+                    ctx.beginPath(); ctx.ellipse(0, 0, R, R*0.92, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(-R*0.35, -R*0.4, R*0.32, R*0.2, -0.4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#22232b';
+                    ctx.beginPath(); ctx.arc(-R*0.32, -R*0.05, 2.4, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(R*0.32, -R*0.05, 2.4, 0, Math.PI*2); ctx.fill();
+                    ctx.restore(); }
+
+                function draw() { if (!ctx) return; ctx.clearRect(0, 0, RES, RES); ctx.fillStyle = bg; ctx.fillRect(0, 0, RES, RES);
+                    jbRoundRect(ctx, ORIGIN-4, ORIGIN-4, BOARD+8, BOARD+8, 14); ctx.strokeStyle = line; ctx.lineWidth = 2; ctx.stroke();
+                    for (let y = 0; y < JB_GRID; y++) for (let x = 0; x < JB_GRID; x++) { const c = grid[y][x]; if (!c || c.cleared) continue;
+                        ctx.fillStyle = img.colors[c.letter]; jbRoundRect(ctx, ORIGIN+x*CELL+1, ORIGIN+y*CELL+1, CELL-2, CELL-2, 3); ctx.fill(); }
+                    rings.forEach(r => { ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2);
+                        ctx.strokeStyle = r.color; ctx.globalAlpha = Math.max(0, r.life/r.maxLife) * 0.7; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1; });
+                    particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life/p.maxLife);
+                        ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size); ctx.globalAlpha = 1; });
+                    projectiles.forEach(pr => { const te = 1 - Math.pow(1 - Math.min(1,pr.t), 2), tt = Math.max(0, te - 0.3),
+                            hx = pr.x0 + (pr.x1-pr.x0)*te, hy = pr.y0 + (pr.y1-pr.y0)*te,
+                            tx = pr.x0 + (pr.x1-pr.x0)*tt, ty = pr.y0 + (pr.y1-pr.y0)*tt;
+                        ctx.strokeStyle = pr.color; ctx.lineWidth = 3; ctx.globalAlpha = 0.85;
+                        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke(); ctx.globalAlpha = 1;
+                        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx, hy, 2.6, 0, Math.PI*2); ctx.fill(); });
+                    const t = performance.now() / 1000; units.forEach(u => jbDrawUnit(u, t)); }
+
+                function renderStat() { const el = container.querySelector('.jb-stat'); if (!el) return;
+                    el.innerHTML = `Time: <strong>${elapsed.toFixed(1)}s</strong> &nbsp;·&nbsp; Cleared: <strong>${Math.round(100*clearedCount/totalActive)}%</strong> &nbsp;·&nbsp; Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`;
+                    const legend = container.querySelector('.jb-legend'); if (!legend) return;
+                    legend.innerHTML = Object.keys(img.colors).map(l => { const rem = (activeByColor[l]||[]).length, init = initialCounts[l]||1,
+                            pct = Math.round(100*(1 - rem/init));
+                        return `<div class="jb-legend-item"><span class="jb-swatch" style="background:${img.colors[l]}"></span><div class="jb-bar"><div class="jb-bar-fill" style="width:${pct}%;background:${img.colors[l]}"></div></div></div>`; }).join(''); }
+
+                function jbDrawThumb(cv, im) { const c2 = cv.getContext('2d'), size = 14, cell = cv.width/size, mask = im.build(size);
+                    c2.clearRect(0,0,cv.width,cv.height);
+                    for (let y=0;y<size;y++) for (let x=0;x<size;x++) { const ch = mask[y][x]; if (!ch) continue;
+                        c2.fillStyle = im.colors[ch]; c2.fillRect(x*cell, y*cell, cell+0.5, cell+0.5); } }
+
+                function setSpeed(v) { settings = { ...settings, speed: v }; saveGameSettingsFor('jellybusters', { speed: v });
+                    container.querySelectorAll('.jb-speed').forEach(b => { const on = b.dataset.v === v;
+                        b.classList.toggle('primary', on); b.classList.toggle('ghost', !on); }); }
+
+                function onPointer(e) { const rect = canvas.getBoundingClientRect(),
+                        cx = ((e.clientX - rect.left) / rect.width) * RES, cy = ((e.clientY - rect.top) / rect.height) * RES,
+                        x = Math.floor((cx - ORIGIN) / CELL), y = Math.floor((cy - ORIGIN) / CELL);
+                    if (!inBounds(x, y)) return; const c = grid[y][x]; if (!c || c.cleared) return;
+                    if (isExposed(x, y)) clearCell(x, y, c.letter, true);
+                    else { const p = cellCenter(x, y); rings.push({ x: p.x, y: p.y, r: 2, maxR: 20, life: 0.25, maxLife: 0.25, color: 'rgba(255,255,255,.5)' }); } }
+
+                function render() {
+                    bg = getComputedStyle(document.body).getPropertyValue('--surface-2') || '#eee';
+                    line = getComputedStyle(document.body).getPropertyValue('--line') || '#ccc';
+                    container.innerHTML = `<div class="game-stat-line jb-stat"></div>
+        <div class="jb-picker">${JB_IMAGES.map(im => `<button type="button" class="jb-pick-mini ${im.id===settings.image?'selected':''}" data-id="${im.id}" title="${im.title}"><canvas class="jb-pick-canvas" width="56" height="56"></canvas></button>`).join('')}</div>
+        <div class="jb-wrap"><canvas class="jb-canvas" width="${RES}" height="${RES}"></canvas><div class="jb-overlay hidden"></div></div>
+        <div class="jb-legend"></div>
+        <div class="small game-hint">Tap an exposed pixel to blast it yourself and help your jelly squads finish faster.</div>
+        <div class="game-settings-group"><span class="small">Speed</span><div class="game-settings-row">
+          ${['chill','normal','turbo'].map(v => `<button type="button" class="button ${settings.speed===v?'primary':'ghost'} jb-speed" data-v="${v}">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}
+        </div></div>`;
+                    canvas = container.querySelector('.jb-canvas'); ctx = canvas.getContext('2d');
+                    canvas.addEventListener('pointerdown', onPointer);
+                    container.querySelectorAll('.jb-pick-mini').forEach(b => { jbDrawThumb(b.querySelector('canvas'), JB_IMAGES.find(i=>i.id===b.dataset.id));
+                        b.addEventListener('click', () => loadImage(b.dataset.id)); });
+                    container.querySelectorAll('.jb-speed').forEach(b => b.addEventListener('click', () => setSpeed(b.dataset.v)));
+                    renderStat(); draw(); }
+
+                function loop(ts) { if (!ctx) return; const dt = Math.min(0.05, lastTs ? (ts-lastTs)/1000 : 0.016); lastTs = ts;
+                    update(dt); draw(); frameCount++; if (frameCount % 6 === 0) renderStat();
+                    rafId = requestAnimationFrame(loop); }
+
+                loadImage(settings.image);
+                rafId = requestAnimationFrame(loop);
+                return () => { if (rafId) cancelAnimationFrame(rafId); ctx = null; container.innerHTML = ''; };
+            }
+
             const GAMES = {
                 solitaire: { title: 'Solitaire', icon: '🃏', desc: 'Classic Klondike — click a card to pick it up, then click where it should go.', hasScore: false, mount: mountSolitaire },
                 blackjack: { title: 'Blackjack', icon: '♠️', desc: 'Get closer to 21 than the dealer without going over.', hasScore: false, mount: mountBlackjack },
@@ -12457,8 +12724,9 @@ ${pointsSvg}
                 crossword: { title: 'Crossword', icon: '📰', desc: 'A freshly generated crossword every time — click a clue or a cell to start typing.', hasScore: false, mount: mountCrossword },
                 connections: { title: 'Connections', icon: '🟪', desc: 'Find the four groups of four related words — from a bank of tricky hand-made puzzles.', hasScore: false, mount: mountConnections },
                 ultimatettt: { title: 'Ultimate Tic-Tac-Toe', icon: '🎯', desc: 'Challenge someone by name or email — play over a day, or in real time if you\'re both online.', hasScore: false, mount: mountUltimateTTT },
+                jellybusters: { title: 'Jelly Busters', icon: '🍮', desc: 'Colour squads of jelly critters patrol a pixel picture and blast their own colour off the outside edge — clear the whole picture as fast as you can.', hasScore: true, mount: mountJellyBusters },
             };
-            GAME_ORDER.push('flappybird', 'blockblast', 'wordle', 'crossword', 'connections', 'ultimatettt');
+            GAME_ORDER.push('flappybird', 'blockblast', 'wordle', 'crossword', 'connections', 'ultimatettt', 'jellybusters');
 
             function caoCourseFormModal(courseId) { const c = courseId ? state.caoCourses.find(x => x.id ===
                     courseId) : null;
