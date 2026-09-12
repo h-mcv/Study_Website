@@ -10,7 +10,7 @@
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com https://rlwfxvnwekkyfslxltus.supabase.co;
         font-src 'self' data:;
-        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://translate.googleapis.com https://api.mymemory.translated.net;
+        connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://translate.googleapis.com https://api.mymemory.translated.net https://cdn.jsdelivr.net;
         frame-src 'self' https://sdk.scdn.co;
         object-src 'none';
         base-uri 'self';
@@ -3999,8 +3999,58 @@
         .period-class-chip.eraser.selected { border-color: var(--danger); background: var(--danger-soft); }
         .preset-event-row { padding: 10px 0; border-top: 1px solid var(--line); }
         .preset-event-row:first-of-type { border-top: none; }
+
+        .exam-archive-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--surface-2); margin-bottom: 18px; flex-wrap: wrap; }
+        .exam-archive-banner.good { background: var(--success-soft); color: var(--success); }
+        .exam-archive-banner.subtle { background: transparent; padding: 0; margin-bottom: 14px; }
+        .exam-archive-optional-link { margin-bottom: 18px; }
+        .exam-level-grid, .exam-subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .exam-year-list { display: flex; flex-direction: column; gap: 10px; }
+        .exam-year-group { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
+        .exam-paper-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+        .exam-paper-row:first-of-type { border-top: none; }
+        .exam-viewer-toolbar { position: sticky; top: 10px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; box-shadow: var(--shadow); }
+        .exam-tool-group { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 4px; }
+        .exam-tool-group button[data-action="examp-set-tool"] { padding: 7px 10px; border-radius: 8px; border: none; background: transparent; color: var(--text); font-weight: 700; font-size: 12px; cursor: pointer; }
+        .exam-tool-group button[data-action="examp-set-tool"].active { background: var(--primary); color: #fff; }
+        .examp-color-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; background: var(--swatch); cursor: pointer; padding: 0; }
+        .examp-color-swatch.active { border-color: var(--text); }
+        .exam-save-status { font-size: 12px; color: var(--muted); min-width: 90px; text-align: right; }
+        .exam-save-status.saving { color: var(--warning); }
+        .exam-save-status.error { color: var(--danger); }
+        .exam-pages { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+        .exam-page-wrap { position: relative; background: #fff; box-shadow: var(--shadow); border-radius: 4px; max-width: 100%; }
+        .exam-page-wrap canvas.exam-pdf-canvas { display: block; border-radius: 4px; max-width: 100%; height: auto; }
+        .exam-overlay, .exam-ink-canvas { position: absolute; inset: 0; }
+        .exam-ink-canvas { pointer-events: none; width: 100%; height: 100%; }
+        .exam-page-wrap.tool-draw canvas.exam-ink-canvas, .exam-page-wrap.tool-erase canvas.exam-ink-canvas { pointer-events: auto; cursor: crosshair; }
+        .exam-page-wrap.tool-text .exam-overlay, .exam-page-wrap.tool-checkbox .exam-overlay { cursor: copy; }
+        .exam-box { position: absolute; }
+        .exam-textbox { min-width: 110px; }
+        .exam-box-bar { display: flex; justify-content: space-between; align-items: center; background: var(--primary-soft); border-radius: 6px 6px 0 0; padding: 1px 3px; }
+        .exam-box-drag { cursor: grab; color: var(--primary); font-size: 12px; padding: 2px 5px; user-select: none; }
+        .exam-box-delete { border: none; background: none; color: var(--danger); font-size: 14px; line-height: 1; padding: 2px 6px; cursor: pointer; }
+        .exam-box-text { width: 100%; min-height: 40px; resize: vertical; border: 2px solid var(--primary); border-top: none; border-radius: 0 0 6px 6px; background: rgba(255,255,255,.94); font-family: inherit; font-size: 13px; padding: 6px 8px; box-sizing: border-box; color: #20202b; }
+        .exam-checkbox { width: 26px; height: 26px; }
+        .exam-checkbox .exam-box-delete { position: absolute; top: -10px; right: -10px; background: var(--surface); border-radius: 50%; box-shadow: var(--shadow); }
+        .exam-checkbox-mark { width: 100%; height: 100%; border: 2.5px solid var(--primary); border-radius: 5px; background: rgba(255,255,255,.85); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .exam-checkbox.checked .exam-checkbox-mark { background: var(--primary); }
+        .exam-checkbox.checked .exam-checkbox-mark::after { content: '✓'; color: #fff; font-weight: 900; font-size: 16px; }
+        .exam-box.auto-detected .exam-checkbox-mark { border-style: dashed; }
+        .exam-box.auto-detected .exam-box-text { border-style: dashed; background: rgba(255,255,255,.7); }
+        .exam-box.auto-detected .exam-box-bar { opacity: .75; }
+        .exam-insert-blank-row { display: flex; justify-content: center; }
+        .exam-insert-blank-row button { font-size: 12px; }
+        .exam-remove-blank-page { position: absolute; top: 8px; right: 8px; font-size: 11px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--danger); cursor: pointer; }
+
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+        // Past Papers feature: renders locally-selected exam PDFs to <canvas> client-side.
+        // No PDF bytes are ever sent anywhere -- see the "Past Papers" section further down.
+        if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    </script>
     <script>
         // The SDK below calls this itself the moment it finishes loading — often before our
         // own inline script (at the end of <body>) has run — so it must already exist here.
@@ -6101,6 +6151,436 @@
             function guessSubjectTaxonomyId(name) { const hit = matchSubjectTaxonomy(name); return hit ? hit.id :
                     ''; }
 
+            // Past-exam-paper index: [examLevel, subjectId (matches SUBJECT_TAXONOMY id), year, label, relative file path]
+            // relative file path is resolved against the user's locally-selected exam archive folder (see examArchive* below) --
+            // nothing here is ever uploaded anywhere. subjectId/level pairs are looked up against SUBJECT_TAXONOMY for display names.
+            const EXAM_PAPER_INDEX = [
+                ['jc','business',2026,'Common Level','jc/business/2026/paper-common-level-ev.pdf'],
+                ['jc','business',2025,'Common Level','jc/business/2025/paper-common-level-ev.pdf'],
+                ['jc','business',2024,'Common Level','jc/business/2024/paper-common-level-ev.pdf'],
+                ['jc','business',2023,'Common Level','jc/business/2023/paper-common-level-ev.pdf'],
+                ['jc','business',2022,'Common Level','jc/business/2022/paper-common-level-ev.pdf'],
+                ['jc','dcg',2026,'Common Level','jc/dcg/2026/paper-common-level-ev.pdf'],
+                ['jc','dcg',2025,'Common Level','jc/dcg/2025/paper-common-level-ev.pdf'],
+                ['jc','dcg',2024,'Common Level','jc/dcg/2024/paper-common-level-ev.pdf'],
+                ['jc','dcg',2023,'Common Level','jc/dcg/2023/paper-common-level-ev.pdf'],
+                ['jc','dcg',2022,'Common Level','jc/dcg/2022/paper-common-level-ev.pdf'],
+                ['jc','english',2026,'Higher Level','jc/english/2026/paper-higher-level-ev.pdf'],
+                ['jc','english',2026,'Ordinary Level','jc/english/2026/paper-ordinary-level-ev.pdf'],
+                ['jc','english',2025,'Higher Level','jc/english/2025/paper-higher-level-ev.pdf'],
+                ['jc','english',2025,'Ordinary Level','jc/english/2025/paper-ordinary-level-ev.pdf'],
+                ['jc','english',2024,'Higher Level','jc/english/2024/paper-higher-level-ev.pdf'],
+                ['jc','english',2024,'Ordinary Level','jc/english/2024/paper-ordinary-level-ev.pdf'],
+                ['jc','english',2023,'Higher Level','jc/english/2023/paper-higher-level-ev.pdf'],
+                ['jc','english',2023,'Ordinary Level','jc/english/2023/paper-ordinary-level-ev.pdf'],
+                ['jc','english',2022,'Higher Level','jc/english/2022/paper-higher-level-ev.pdf'],
+                ['jc','english',2022,'Ordinary Level','jc/english/2022/paper-ordinary-level-ev.pdf'],
+                ['jc','french',2026,'Common Level','jc/french/2026/paper-common-level-ev.pdf'],
+                ['jc','french',2025,'Common Level','jc/french/2025/paper-common-level-ev.pdf'],
+                ['jc','french',2024,'Common Level','jc/french/2024/paper-common-level-ev.pdf'],
+                ['jc','french',2023,'Common Level','jc/french/2023/paper-common-level-ev.pdf'],
+                ['jc','french',2022,'Common Level','jc/french/2022/paper-common-level-ev.pdf'],
+                ['jc','geography',2026,'Common Level','jc/geography/2026/paper-common-level-ev.pdf'],
+                ['jc','geography',2026,'Map / Common Level','jc/geography/2026/paper-map-common-level-ev.pdf'],
+                ['jc','geography',2026,'Source Paper / Common Level','jc/geography/2026/paper-source-paper-common-level-ev.pdf'],
+                ['jc','geography',2025,'Common Level','jc/geography/2025/paper-common-level-ev.pdf'],
+                ['jc','geography',2025,'Map / Common Level','jc/geography/2025/paper-map-common-level-ev.pdf'],
+                ['jc','geography',2025,'Source Paper / Common Level','jc/geography/2025/paper-source-paper-common-level-ev.pdf'],
+                ['jc','geography',2024,'Common Level','jc/geography/2024/paper-common-level-ev.pdf'],
+                ['jc','geography',2024,'Map / Common Level','jc/geography/2024/paper-map-common-level-ev.pdf'],
+                ['jc','geography',2024,'Source Paper / Common Level','jc/geography/2024/paper-source-paper-common-level-ev.pdf'],
+                ['jc','geography',2023,'Common Level','jc/geography/2023/paper-common-level-ev.pdf'],
+                ['jc','geography',2023,'Source Paper / Common Level','jc/geography/2023/paper-source-paper-common-level-ev.pdf'],
+                ['jc','geography',2022,'Common Level','jc/geography/2022/paper-common-level-ev.pdf'],
+                ['jc','geography',2022,'Map / Common Level','jc/geography/2022/paper-map-common-level-ev.pdf'],
+                ['jc','geography',2022,'Source Paper / Common Level','jc/geography/2022/paper-source-paper-common-level-ev.pdf'],
+                ['jc','german',2026,'Common Level','jc/german/2026/paper-common-level-ev.pdf'],
+                ['jc','german',2025,'Common Level','jc/german/2025/paper-common-level-ev.pdf'],
+                ['jc','german',2024,'Common Level','jc/german/2024/paper-common-level-ev.pdf'],
+                ['jc','german',2023,'Common Level','jc/german/2023/paper-common-level-ev.pdf'],
+                ['jc','german',2022,'Common Level','jc/german/2022/paper-common-level-ev.pdf'],
+                ['jc','history',2026,'Common Level','jc/history/2026/paper-common-level-ev.pdf'],
+                ['jc','history',2025,'Common Level','jc/history/2025/paper-common-level-ev.pdf'],
+                ['jc','history',2024,'Common Level','jc/history/2024/paper-common-level-ev.pdf'],
+                ['jc','history',2023,'Common Level','jc/history/2023/paper-common-level-ev.pdf'],
+                ['jc','history',2022,'Common Level','jc/history/2022/paper-common-level-ev.pdf'],
+                ['jc','home-economics',2026,'Common Level','jc/home-economics/2026/paper-common-level-ev.pdf'],
+                ['jc','home-economics',2025,'Common Level','jc/home-economics/2025/paper-common-level-ev.pdf'],
+                ['jc','home-economics',2024,'Common Level','jc/home-economics/2024/paper-common-level-ev.pdf'],
+                ['jc','home-economics',2023,'Common Level','jc/home-economics/2023/paper-common-level-ev.pdf'],
+                ['jc','home-economics',2022,'Common Level','jc/home-economics/2022/paper-common-level-ev.pdf'],
+                ['jc','irish',2026,'Higher Level','jc/irish/2026/paper-higher-level-iv.pdf'],
+                ['jc','irish',2026,'Ordinary Level','jc/irish/2026/paper-ordinary-level-iv.pdf'],
+                ['jc','irish',2025,'Higher Level','jc/irish/2025/paper-higher-level-iv.pdf'],
+                ['jc','irish',2025,'Ordinary Level','jc/irish/2025/paper-ordinary-level-iv.pdf'],
+                ['jc','irish',2024,'Higher Level','jc/irish/2024/paper-higher-level-iv.pdf'],
+                ['jc','irish',2024,'Ordinary Level','jc/irish/2024/paper-ordinary-level-iv.pdf'],
+                ['jc','irish',2023,'Higher Level','jc/irish/2023/paper-higher-level-iv.pdf'],
+                ['jc','irish',2023,'Ordinary Level','jc/irish/2023/paper-ordinary-level-iv.pdf'],
+                ['jc','irish',2022,'Higher Level','jc/irish/2022/paper-higher-level-iv.pdf'],
+                ['jc','irish',2022,'Ordinary Level','jc/irish/2022/paper-ordinary-level-iv.pdf'],
+                ['jc','italian',2026,'Common Level','jc/italian/2026/paper-common-level-ev.pdf'],
+                ['jc','italian',2025,'Common Level','jc/italian/2025/paper-common-level-ev.pdf'],
+                ['jc','italian',2024,'Common Level','jc/italian/2024/paper-common-level-ev.pdf'],
+                ['jc','italian',2023,'Common Level','jc/italian/2023/paper-common-level-ev.pdf'],
+                ['jc','italian',2022,'/ Common Level','jc/italian/2022/paper-common-level-iv.pdf'],
+                ['jc','italian',2022,'Common Level','jc/italian/2022/paper-common-level-ev.pdf'],
+                ['jc','materials-tech-wood',2026,'Common Level','jc/materials-tech-wood/2026/paper-common-level-ev.pdf'],
+                ['jc','materials-tech-wood',2025,'Common Level','jc/materials-tech-wood/2025/paper-common-level-ev.pdf'],
+                ['jc','materials-tech-wood',2024,'Common Level','jc/materials-tech-wood/2024/paper-common-level-ev.pdf'],
+                ['jc','materials-tech-wood',2023,'Common Level','jc/materials-tech-wood/2023/paper-common-level-ev.pdf'],
+                ['jc','materials-tech-wood',2022,'Common Level','jc/materials-tech-wood/2022/paper-common-level-ev.pdf'],
+                ['jc','maths',2026,'Higher Level','jc/maths/2026/paper-higher-level-ev.pdf'],
+                ['jc','maths',2025,'Higher Level','jc/maths/2025/paper-higher-level-ev.pdf'],
+                ['jc','maths',2024,'Higher Level','jc/maths/2024/paper-higher-level-ev.pdf'],
+                ['jc','maths',2024,'Ordinary Level','jc/maths/2024/paper-ordinary-level-ev.pdf'],
+                ['jc','maths',2023,'Higher Level','jc/maths/2023/paper-higher-level-ev.pdf'],
+                ['jc','maths',2023,'Ordinary Level','jc/maths/2023/paper-ordinary-level-ev.pdf'],
+                ['jc','maths',2022,'Higher Level','jc/maths/2022/paper-higher-level-ev.pdf'],
+                ['jc','music',2026,'Common Level','jc/music/2026/paper-common-level-ev.pdf'],
+                ['jc','music',2025,'Common Level','jc/music/2025/paper-common-level-ev.pdf'],
+                ['jc','music',2024,'Common Level','jc/music/2024/paper-common-level-ev.pdf'],
+                ['jc','music',2023,'Common Level','jc/music/2023/paper-common-level-ev.pdf'],
+                ['jc','music',2022,'Common Level','jc/music/2022/paper-common-level-ev.pdf'],
+                ['jc','religious-education',2026,'Common Level','jc/religious-education/2026/paper-common-level-ev.pdf'],
+                ['jc','religious-education',2025,'Common Level','jc/religious-education/2025/paper-common-level-ev.pdf'],
+                ['jc','religious-education',2024,'Common Level','jc/religious-education/2024/paper-common-level-ev.pdf'],
+                ['jc','religious-education',2023,'Common Level','jc/religious-education/2023/paper-common-level-ev.pdf'],
+                ['jc','religious-education',2022,'Common Level','jc/religious-education/2022/paper-common-level-ev.pdf'],
+                ['jc','science',2026,'Common Level','jc/science/2026/paper-common-level-ev.pdf'],
+                ['jc','science',2025,'Common Level','jc/science/2025/paper-common-level-ev.pdf'],
+                ['jc','science',2024,'Common Level','jc/science/2024/paper-common-level-ev.pdf'],
+                ['jc','science',2023,'Common Level','jc/science/2023/paper-common-level-ev.pdf'],
+                ['jc','science',2022,'Common Level','jc/science/2022/paper-common-level-ev.pdf'],
+                ['jc','spanish',2026,'Common Level','jc/spanish/2026/paper-common-level-ev.pdf'],
+                ['jc','spanish',2025,'Common Level','jc/spanish/2025/paper-common-level-ev.pdf'],
+                ['jc','spanish',2024,'Common Level','jc/spanish/2024/paper-common-level-ev.pdf'],
+                ['jc','spanish',2023,'Common Level','jc/spanish/2023/paper-common-level-ev.pdf'],
+                ['jc','spanish',2022,'Common Level','jc/spanish/2022/paper-common-level-ev.pdf'],
+                ['jc','technology',2026,'Common Level','jc/technology/2026/paper-common-level-ev.pdf'],
+                ['jc','technology',2025,'Common Level','jc/technology/2025/paper-common-level-ev.pdf'],
+                ['jc','technology',2024,'Common Level','jc/technology/2024/paper-common-level-ev.pdf'],
+                ['jc','technology',2023,'Common Level','jc/technology/2023/paper-common-level-ev.pdf'],
+                ['jc','technology',2022,'Common Level','jc/technology/2022/paper-common-level-ev.pdf'],
+                ['lc','accounting',2026,'Higher Level','lc/accounting/2026/paper-higher-level-ev.pdf'],
+                ['lc','accounting',2025,'Higher Level','lc/accounting/2025/paper-higher-level-ev.pdf'],
+                ['lc','accounting',2024,'Higher Level','lc/accounting/2024/paper-higher-level-ev.pdf'],
+                ['lc','accounting',2024,'Ordinary Level','lc/accounting/2024/paper-ordinary-level-ev.pdf'],
+                ['lc','accounting',2023,'Higher Level','lc/accounting/2023/paper-higher-level-ev.pdf'],
+                ['lc','accounting',2023,'Ordinary Level','lc/accounting/2023/paper-ordinary-level-ev.pdf'],
+                ['lc','accounting',2022,'Higher Level','lc/accounting/2022/paper-higher-level-ev.pdf'],
+                ['lc','accounting',2021,'Higher Level','lc/accounting/2021/paper-higher-level-ev.pdf'],
+                ['lc','agricultural-science',2026,'Higher Level','lc/agricultural-science/2026/paper-higher-level-ev.pdf'],
+                ['lc','agricultural-science',2026,'Ordinary Level','lc/agricultural-science/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','agricultural-science',2025,'Higher Level','lc/agricultural-science/2025/paper-higher-level-ev.pdf'],
+                ['lc','agricultural-science',2024,'Higher Level','lc/agricultural-science/2024/paper-higher-level-ev.pdf'],
+                ['lc','agricultural-science',2024,'Ordinary Level','lc/agricultural-science/2024/paper-ordinary-level-ev.pdf'],
+                ['lc','agricultural-science',2023,'Higher Level','lc/agricultural-science/2023/paper-higher-level-ev.pdf'],
+                ['lc','agricultural-science',2023,'Ordinary Level','lc/agricultural-science/2023/paper-ordinary-level-ev.pdf'],
+                ['lc','agricultural-science',2022,'Higher Level','lc/agricultural-science/2022/paper-higher-level-ev.pdf'],
+                ['lc','agricultural-science',2021,'Higher Level','lc/agricultural-science/2021/paper-higher-level-ev.pdf'],
+                ['lc','ancient-greek',2024,'Higher Level','lc/ancient-greek/2024/paper-higher-level-ev.pdf'],
+                ['lc','ancient-greek',2023,'Higher Level','lc/ancient-greek/2023/paper-higher-level-ev.pdf'],
+                ['lc','ancient-greek',2022,'Higher Level','lc/ancient-greek/2022/paper-higher-level-ev.pdf'],
+                ['lc','ancient-greek',2021,'Higher Level','lc/ancient-greek/2021/paper-higher-level-ev.pdf'],
+                ['lc','applied-maths',2026,'Higher Level','lc/applied-maths/2026/paper-higher-level-ev.pdf'],
+                ['lc','applied-maths',2026,'Ordinary Level','lc/applied-maths/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','applied-maths',2025,'Higher Level','lc/applied-maths/2025/paper-higher-level-ev.pdf'],
+                ['lc','applied-maths',2024,'Higher Level','lc/applied-maths/2024/paper-higher-level-ev.pdf'],
+                ['lc','applied-maths',2023,'Higher Level','lc/applied-maths/2023/paper-higher-level-ev.pdf'],
+                ['lc','applied-maths',2022,'Higher Level','lc/applied-maths/2022/paper-higher-level-ev.pdf'],
+                ['lc','applied-maths',2021,'Higher Level','lc/applied-maths/2021/paper-higher-level-ev.pdf'],
+                ['lc','art',2026,'Higher Level','lc/art/2026/paper-higher-level-ev.pdf'],
+                ['lc','art',2025,'Higher Level','lc/art/2025/paper-higher-level-ev.pdf'],
+                ['lc','art',2024,'Higher Level','lc/art/2024/paper-higher-level-ev.pdf'],
+                ['lc','art',2023,'Higher Level','lc/art/2023/paper-higher-level-ev.pdf'],
+                ['lc','art',2022,'Higher Level','lc/art/2022/paper-higher-level-ev.pdf'],
+                ['lc','art',2021,'Higher Level','lc/art/2021/paper-higher-level-ev.pdf'],
+                ['lc','biology',2026,'Section A&B / Higher Level','lc/biology/2026/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','biology',2026,'Section A&B / Ordinary Level','lc/biology/2026/paper-section-a-b-ordinary-level-ev.pdf'],
+                ['lc','biology',2026,'Section C / Higher Level','lc/biology/2026/paper-section-c-higher-level-ev.pdf'],
+                ['lc','biology',2026,'Section C / Ordinary Level','lc/biology/2026/paper-section-c-ordinary-level-ev.pdf'],
+                ['lc','biology',2025,'Section A&B / Higher Level','lc/biology/2025/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','biology',2025,'Section C / Higher Level','lc/biology/2025/paper-section-c-higher-level-ev.pdf'],
+                ['lc','biology',2024,'Section A&B / Higher Level','lc/biology/2024/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','biology',2023,'Section A&B / Higher Level','lc/biology/2023/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','biology',2022,'Section A&B / Higher Level','lc/biology/2022/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','biology',2021,'Section A&B / Higher Level','lc/biology/2021/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','business',2026,'Section 1 / Higher Level','lc/business/2026/paper-section-1-higher-level-ev.pdf'],
+                ['lc','business',2025,'Section 1 / Higher Level','lc/business/2025/paper-section-1-higher-level-ev.pdf'],
+                ['lc','business',2024,'Section 1 / Higher Level','lc/business/2024/paper-section-1-higher-level-ev.pdf'],
+                ['lc','business',2023,'Section 1 / Higher Level','lc/business/2023/paper-section-1-higher-level-ev.pdf'],
+                ['lc','business',2022,'Section 1 / Higher Level','lc/business/2022/paper-section-1-higher-level-ev.pdf'],
+                ['lc','business',2021,'Section 1 / Higher Level','lc/business/2021/paper-section-1-higher-level-ev.pdf'],
+                ['lc','chemistry',2026,'Higher Level','lc/chemistry/2026/paper-higher-level-ev.pdf'],
+                ['lc','chemistry',2026,'Ordinary Level','lc/chemistry/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','chemistry',2025,'Higher Level','lc/chemistry/2025/paper-higher-level-ev.pdf'],
+                ['lc','chemistry',2024,'Higher Level','lc/chemistry/2024/paper-higher-level-ev.pdf'],
+                ['lc','chemistry',2023,'Higher Level','lc/chemistry/2023/paper-higher-level-ev.pdf'],
+                ['lc','chemistry',2022,'Higher Level','lc/chemistry/2022/paper-higher-level-ev.pdf'],
+                ['lc','chemistry',2021,'Higher Level','lc/chemistry/2021/paper-higher-level-ev.pdf'],
+                ['lc','classical-studies',2026,'Higher Level','lc/classical-studies/2026/paper-higher-level-ev.pdf'],
+                ['lc','classical-studies',2026,'Picture/Illustration / Higher Level','lc/classical-studies/2026/paper-picture-illustration-higher-level-bv.pdf'],
+                ['lc','classical-studies',2025,'Higher Level','lc/classical-studies/2025/paper-higher-level-ev.pdf'],
+                ['lc','classical-studies',2024,'Higher Level','lc/classical-studies/2024/paper-higher-level-ev.pdf'],
+                ['lc','classical-studies',2023,'Higher Level','lc/classical-studies/2023/paper-higher-level-ev.pdf'],
+                ['lc','classical-studies',2022,'Higher Level','lc/classical-studies/2022/paper-higher-level-ev.pdf'],
+                ['lc','classical-studies',2022,'Ordinary Level','lc/classical-studies/2022/paper-ordinary-level-ev.pdf'],
+                ['lc','classical-studies',2022,'Picture/Illustration / Higher Level','lc/classical-studies/2022/paper-picture-illustration-higher-level-ev.pdf'],
+                ['lc','classical-studies',2021,'Higher Level','lc/classical-studies/2021/paper-higher-level-ev.pdf'],
+                ['lc','computer-science',2026,'Section A&B / Higher Level','lc/computer-science/2026/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','computer-science',2026,'Section A&B / Ordinary Level','lc/computer-science/2026/paper-section-a-b-ordinary-level-ev.pdf'],
+                ['lc','computer-science',2026,'Section C / Higher Level','lc/computer-science/2026/paper-section-c-higher-level-ev.pdf'],
+                ['lc','computer-science',2025,'Section A&B / Higher Level','lc/computer-science/2025/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','computer-science',2025,'Section C / Higher Level','lc/computer-science/2025/paper-section-c-higher-level-ev.pdf'],
+                ['lc','computer-science',2024,'Section A&B / Higher Level','lc/computer-science/2024/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','computer-science',2023,'Section A&B / Higher Level','lc/computer-science/2023/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','computer-science',2022,'Section A&B / Higher Level','lc/computer-science/2022/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','computer-science',2021,'Section A&B / Higher Level','lc/computer-science/2021/paper-section-a-b-higher-level-ev.pdf'],
+                ['lc','construction-studies',2026,'Higher Level','lc/construction-studies/2026/paper-higher-level-ev.pdf'],
+                ['lc','construction-studies',2026,'Ordinary Level','lc/construction-studies/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','construction-studies',2026,'Practical Test Day 1 / Common Level','lc/construction-studies/2026/paper-practical-test-day-1-common-level-ev.pdf'],
+                ['lc','construction-studies',2026,'Practical Test Day 2 / Common Level','lc/construction-studies/2026/paper-practical-test-day-2-common-level-ev.pdf'],
+                ['lc','construction-studies',2026,'Practical Test Day 3 / Common Level','lc/construction-studies/2026/paper-practical-test-day-3-common-level-ev.pdf'],
+                ['lc','construction-studies',2025,'Higher Level','lc/construction-studies/2025/paper-higher-level-ev.pdf'],
+                ['lc','construction-studies',2025,'Practical Test Day 1 / Common Level','lc/construction-studies/2025/paper-practical-test-day-1-common-level-ev.pdf'],
+                ['lc','construction-studies',2024,'Higher Level','lc/construction-studies/2024/paper-higher-level-ev.pdf'],
+                ['lc','construction-studies',2024,'Practical Test Day 1 / Common Level','lc/construction-studies/2024/paper-practical-test-day-1-common-level-ev.pdf'],
+                ['lc','construction-studies',2023,'Higher Level','lc/construction-studies/2023/paper-higher-level-ev.pdf'],
+                ['lc','construction-studies',2022,'Higher Level','lc/construction-studies/2022/paper-higher-level-ev.pdf'],
+                ['lc','construction-studies',2021,'Higher Level','lc/construction-studies/2021/paper-higher-level-ev.pdf'],
+                ['lc','dcg',2026,'Section A / Higher Level','lc/dcg/2026/paper-section-a-higher-level-ev.pdf'],
+                ['lc','dcg',2026,'Section A / Ordinary Level','lc/dcg/2026/paper-section-a-ordinary-level-ev.pdf'],
+                ['lc','dcg',2026,'Section B&C / Higher Level','lc/dcg/2026/paper-section-b-c-higher-level-ev.pdf'],
+                ['lc','dcg',2026,'Section B&C / Ordinary Level','lc/dcg/2026/paper-section-b-c-ordinary-level-ev.pdf'],
+                ['lc','dcg',2025,'Section A / Higher Level','lc/dcg/2025/paper-section-a-higher-level-ev.pdf'],
+                ['lc','dcg',2024,'Section A / Higher Level','lc/dcg/2024/paper-section-a-higher-level-ev.pdf'],
+                ['lc','dcg',2024,'Section B&C / Higher Level','lc/dcg/2024/paper-section-b-c-higher-level-ev.pdf'],
+                ['lc','dcg',2023,'Section A / Higher Level','lc/dcg/2023/paper-section-a-higher-level-ev.pdf'],
+                ['lc','dcg',2022,'Section A / Higher Level','lc/dcg/2022/paper-section-a-higher-level-ev.pdf'],
+                ['lc','dcg',2021,'Section A / Higher Level','lc/dcg/2021/paper-section-a-higher-level-ev.pdf'],
+                ['lc','economics',2026,'Higher Level','lc/economics/2026/paper-higher-level-ev.pdf'],
+                ['lc','economics',2026,'Ordinary Level','lc/economics/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','economics',2025,'Higher Level','lc/economics/2025/paper-higher-level-ev.pdf'],
+                ['lc','economics',2024,'Higher Level','lc/economics/2024/paper-higher-level-ev.pdf'],
+                ['lc','economics',2023,'Higher Level','lc/economics/2023/paper-higher-level-ev.pdf'],
+                ['lc','economics',2023,'Ordinary Level','lc/economics/2023/paper-ordinary-level-ev.pdf'],
+                ['lc','economics',2022,'Higher Level','lc/economics/2022/paper-higher-level-ev.pdf'],
+                ['lc','economics',2021,'Higher Level','lc/economics/2021/paper-higher-level-ev.pdf'],
+                ['lc','engineering',2026,'Higher Level','lc/engineering/2026/paper-higher-level-ev.pdf'],
+                ['lc','engineering',2026,'Ordinary Level','lc/engineering/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','engineering',2026,'Practical Test Day 1 / Common Level','lc/engineering/2026/paper-practical-test-day-1-common-level-bv.pdf'],
+                ['lc','engineering',2026,'Practical Test Day 2 / Common Level','lc/engineering/2026/paper-practical-test-day-2-common-level-bv.pdf'],
+                ['lc','engineering',2026,'Practical Test Day 3 / Common Level','lc/engineering/2026/paper-practical-test-day-3-common-level-bv.pdf'],
+                ['lc','engineering',2025,'Higher Level','lc/engineering/2025/paper-higher-level-ev.pdf'],
+                ['lc','engineering',2025,'Practical Test Day 1 / Common Level','lc/engineering/2025/paper-practical-test-day-1-common-level-bv.pdf'],
+                ['lc','engineering',2024,'Higher Level','lc/engineering/2024/paper-higher-level-ev.pdf'],
+                ['lc','engineering',2023,'Higher Level','lc/engineering/2023/paper-higher-level-ev.pdf'],
+                ['lc','engineering',2022,'Higher Level','lc/engineering/2022/paper-higher-level-ev.pdf'],
+                ['lc','engineering',2021,'Higher Level','lc/engineering/2021/paper-higher-level-ev.pdf'],
+                ['lc','english',2026,'Paper One / Higher Level','lc/english/2026/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','english',2026,'Paper One / Ordinary Level','lc/english/2026/paper-paper-one-ordinary-level-ev.pdf'],
+                ['lc','english',2025,'Paper One / Higher Level','lc/english/2025/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','english',2025,'Paper Two / Higher Level','lc/english/2025/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','english',2025,'Paper Two / Ordinary Level','lc/english/2025/paper-paper-two-ordinary-level-ev.pdf'],
+                ['lc','english',2024,'Paper One / Higher Level','lc/english/2024/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','english',2024,'Paper One / Ordinary Level','lc/english/2024/paper-paper-one-ordinary-level-ev.pdf'],
+                ['lc','english',2024,'Paper Two / Higher Level','lc/english/2024/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','english',2023,'Paper One / Higher Level','lc/english/2023/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','english',2023,'Paper One / Ordinary Level','lc/english/2023/paper-paper-one-ordinary-level-ev.pdf'],
+                ['lc','english',2023,'Paper Two / Higher Level','lc/english/2023/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','english',2022,'Paper One / Higher Level','lc/english/2022/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','english',2022,'Paper Two / Higher Level','lc/english/2022/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','english',2021,'Paper One / Higher Level','lc/english/2021/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','english',2021,'Paper One / Ordinary Level','lc/english/2021/paper-paper-one-ordinary-level-ev.pdf'],
+                ['lc','english',2021,'Paper Two / Higher Level','lc/english/2021/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','french',2026,'Aural Paper / Higher Level','lc/french/2026/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','french',2026,'Higher Level','lc/french/2026/paper-higher-level-bv.pdf'],
+                ['lc','french',2025,'Aural Paper / Higher Level','lc/french/2025/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','french',2025,'Higher Level','lc/french/2025/paper-higher-level-bv.pdf'],
+                ['lc','french',2025,'Ordinary Level','lc/french/2025/paper-ordinary-level-bv.pdf'],
+                ['lc','french',2024,'Aural Paper / Higher Level','lc/french/2024/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','french',2024,'Aural Paper / Ordinary Level','lc/french/2024/paper-aural-paper-ordinary-level-bv.pdf'],
+                ['lc','french',2024,'Higher Level','lc/french/2024/paper-higher-level-bv.pdf'],
+                ['lc','french',2024,'Ordinary Level','lc/french/2024/paper-ordinary-level-bv.pdf'],
+                ['lc','french',2023,'Aural Paper / Higher Level','lc/french/2023/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','french',2023,'Aural Paper / Ordinary Level','lc/french/2023/paper-aural-paper-ordinary-level-bv.pdf'],
+                ['lc','french',2023,'Higher Level','lc/french/2023/paper-higher-level-bv.pdf'],
+                ['lc','french',2023,'Ordinary Level','lc/french/2023/paper-ordinary-level-bv.pdf'],
+                ['lc','french',2022,'Aural Paper / Higher Level','lc/french/2022/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','french',2022,'Higher Level','lc/french/2022/paper-higher-level-bv.pdf'],
+                ['lc','french',2021,'Aural Paper / Higher Level','lc/french/2021/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','french',2021,'Higher Level','lc/french/2021/paper-higher-level-bv.pdf'],
+                ['lc','french',2021,'Ordinary Level','lc/french/2021/paper-ordinary-level-bv.pdf'],
+                ['lc','geography',2026,'Part 1 / Higher Level','lc/geography/2026/paper-part-1-higher-level-ev.pdf'],
+                ['lc','geography',2026,'Part 2 / Higher Level','lc/geography/2026/paper-part-2-higher-level-ev.pdf'],
+                ['lc','geography',2025,'Part 1 / Higher Level','lc/geography/2025/paper-part-1-higher-level-ev.pdf'],
+                ['lc','geography',2025,'Part 2 / Higher Level','lc/geography/2025/paper-part-2-higher-level-ev.pdf'],
+                ['lc','geography',2024,'Map / Common Level','lc/geography/2024/paper-map-common-level-ev.pdf'],
+                ['lc','geography',2024,'Part 1 / Higher Level','lc/geography/2024/paper-part-1-higher-level-ev.pdf'],
+                ['lc','geography',2024,'Part 1 / Ordinary Level','lc/geography/2024/paper-part-1-ordinary-level-ev.pdf'],
+                ['lc','geography',2024,'Part 2 / Higher Level','lc/geography/2024/paper-part-2-higher-level-ev.pdf'],
+                ['lc','geography',2024,'Part 2 / Ordinary Level','lc/geography/2024/paper-part-2-ordinary-level-ev.pdf'],
+                ['lc','geography',2024,'Source Paper / Common Level','lc/geography/2024/paper-source-paper-common-level-ev.pdf'],
+                ['lc','geography',2023,'Map / Common Level','lc/geography/2023/paper-map-common-level-ev.pdf'],
+                ['lc','geography',2023,'Part 1 / Higher Level','lc/geography/2023/paper-part-1-higher-level-ev.pdf'],
+                ['lc','geography',2023,'Part 2 / Higher Level','lc/geography/2023/paper-part-2-higher-level-ev.pdf'],
+                ['lc','geography',2022,'Part 1 / Higher Level','lc/geography/2022/paper-part-1-higher-level-ev.pdf'],
+                ['lc','geography',2021,'Map / Common Level','lc/geography/2021/paper-map-common-level-ev.pdf'],
+                ['lc','geography',2021,'Part 1 / Higher Level','lc/geography/2021/paper-part-1-higher-level-ev.pdf'],
+                ['lc','geography',2021,'Part 1 / Ordinary Level','lc/geography/2021/paper-part-1-ordinary-level-ev.pdf'],
+                ['lc','geography',2021,'Part 2 / Higher Level','lc/geography/2021/paper-part-2-higher-level-ev.pdf'],
+                ['lc','geography',2021,'Part 2 / Ordinary Level','lc/geography/2021/paper-part-2-ordinary-level-ev.pdf'],
+                ['lc','geography',2021,'Source Paper / Common Level','lc/geography/2021/paper-source-paper-common-level-ev.pdf'],
+                ['lc','german',2026,'Aural Paper / Higher Level','lc/german/2026/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','german',2026,'Higher Level','lc/german/2026/paper-higher-level-bv.pdf'],
+                ['lc','german',2025,'Higher Level','lc/german/2025/paper-higher-level-bv.pdf'],
+                ['lc','german',2024,'Aural Paper / Higher Level','lc/german/2024/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','german',2024,'Higher Level','lc/german/2024/paper-higher-level-bv.pdf'],
+                ['lc','german',2024,'Ordinary Level','lc/german/2024/paper-ordinary-level-bv.pdf'],
+                ['lc','german',2023,'Aural Paper / Higher Level','lc/german/2023/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','german',2023,'Higher Level','lc/german/2023/paper-higher-level-bv.pdf'],
+                ['lc','german',2022,'Aural Paper / Higher Level','lc/german/2022/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','german',2022,'Higher Level','lc/german/2022/paper-higher-level-bv.pdf'],
+                ['lc','german',2021,'Aural Paper / Higher Level','lc/german/2021/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','german',2021,'Higher Level','lc/german/2021/paper-higher-level-bv.pdf'],
+                ['lc','history',2026,'Ordinary Level','lc/history/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','history',2025,'Higher Level','lc/history/2025/paper-higher-level-ev.pdf'],
+                ['lc','history',2025,'Ordinary Level','lc/history/2025/paper-ordinary-level-ev.pdf'],
+                ['lc','history',2024,'Higher Level','lc/history/2024/paper-higher-level-ev.pdf'],
+                ['lc','history',2023,'Higher Level','lc/history/2023/paper-higher-level-ev.pdf'],
+                ['lc','history',2022,'Higher Level','lc/history/2022/paper-higher-level-ev.pdf'],
+                ['lc','history',2021,'Higher Level','lc/history/2021/paper-higher-level-ev.pdf'],
+                ['lc','home-economics',2026,'Section A / Higher Level','lc/home-economics/2026/paper-section-a-higher-level-ev.pdf'],
+                ['lc','home-economics',2025,'Section A / Higher Level','lc/home-economics/2025/paper-section-a-higher-level-ev.pdf'],
+                ['lc','home-economics',2024,'Section A / Higher Level','lc/home-economics/2024/paper-section-a-higher-level-ev.pdf'],
+                ['lc','home-economics',2023,'Section A / Higher Level','lc/home-economics/2023/paper-section-a-higher-level-ev.pdf'],
+                ['lc','home-economics',2022,'Section A / Higher Level','lc/home-economics/2022/paper-section-a-higher-level-ev.pdf'],
+                ['lc','home-economics',2021,'Section A / Higher Level','lc/home-economics/2021/paper-section-a-higher-level-ev.pdf'],
+                ['lc','irish',2026,'Paper One / Foundation Level','lc/irish/2026/paper-paper-one-foundation-level-iv.pdf'],
+                ['lc','irish',2026,'Paper One / Higher Level','lc/irish/2026/paper-paper-one-higher-level-iv.pdf'],
+                ['lc','irish',2026,'Paper One / Ordinary Level','lc/irish/2026/paper-paper-one-ordinary-level-iv.pdf'],
+                ['lc','irish',2025,'Foundation Level','lc/irish/2025/paper-foundation-level-iv.pdf'],
+                ['lc','irish',2025,'Paper One / Higher Level','lc/irish/2025/paper-paper-one-higher-level-iv.pdf'],
+                ['lc','irish',2025,'Paper Two / Higher Level','lc/irish/2025/paper-paper-two-higher-level-iv.pdf'],
+                ['lc','irish',2024,'Foundation Level','lc/irish/2024/paper-foundation-level-iv.pdf'],
+                ['lc','irish',2024,'Paper One / Higher Level','lc/irish/2024/paper-paper-one-higher-level-iv.pdf'],
+                ['lc','irish',2024,'Paper One / Ordinary Level','lc/irish/2024/paper-paper-one-ordinary-level-iv.pdf'],
+                ['lc','irish',2024,'Paper Two / Higher Level','lc/irish/2024/paper-paper-two-higher-level-iv.pdf'],
+                ['lc','irish',2023,'Paper One / Higher Level','lc/irish/2023/paper-paper-one-higher-level-iv.pdf'],
+                ['lc','irish',2023,'Paper Two / Higher Level','lc/irish/2023/paper-paper-two-higher-level-iv.pdf'],
+                ['lc','irish',2022,'Paper One / Higher Level','lc/irish/2022/paper-paper-one-higher-level-iv.pdf'],
+                ['lc','irish',2022,'Paper Two / Higher Level','lc/irish/2022/paper-paper-two-higher-level-iv.pdf'],
+                ['lc','irish',2021,'Paper One / Higher Level','lc/irish/2021/paper-paper-one-higher-level-iv.pdf'],
+                ['lc','italian',2026,'Aural Paper / Higher Level','lc/italian/2026/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','italian',2026,'Higher Level','lc/italian/2026/paper-higher-level-bv.pdf'],
+                ['lc','italian',2025,'Aural Paper / Higher Level','lc/italian/2025/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','italian',2024,'Aural Paper / Higher Level','lc/italian/2024/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','italian',2024,'Higher Level','lc/italian/2024/paper-higher-level-bv.pdf'],
+                ['lc','italian',2023,'Higher Level','lc/italian/2023/paper-higher-level-bv.pdf'],
+                ['lc','italian',2022,'Aural Paper / Higher Level','lc/italian/2022/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','italian',2022,'Higher Level','lc/italian/2022/paper-higher-level-bv.pdf'],
+                ['lc','italian',2021,'Aural Paper / Higher Level','lc/italian/2021/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','italian',2021,'Higher Level','lc/italian/2021/paper-higher-level-bv.pdf'],
+                ['lc','japanese',2026,'Aural Paper / Higher Level','lc/japanese/2026/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','japanese',2026,'Higher Level','lc/japanese/2026/paper-higher-level-bv.pdf'],
+                ['lc','japanese',2025,'Aural Paper / Higher Level','lc/japanese/2025/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','japanese',2025,'Higher Level','lc/japanese/2025/paper-higher-level-bv.pdf'],
+                ['lc','japanese',2024,'Aural Paper / Higher Level','lc/japanese/2024/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','japanese',2024,'Higher Level','lc/japanese/2024/paper-higher-level-bv.pdf'],
+                ['lc','japanese',2023,'Aural Paper / Higher Level','lc/japanese/2023/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','japanese',2023,'Higher Level','lc/japanese/2023/paper-higher-level-bv.pdf'],
+                ['lc','japanese',2022,'Aural Paper / Higher Level','lc/japanese/2022/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','japanese',2022,'Higher Level','lc/japanese/2022/paper-higher-level-bv.pdf'],
+                ['lc','japanese',2021,'Aural Paper / Higher Level','lc/japanese/2021/paper-aural-paper-higher-level-bv.pdf'],
+                ['lc','japanese',2021,'Higher Level','lc/japanese/2021/paper-higher-level-bv.pdf'],
+                ['lc','latin',2026,'Higher Level','lc/latin/2026/paper-higher-level-ev.pdf'],
+                ['lc','latin',2025,'Higher Level','lc/latin/2025/paper-higher-level-ev.pdf'],
+                ['lc','latin',2024,'Higher Level','lc/latin/2024/paper-higher-level-ev.pdf'],
+                ['lc','latin',2023,'Higher Level','lc/latin/2023/paper-higher-level-ev.pdf'],
+                ['lc','latin',2023,'Ordinary Level','lc/latin/2023/paper-ordinary-level-ev.pdf'],
+                ['lc','latin',2022,'Higher Level','lc/latin/2022/paper-higher-level-ev.pdf'],
+                ['lc','latin',2022,'Ordinary Level','lc/latin/2022/paper-ordinary-level-ev.pdf'],
+                ['lc','latin',2021,'Higher Level','lc/latin/2021/paper-higher-level-ev.pdf'],
+                ['lc','mandarin',2026,'Aural Paper / Higher Level','lc/mandarin/2026/paper-aural-paper-higher-level-ev.pdf'],
+                ['lc','mandarin',2026,'Higher Level','lc/mandarin/2026/paper-higher-level-ev.pdf'],
+                ['lc','mandarin',2025,'Aural Paper / Higher Level','lc/mandarin/2025/paper-aural-paper-higher-level-ev.pdf'],
+                ['lc','mandarin',2025,'Higher Level','lc/mandarin/2025/paper-higher-level-ev.pdf'],
+                ['lc','mandarin',2024,'Higher Level','lc/mandarin/2024/paper-higher-level-ev.pdf'],
+                ['lc','mandarin',2023,'Higher Level','lc/mandarin/2023/paper-higher-level-ev.pdf'],
+                ['lc','mandarin',2022,'Higher Level','lc/mandarin/2022/paper-higher-level-ev.pdf'],
+                ['lc','maths',2026,'Foundation Level','lc/maths/2026/paper-foundation-level-ev.pdf'],
+                ['lc','maths',2026,'Paper One / Higher Level','lc/maths/2026/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','maths',2026,'Paper One / Ordinary Level','lc/maths/2026/paper-paper-one-ordinary-level-ev.pdf'],
+                ['lc','maths',2026,'Paper Two / Higher Level','lc/maths/2026/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','maths',2026,'Paper Two / Ordinary Level','lc/maths/2026/paper-paper-two-ordinary-level-ev.pdf'],
+                ['lc','maths',2025,'Foundation Level','lc/maths/2025/paper-foundation-level-ev.pdf'],
+                ['lc','maths',2025,'Paper One / Higher Level','lc/maths/2025/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','maths',2025,'Paper Two / Higher Level','lc/maths/2025/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','maths',2024,'Foundation Level','lc/maths/2024/paper-foundation-level-ev.pdf'],
+                ['lc','maths',2024,'Paper One / Higher Level','lc/maths/2024/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','maths',2024,'Paper Two / Higher Level','lc/maths/2024/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','maths',2023,'Foundation Level','lc/maths/2023/paper-foundation-level-ev.pdf'],
+                ['lc','maths',2023,'Paper One / Higher Level','lc/maths/2023/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','maths',2023,'Paper Two / Higher Level','lc/maths/2023/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','maths',2022,'Paper One / Higher Level','lc/maths/2022/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','maths',2021,'Foundation Level','lc/maths/2021/paper-foundation-level-ev.pdf'],
+                ['lc','maths',2021,'Paper One / Higher Level','lc/maths/2021/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','maths',2021,'Paper Two / Higher Level','lc/maths/2021/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','maths',2020,'Foundation Level','lc/maths/2020/paper-foundation-level-ev.pdf'],
+                ['lc','maths',2020,'Paper One / Higher Level','lc/maths/2020/paper-paper-one-higher-level-ev.pdf'],
+                ['lc','maths',2020,'Paper One / Ordinary Level','lc/maths/2020/paper-paper-one-ordinary-level-ev.pdf'],
+                ['lc','maths',2020,'Paper Two / Higher Level','lc/maths/2020/paper-paper-two-higher-level-ev.pdf'],
+                ['lc','maths',2020,'Paper Two / Ordinary Level','lc/maths/2020/paper-paper-two-ordinary-level-ev.pdf'],
+                ['lc','music',2026,'Composing / Higher Level','lc/music/2026/paper-composing-higher-level-ev.pdf'],
+                ['lc','music',2025,'Composing / Higher Level','lc/music/2025/paper-composing-higher-level-ev.pdf'],
+                ['lc','music',2024,'Composing / Higher Level','lc/music/2024/paper-composing-higher-level-ev.pdf'],
+                ['lc','music',2023,'Composing / Higher Level','lc/music/2023/paper-composing-higher-level-ev.pdf'],
+                ['lc','music',2022,'Composing / Higher Level','lc/music/2022/paper-composing-higher-level-ev.pdf'],
+                ['lc','music',2021,'Composing / Higher Level','lc/music/2021/paper-composing-higher-level-ev.pdf'],
+                ['lc','pe',2026,'Higher Level','lc/pe/2026/paper-higher-level-ev.pdf'],
+                ['lc','pe',2025,'Higher Level','lc/pe/2025/paper-higher-level-ev.pdf'],
+                ['lc','pe',2024,'Higher Level','lc/pe/2024/paper-higher-level-ev.pdf'],
+                ['lc','pe',2023,'Higher Level','lc/pe/2023/paper-higher-level-ev.pdf'],
+                ['lc','pe',2022,'Higher Level','lc/pe/2022/paper-higher-level-ev.pdf'],
+                ['lc','pe',2021,'Higher Level','lc/pe/2021/paper-higher-level-ev.pdf'],
+                ['lc','physics',2026,'Higher Level','lc/physics/2026/paper-higher-level-ev.pdf'],
+                ['lc','physics',2026,'Ordinary Level','lc/physics/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','physics',2025,'Higher Level','lc/physics/2025/paper-higher-level-ev.pdf'],
+                ['lc','physics',2024,'Higher Level','lc/physics/2024/paper-higher-level-ev.pdf'],
+                ['lc','physics',2023,'Higher Level','lc/physics/2023/paper-higher-level-ev.pdf'],
+                ['lc','physics',2022,'Higher Level','lc/physics/2022/paper-higher-level-ev.pdf'],
+                ['lc','physics',2021,'Higher Level','lc/physics/2021/paper-higher-level-ev.pdf'],
+                ['lc','physics',2021,'Ordinary Level','lc/physics/2021/paper-ordinary-level-ev.pdf'],
+                ['lc','physics-chemistry',2026,'Higher Level','lc/physics-chemistry/2026/paper-higher-level-ev.pdf'],
+                ['lc','physics-chemistry',2026,'Ordinary Level','lc/physics-chemistry/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','physics-chemistry',2025,'Higher Level','lc/physics-chemistry/2025/paper-higher-level-ev.pdf'],
+                ['lc','physics-chemistry',2024,'Higher Level','lc/physics-chemistry/2024/paper-higher-level-ev.pdf'],
+                ['lc','physics-chemistry',2023,'Higher Level','lc/physics-chemistry/2023/paper-higher-level-ev.pdf'],
+                ['lc','physics-chemistry',2022,'Higher Level','lc/physics-chemistry/2022/paper-higher-level-ev.pdf'],
+                ['lc','physics-chemistry',2021,'Higher Level','lc/physics-chemistry/2021/paper-higher-level-ev.pdf'],
+                ['lc','politics-society',2026,'Higher Level','lc/politics-society/2026/paper-higher-level-ev.pdf'],
+                ['lc','politics-society',2025,'Higher Level','lc/politics-society/2025/paper-higher-level-ev.pdf'],
+                ['lc','politics-society',2024,'Higher Level','lc/politics-society/2024/paper-higher-level-ev.pdf'],
+                ['lc','politics-society',2023,'Higher Level','lc/politics-society/2023/paper-higher-level-ev.pdf'],
+                ['lc','politics-society',2022,'Higher Level','lc/politics-society/2022/paper-higher-level-ev.pdf'],
+                ['lc','politics-society',2021,'Higher Level','lc/politics-society/2021/paper-higher-level-ev.pdf'],
+                ['lc','religious-education',2026,'Higher Level','lc/religious-education/2026/paper-higher-level-ev.pdf'],
+                ['lc','religious-education',2026,'Ordinary Level','lc/religious-education/2026/paper-ordinary-level-ev.pdf'],
+                ['lc','religious-education',2025,'Higher Level','lc/religious-education/2025/paper-higher-level-ev.pdf'],
+                ['lc','religious-education',2024,'Higher Level','lc/religious-education/2024/paper-higher-level-ev.pdf'],
+                ['lc','religious-education',2024,'Ordinary Level','lc/religious-education/2024/paper-ordinary-level-ev.pdf'],
+                ['lc','religious-education',2023,'Higher Level','lc/religious-education/2023/paper-higher-level-ev.pdf'],
+                ['lc','religious-education',2022,'Higher Level','lc/religious-education/2022/paper-higher-level-ev.pdf'],
+                ['lc','religious-education',2021,'Higher Level','lc/religious-education/2021/paper-higher-level-ev.pdf'],
+                ['lc','spanish',2026,'Higher Level','lc/spanish/2026/paper-higher-level-ev.pdf'],
+                ['lc','spanish',2025,'Higher Level','lc/spanish/2025/paper-higher-level-ev.pdf'],
+                ['lc','spanish',2024,'Higher Level','lc/spanish/2024/paper-higher-level-ev.pdf'],
+                ['lc','spanish',2023,'Higher Level','lc/spanish/2023/paper-higher-level-ev.pdf'],
+                ['lc','spanish',2022,'Higher Level','lc/spanish/2022/paper-higher-level-ev.pdf'],
+                ['lc','spanish',2021,'Higher Level','lc/spanish/2021/paper-higher-level-ev.pdf'],
+            ];
+
             const EXAM_KINDS = [
                 { id: 'christmas', label: 'Christmas exams' },
                 { id: 'summer', label: 'Summer exams' },
@@ -6179,6 +6659,795 @@
                     g = parseInt(c.slice(2, 4), 16),
                     b = parseInt(c.slice(4, 6), 16); return ((r * 299 + g * 587 + b * 114) / 1000) > 158 ? '#20202b' :
                     '#fff'; };
+
+
+            // ---- Past Papers: interactive viewer over locally-held exam PDFs ----------------
+            // Nothing here is ever uploaded -- the archive folder is read straight from the
+            // user's disk via the File System Access API (or the webkitdirectory fallback for
+            // browsers without it), and only the small answer annotations (text/checkbox/ink,
+            // never the PDF bytes) are saved, the same local-first-then-cloud way as the rest of
+            // the app's per-user data. Text boxes, checkboxes and freehand ink are all placed by
+            // the student wherever they click, rather than detected per paper -- there's no
+            // generic way to know where a given exam's blank space is, but the student always
+            // knows exactly where they need to write.
+            const EXAM_PAPER_SCALE = 1.4; // fixed pdf.js render scale -- legible without huge canvases; no zoom control in v1
+            // Public, deduplicated mirror of the archive (English/bilingual papers only) -- see
+            // https://github.com/h-mcv/sec-exam-papers-public's README for what's in it. Served
+            // free via jsDelivr's GitHub CDN, so papers load on any device with no per-device
+            // setup. A connected local folder (below) still works as a fallback -- e.g. offline.
+            const EXAM_ARCHIVE_CDN_BASE = 'https://cdn.jsdelivr.net/gh/h-mcv/sec-exam-papers-public@main/';
+            let examPaperLevel = null; // 'lc' | 'jc' | null while browsing
+            let examPaperSubjectId = null;
+            let examPaperSearch = '';
+            let examPaperOpen = null; // { level, subjectId, year, label, file } of the paper open in the viewer
+            let examPaperDoc = null; // pdf.js PDFDocumentProxy for examPaperOpen
+            let examPaperLoading = false;
+            let examPaperLoadError = ''; // '' | 'CONNECT_NEEDED' | a message
+            let examPaperAnswers = null; // { pageOrder, boxes, strokes } for examPaperOpen
+            let examPaperTool = 'select'; // 'select' | 'text' | 'checkbox' | 'draw' | 'erase'
+            let examPaperDrawColor = '#20202b';
+            let examPaperDrawWidth = 3;
+            let examPaperSaveTimer = null;
+            let examPaperSaveStatus = 'idle'; // 'idle' | 'saving' | 'saved' | 'error'
+            let examPaperPageRefSize = null; // { width, height } of the first rendered pdf page, reused for blank pages
+            let examArchiveDirHandle = null; // FileSystemDirectoryHandle, once connected this session
+            let examArchiveFallbackFiles = null; // Map<relativePath, File> when using the webkitdirectory fallback
+            let examArchiveStatus = 'unknown'; // 'unknown' | 'disconnected' | 'needs-permission' | 'connected' | 'unsupported'
+            let boxDragState = null; // in-progress drag of a text box via its ⠿ handle
+            let checkboxPressState = null; // in-progress mousedown-to-either-toggle-or-drag on a checkbox
+            let inkDrawState = null; // in-progress freehand stroke
+
+            function examPaperSubjectMeta(subjectId) {
+                return SUBJECT_TAXONOMY.find(s => s.id === subjectId) || { id: subjectId, name: subjectId, category: 'other' };
+            }
+
+            function examPaperEntryFromFile(file) {
+                const row = EXAM_PAPER_INDEX.find(r => r[4] === file);
+                return row ? { level: row[0], subjectId: row[1], year: row[2], label: row[3], file: row[4] } : null;
+            }
+
+            // ---- Local archive folder (IndexedDB just stores the directory handle) ----------
+            function examArchiveIdbOpen() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('simple-study-exam-archive', 1);
+                    req.onupgradeneeded = () => req.result.createObjectStore('handles');
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+            async function examArchiveIdbGet(key) {
+                try {
+                    const db = await examArchiveIdbOpen();
+                    return await new Promise((resolve, reject) => {
+                        const tx = db.transaction('handles', 'readonly');
+                        const req = tx.objectStore('handles').get(key);
+                        req.onsuccess = () => resolve(req.result || null);
+                        req.onerror = () => reject(req.error);
+                    });
+                } catch { return null; }
+            }
+            async function examArchiveIdbSet(key, value) {
+                try {
+                    const db = await examArchiveIdbOpen();
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction('handles', 'readwrite');
+                        tx.objectStore('handles').put(value, key);
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch {}
+            }
+
+            async function examArchiveTryRestore() {
+                if (!('showDirectoryPicker' in window)) { examArchiveStatus = 'unsupported'; return; }
+                const handle = await examArchiveIdbGet('root');
+                if (!handle) { examArchiveStatus = 'disconnected'; return; }
+                examArchiveDirHandle = handle;
+                try {
+                    const perm = await handle.queryPermission({ mode: 'read' });
+                    examArchiveStatus = perm === 'granted' ? 'connected' : 'needs-permission';
+                } catch { examArchiveStatus = 'needs-permission'; }
+            }
+
+            async function examArchiveConnect() { // must run inside a user-gesture handler
+                if (!('showDirectoryPicker' in window)) { examArchiveStatus = 'unsupported'; render(); return; }
+                try {
+                    const handle = await window.showDirectoryPicker({ id: 'exam-archive', mode: 'read' });
+                    examArchiveDirHandle = handle;
+                    examArchiveStatus = 'connected';
+                    await examArchiveIdbSet('root', handle);
+                } catch (e) { /* user cancelled the picker -- leave status as-is */ }
+                render();
+            }
+
+            async function examArchiveReconnect() { // must run inside a user-gesture handler
+                if (!examArchiveDirHandle) return examArchiveConnect();
+                try {
+                    const perm = await examArchiveDirHandle.requestPermission({ mode: 'read' });
+                    examArchiveStatus = perm === 'granted' ? 'connected' : 'disconnected';
+                } catch { examArchiveStatus = 'disconnected'; }
+                render();
+            }
+
+            function examArchiveConnectFallback(fileList) {
+                const map = new Map();
+                for (const f of fileList) {
+                    // webkitRelativePath looks like "sec-exam-archive/lc/maths/...pdf" -- drop the picked
+                    // folder's own name so paths line up with EXAM_PAPER_INDEX's "lc/..." file paths.
+                    const parts = f.webkitRelativePath.split('/');
+                    map.set(parts.slice(1).join('/'), f);
+                }
+                examArchiveFallbackFiles = map;
+                examArchiveStatus = 'connected';
+                render();
+            }
+
+            async function examArchiveResolveFile(relativePath) {
+                if (examArchiveFallbackFiles) {
+                    const f = examArchiveFallbackFiles.get(relativePath);
+                    if (!f) throw new Error("That file wasn't found in the folder you selected.");
+                    return f;
+                }
+                if (!examArchiveDirHandle) throw new Error('CONNECT_NEEDED');
+                let dir = examArchiveDirHandle;
+                const parts = relativePath.split('/');
+                for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
+                const fileHandle = await dir.getFileHandle(parts[parts.length - 1]);
+                return await fileHandle.getFile();
+            }
+
+            function examArchiveHasLocalFallback() { return !!(examArchiveFallbackFiles || examArchiveDirHandle); }
+
+            // Primary path: fetch the PDF straight from the public CDN mirror -- works on any
+            // device, no setup. Only falls back to a connected local folder (optional, e.g. for
+            // offline use) if the CDN fetch fails; only throws CONNECT_NEEDED if neither works.
+            async function examArchiveGetPdfBytes(relativePath) {
+                try {
+                    const resp = await fetch(EXAM_ARCHIVE_CDN_BASE + relativePath);
+                    if (resp.ok) return await resp.arrayBuffer();
+                } catch (e) { /* offline, or the CDN mirror isn't set up yet -- try a local folder next */ }
+                if (examArchiveHasLocalFallback()) {
+                    const file = await examArchiveResolveFile(relativePath);
+                    return await file.arrayBuffer();
+                }
+                throw new Error('CONNECT_NEEDED');
+            }
+
+            // mode 'optional': a low-key line for the browse page, offered as a fallback students
+            // can ignore. mode 'error': the prominent version shown when the CDN fetch actually
+            // failed and there's no local folder to fall back to.
+            function examPaperArchiveBannerHtml(mode = 'optional') {
+                if (examArchiveStatus === 'connected') return `<div class="exam-archive-banner good"><span>Using your own local copy of these papers.</span><button type="button" class="button ghost" data-action="examp-change-folder">Change folder</button></div>`;
+                if (examArchiveStatus === 'needs-permission') return `<div class="exam-archive-banner${mode === 'error' ? '' : ' subtle'}"><span>Reconnect your local papers folder — your browser needs to confirm access again each session.</span><button type="button" class="button primary" data-action="examp-reconnect-folder">Reconnect</button></div>`;
+                if (mode !== 'error') {
+                    if (examArchiveStatus === 'unsupported') return `<p class="small exam-archive-optional-link">Papers load automatically online. Your browser can't remember a local folder between visits, but you can choose one each time you visit if you'd rather use your own copies: <label class="button ghost" style="cursor:pointer;display:inline-flex">Choose folder<input type="file" webkitdirectory multiple data-examp-folder-fallback style="display:none"></label></p>`;
+                    return `<p class="small exam-archive-optional-link">Papers load automatically online. Prefer your own local copies instead? <button type="button" class="button ghost" data-action="examp-connect-folder">Connect a folder</button></p>`;
+                }
+                if (examArchiveStatus === 'unsupported') return `<div class="exam-archive-banner"><span>Couldn't reach the exam archive online, and your browser can't remember a folder between visits — choose one below each time you visit instead.</span><label class="button primary" style="cursor:pointer">Choose folder<input type="file" webkitdirectory multiple data-examp-folder-fallback style="display:none"></label></div>`;
+                return `<div class="exam-archive-banner"><span>Couldn't reach the exam archive online (check your connection) — you can connect a local folder of downloaded papers instead.</span><button type="button" class="button primary" data-action="examp-connect-folder">Connect folder</button></div>`;
+            }
+
+            // ---- Saved answers (local-first, synced to the cloud when signed in) ------------
+            function examAnswersLocalKey(file) { return 'simple-study-exam-answers:' + file; }
+            function examPaperLoadAnswersLocal(file) {
+                try { const raw = localStorage.getItem(examAnswersLocalKey(file)); return raw ? JSON.parse(raw) : null; }
+                catch { return null; }
+            }
+            function examPaperSaveAnswersLocal(file, updatedAt, data) {
+                try { localStorage.setItem(examAnswersLocalKey(file), JSON.stringify({ updatedAt, data })); } catch {}
+            }
+
+            const EXAM_RECENTS_KEY = 'simple-study-exam-recents';
+            function examPaperRecentsList() {
+                try { return JSON.parse(localStorage.getItem(EXAM_RECENTS_KEY) || '[]'); } catch { return []; }
+            }
+            function examPaperRecentsTouch(entry) {
+                try {
+                    let list = examPaperRecentsList().filter(x => x.file !== entry.file);
+                    list.unshift({ file: entry.file, level: entry.level, subjectId: entry.subjectId, year: entry.year, label: entry.label, at: Date.now() });
+                    localStorage.setItem(EXAM_RECENTS_KEY, JSON.stringify(list.slice(0, 12)));
+                } catch {}
+            }
+
+            function examPaperSaveStatusSet(status) {
+                examPaperSaveStatus = status;
+                const el = document.getElementById('exam-save-status');
+                if (el) {
+                    el.textContent = status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'error' ? 'Save failed — will retry' : '';
+                    el.className = 'exam-save-status ' + status;
+                }
+            }
+
+            function examPaperScheduleSave() {
+                examPaperSaveStatusSet('saving');
+                clearTimeout(examPaperSaveTimer);
+                examPaperSaveTimer = setTimeout(examPaperPersist, 700);
+            }
+
+            async function examPaperPersist() {
+                if (!examPaperOpen || !examPaperAnswers) return;
+                const file = examPaperOpen.file, now = Date.now();
+                examPaperSaveAnswersLocal(file, now, examPaperAnswers);
+                examPaperRecentsTouch(examPaperOpen);
+                if (!currentUser) { examPaperSaveStatusSet('saved'); return; }
+                try {
+                    const { error } = await supabaseClient.from('exam_paper_answers').upsert({
+                        user_id: currentUser.id, exam_file: file, answers: examPaperAnswers, updated_at: new Date(now).toISOString()
+                    });
+                    if (error) throw error;
+                    examPaperSaveStatusSet('saved');
+                } catch (e) { console.error(e); examPaperSaveStatusSet('error'); }
+            }
+
+            // ---- Opening / closing a paper ----------------------------------------------------
+            // ---- Auto-detecting answer fields from the PDF's own vector geometry ------------
+            // These papers are digitally typeset (not scans), so tick-boxes and ruled writing
+            // lines are real vector shapes in the content stream, not pixels -- a small square
+            // path is almost always a tick-box, and a run of thin wide rectangles at consistent
+            // vertical spacing is almost always a set of ruled answer lines. Walking pdf.js's
+            // operator list to find these lets every paper start pre-filled with plausible
+            // answer boxes with no per-paper hardcoding -- the detector is generic, only the
+            // shapes it happens to find differ paper to paper. It's best-effort: every detected
+            // field is a completely ordinary box/checkbox the student can move, resize or delete
+            // exactly like a manually-placed one, so a bad guess is a minor inconvenience, not a
+            // broken experience. Runs once, only when a paper is opened with no saved answers yet
+            // (see openExamPaper) -- never re-runs over a student's already-customised layout.
+            const round2 = (x) => Math.round(x * 100) / 100;
+            function examPaperMulMatrix(m1, m2) {
+                return [
+                    m1[0] * m2[0] + m1[1] * m2[2], m1[0] * m2[1] + m1[1] * m2[3],
+                    m1[2] * m2[0] + m1[3] * m2[2], m1[2] * m2[1] + m1[3] * m2[3],
+                    m1[4] * m2[0] + m1[5] * m2[2] + m2[4], m1[4] * m2[1] + m1[5] * m2[3] + m2[5],
+                ];
+            }
+
+            // Walks one page's raw drawing commands, tracking the current transform matrix through
+            // save/restore/transform, and classifies every path it finds (already converted to
+            // on-screen pixel coordinates for `viewport`) as a tick-box-shaped square, or a thin
+            // rectangle/line segment (horizontal == a ruled writing line, vertical == kept only to
+            // help tell a real ruled answer area apart from a table/graph grid later).
+            async function examPaperDetectPageFields(page, viewport) {
+                const OPS = pdfjsLib.OPS;
+                const { fnArray, argsArray } = await page.getOperatorList();
+                let ctm = [1, 0, 0, 1, 0, 0];
+                const stack = [];
+                const squares = [], hSegs = [], vSegs = [];
+                const applyCtm = (x, y) => [ctm[0] * x + ctm[2] * y + ctm[4], ctm[1] * x + ctm[3] * y + ctm[5]];
+                const toDevice = (pt) => viewport.convertToViewportPoint(pt[0], pt[1]);
+
+                const classifySeg = (p1, p2) => {
+                    const dx = Math.abs(p1[0] - p2[0]), dy = Math.abs(p1[1] - p2[1]);
+                    if (dy < 1.2 && dx > 30) hSegs.push({ x1: Math.min(p1[0], p2[0]), x2: Math.max(p1[0], p2[0]), y: (p1[1] + p2[1]) / 2 });
+                    else if (dx < 1.2 && dy > 6) vSegs.push({ y1: Math.min(p1[1], p2[1]), y2: Math.max(p1[1], p2[1]), x: (p1[0] + p2[0]) / 2 });
+                };
+                const recordRectDevice = (corners) => {
+                    const xs = corners.map(c => c[0]), ys = corners.map(c => c[1]);
+                    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+                    const w = x1 - x0, h = y1 - y0;
+                    if (w > 1 && h > 1 && Math.min(w, h) < 2.5 && Math.max(w, h) > 35) {
+                        if (w >= h) hSegs.push({ x1: x0, x2: x1, y: (y0 + y1) / 2 }); else vSegs.push({ y1: y0, y2: y1, x: (x0 + x1) / 2 });
+                    } else if (w >= 10 && w <= 55 && h >= 10 && h <= 55 && Math.abs(w - h) < Math.max(w, h) * 0.28) {
+                        squares.push({ x: x0, y: y0, w, h });
+                    }
+                };
+
+                for (let i = 0; i < fnArray.length; i++) {
+                    const fn = fnArray[i], args = argsArray[i];
+                    if (fn === OPS.save) stack.push(ctm);
+                    else if (fn === OPS.restore) ctm = stack.pop() || ctm;
+                    else if (fn === OPS.transform) ctm = examPaperMulMatrix(args, ctm);
+                    else if (fn === OPS.constructPath) {
+                        const [ops, coords] = args;
+                        let ci = 0, subStart = null, prev = null;
+                        for (const op of ops) {
+                            if (op === OPS.moveTo) { const d = toDevice(applyCtm(coords[ci++], coords[ci++])); subStart = d; prev = d; }
+                            else if (op === OPS.lineTo) { const d = toDevice(applyCtm(coords[ci++], coords[ci++])); if (prev) classifySeg(prev, d); prev = d; }
+                            else if (op === OPS.curveTo) { ci += 6; prev = null; }
+                            else if (op === OPS.curveTo2 || op === OPS.curveTo3) { ci += 4; prev = null; }
+                            else if (op === OPS.closePath) { if (prev && subStart) classifySeg(prev, subStart); prev = subStart; }
+                            else if (op === OPS.rectangle) {
+                                const x = coords[ci++], y = coords[ci++], w = coords[ci++], h = coords[ci++];
+                                const corners = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(c => toDevice(applyCtm(c[0], c[1])));
+                                recordRectDevice(corners);
+                                prev = null; subStart = null;
+                            }
+                        }
+                    }
+                }
+                return { squares, hSegs, vSegs };
+            }
+
+            // Groups consecutive ruled lines (consistent vertical spacing, overlapping horizontal
+            // span) into one writing-space band per group, in on-screen pixel coordinates (y grows
+            // downward here). Drops bands that look like a table/graph grid -- ones with two or
+            // more vertical rules crossing through them -- since those need their grid visible to
+            // draw on, not a text box covering it.
+            // Many PDFs draw the same ruled line twice (once as a hairline fill, once as a stroke,
+            // for crisper print rendering) -- collapse near-identical segments before grouping, or
+            // every doubled line becomes its own duplicate one-line band.
+            function examPaperDedupeSegments(segs) {
+                const sorted = segs.slice().sort((a, b) => a.y - b.y || a.x1 - b.x1);
+                const out = [];
+                for (const seg of sorted) {
+                    const last = out[out.length - 1];
+                    if (last && Math.abs(last.y - seg.y) < 1 && Math.abs(last.x1 - seg.x1) < 2 && Math.abs(last.x2 - seg.x2) < 2) continue;
+                    out.push(seg);
+                }
+                return out;
+            }
+
+            function examPaperGroupRuledBands(hSegsRaw, vSegs, minWidth) {
+                const lines = examPaperDedupeSegments(hSegsRaw).sort((a, b) => a.y - b.y);
+                const bands = [];
+                let cur = null;
+                for (const line of lines) {
+                    if (cur) {
+                        const gap = line.y - cur.lastY;
+                        const overlap = Math.min(cur.x2, line.x2) - Math.max(cur.x1, line.x1);
+                        const minSpan = Math.min(cur.x2 - cur.x1, line.x2 - line.x1) * 0.5;
+                        if (gap >= 14 && gap <= 46 && overlap > minSpan) {
+                            cur.lines.push(line); cur.lastY = line.y;
+                            cur.x1 = Math.min(cur.x1, line.x1); cur.x2 = Math.max(cur.x2, line.x2);
+                            continue;
+                        }
+                        bands.push(cur);
+                    }
+                    cur = { lines: [line], firstY: line.y, lastY: line.y, x1: line.x1, x2: line.x2 };
+                }
+                if (cur) bands.push(cur);
+                return bands.map(b => {
+                    const rowGap = b.lines.length > 1 ? (b.lastY - b.firstY) / (b.lines.length - 1) : 22;
+                    return { x1: b.x1, x2: b.x2, yTop: b.firstY - rowGap * 0.85, yBottom: b.lastY + rowGap * 0.35 };
+                }).filter(band => {
+                    const crossingV = vSegs.filter(v => v.x > band.x1 + 2 && v.x < band.x2 - 2 && v.y1 < band.yBottom && v.y2 > band.yTop).length;
+                    return crossingV < 2 && (band.x2 - band.x1) > minWidth;
+                });
+            }
+
+            // Runs detection across every page and returns ready-to-use box objects, in the exact
+            // same shape examPaperAddTextBox/examPaperAddCheckbox produce (just flagged `auto`).
+            async function examPaperDetectAllFields(doc) {
+                const fields = [];
+                const maxPages = Math.min(doc.numPages, 60); // safety cap for unusually long papers
+                for (let p = 1; p <= maxPages; p++) {
+                    let detected;
+                    try {
+                        const page = await doc.getPage(p);
+                        const viewport = page.getViewport({ scale: EXAM_PAPER_SCALE });
+                        detected = await examPaperDetectPageFields(page, viewport);
+                        const slotId = 'pdf-' + p;
+                        for (const sq of detected.squares) {
+                            fields.push({ id: uid(), type: 'checkbox', page: slotId,
+                                x: round2(sq.x / viewport.width * 100), y: round2(sq.y / viewport.height * 100), value: false, auto: true });
+                        }
+                        const bands = examPaperGroupRuledBands(detected.hSegs, detected.vSegs, viewport.width * 0.15)
+                            // A band sitting under a row of tick-boxes (e.g. the exam-number/date
+                            // digit grid on every cover page) is that grid's own underline, not a
+                            // real writing space -- skip it so it doesn't sit on top of the boxes.
+                            .filter(band => detected.squares.filter(sq =>
+                                sq.y < band.yBottom && sq.y + sq.h > band.yTop && sq.x < band.x2 && sq.x + sq.w > band.x1).length < 2);
+                        for (const band of bands) {
+                            const wPct = Math.min((band.x2 - band.x1) / viewport.width * 100, 92);
+                            fields.push({ id: uid(), type: 'text', page: slotId,
+                                x: round2(band.x1 / viewport.width * 100), y: round2(band.yTop / viewport.height * 100),
+                                w: round2(wPct), hPx: Math.round(Math.max(36, band.yBottom - band.yTop)), value: '', auto: true });
+                        }
+                    } catch (e) { /* best-effort -- a parsing hiccup on one page shouldn't lose the rest */ }
+                }
+                return fields;
+            }
+
+            async function openExamPaper(entry) {
+                examPaperOpen = entry;
+                examPaperDoc = null;
+                examPaperAnswers = null;
+                examPaperLoadError = '';
+                examPaperLoading = true;
+                examPaperTool = 'select';
+                examPaperPageRefSize = null;
+                render();
+                try {
+                    const buf = await examArchiveGetPdfBytes(entry.file);
+                    const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+                    examPaperDoc = doc;
+
+                    const local = examPaperLoadAnswersLocal(entry.file);
+                    let data = local?.data, updatedAtMs = local?.updatedAt || 0;
+                    if (currentUser) {
+                        const { data: row, error } = await supabaseClient.from('exam_paper_answers')
+                            .select('answers, updated_at').eq('user_id', currentUser.id).eq('exam_file', entry.file).maybeSingle();
+                        if (!error && row) {
+                            const cloudMs = new Date(row.updated_at).getTime();
+                            if (cloudMs > updatedAtMs) { data = row.answers; updatedAtMs = cloudMs; }
+                        }
+                    }
+                    if (data) { examPaperAnswers = data; }
+                    else {
+                        examPaperAnswers = { pageOrder: Array.from({ length: doc.numPages }, (_, i) => 'pdf-' + (i + 1)), boxes: [], strokes: [] };
+                        try { examPaperAnswers.boxes = await examPaperDetectAllFields(doc); }
+                        catch (e) { console.error('Auto-detecting answer fields failed -- opening with a blank paper instead', e); }
+                    }
+                    examPaperRecentsTouch(entry);
+                } catch (e) {
+                    examPaperLoadError = (e && e.message === 'CONNECT_NEEDED') ? 'CONNECT_NEEDED' : ((e && e.message) || "Couldn't open this paper.");
+                }
+                examPaperLoading = false;
+                render();
+                if (examPaperDoc && examPaperAnswers) requestAnimationFrame(renderExamPaperCanvases);
+            }
+
+            function examPaperClose() {
+                examPaperOpen = null; examPaperDoc = null; examPaperAnswers = null; examPaperLoadError = ''; examPaperPageRefSize = null;
+                render();
+            }
+
+            // ---- Rendering pdf.js pages + blank inserted pages to canvas ---------------------
+            async function renderExamPaperCanvases() {
+                if (!examPaperOpen || !examPaperAnswers) return;
+                for (const slotId of examPaperAnswers.pageOrder) {
+                    const canvas = document.getElementById('exam-canvas-' + slotId);
+                    if (!canvas || canvas.dataset.rendered === 'true') continue;
+                    let width, height;
+                    if (slotId.startsWith('pdf-') && examPaperDoc) {
+                        const pageNum = Number(slotId.slice(4));
+                        const page = await examPaperDoc.getPage(pageNum);
+                        const viewport = page.getViewport({ scale: EXAM_PAPER_SCALE });
+                        width = viewport.width; height = viewport.height;
+                        canvas.width = width; canvas.height = height;
+                        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                        if (!examPaperPageRefSize) examPaperPageRefSize = { width, height };
+                    } else {
+                        width = (examPaperPageRefSize && examPaperPageRefSize.width) || 833;
+                        height = (examPaperPageRefSize && examPaperPageRefSize.height) || 1178;
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height);
+                        ctx.strokeStyle = '#d8dcef'; ctx.lineWidth = 1;
+                        for (let y = 56; y < height - 20; y += 34) { ctx.beginPath(); ctx.moveTo(28, y); ctx.lineTo(width - 28, y); ctx.stroke(); }
+                    }
+                    canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
+                    const ink = document.getElementById('exam-ink-' + slotId);
+                    if (ink) { ink.width = width; ink.height = height; }
+                    canvas.dataset.rendered = 'true';
+                    examPaperRedrawInk(slotId);
+                }
+            }
+
+            function examPaperRedrawInk(slotId) {
+                const canvas = document.getElementById('exam-ink-' + slotId);
+                if (!canvas || !examPaperAnswers) return;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (const s of examPaperAnswers.strokes) {
+                    if (s.page !== slotId || s.points.length < 2) continue;
+                    ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    s.points.forEach(([x, y], i) => {
+                        const px = x / 100 * canvas.width, py = y / 100 * canvas.height;
+                        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    });
+                    ctx.stroke();
+                }
+            }
+
+            // ---- Templates --------------------------------------------------------------------
+            function examPaperRecentRowHtml(r) {
+                const meta = examPaperSubjectMeta(r.subjectId);
+                return `<div class="exam-paper-row"><span>${escape(meta.name)} — ${escape(r.label)} (${r.year})</span><button type="button" class="button" data-action="examp-open-paper" data-file="${escape(r.file)}">Continue</button></div>`;
+            }
+
+            function examPaperBrowseHtml() {
+                if (!examPaperLevel) {
+                    const recents = examPaperRecentsList();
+                    const countLc = EXAM_PAPER_INDEX.filter(r => r[0] === 'lc').length, countJc = EXAM_PAPER_INDEX.filter(r => r[0] === 'jc').length;
+                    return appFrame(`<div class="page">
+            ${header('Past Papers', "Real state exam papers you can fill in right on screen — pick a level to get started.", '')}
+            ${examPaperArchiveBannerHtml()}
+            ${recents.length ? `<div class="section-title"><h2>Continue where you left off</h2></div><div class="exam-year-list" style="margin-bottom:24px">${recents.slice(0, 5).map(examPaperRecentRowHtml).join('')}</div>` : ''}
+            <div class="exam-level-grid">
+                <button type="button" class="class-tile" data-action="examp-pick-level" data-level="lc" style="--subject:var(--primary)"><strong>Leaving Certificate</strong><span class="class-tile-count">${countLc} papers available</span></button>
+                <button type="button" class="class-tile" data-action="examp-pick-level" data-level="jc" style="--subject:var(--success)"><strong>Junior Cycle</strong><span class="class-tile-count">${countJc} papers available</span></button>
+            </div>
+        </div>`);
+                }
+                if (!examPaperSubjectId) {
+                    const subjectIds = [...new Set(EXAM_PAPER_INDEX.filter(r => r[0] === examPaperLevel).map(r => r[1]))];
+                    const q = examPaperSearch.trim().toLowerCase();
+                    const subjects = subjectIds.map(examPaperSubjectMeta).filter(s => !q || s.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+                    const back = `<button type="button" class="subject-page-back" data-action="examp-back-to-levels">← Back to levels</button>`;
+                    return appFrame(`<div class="page">${back}
+            ${header((examPaperLevel === 'lc' ? 'Leaving Certificate' : 'Junior Cycle') + ' — Past Papers', 'Pick a subject.', `<input type="text" placeholder="Search subjects…" value="${escape(examPaperSearch)}" data-examp-search style="min-width:200px">`)}
+            <div class="exam-subject-grid">
+                ${subjects.map(s => `<button type="button" class="class-tile" data-action="examp-pick-subject" data-subject="${s.id}" style="--subject:var(--primary)"><strong>${escape(s.name)}</strong><span class="class-tile-count">${EXAM_PAPER_INDEX.filter(r => r[0] === examPaperLevel && r[1] === s.id).length} papers</span></button>`).join('') || '<p class="empty">No subjects match your search.</p>'}
+            </div>
+        </div>`);
+                }
+                const meta = examPaperSubjectMeta(examPaperSubjectId);
+                const papers = EXAM_PAPER_INDEX.filter(r => r[0] === examPaperLevel && r[1] === examPaperSubjectId).sort((a, b) => b[2] - a[2] || a[3].localeCompare(b[3]));
+                const byYear = new Map();
+                for (const [level, subjectId, year, label, file] of papers) { if (!byYear.has(year)) byYear.set(year, []); byYear.get(year).push({ level, subjectId, year, label, file }); }
+                const back = `<button type="button" class="subject-page-back" data-action="examp-back-to-subjects">← Back to subjects</button>`;
+                return appFrame(`<div class="page">${back}
+        ${header(meta.name + ' — Past Papers', 'Pick a paper to open it and start filling it in.', '')}
+        <div class="exam-year-list">
+            ${[...byYear.entries()].map(([year, list]) => `<div class="exam-year-group"><h3>${year}</h3>${list.map(entry => `<div class="exam-paper-row"><span>${escape(entry.label)}</span><button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(entry.file)}">Open</button></div>`).join('')}</div>`).join('')}
+        </div>
+        </div>`);
+            }
+
+            function examPaperBoxHtml(box) {
+                const autoClass = box.auto ? ' auto-detected' : '';
+                if (box.type === 'checkbox') {
+                    return `<div class="exam-box exam-checkbox${autoClass} ${box.value ? 'checked' : ''}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%">
+<div class="exam-checkbox-mark" aria-label="Tick"></div>
+<button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button>
+</div>`;
+                }
+                return `<div class="exam-box exam-textbox${autoClass}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;width:${box.w}%">
+<div class="exam-box-bar"><span class="exam-box-drag" aria-label="Drag to move">⠿</span><button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button></div>
+<textarea class="exam-box-text" data-box-id="${box.id}" rows="3"${box.hPx ? ` style="height:${box.hPx}px"` : ''} placeholder="Type your answer…">${escape(box.value || '')}</textarea>
+</div>`;
+            }
+
+            // Clears the auto-detected look the first time a student actually interacts with a
+            // guessed field -- once they've typed in it, ticked it, or moved it, it's theirs.
+            function examPaperUnmarkAuto(boxId, el) {
+                const box = examPaperAnswers && examPaperAnswers.boxes.find(b => b.id === boxId);
+                if (box && box.auto) { box.auto = false; if (el) el.classList.remove('auto-detected'); }
+            }
+
+            function examPaperPageWrapHtml(slotId) {
+                const isBlank = slotId.startsWith('blank-');
+                const boxesHtml = examPaperAnswers.boxes.filter(b => b.page === slotId).map(examPaperBoxHtml).join('');
+                return `<div class="exam-page-wrap ${isBlank ? 'exam-page-blank' : ''} tool-${examPaperTool}" data-slot-id="${slotId}">
+<canvas class="exam-pdf-canvas" id="exam-canvas-${slotId}"></canvas>
+<div class="exam-overlay" id="exam-overlay-${slotId}">${boxesHtml}</div>
+<canvas class="exam-ink-canvas" id="exam-ink-${slotId}"></canvas>
+${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="examp-remove-blank-page" data-slot="${slotId}">Remove this blank page</button>` : ''}
+</div>`;
+            }
+
+            function examPaperViewerHtml() {
+                const entry = examPaperOpen, meta = examPaperSubjectMeta(entry.subjectId);
+                const back = `<button type="button" class="subject-page-back" data-action="examp-close-paper">← Back to Past Papers</button>`;
+                const titleHtml = header(meta.name + ' — ' + entry.label, entry.level.toUpperCase() + ' · ' + entry.year, '');
+                if (examPaperLoading) return appFrame(`<div class="page">${back}${titleHtml}<p class="empty">Opening this paper…</p></div>`);
+                if (examPaperLoadError === 'CONNECT_NEEDED') return appFrame(`<div class="page">${back}${titleHtml}${examPaperArchiveBannerHtml('error')}<p class="small">Once connected, try opening this paper again.</p><button type="button" class="button primary" data-action="examp-retry-open">Try again</button></div>`);
+                if (examPaperLoadError) return appFrame(`<div class="page">${back}${titleHtml}<p class="empty">${escape(examPaperLoadError)}</p></div>`);
+
+                const toolbarHtml = `<div class="exam-viewer-toolbar">
+    <div class="exam-tool-group" role="group" aria-label="Tools">
+        <button type="button" class="${examPaperTool === 'select' ? 'active' : ''}" data-action="examp-set-tool" data-tool="select">Select</button>
+        <button type="button" class="${examPaperTool === 'text' ? 'active' : ''}" data-action="examp-set-tool" data-tool="text">+ Answer box</button>
+        <button type="button" class="${examPaperTool === 'checkbox' ? 'active' : ''}" data-action="examp-set-tool" data-tool="checkbox">+ Checkbox</button>
+        <button type="button" class="${examPaperTool === 'draw' ? 'active' : ''}" data-action="examp-set-tool" data-tool="draw">✎ Draw</button>
+        <button type="button" class="${examPaperTool === 'erase' ? 'active' : ''}" data-action="examp-set-tool" data-tool="erase">Erase</button>
+    </div>
+    <div class="exam-tool-group" role="group" aria-label="Pen color">
+        ${['#20202b', '#bd3f53', '#2E63F6'].map(c => `<button type="button" class="examp-color-swatch ${examPaperDrawColor === c ? 'active' : ''}" data-action="examp-set-color" data-color="${c}" style="--swatch:${c}" aria-label="Pen color"></button>`).join('')}
+    </div>
+    <div class="row">
+        <button type="button" class="button ghost" data-action="examp-undo-stroke">Undo stroke</button>
+        ${examPaperAnswers.boxes.some(b => b.auto) ? `<button type="button" class="button ghost" data-action="examp-clear-auto-fields">Clear auto-detected (${examPaperAnswers.boxes.filter(b => b.auto).length})</button>` : ''}
+        <span id="exam-save-status" class="exam-save-status ${examPaperSaveStatus}">${examPaperSaveStatus === 'saving' ? 'Saving…' : examPaperSaveStatus === 'saved' ? 'Saved' : ''}</span>
+    </div>
+</div>`;
+                const pagesHtml = examPaperAnswers.pageOrder.map(slotId => examPaperPageWrapHtml(slotId) +
+                    `<div class="exam-insert-blank-row"><button type="button" class="button ghost" data-action="examp-insert-blank-after" data-slot="${slotId}">+ Insert blank writing page here</button></div>`).join('');
+                return appFrame(`<div class="page">${back}${titleHtml}${toolbarHtml}<div class="exam-pages">${pagesHtml}</div></div>`);
+            }
+
+            function renderExamPapers() { return examPaperOpen ? examPaperViewerHtml() : examPaperBrowseHtml(); }
+
+            // ---- Annotation mutation helpers (avoid a full render() mid-interaction so the
+            // pdf.js canvases already on screen aren't re-rendered from scratch on every click) --
+            function examPaperSetTool(tool) {
+                examPaperTool = tool;
+                document.querySelectorAll('[data-action="examp-set-tool"]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+                document.querySelectorAll('.exam-page-wrap').forEach(w => {
+                    [...w.classList].forEach(c => { if (c.startsWith('tool-')) w.classList.remove(c); });
+                    w.classList.add('tool-' + tool);
+                });
+            }
+
+            function examPaperAddTextBox(slotId, xPct, yPct) {
+                const box = { id: uid(), type: 'text', page: slotId, x: clamp(xPct, 0, 88), y: clamp(yPct, 0, 94), w: 26, value: '' };
+                examPaperAnswers.boxes.push(box);
+                const overlay = document.getElementById('exam-overlay-' + slotId);
+                if (overlay) overlay.insertAdjacentHTML('beforeend', examPaperBoxHtml(box));
+                examPaperScheduleSave();
+            }
+            function examPaperAddCheckbox(slotId, xPct, yPct) {
+                const box = { id: uid(), type: 'checkbox', page: slotId, x: clamp(xPct, 0, 96), y: clamp(yPct, 0, 96), value: false };
+                examPaperAnswers.boxes.push(box);
+                const overlay = document.getElementById('exam-overlay-' + slotId);
+                if (overlay) overlay.insertAdjacentHTML('beforeend', examPaperBoxHtml(box));
+                examPaperScheduleSave();
+            }
+            function examPaperDeleteBox(boxId) {
+                examPaperAnswers.boxes = examPaperAnswers.boxes.filter(b => b.id !== boxId);
+                const el = document.querySelector(`.exam-box[data-box-id="${boxId}"]`);
+                if (el) el.remove();
+                examPaperScheduleSave();
+            }
+            function examPaperToggleCheckbox(boxId) {
+                const box = examPaperAnswers.boxes.find(b => b.id === boxId);
+                if (!box) return;
+                box.value = !box.value;
+                const el = document.querySelector(`.exam-box[data-box-id="${boxId}"]`);
+                if (el) el.classList.toggle('checked', box.value);
+                examPaperUnmarkAuto(boxId, el);
+                examPaperScheduleSave();
+            }
+            function examPaperUndoLastStroke() {
+                if (!examPaperAnswers || !examPaperAnswers.strokes.length) return;
+                const last = examPaperAnswers.strokes.pop();
+                examPaperRedrawInk(last.page);
+                examPaperScheduleSave();
+            }
+            function examPaperEraseStrokeNear(slotId, xPct, yPct) {
+                const strokes = examPaperAnswers.strokes;
+                let bestIdx = -1, bestDist = 3;
+                strokes.forEach((s, i) => { if (s.page !== slotId) return;
+                    for (const [x, y] of s.points) { const d = Math.hypot(x - xPct, y - yPct); if (d < bestDist) { bestDist = d; bestIdx = i; } } });
+                if (bestIdx >= 0) { strokes.splice(bestIdx, 1); examPaperRedrawInk(slotId); examPaperScheduleSave(); }
+            }
+            function examPaperInsertBlankAfter(afterSlotId) {
+                const newId = 'blank-' + uid();
+                const idx = examPaperAnswers.pageOrder.indexOf(afterSlotId);
+                examPaperAnswers.pageOrder.splice(idx + 1, 0, newId);
+                examPaperScheduleSave();
+                render();
+                requestAnimationFrame(renderExamPaperCanvases);
+            }
+            function examPaperRemoveBlankPage(slotId) {
+                examPaperAnswers.pageOrder = examPaperAnswers.pageOrder.filter(id => id !== slotId);
+                examPaperAnswers.boxes = examPaperAnswers.boxes.filter(b => b.page !== slotId);
+                examPaperAnswers.strokes = examPaperAnswers.strokes.filter(s => s.page !== slotId);
+                examPaperScheduleSave();
+                render();
+            }
+
+            // ---- Pointer interaction: drag-to-move (text box handle + checkbox), freehand ink --
+            document.addEventListener('mousedown', e => {
+                const handle = e.target.closest('.exam-box-drag');
+                if (handle) {
+                    e.preventDefault();
+                    const boxEl = handle.closest('.exam-box'), overlayRect = boxEl.parentElement.getBoundingClientRect();
+                    boxDragState = { boxEl, boxId: boxEl.dataset.boxId, startX: e.clientX, startY: e.clientY,
+                        origLeftPct: parseFloat(boxEl.style.left) || 0, origTopPct: parseFloat(boxEl.style.top) || 0, overlayRect };
+                    return;
+                }
+                const mark = e.target.closest('.exam-checkbox-mark');
+                if (mark && examPaperTool === 'select') {
+                    const boxEl = mark.closest('.exam-box'), overlayRect = boxEl.parentElement.getBoundingClientRect();
+                    checkboxPressState = { boxEl, boxId: boxEl.dataset.boxId, startX: e.clientX, startY: e.clientY, moved: false,
+                        origLeftPct: parseFloat(boxEl.style.left) || 0, origTopPct: parseFloat(boxEl.style.top) || 0, overlayRect };
+                }
+            });
+            document.addEventListener('mousemove', e => {
+                if (boxDragState) {
+                    const { boxEl, startX, startY, origLeftPct, origTopPct, overlayRect } = boxDragState;
+                    boxEl.style.left = clamp(origLeftPct + (e.clientX - startX) / overlayRect.width * 100, 0, 96) + '%';
+                    boxEl.style.top = clamp(origTopPct + (e.clientY - startY) / overlayRect.height * 100, 0, 97) + '%';
+                } else if (checkboxPressState) {
+                    const dx = e.clientX - checkboxPressState.startX, dy = e.clientY - checkboxPressState.startY;
+                    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) checkboxPressState.moved = true;
+                    if (checkboxPressState.moved) {
+                        const { boxEl, origLeftPct, origTopPct, overlayRect } = checkboxPressState;
+                        boxEl.style.left = clamp(origLeftPct + dx / overlayRect.width * 100, 0, 97) + '%';
+                        boxEl.style.top = clamp(origTopPct + dy / overlayRect.height * 100, 0, 97) + '%';
+                    }
+                }
+            });
+            document.addEventListener('mouseup', e => {
+                if (boxDragState) {
+                    const box = examPaperAnswers && examPaperAnswers.boxes.find(b => b.id === boxDragState.boxId);
+                    if (box) { box.x = parseFloat(boxDragState.boxEl.style.left); box.y = parseFloat(boxDragState.boxEl.style.top); examPaperUnmarkAuto(box.id, boxDragState.boxEl); examPaperScheduleSave(); }
+                    boxDragState = null;
+                }
+                if (checkboxPressState) {
+                    const { boxId, moved, boxEl } = checkboxPressState;
+                    if (moved) {
+                        const box = examPaperAnswers && examPaperAnswers.boxes.find(b => b.id === boxId);
+                        if (box) { box.x = parseFloat(boxEl.style.left); box.y = parseFloat(boxEl.style.top); examPaperScheduleSave(); }
+                    } else examPaperToggleCheckbox(boxId);
+                    checkboxPressState = null;
+                }
+                if (e.target.matches('.exam-box-text')) {
+                    const boxId = e.target.dataset.boxId, box = examPaperAnswers && examPaperAnswers.boxes.find(b => b.id === boxId);
+                    if (box) box.hPx = e.target.offsetHeight;
+                }
+            });
+
+            document.addEventListener('pointerdown', e => {
+                const canvas = e.target.closest('.exam-ink-canvas');
+                if (!canvas) return;
+                const rect = canvas.getBoundingClientRect();
+                const slotId = canvas.closest('.exam-page-wrap').dataset.slotId;
+                if (examPaperTool === 'draw') {
+                    canvas.setPointerCapture(e.pointerId);
+                    inkDrawState = { canvas, slotId, rect, points: [[(e.clientX - rect.left) / rect.width * 100, (e.clientY - rect.top) / rect.height * 100]] };
+                } else if (examPaperTool === 'erase') {
+                    examPaperEraseStrokeNear(slotId, (e.clientX - rect.left) / rect.width * 100, (e.clientY - rect.top) / rect.height * 100);
+                }
+            });
+            document.addEventListener('pointermove', e => {
+                if (!inkDrawState) return;
+                const { canvas, rect, points } = inkDrawState;
+                points.push([(e.clientX - rect.left) / rect.width * 100, (e.clientY - rect.top) / rect.height * 100]);
+                const ctx = canvas.getContext('2d');
+                ctx.strokeStyle = examPaperDrawColor; ctx.lineWidth = examPaperDrawWidth; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                const p1 = points[points.length - 2], p2 = points[points.length - 1];
+                ctx.beginPath();
+                ctx.moveTo(p1[0] / 100 * canvas.width, p1[1] / 100 * canvas.height);
+                ctx.lineTo(p2[0] / 100 * canvas.width, p2[1] / 100 * canvas.height);
+                ctx.stroke();
+            });
+            document.addEventListener('pointerup', e => {
+                if (!inkDrawState) return;
+                const { slotId, points } = inkDrawState;
+                if (points.length > 1) {
+                    examPaperAnswers.strokes.push({ id: uid(), page: slotId, color: examPaperDrawColor, width: examPaperDrawWidth, points });
+                    examPaperScheduleSave();
+                }
+                inkDrawState = null;
+            });
+
+            document.addEventListener('click', e => {
+                const overlay = e.target.closest('.exam-overlay');
+                if (overlay && e.target === overlay && (examPaperTool === 'text' || examPaperTool === 'checkbox')) {
+                    const rect = overlay.getBoundingClientRect();
+                    const xPct = (e.clientX - rect.left) / rect.width * 100, yPct = (e.clientY - rect.top) / rect.height * 100;
+                    const slotId = overlay.closest('.exam-page-wrap').dataset.slotId;
+                    if (examPaperTool === 'text') examPaperAddTextBox(slotId, xPct, yPct);
+                    else examPaperAddCheckbox(slotId, xPct, yPct);
+                    return;
+                }
+                const b = e.target.closest('[data-action]');
+                if (!b) return;
+                const a = b.dataset.action;
+                if (!a || a.indexOf('examp-') !== 0) return;
+                if (a === 'examp-pick-level') { examPaperLevel = b.dataset.level; examPaperSubjectId = null; examPaperSearch = ''; render(); }
+                else if (a === 'examp-pick-subject') { examPaperSubjectId = b.dataset.subject; render(); }
+                else if (a === 'examp-back-to-levels') { examPaperLevel = null; examPaperSubjectId = null; examPaperSearch = ''; render(); }
+                else if (a === 'examp-back-to-subjects') { examPaperSubjectId = null; render(); }
+                else if (a === 'examp-open-paper') { const entry = examPaperEntryFromFile(b.dataset.file); if (entry) openExamPaper(entry); }
+                else if (a === 'examp-retry-open') { if (examPaperOpen) openExamPaper(examPaperOpen); }
+                else if (a === 'examp-close-paper') examPaperClose();
+                else if (a === 'examp-connect-folder' || a === 'examp-change-folder') examArchiveConnect();
+                else if (a === 'examp-reconnect-folder') examArchiveReconnect();
+                else if (a === 'examp-set-tool') examPaperSetTool(b.dataset.tool);
+                else if (a === 'examp-set-color') { examPaperDrawColor = b.dataset.color; document.querySelectorAll('.examp-color-swatch').forEach(s => s.classList.toggle('active', s.dataset.color === examPaperDrawColor)); }
+                else if (a === 'examp-delete-box') examPaperDeleteBox(b.dataset.boxId);
+                else if (a === 'examp-undo-stroke') examPaperUndoLastStroke();
+                else if (a === 'examp-clear-auto-fields') {
+                    const removedIds = examPaperAnswers.boxes.filter(x => x.auto).map(x => x.id);
+                    examPaperAnswers.boxes = examPaperAnswers.boxes.filter(x => !x.auto);
+                    removedIds.forEach(id => { const el = document.querySelector(`.exam-box[data-box-id="${id}"]`); if (el) el.remove(); });
+                    b.remove(); // this "Clear auto-detected" button itself -- no auto fields left to clear
+                    examPaperScheduleSave();
+                }
+                else if (a === 'examp-insert-blank-after') examPaperInsertBlankAfter(b.dataset.slot);
+                else if (a === 'examp-remove-blank-page') examPaperRemoveBlankPage(b.dataset.slot);
+            });
+
+            document.addEventListener('change', e => {
+                if (e.target.matches('[data-examp-folder-fallback]')) examArchiveConnectFallback(e.target.files);
+            });
+
+            document.addEventListener('input', e => {
+                if (e.target.matches('.exam-box-text')) {
+                    const boxId = e.target.dataset.boxId, box = examPaperAnswers && examPaperAnswers.boxes.find(b => b.id === boxId);
+                    if (box) { box.value = e.target.value; examPaperUnmarkAuto(boxId, e.target.closest('.exam-box')); examPaperScheduleSave(); }
+                } else if (e.target.matches('[data-examp-search]')) {
+                    const pos = e.target.selectionStart;
+                    examPaperSearch = e.target.value;
+                    render();
+                    const el = document.querySelector('[data-examp-search]');
+                    if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch {} }
+                }
+            });
 
             // --- Custom date/time picker -------------------------------------------------
             // Every date/time field in the app is a <button class="picker-field"> immediately followed by an
@@ -7850,7 +9119,7 @@
                 const shellClass = `app-shell sidebar-mode-${mode}${focusActive?' focus-mode':''}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">${sidebarIcon('star')}</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
+        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('exam-papers','archive','Past Papers')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
       </nav><div class="sidebar-footer"><button data-action="open-search" aria-label="Search">${sidebarIcon('search')} <span>Search</span></button><button data-action="open-settings" aria-label="Settings">${sidebarIcon('settings')} <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${chatNotifyBannerHtml()}${content}</main></div>`;
             }
 
@@ -12596,7 +13865,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     .innerHTML = renderInsightsPage();
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
-                    .innerHTML = renderTools(); } else if (view === 'chatrooms') { document.getElementById('app')
+                    .innerHTML = renderTools(); } else if (view === 'exam-papers') { document.getElementById('app').innerHTML = renderExamPapers();
+                    requestAnimationFrame(renderExamPaperCanvases); } else if (view === 'chatrooms') { document.getElementById('app')
                     .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
                     .innerHTML = renderAdminPage(); } else if (view === 'period-builder') { document.getElementById(
                     'app').innerHTML = renderPeriodBuilderPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
@@ -16861,6 +18131,7 @@ If the user asks about how to study or study methods generally, answer from your
             // offline caching, never a broken app.
             if ('serviceWorker' in navigator) window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js').catch(() => {}); });
+            examArchiveTryRestore().then(() => { if (view === 'exam-papers' && !examPaperOpen) render(); });
         })();
     </script>
 </body>
