@@ -3066,6 +3066,69 @@
         }
         .sm-progress-dot.done { background: var(--primary); }
         .sm-progress-dot.current { background: var(--primary); transform: scale(1.4); }
+
+        /* ---- Games section — standalone Games page and the Study Mode break picker share these ---- */
+        .game-holder { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 0 40px; text-align: center; }
+        .game-stat-line { font-weight: 700; }
+        .game-hint { color: var(--muted); }
+        .game-actions { display: flex; gap: 10px; justify-content: center; margin-top: 4px; }
+        .game-card { width: 54px; height: 76px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,.12); font-weight: 800; flex-shrink: 0; }
+        .game-card.small { width: 40px; height: 56px; }
+        .game-card.red { color: #c0392b; }
+        .game-card.black { color: var(--text); }
+        .game-card.back { background: repeating-linear-gradient(45deg, var(--primary), var(--primary) 6px, #1b46c9 6px, #1b46c9 12px); }
+        .game-card-corner { position: absolute; top: 4px; left: 5px; font-size: 11px; line-height: 1; }
+        .game-card-corner.bottom { top: auto; bottom: 4px; left: auto; right: 5px; transform: rotate(180deg); }
+        .game-card.small .game-card-corner { font-size: 9px; }
+        .game-card-suit-big { font-size: 22px; }
+        .game-card.small .game-card-suit-big { font-size: 16px; }
+        .game-card.selected { outline: 3px solid var(--primary); outline-offset: -3px; }
+        .hl-cards { margin: 6px 0; }
+        .bj-row { margin: 6px 0; }
+        .bj-label { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+        .bj-hand { display: flex; gap: 6px; justify-content: center; }
+        .ttt-board { display: grid; grid-template-columns: repeat(3, 72px); gap: 6px; }
+        .ttt-cell { width: 72px; height: 72px; font-size: 32px; font-weight: 800; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+        .ttt-cell.filled { cursor: default; }
+        .simon-board { display: grid; grid-template-columns: repeat(2, 90px); grid-template-rows: repeat(2, 90px); gap: 8px; }
+        .simon-pad { border-radius: 14px; border: none; opacity: .55; cursor: pointer; }
+        .simon-pad.g { background: #2ecc71; } .simon-pad.r { background: #e74c3c; } .simon-pad.y { background: #f1c40f; } .simon-pad.b { background: #3498db; }
+        .simon-pad.lit { opacity: 1; box-shadow: 0 0 0 4px rgba(0,0,0,.15) inset; }
+        .simon-pad:disabled { cursor: default; }
+        .wam-board { display: grid; grid-template-columns: repeat(3, 80px); gap: 10px; }
+        .wam-hole { width: 80px; height: 80px; border-radius: 50%; background: #7a5230; border: none; overflow: hidden; position: relative; cursor: pointer; }
+        .wam-mole { position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%); font-size: 34px; transition: bottom .15s; }
+        .wam-hole.up .wam-mole { bottom: 6px; }
+        .snake-wrap { position: relative; }
+        .snake-canvas { background: var(--surface-2); border-radius: 8px; image-rendering: pixelated; }
+        .snake-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); color: #fff; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 10px; border-radius: 8px; }
+        .snake-overlay.hidden { display: none; }
+        .g2048-board { display: grid; grid-template-columns: repeat(4, 64px); grid-template-rows: repeat(4, 64px); gap: 8px; background: #bbada0; padding: 8px; border-radius: 10px; }
+        .g2048-tile { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; border-radius: 6px; background: rgba(238,228,218,.35); }
+        .brk-wrap { position: relative; }
+        .brk-canvas { background: #111; border-radius: 8px; touch-action: none; }
+        .brk-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; background: rgba(0,0,0,.5); border-radius: 8px; }
+        .brk-overlay.hidden { display: none; }
+        .mine-board { display: grid; grid-template-columns: repeat(9, 30px); gap: 2px; }
+        .mine-cell { width: 30px; height: 30px; border: 1px solid var(--line); background: var(--surface-2); font-size: 13px; font-weight: 800; border-radius: 3px; color: var(--text); }
+        .mine-cell.revealed { background: var(--surface); }
+        .mine-cell.mine { background: var(--danger-soft); }
+        .sol-top-row { display: flex; justify-content: space-between; width: 100%; max-width: 640px; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+        .sol-stockwaste { display: flex; gap: 8px; }
+        .sol-foundations { display: flex; gap: 8px; }
+        .sol-pile { background: none; border: none; padding: 0; cursor: pointer; }
+        .sol-empty { width: 54px; height: 76px; border: 2px dashed var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 20px; }
+        .sol-tableau { display: flex; gap: 8px; width: 100%; max-width: 640px; justify-content: center; flex-wrap: wrap; }
+        .sol-col { background: none; border: none; padding: 0; cursor: pointer; display: flex; flex-direction: column; min-height: 76px; min-width: 54px; }
+        .sol-col .game-card, .sol-col .sol-empty { margin-top: -52px; }
+        .sol-col .game-card:first-child, .sol-col .sol-empty:first-child { margin-top: 0; }
+        .sm-game-holder { width: 100%; }
+        .sm-stage.sm-game-stage { max-width: 640px; }
+        .sm-game-stage .class-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .sm-game-stage .class-tile { padding: 14px 12px; min-height: auto; }
         #study-mode-pip {
             position: fixed;
             right: 24px;
@@ -7641,6 +7704,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 wordbankLearnedTenses: {}, // { [subjectId]: [tenseId, ...] } — which tenses the student has said they've learnt so far
                 essayMarks: [], // { id, subjectId, topicIds: [], date, inputMode, text, overallComment, rating: 'good'|'ok'|'bad', spelling: [], grammar: [], suggestions: [] }
                 flashcardDecks: [], // { id, subjectId, topic, cards: [{id, front, back}], createdAt } — one deck per subject+topic
+                gameHighScores: {}, // { [gameId]: number } — best score so far for score-based games in the Games section
                 week: weekStart(localDate())
             });
             let state = load();
@@ -7870,7 +7934,8 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     wordbankVerbs: Array.isArray(saved.wordbankVerbs) ? saved.wordbankVerbs : [],
                     wordbankLearnedTenses: saved.wordbankLearnedTenses && typeof saved.wordbankLearnedTenses === 'object' ? saved.wordbankLearnedTenses : {},
                     essayMarks: Array.isArray(saved.essayMarks) ? saved.essayMarks : [],
-                    flashcardDecks: Array.isArray(saved.flashcardDecks) ? saved.flashcardDecks : [] };
+                    flashcardDecks: Array.isArray(saved.flashcardDecks) ? saved.flashcardDecks : [],
+                    gameHighScores: saved.gameHighScores && typeof saved.gameHighScores === 'object' ? saved.gameHighScores : {} };
             }
 
             function load() {
@@ -8395,6 +8460,9 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             let formulaBookSearchStatus = null; // null | 'found' | 'no-match' | 'ai-loading' | 'ai-no-match' | 'ai-error'
             let formulaBookSearchError = '';
             let formulaBookTocCollapsed = false; // hide the contents list to give the page image more room
+
+            // ---- Games page (tile landing, like Tools) --------------------------------------------------
+            let gamesActiveGame = null; // null (tile grid) | a GAMES key, e.g. 'snake'
 
             // ---- Tools page (tile landing, like Classes) ----------------------------------------------
             let toolsActiveTool = null; // null (tile grid) | 'formulas' | 'cao'
@@ -9205,7 +9273,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 const shellClass = `app-shell sidebar-mode-${mode}${focusActive?' focus-mode':''}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">${sidebarIcon('star')}</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('exam-papers','archive','Past Papers')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
+        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('exam-papers','archive','Past Papers')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${navButton('games','gamepad','Games')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
       </nav><div class="sidebar-footer"><button data-action="open-search" aria-label="Search">${sidebarIcon('search')} <span>Search</span></button><button data-action="open-settings" aria-label="Settings">${sidebarIcon('settings')} <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${chatNotifyBannerHtml()}${content}</main></div>`;
             }
 
@@ -9335,6 +9403,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
                 tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>',
                 'message-circle': '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>',
+                gamepad: '<line x1="6" y1="12" x2="10" y2="12"></line><line x1="8" y1="10" x2="8" y2="14"></line><circle cx="15.5" cy="12.5" r="1"></circle><circle cx="18" cy="10" r="1"></circle><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.544-.604-6.584-.685-7.258-.007-.051-.011-.1-.017-.152A4 4 0 0 0 17.32 5z"></path>',
                 search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
                 settings: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>',
             };
@@ -11073,6 +11142,488 @@ ${pointsSvg}
         ${header('CAO Points Calculator','A quick standalone scratchpad — it doesn\'t touch your logged exam results.','')}
         ${caoCalcHtml()}
         </div>`); }
+
+            // ==============================================================================================
+            // Games section — a handful of small, self-contained offline games for a study break. Not study
+            // related on purpose. Each game is a factory `mount(container)` that renders into the given
+            // element and wires up its own listeners/timers, returning a `cleanup()` used on unmount so a
+            // background timer/canvas loop or global keydown listener never outlives the page that owns it.
+            // ==============================================================================================
+
+            // ---- shared playing-card helpers (Solitaire, Blackjack, Higher or Lower) --------------------
+            const GAME_CARD_SUITS = ['♠', '♥', '♦', '♣'];
+            const GAME_CARD_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+            function gameFreshDeck() { const deck = [];
+                for (const suit of GAME_CARD_SUITS) for (let i = 0; i < GAME_CARD_RANKS.length; i++)
+                    deck.push({ suit, rank: GAME_CARD_RANKS[i], value: i + 1 });
+                return deck; }
+            function gameShuffle(arr) { const d = arr.slice();
+                for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));
+                    [d[i], d[j]] = [d[j], d[i]]; } return d; }
+            function gameCardColor(card) { return (card.suit === '♥' || card.suit === '♦') ? 'red' : 'black'; }
+            function gameCardFaceHtml(card, cls = '') {
+                return `<div class="game-card ${gameCardColor(card)} ${cls}"><span class="game-card-corner">${card.rank}${card.suit}</span><span class="game-card-suit-big">${card.suit}</span><span class="game-card-corner bottom">${card.rank}${card.suit}</span></div>`; }
+            function gameCardBackHtml(cls = '') { return `<div class="game-card back ${cls}"></div>`; }
+            function gameBlackjackValue(rank) { return rank === 'A' ? 11 : (rank === 'J' || rank === 'Q' || rank === 'K') ? 10 : Number(rank); }
+
+            // ---- mount/unmount engine ---------------------------------------------------------------------
+            let currentGameCleanup = null;
+            function unmountCurrentGame() { if (currentGameCleanup) { try { currentGameCleanup(); } catch (err) {}
+                    currentGameCleanup = null; } }
+            function mountGameInto(container, id) { unmountCurrentGame();
+                const g = GAMES[id]; if (!g || !container) return;
+                currentGameCleanup = g.mount(container) || null; }
+            function gameBestScore(id) { return state.gameHighScores[id] || 0; }
+            function gameReportScore(id, score) { if (score > (state.gameHighScores[id] || 0)) {
+                    state.gameHighScores[id] = score; save(); return true; } return false; }
+
+            const GAME_ORDER = ['solitaire', 'blackjack', 'higherlower', 'snake', '2048', 'tictactoe', 'simon', 'whackamole', 'minesweeper', 'breakout'];
+
+            function gameTilesHtml(actionName) { const tile = id => { const g = GAMES[id];
+                    return `<button type="button" class="class-tile" data-action="${actionName}" data-game="${id}" style="--subject:var(--primary)"><strong>${g.icon} ${g.title}</strong><span class="small">${g.desc}</span></button>`; };
+                return `<div class="class-grid">${GAME_ORDER.map(tile).join('')}</div>`; }
+
+            function renderGames() {
+                if (!gamesActiveGame) return appFrame(`<div class="page">${header('Games','Quick, simple games for a study break — nothing study-related, just a few minutes of fun.','')}
+        ${gameTilesHtml('games-open')}
+        </div>`);
+                const g = GAMES[gamesActiveGame],
+                    back = `<button type="button" class="subject-page-back" data-action="games-back">← Back to Games</button>`,
+                    best = g.hasScore ? `<span class="small">Best score: ${gameBestScore(gamesActiveGame)}</span>` : '';
+                return appFrame(`<div class="page">${back}
+        ${header(`${g.icon} ${g.title}`, g.desc, best)}
+        <div id="game-holder" class="game-holder"></div>
+        </div>`);
+            }
+
+            // ---- Tic-Tac-Toe ------------------------------------------------------------------------------
+            function mountTicTacToe(container) {
+                let board = Array(9).fill(null), gameOver = false, message = "Your turn — you're X.", pendingTimeout = null;
+                function winner(b) { const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                    for (const [a,c,d] of lines) if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a];
+                    return b.every(x => x) ? 'draw' : null; }
+                function aiMove() { const empties = board.map((v,i) => v ? null : i).filter(i => i !== null);
+                    for (const i of empties) { board[i] = 'O'; if (winner(board) === 'O') return; board[i] = null; }
+                    for (const i of empties) { board[i] = 'X'; const blocks = winner(board) === 'X'; board[i] = null; if (blocks) { board[i] = 'O'; return; } }
+                    const prefer = [4,0,2,6,8,1,3,5,7].filter(i => empties.includes(i));
+                    board[prefer[0]] = 'O'; }
+                function render() { const w = winner(board);
+                    if (w === 'X') { gameOver = true; message = '🎉 You win!'; }
+                    else if (w === 'O') { gameOver = true; message = 'The computer won this one — try again?'; }
+                    else if (w === 'draw') { gameOver = true; message = "It's a draw."; }
+                    container.innerHTML = `<div class="game-stat-line">${message}</div>
+        <div class="ttt-board">${board.map((v,i) => `<button type="button" class="ttt-cell ${v?'filled':''}" data-i="${i}" ${v||gameOver?'disabled':''}>${v||''}</button>`).join('')}</div>
+        <button type="button" class="button primary ttt-restart">Play again</button>`;
+                    container.querySelectorAll('.ttt-cell').forEach(cell => cell.addEventListener('click', onCellClick));
+                    container.querySelector('.ttt-restart').addEventListener('click', restart); }
+                function onCellClick(e) { if (gameOver) return; const i = Number(e.currentTarget.dataset.i); if (board[i]) return;
+                    board[i] = 'X'; if (winner(board)) { render(); return; }
+                    message = "Computer's turn…"; render();
+                    pendingTimeout = setTimeout(() => { aiMove(); message = 'Your turn.'; render(); }, 350); }
+                function restart() { board = Array(9).fill(null); gameOver = false; message = "Your turn — you're X."; render(); }
+                render();
+                return () => { if (pendingTimeout) clearTimeout(pendingTimeout); container.innerHTML = ''; };
+            }
+
+            // ---- Higher or Lower ---------------------------------------------------------------------------
+            function mountHigherLower(container) {
+                let deck = gameShuffle(gameFreshDeck()), current = deck.pop(), streak = 0, best = gameBestScore('higherlower'),
+                    message = 'Will the next card be higher or lower?', locked = false;
+                function render() {
+                    container.innerHTML = `<div class="game-stat-line">Streak: <strong>${streak}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="hl-cards">${gameCardFaceHtml(current)}</div>
+        <div class="small">${message}</div>
+        <div class="game-actions">
+          <button type="button" class="button primary" data-guess="lower" ${locked||!deck.length?'disabled':''}>⬇ Lower</button>
+          <button type="button" class="button primary" data-guess="higher" ${locked||!deck.length?'disabled':''}>⬆ Higher</button>
+        </div>
+        ${(locked || !deck.length) ? '<button type="button" class="button ghost hl-restart">Play again</button>' : ''}`;
+                    container.querySelectorAll('[data-guess]').forEach(btn => btn.addEventListener('click', () => guess(btn.dataset.guess)));
+                    const restartBtn = container.querySelector('.hl-restart'); if (restartBtn) restartBtn.addEventListener('click', restart); }
+                function guess(dir) { if (locked || !deck.length) return;
+                    const next = deck.pop(), tie = next.value === current.value,
+                        correct = dir === 'higher' ? next.value > current.value : next.value < current.value;
+                    current = next;
+                    if (tie) { message = `Push — another ${next.rank}. Streak continues.`; render(); return; }
+                    if (correct) { streak++; if (streak > best) { best = streak; gameReportScore('higherlower', best); }
+                        message = deck.length ? 'Correct! Keep going.' : "Correct — and that's the whole deck! Amazing run."; }
+                    else { message = `Not quite — streak ends at ${streak}.`; locked = true; }
+                    render(); }
+                function restart() { deck = gameShuffle(gameFreshDeck()); current = deck.pop(); streak = 0;
+                    message = 'Will the next card be higher or lower?'; locked = false; render(); }
+                render();
+                return () => { container.innerHTML = ''; };
+            }
+
+            // ---- Simon Says ---------------------------------------------------------------------------------
+            function mountSimon(container) {
+                const COLORS = ['g', 'r', 'y', 'b'];
+                let sequence = [], playerStep = 0, best = gameBestScore('simon'), playing = false,
+                    message = 'Press Start to begin.', pendingTimeouts = [];
+                function schedule(fn, ms) { pendingTimeouts.push(setTimeout(fn, ms)); }
+                function clearTimeouts() { pendingTimeouts.forEach(clearTimeout); pendingTimeouts = []; }
+                function render() {
+                    container.innerHTML = `<div class="game-stat-line">Round: <strong>${sequence.length}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="simon-board">${COLORS.map(c => `<button type="button" class="simon-pad ${c}" data-c="${c}" ${playing?'':'disabled'}></button>`).join('')}</div>
+        <div class="small">${message}</div>
+        <button type="button" class="button primary simon-start">${sequence.length ? 'Restart' : 'Start'}</button>`;
+                    container.querySelectorAll('.simon-pad').forEach(pad => pad.addEventListener('click', () => onPad(pad.dataset.c)));
+                    container.querySelector('.simon-start').addEventListener('click', start); }
+                function flash(c, ms) { const pad = container.querySelector(`.simon-pad[data-c="${c}"]`);
+                    if (pad) { pad.classList.add('lit'); schedule(() => pad.classList.remove('lit'), ms); } }
+                function playSequence() { playing = false; message = 'Watch…'; render();
+                    sequence.forEach((c, i) => schedule(() => { flash(c, 400);
+                        if (i === sequence.length - 1) schedule(() => { playing = true; playerStep = 0; message = 'Your turn — repeat it back.'; render(); }, 550); }, i * 650)); }
+                function start() { sequence = []; playerStep = 0; nextRound(); }
+                function nextRound() { sequence.push(COLORS[Math.floor(Math.random() * 4)]); playSequence(); }
+                function onPad(c) { if (!playing) return; flash(c, 250);
+                    if (c !== sequence[playerStep]) { playing = false;
+                        if (sequence.length - 1 > best) { best = sequence.length - 1; gameReportScore('simon', best); }
+                        message = `Wrong! You reached round ${sequence.length}. Press Restart to try again.`; render(); return; }
+                    playerStep++;
+                    if (playerStep === sequence.length) { playing = false; message = 'Nice! Next round…'; render(); schedule(nextRound, 900); } }
+                render();
+                return () => { clearTimeouts(); container.innerHTML = ''; };
+            }
+
+            // ---- Whack-a-Mole -------------------------------------------------------------------------------
+            function mountWhackAMole(container) {
+                const HOLE_COUNT = 9;
+                let score = 0, best = gameBestScore('whackamole'), timeLeft = 30, moleHole = -1, running = false,
+                    everPlayed = false, tickInterval = null, moleTimeout = null;
+                function render() {
+                    container.innerHTML = `<div class="game-stat-line">Score: <strong>${score}</strong> &nbsp;·&nbsp; Time: <strong>${timeLeft}s</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="wam-board">${Array.from({length:HOLE_COUNT}, (_,i) => `<button type="button" class="wam-hole ${i===moleHole?'up':''}" data-i="${i}"><span class="wam-mole">🐹</span></button>`).join('')}</div>
+        ${running ? '' : `<button type="button" class="button primary wam-start">${everPlayed?'Play again':'Start'}</button>`}`;
+                    container.querySelectorAll('.wam-hole').forEach(h => h.addEventListener('click', () => whack(Number(h.dataset.i))));
+                    const startBtn = container.querySelector('.wam-start'); if (startBtn) startBtn.addEventListener('click', start); }
+                function popMole() { moleHole = Math.floor(Math.random() * HOLE_COUNT); const upFor = 600 + Math.random() * 500;
+                    render();
+                    moleTimeout = setTimeout(() => { moleHole = -1; render();
+                        if (running) moleTimeout = setTimeout(popMole, 300 + Math.random() * 500); }, upFor); }
+                function whack(i) { if (!running || i !== moleHole) return; score++; moleHole = -1;
+                    if (moleTimeout) clearTimeout(moleTimeout);
+                    render(); moleTimeout = setTimeout(popMole, 200 + Math.random() * 400); }
+                function start() { everPlayed = true; score = 0; timeLeft = 30; running = true; moleHole = -1; render();
+                    tickInterval = setInterval(() => { timeLeft--; if (timeLeft <= 0) endGame(); else render(); }, 1000);
+                    moleTimeout = setTimeout(popMole, 400); }
+                function endGame() { running = false; clearInterval(tickInterval); tickInterval = null;
+                    if (moleTimeout) { clearTimeout(moleTimeout); moleTimeout = null; }
+                    moleHole = -1; if (score > best) { best = score; gameReportScore('whackamole', best); } render(); }
+                render();
+                return () => { if (tickInterval) clearInterval(tickInterval); if (moleTimeout) clearTimeout(moleTimeout); container.innerHTML = ''; };
+            }
+
+            // ---- Snake --------------------------------------------------------------------------------------
+            function mountSnake(container) {
+                const COLS = 18, ROWS = 18, CELL = 16;
+                let canvas, ctx, snake, dir, nextDir, food, score, best = gameBestScore('snake'), running = false, loopId = null, touchStart = null;
+                function randomFood() { let f; do { f = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) }; }
+                    while (snake.some(s => s.x===f.x && s.y===f.y)); return f; }
+                function reset() { snake = [{x:8,y:9},{x:7,y:9},{x:6,y:9}]; dir = {x:1,y:0}; nextDir = dir; food = randomFood(); score = 0; }
+                function draw() { const surface2 = getComputedStyle(document.body).getPropertyValue('--surface-2') || '#eee';
+                    ctx.fillStyle = surface2; ctx.fillRect(0,0,COLS*CELL,ROWS*CELL);
+                    ctx.fillStyle = '#e74c3c'; ctx.fillRect(food.x*CELL, food.y*CELL, CELL, CELL);
+                    snake.forEach((s,i) => { ctx.fillStyle = i===0 ? '#2ecc71' : '#27ae60'; ctx.fillRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2); }); }
+                function renderInfo() { const info = container.querySelector('.snake-info');
+                    if (info) info.innerHTML = `Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`; }
+                function tick() { dir = nextDir; const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+                    if (head.x<0 || head.x>=COLS || head.y<0 || head.y>=ROWS || snake.some(s => s.x===head.x && s.y===head.y)) { endGame(); return; }
+                    snake.unshift(head);
+                    if (head.x===food.x && head.y===food.y) { score++; food = randomFood(); } else snake.pop();
+                    draw(); renderInfo(); }
+                function endGame() { running = false; if (loopId) clearInterval(loopId); loopId = null;
+                    if (score > best) { best = score; gameReportScore('snake', best); } renderInfo();
+                    const ov = container.querySelector('.snake-overlay'); if (ov) ov.classList.remove('hidden'); }
+                function keyHandler(e) { const map = { ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0}, w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0} };
+                    const d = map[e.key]; if (!d || !running) return; e.preventDefault();
+                    if (d.x === -dir.x && d.y === -dir.y) return; nextDir = d; }
+                function touchStartHandler(e) { const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY }; }
+                function touchEndHandler(e) { if (!touchStart || !running) return; const t = e.changedTouches[0],
+                        dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y; touchStart = null;
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+                    const d = Math.abs(dx) > Math.abs(dy) ? { x: dx>0?1:-1, y:0 } : { x:0, y: dy>0?1:-1 };
+                    if (d.x === -dir.x && d.y === -dir.y) return; nextDir = d; }
+                function start() { reset(); running = true; render(); loopId = setInterval(tick, 110); }
+                function render() {
+                    container.innerHTML = `<div class="game-stat-line snake-info">Score: <strong>0</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="snake-wrap"><canvas class="snake-canvas" width="${COLS*CELL}" height="${ROWS*CELL}"></canvas>
+        <div class="snake-overlay hidden"><div>Game over!</div><button type="button" class="button primary snake-restart">Play again</button></div></div>
+        <div class="small game-hint">Arrow keys / WASD, or swipe on mobile.</div>
+        ${running ? '' : '<button type="button" class="button primary snake-start">Start</button>'}`;
+                    canvas = container.querySelector('.snake-canvas'); ctx = canvas.getContext('2d');
+                    canvas.addEventListener('touchstart', touchStartHandler, {passive:true});
+                    canvas.addEventListener('touchend', touchEndHandler, {passive:true});
+                    const startBtn = container.querySelector('.snake-start'); if (startBtn) startBtn.addEventListener('click', start);
+                    const restartBtn = container.querySelector('.snake-restart'); if (restartBtn) restartBtn.addEventListener('click', () => { container.querySelector('.snake-overlay').classList.add('hidden'); start(); });
+                    draw(); }
+                document.addEventListener('keydown', keyHandler);
+                reset(); render();
+                return () => { if (loopId) clearInterval(loopId); document.removeEventListener('keydown', keyHandler); container.innerHTML = ''; };
+            }
+
+            // ---- 2048 ---------------------------------------------------------------------------------------
+            function mountG2048(container) {
+                const SIZE = 4, TILE_COLORS = { 2:'#eee4da',4:'#ede0c8',8:'#f2b179',16:'#f59563',32:'#f67c5f',64:'#f65e3b',128:'#edcf72',256:'#edcc61',512:'#edc850',1024:'#edc53f',2048:'#edc22e' };
+                let grid, score, best = gameBestScore('2048'), over = false, won = false, touchStart = null;
+                function emptyGrid() { return Array.from({length:SIZE}, () => Array(SIZE).fill(0)); }
+                function addRandomTile() { const empties = []; for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) if (!grid[r][c]) empties.push([r,c]);
+                    if (!empties.length) return; const [r,c] = empties[Math.floor(Math.random()*empties.length)]; grid[r][c] = Math.random()<0.9?2:4; }
+                function reset() { grid = emptyGrid(); score = 0; over = false; won = false; addRandomTile(); addRandomTile(); }
+                function slideRow(row) { const vals = row.filter(v=>v), merged = [];
+                    for (let i=0;i<vals.length;i++) { if (i<vals.length-1 && vals[i]===vals[i+1]) { const m = vals[i]*2; merged.push(m); score += m; i++; }
+                        else merged.push(vals[i]); }
+                    while (merged.length < SIZE) merged.push(0); return merged; }
+                function getColumn(g, c) { return g.map(row => row[c]); }
+                function setColumn(g, c, colVals) { for (let r=0;r<SIZE;r++) g[r][c] = colVals[r]; }
+                function movesAvailable() { for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) { if (!grid[r][c]) return true;
+                        if (c<SIZE-1 && grid[r][c]===grid[r][c+1]) return true;
+                        if (r<SIZE-1 && grid[r][c]===grid[r+1][c]) return true; }
+                    return false; }
+                function move(dir) { const g = grid.map(row => row.slice()); let moved = false;
+                    if (dir === 'left' || dir === 'right') { for (let r=0;r<SIZE;r++) { let row = g[r].slice(); if (dir==='right') row.reverse();
+                            const newRow = slideRow(row); if (dir==='right') newRow.reverse();
+                            if (JSON.stringify(newRow) !== JSON.stringify(g[r])) moved = true; g[r] = newRow; } }
+                    else { for (let c=0;c<SIZE;c++) { let col = getColumn(g,c); if (dir==='down') col.reverse();
+                            const newCol = slideRow(col); if (dir==='down') newCol.reverse();
+                            if (JSON.stringify(newCol) !== JSON.stringify(getColumn(g,c))) moved = true; setColumn(g, c, newCol); } }
+                    if (!moved) return false;
+                    grid = g; addRandomTile();
+                    if (grid.some(row => row.some(v => v >= 2048))) won = true;
+                    if (!movesAvailable()) over = true;
+                    return true; }
+                function render() {
+                    container.innerHTML = `<div class="game-stat-line">Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="g2048-board">${grid.flat().map(v => `<div class="g2048-tile" style="${v?`background:${TILE_COLORS[v]||'#3c3a32'};color:${v<=4?'#776e65':'#fff'}`:''}">${v||''}</div>`).join('')}</div>
+        <div class="small">${won ? '🎉 You made 2048! Keep going or restart.' : over ? 'No more moves — game over.' : ''}</div>
+        <div class="small game-hint">Arrow keys, or swipe on mobile.</div>
+        <button type="button" class="button ghost g2048-restart">Restart</button>`;
+                    container.querySelector('.g2048-restart').addEventListener('click', () => { reset(); render(); }); }
+                function afterMove(moved) { if (!moved) return; if (score > best) { best = score; gameReportScore('2048', best); } render(); }
+                function keyHandler(e) { const map = { ArrowLeft:'left', ArrowRight:'right', ArrowUp:'up', ArrowDown:'down' }, dir = map[e.key];
+                    if (!dir || over) return; e.preventDefault(); afterMove(move(dir)); }
+                function touchStartHandler(e) { const t = e.touches[0]; touchStart = { x:t.clientX, y:t.clientY }; }
+                function touchEndHandler(e) { if (!touchStart || over) return; const t = e.changedTouches[0],
+                        dx = t.clientX-touchStart.x, dy = t.clientY-touchStart.y; touchStart = null;
+                    if (Math.max(Math.abs(dx),Math.abs(dy)) < 24) return;
+                    afterMove(move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'))); }
+                document.addEventListener('keydown', keyHandler);
+                container.addEventListener('touchstart', touchStartHandler, {passive:true});
+                container.addEventListener('touchend', touchEndHandler, {passive:true});
+                reset(); render();
+                return () => { document.removeEventListener('keydown', keyHandler); container.innerHTML = ''; };
+            }
+
+            // ---- Breakout -------------------------------------------------------------------------------------
+            function mountBreakout(container) {
+                const W = 320, H = 400, PADDLE_W = 64, PADDLE_H = 10, BALL_R = 5, BRICK_ROWS = 5, BRICK_COLS = 8, BRICK_H = 16, BRICK_PAD = 3, BRICK_TOP = 34;
+                let canvas, ctx, paddleX, ball, bricks, score, best = gameBestScore('breakout'), lives, running = false, everPlayed = false, rafId = null, keys = {};
+                function initBricks() { const brickW = (W - BRICK_PAD*(BRICK_COLS+1)) / BRICK_COLS, arr = [];
+                    for (let r=0;r<BRICK_ROWS;r++) for (let c=0;c<BRICK_COLS;c++)
+                        arr.push({ x: BRICK_PAD + c*(brickW+BRICK_PAD), y: BRICK_TOP + r*(BRICK_H+BRICK_PAD), w: brickW, h: BRICK_H, alive: true,
+                            color: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'][r] });
+                    return arr; }
+                function reset() { paddleX = W/2 - PADDLE_W/2; ball = { x: W/2, y: H-40, vx: 2.4, vy: -2.4 }; bricks = initBricks(); score = 0; lives = 3; }
+                function draw() { ctx.fillStyle = '#111'; ctx.fillRect(0,0,W,H);
+                    bricks.forEach(b => { if (!b.alive) return; ctx.fillStyle = b.color; ctx.fillRect(b.x,b.y,b.w,b.h); });
+                    ctx.fillStyle = '#fff'; ctx.fillRect(paddleX, H-16, PADDLE_W, PADDLE_H);
+                    ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI*2); ctx.fill();
+                    ctx.font = '13px sans-serif'; ctx.fillText(`Score ${score}   Lives ${lives}`, 8, 16); }
+                function step() { if (keys.ArrowLeft) paddleX -= 5; if (keys.ArrowRight) paddleX += 5;
+                    paddleX = Math.max(0, Math.min(W-PADDLE_W, paddleX));
+                    ball.x += ball.vx; ball.y += ball.vy;
+                    if (ball.x < BALL_R || ball.x > W-BALL_R) ball.vx *= -1;
+                    if (ball.y < BALL_R) ball.vy *= -1;
+                    if (ball.y > H-16-BALL_R && ball.y < H-16+PADDLE_H && ball.x > paddleX && ball.x < paddleX+PADDLE_W) {
+                        ball.vy = -Math.abs(ball.vy); ball.vx = ((ball.x-(paddleX+PADDLE_W/2))/(PADDLE_W/2)) * 3.2; }
+                    bricks.forEach(b => { if (!b.alive) return;
+                        if (ball.x > b.x && ball.x < b.x+b.w && ball.y-BALL_R < b.y+b.h && ball.y+BALL_R > b.y) { b.alive = false; ball.vy *= -1; score += 10; } });
+                    if (ball.y > H) { lives--; if (lives <= 0) { endGame(false); return; } ball = { x: W/2, y: H-40, vx: 2.4, vy: -2.4 }; }
+                    if (bricks.every(b => !b.alive)) { endGame(true); return; }
+                    draw(); rafId = requestAnimationFrame(step); }
+                function endGame(win) { running = false; if (score > best) { best = score; gameReportScore('breakout', best); }
+                    renderShell(); const ov = container.querySelector('.brk-overlay');
+                    if (ov) { ov.textContent = win ? '🎉 You cleared the board!' : 'Game over.'; ov.classList.remove('hidden'); } }
+                function keydown(e) { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { keys[e.key] = true; e.preventDefault(); } }
+                function keyup(e) { keys[e.key] = false; }
+                function pointerMove(e) { if (!canvas) return; const rect = canvas.getBoundingClientRect(),
+                        clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    paddleX = Math.max(0, Math.min(W-PADDLE_W, (clientX - rect.left) * (W/rect.width) - PADDLE_W/2)); }
+                function start() { everPlayed = true; reset(); running = true; renderShell(); rafId = requestAnimationFrame(step); }
+                function renderShell() {
+                    container.innerHTML = `<div class="brk-wrap"><canvas class="brk-canvas" width="${W}" height="${H}"></canvas><div class="brk-overlay hidden"></div></div>
+        <div class="small game-hint">Arrow keys, or drag/swipe the paddle.</div>
+        ${running ? '' : `<button type="button" class="button primary brk-start">${everPlayed?'Play again':'Start'}</button>`}`;
+                    canvas = container.querySelector('.brk-canvas'); ctx = canvas.getContext('2d');
+                    canvas.addEventListener('mousemove', pointerMove);
+                    canvas.addEventListener('touchmove', e => { pointerMove(e); e.preventDefault(); }, {passive:false});
+                    const startBtn = container.querySelector('.brk-start'); if (startBtn) startBtn.addEventListener('click', start);
+                    draw(); }
+                document.addEventListener('keydown', keydown);
+                document.addEventListener('keyup', keyup);
+                reset(); renderShell();
+                return () => { running = false; if (rafId) cancelAnimationFrame(rafId);
+                    document.removeEventListener('keydown', keydown); document.removeEventListener('keyup', keyup); container.innerHTML = ''; };
+            }
+
+            // ---- Minesweeper ----------------------------------------------------------------------------------
+            function mountMinesweeper(container) {
+                const SIZE = 9, MINES = 10, NUM_COLORS = ['','#2196f3','#4caf50','#f44336','#3f51b5','#795548','#00bcd4','#000','#888'];
+                let cells, revealedCount, flagged, gameOver, won, firstClick;
+                function neighbors(i) { const r = Math.floor(i/SIZE), c = i%SIZE, out = [];
+                    for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) { if (!dr && !dc) continue;
+                        const nr=r+dr, nc=c+dc; if (nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE) out.push(nr*SIZE+nc); }
+                    return out; }
+                function reset() { cells = Array.from({length:SIZE*SIZE}, () => ({ mine:false, count:0, revealed:false }));
+                    flagged = new Set(); revealedCount = 0; gameOver = false; won = false; firstClick = true; }
+                function placeMines(avoid) { const avoidSet = new Set([avoid, ...neighbors(avoid)]); let placed = 0;
+                    while (placed < MINES) { const i = Math.floor(Math.random()*cells.length); if (cells[i].mine || avoidSet.has(i)) continue;
+                        cells[i].mine = true; placed++; }
+                    cells.forEach((cell,i) => { if (!cell.mine) cell.count = neighbors(i).filter(n => cells[n].mine).length; }); }
+                function reveal(i) { if (cells[i].revealed || flagged.has(i) || gameOver) return;
+                    cells[i].revealed = true; revealedCount++;
+                    if (cells[i].mine) { gameOver = true; cells.forEach(c => { if (c.mine) c.revealed = true; }); render(); return; }
+                    if (cells[i].count === 0) neighbors(i).forEach(n => { if (!cells[n].revealed) reveal(n); });
+                    if (revealedCount === cells.length - MINES) { won = true; gameOver = true; }
+                    render(); }
+                function onCellClick(i) { if (gameOver) return; if (firstClick) { placeMines(i); firstClick = false; } reveal(i); }
+                function onCellRightClick(e, i) { e.preventDefault(); if (gameOver || cells[i].revealed) return;
+                    if (flagged.has(i)) flagged.delete(i); else flagged.add(i); render(); }
+                function render() {
+                    container.innerHTML = `<div class="game-stat-line">${gameOver ? (won ? '🎉 You cleared the board!' : '💥 Boom — game over.') : `Mines left: ${MINES - flagged.size}`}</div>
+        <div class="mine-board">${cells.map((cell,i) => { const isFlag = flagged.has(i) && !cell.revealed,
+                            cls = `mine-cell ${cell.revealed?'revealed':''} ${cell.revealed&&cell.mine?'mine':''}`,
+                            content = cell.revealed ? (cell.mine ? '💣' : (cell.count || '')) : (isFlag ? '🚩' : ''),
+                            color = cell.revealed && !cell.mine && cell.count ? `color:${NUM_COLORS[cell.count]}` : '';
+                        return `<button type="button" class="${cls}" style="${color}" data-i="${i}">${content}</button>`; }).join('')}</div>
+        <div class="small game-hint">Click to reveal, right-click (or long-press) to flag.</div>
+        ${gameOver ? '<button type="button" class="button primary mine-restart">Play again</button>' : ''}`;
+                    container.querySelectorAll('.mine-cell').forEach(btn => { const i = Number(btn.dataset.i); let pressTimer = null;
+                        btn.addEventListener('click', () => onCellClick(i));
+                        btn.addEventListener('contextmenu', e => onCellRightClick(e, i));
+                        btn.addEventListener('touchstart', () => { pressTimer = setTimeout(() => { if (!cells[i].revealed) {
+                            flagged.has(i) ? flagged.delete(i) : flagged.add(i); render(); } }, 500); }, {passive:true});
+                        btn.addEventListener('touchend', () => clearTimeout(pressTimer)); });
+                    const restartBtn = container.querySelector('.mine-restart'); if (restartBtn) restartBtn.addEventListener('click', () => { reset(); render(); }); }
+                reset(); render();
+                return () => { container.innerHTML = ''; };
+            }
+
+            // ---- Blackjack ------------------------------------------------------------------------------------
+            function mountBlackjack(container) {
+                let deck, player, dealer, message, phase, wins = 0, losses = 0, pushes = 0;
+                function handValue(hand) { let total = hand.reduce((s,c) => s+gameBlackjackValue(c.rank),0), aces = hand.filter(c => c.rank==='A').length;
+                    while (total > 21 && aces) { total -= 10; aces--; } return total; }
+                function draw() { if (deck.length < 4) deck = gameShuffle(gameFreshDeck()); return deck.pop(); }
+                function resolveDealer() { while (handValue(dealer) < 17) dealer.push(draw());
+                    const p = handValue(player), d = handValue(dealer);
+                    if (p > 21) { message = 'Bust — dealer wins.'; losses++; }
+                    else if (d > 21) { message = 'Dealer busts — you win!'; wins++; }
+                    else if (p === d) { message = `Push — both at ${p}.`; pushes++; }
+                    else if (p > d) { message = `You win, ${p} to ${d}!`; wins++; }
+                    else { message = `Dealer wins, ${d} to ${p}.`; losses++; }
+                    phase = 'over'; render(); }
+                function newHand() { player = [draw(), draw()]; dealer = [draw(), draw()]; phase = 'playing'; message = '';
+                    if (handValue(player) === 21) { phase = 'dealer'; resolveDealer(); } }
+                function hit() { if (phase !== 'playing') return; player.push(draw());
+                    if (handValue(player) > 21) { message = 'Bust! You went over 21.'; losses++; phase = 'over'; }
+                    render(); }
+                function stand() { if (phase !== 'playing') return; phase = 'dealer'; render(); setTimeout(resolveDealer, 400); }
+                function render() { const showDealerHole = phase === 'playing';
+                    container.innerHTML = `<div class="game-stat-line small">Wins: ${wins} · Losses: ${losses} · Pushes: ${pushes}</div>
+        <div class="bj-row"><div class="bj-label">Dealer ${showDealerHole?'':`(${handValue(dealer)})`}</div>
+          <div class="bj-hand">${dealer.map((c,i) => (i===0 && showDealerHole) ? gameCardBackHtml('small') : gameCardFaceHtml(c,'small')).join('')}</div></div>
+        <div class="bj-row"><div class="bj-label">You (${handValue(player)})</div>
+          <div class="bj-hand">${player.map(c => gameCardFaceHtml(c,'small')).join('')}</div></div>
+        <div class="small">${message}</div>
+        <div class="game-actions">${phase==='playing' ? '<button type="button" class="button primary bj-hit">Hit</button><button type="button" class="button ghost bj-stand">Stand</button>' :
+            '<button type="button" class="button primary bj-deal">Deal</button>'}</div>`;
+                    const hitBtn = container.querySelector('.bj-hit'); if (hitBtn) hitBtn.addEventListener('click', hit);
+                    const standBtn = container.querySelector('.bj-stand'); if (standBtn) standBtn.addEventListener('click', stand);
+                    const dealBtn = container.querySelector('.bj-deal'); if (dealBtn) dealBtn.addEventListener('click', () => { newHand(); render(); }); }
+                deck = gameShuffle(gameFreshDeck()); newHand(); render();
+                return () => { container.innerHTML = ''; };
+            }
+
+            // ---- Solitaire (Klondike) ---------------------------------------------------------------------------
+            function mountSolitaire(container) {
+                let tableau, foundations, stock, waste, selected, won;
+                function rankValue(rank) { return GAME_CARD_RANKS.indexOf(rank) + 1; }
+                function topCard(pile) { return pile.length ? pile[pile.length-1] : null; }
+                function reset() { const deck = gameShuffle(gameFreshDeck());
+                    tableau = []; for (let i=0;i<7;i++) { const col = []; for (let j=0;j<=i;j++) { const c = deck.pop(); c.faceUp = (j===i); col.push(c); } tableau.push(col); }
+                    foundations = { '♠':[], '♥':[], '♦':[], '♣':[] }; stock = deck; waste = []; selected = null; won = false; }
+                function canStackTableau(moving, target) { if (!target) return moving.rank === 'K';
+                    return gameCardColor(moving) !== gameCardColor(target) && rankValue(moving.rank) === rankValue(target.rank) - 1; }
+                function canStackFoundation(moving, suit) { if (moving.suit !== suit) return false; const pile = foundations[suit];
+                    return pile.length ? rankValue(moving.rank) === rankValue(topCard(pile).rank) + 1 : moving.rank === 'A'; }
+                function clearSelection() { selected = null; }
+                function selectFrom(zone, colIndex) { const pile = zone === 'waste' ? waste : tableau[colIndex], card = topCard(pile);
+                    if (!card || !card.faceUp) return; selected = { zone, colIndex, card }; }
+                function flipNewTop(colIndex) { const c = topCard(tableau[colIndex]); if (c && !c.faceUp) c.faceUp = true; }
+                function checkWin() { won = Object.values(foundations).every(p => p.length === 13); }
+                function tryAutoFoundation(zone, colIndex) { const pile = zone === 'waste' ? waste : tableau[colIndex], card = topCard(pile);
+                    if (!card || !canStackFoundation(card, card.suit)) return false;
+                    pile.pop(); foundations[card.suit].push(card); if (zone === 'tableau') flipNewTop(colIndex); checkWin(); return true; }
+                function moveSelectedTo(destZone, dest) { if (!selected) return;
+                    const srcPile = selected.zone === 'waste' ? waste : tableau[selected.colIndex], card = selected.card;
+                    if (destZone === 'foundation') { if (!canStackFoundation(card, dest)) { clearSelection(); return; }
+                        srcPile.pop(); foundations[dest].push(card); if (selected.zone === 'tableau') flipNewTop(selected.colIndex);
+                        clearSelection(); checkWin(); return; }
+                    if (destZone === 'tableau') { const target = tableau[dest], targetTop = topCard(target);
+                        if (!canStackTableau(card, targetTop)) { clearSelection(); return; }
+                        srcPile.pop(); target.push(card); if (selected.zone === 'tableau') flipNewTop(selected.colIndex);
+                        clearSelection(); return; }
+                    clearSelection(); }
+                function onStockClick() { if (stock.length) { const c = stock.pop(); c.faceUp = true; waste.push(c); }
+                    else { stock = waste.reverse().map(c => { c.faceUp = false; return c; }); waste = []; }
+                    clearSelection(); render(); }
+                function onWasteClick() { if (!waste.length) return;
+                    if (selected && selected.zone === 'waste') { clearSelection(); render(); return; }
+                    selectFrom('waste', null); render(); }
+                function onWasteDblClick() { if (tryAutoFoundation('waste', null)) render(); }
+                function onTableauClick(colIndex) { const col = tableau[colIndex];
+                    if (selected) { moveSelectedTo('tableau', colIndex); render(); return; }
+                    const card = topCard(col); if (!card || !card.faceUp) return; selectFrom('tableau', colIndex); render(); }
+                function onTableauDblClick(colIndex) { if (tryAutoFoundation('tableau', colIndex)) render(); }
+                function onFoundationClick(suit) { if (selected) { moveSelectedTo('foundation', suit); render(); } }
+                function render() {
+                    const foundHtml = GAME_CARD_SUITS.map(suit => { const top = topCard(foundations[suit]);
+                        return `<button type="button" class="sol-pile sol-foundation" data-suit="${suit}">${top ? gameCardFaceHtml(top) : `<div class="sol-empty">${suit}</div>`}</button>`; }).join('');
+                    const stockHtml = `<button type="button" class="sol-pile sol-stock">${stock.length ? gameCardBackHtml() : '<div class="sol-empty">↺</div>'}</button>`;
+                    const wasteTop = topCard(waste);
+                    const wasteHtml = `<button type="button" class="sol-pile sol-waste ${selected&&selected.zone==='waste'?'selected':''}">${wasteTop ? gameCardFaceHtml(wasteTop) : '<div class="sol-empty"></div>'}</button>`;
+                    const tableauHtml = tableau.map((col, ci) => { const cardsHtml = col.map((c, ri) => {
+                            const isTop = ri === col.length - 1, sel = selected && selected.zone==='tableau' && selected.colIndex===ci && isTop ? 'selected' : '';
+                            return c.faceUp ? gameCardFaceHtml(c, `sol-tcard ${sel}`) : gameCardBackHtml('sol-tcard'); }).join('');
+                        return `<button type="button" class="sol-col" data-col="${ci}">${cardsHtml || '<div class="sol-empty"></div>'}</button>`; }).join('');
+                    container.innerHTML = `${won ? '<div class="game-stat-line">🎉 You win! Nicely played.</div>' : ''}
+        <div class="sol-top-row"><div class="sol-stockwaste">${stockHtml}${wasteHtml}</div><div class="sol-foundations">${foundHtml}</div></div>
+        <div class="sol-tableau">${tableauHtml}</div>
+        <button type="button" class="button ghost sol-restart">New game</button>`;
+                    container.querySelector('.sol-stock').addEventListener('click', onStockClick);
+                    container.querySelector('.sol-waste').addEventListener('click', onWasteClick);
+                    container.querySelector('.sol-waste').addEventListener('dblclick', onWasteDblClick);
+                    container.querySelectorAll('.sol-foundation').forEach(el => el.addEventListener('click', () => onFoundationClick(el.dataset.suit)));
+                    container.querySelectorAll('.sol-col').forEach(el => { const ci = Number(el.dataset.col);
+                        el.addEventListener('click', () => onTableauClick(ci)); el.addEventListener('dblclick', () => onTableauDblClick(ci)); });
+                    container.querySelector('.sol-restart').addEventListener('click', () => { reset(); render(); }); }
+                reset(); render();
+                return () => { container.innerHTML = ''; };
+            }
+
+            const GAMES = {
+                solitaire: { title: 'Solitaire', icon: '🃏', desc: 'Classic Klondike — click a card to pick it up, then click where it should go.', hasScore: false, mount: mountSolitaire },
+                blackjack: { title: 'Blackjack', icon: '♠️', desc: 'Get closer to 21 than the dealer without going over.', hasScore: false, mount: mountBlackjack },
+                higherlower: { title: 'Higher or Lower', icon: '🎴', desc: 'Guess whether the next card is higher or lower and build a streak.', hasScore: true, mount: mountHigherLower },
+                snake: { title: 'Snake', icon: '🐍', desc: 'Steer the snake to eat and grow — don\'t hit the walls or yourself.', hasScore: true, mount: mountSnake },
+                '2048': { title: '2048', icon: '🔢', desc: 'Slide and merge matching tiles to reach 2048.', hasScore: true, mount: mountG2048 },
+                tictactoe: { title: 'Tic-Tac-Toe', icon: '⭕', desc: 'Classic 3x3 — you\'re X, try to beat the computer.', hasScore: false, mount: mountTicTacToe },
+                simon: { title: 'Simon Says', icon: '🎵', desc: 'Watch the pattern, then repeat it back — how far can you get?', hasScore: true, mount: mountSimon },
+                whackamole: { title: 'Whack-a-Mole', icon: '🔨', desc: 'Whack as many moles as you can in 30 seconds.', hasScore: true, mount: mountWhackAMole },
+                minesweeper: { title: 'Minesweeper', icon: '💣', desc: 'Clear the board without clicking on a mine.', hasScore: false, mount: mountMinesweeper },
+                breakout: { title: 'Breakout', icon: '🧱', desc: 'Bounce the ball to break every brick without missing it.', hasScore: true, mount: mountBreakout },
+            };
 
             function caoCourseFormModal(courseId) { const c = courseId ? state.caoCourses.find(x => x.id ===
                     courseId) : null;
@@ -13088,7 +13639,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 const now = Date.now();
                 studyModeSession = { mode: mins ? 'timed' : 'open', endTs: mins ? now + mins * 60000 : null,
                     startedAt: now, phase: 'task', taskIndex: 1, phaseStartedAt: now, taskMs: 0, breaksMs: 0,
-                    countdownRevealed: false, pipMode: false, lastForegroundAt: now, lastNudgeAt: null };
+                    countdownRevealed: false, pipMode: false, lastForegroundAt: now, lastNudgeAt: null,
+                    activeGame: null, gamePickerOpen: false };
                 closeModal();
                 enterStudyModeView(); }
 
@@ -13128,6 +13680,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             // Ends the timer/overlay and hands off to the post-session checklist — nothing about what was
             // actually studied is recorded until that checklist is saved.
             function studyModeEndSession() { const s = studyModeSession; if (!s) return;
+                if (s.activeGame) unmountCurrentGame();
                 clearInterval(studyModeTickHandle);
                 studyModeTickHandle = null;
                 document.getElementById('study-mode-overlay').classList.add('hidden');
@@ -13166,7 +13719,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     return; } if (s.pipMode) { renderStudyModePip();
                     const awayMs = Date.now() - s.lastForegroundAt; if (awayMs > 180000 && (!s.lastNudgeAt || Date
                             .now() - s.lastNudgeAt > 120000)) { s.lastNudgeAt = Date.now();
-                        toast("You've been away from Study Mode for a few minutes — ready to get back to it?"); } } else
+                        toast("You've been away from Study Mode for a few minutes — ready to get back to it?"); } } else if (!s.activeGame)
                     renderStudyModeOverlay(); }
 
             function fmtCountdown(ms) { const total = Math.max(0, Math.round(ms / 1000)),
@@ -13196,11 +13749,19 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (s.phase === 'deciding') { overlay.innerHTML =
                         `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Task ${s.taskIndex} done</div><div class="sm-stage-title">Next task, or finish for now?</div><div class="sm-stage-sub">A short break helps before diving into the next one — or stop here if you're done.</div><div class="sm-actions"><button type="button" class="button ghost" data-action="sm-choose-finish">Finish session</button><button type="button" class="button primary" data-action="sm-choose-next">Take a break, then next task</button></div><div class="sm-progress">${progressDots}</div></div>`;
                     return; }
+                if (s.activeGame) { const g = GAMES[s.activeGame];
+                    overlay.innerHTML =
+                        `${topBar}${countdownHtml}<div class="sm-stage sm-game-stage"><button type="button" class="subject-page-back" data-action="sm-game-back">← Back to break</button><div class="sm-stage-title">${g.icon} ${g.title}</div><div id="sm-game-holder" class="game-holder sm-game-holder"></div><div class="sm-progress">${progressDots}</div></div>`;
+                    requestAnimationFrame(() => { const holder = document.getElementById('sm-game-holder'); if (holder) mountGameInto(holder, s.activeGame); });
+                    return; }
+                if (s.gamePickerOpen) { overlay.innerHTML =
+                        `${topBar}${countdownHtml}<div class="sm-stage sm-game-stage"><button type="button" class="subject-page-back" data-action="sm-game-picker-close">← Back to break</button><div class="sm-stage-title">Pick a quick game</div>${gameTilesHtml('sm-game-select')}<div class="sm-progress">${progressDots}</div></div>`;
+                    return; }
                 const suggestion = BREAK_SUGGESTIONS_SELF[(s.taskIndex - 1) % BREAK_SUGGESTIONS_SELF.length],
                     breakRemainMs = STUDY_MODE_BREAK_MIN * 60000 - (Date.now() - s.phaseStartedAt),
                     overtime = breakRemainMs < 0;
                 overlay.innerHTML =
-                    `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Break</div><div class="sm-stage-title">Take a breather</div><div class="sm-break-suggestion">🚶 ${escape(suggestion)}</div><div class="sm-task-timer ${overtime?'overtime':''}">${(overtime?'+':'')+fmtCountdown(Math.abs(breakRemainMs))}</div><div class="sm-actions"><button type="button" class="button primary" data-action="sm-start-next-task">Start Task ${s.taskIndex+1}</button></div><div class="sm-progress">${progressDots}</div></div>`; }
+                    `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Break</div><div class="sm-stage-title">Take a breather</div><div class="sm-break-suggestion">🚶 ${escape(suggestion)}</div><div class="sm-task-timer ${overtime?'overtime':''}">${(overtime?'+':'')+fmtCountdown(Math.abs(breakRemainMs))}</div><div class="sm-actions"><button type="button" class="button primary" data-action="sm-start-next-task">Start Task ${s.taskIndex+1}</button></div><div class="sm-actions"><button type="button" class="button ghost" data-action="sm-open-games">🎮 Play a quick game</button></div><div class="sm-progress">${progressDots}</div></div>`; }
 
             function renderStudyModePip() { const pip = document.getElementById('study-mode-pip'),
                     s = studyModeSession; if (!s || !s.pipMode) { pip.classList.add('hidden');
@@ -13952,7 +14513,9 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
                     .innerHTML = renderTools(); } else if (view === 'exam-papers') { document.getElementById('app').innerHTML = renderExamPapers();
-                    requestAnimationFrame(renderExamPaperCanvases); } else if (view === 'chatrooms') { document.getElementById('app')
+                    requestAnimationFrame(renderExamPaperCanvases); } else if (view === 'games') { document.getElementById('app')
+                    .innerHTML = renderGames();
+                    requestAnimationFrame(() => { const holder = document.getElementById('game-holder'); if (holder && gamesActiveGame) mountGameInto(holder, gamesActiveGame); }); } else if (view === 'chatrooms') { document.getElementById('app')
                     .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
                     .innerHTML = renderAdminPage(); } else if (view === 'period-builder') { document.getElementById(
                     'app').innerHTML = renderPeriodBuilderPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
@@ -17026,6 +17589,16 @@ If the user asks about how to study or study methods generally, answer from your
                     return; } if (a === 'sm-choose-next') { studyModeChooseNext();
                     return; } if (a === 'sm-choose-finish') { studyModeChooseFinish();
                     return; } if (a === 'sm-start-next-task') { studyModeStartNextTask();
+                    return; } if (a === 'sm-open-games') { studyModeSession.gamePickerOpen = true;
+                    renderStudyModeOverlay();
+                    return; } if (a === 'sm-game-picker-close') { studyModeSession.gamePickerOpen = false;
+                    renderStudyModeOverlay();
+                    return; } if (a === 'sm-game-select') { studyModeSession.gamePickerOpen = false;
+                    studyModeSession.activeGame = b.dataset.game;
+                    renderStudyModeOverlay();
+                    return; } if (a === 'sm-game-back') { unmountCurrentGame();
+                    studyModeSession.activeGame = null;
+                    renderStudyModeOverlay();
                     return; } if (a === 'sm-finish-now') { studyModeFinishNow();
                     return; } if (a === 'sm-log-rate') { if (studyModeLogDraft) studyModeLogDraft
                     .overallRating = b.dataset.rating;
@@ -17062,7 +17635,8 @@ If the user asks about how to study or study methods generally, answer from your
                     return; } if (a === 'picker-time-set') { const h = pickerPopover.querySelector(
                         '.picker-time-hour').value, m = pickerPopover.querySelector('.picker-time-minute').value;
                     commitPicker(`${h}:${m}`);
-                    return; } if (a === 'view') { view = b.dataset.view;
+                    return; } if (a === 'view') { if (view === 'games' && b.dataset.view !== 'games') unmountCurrentGame();
+                    view = b.dataset.view;
                     render(); } else if (a === 'change-week') { state.week = addDays(state.week, Number(b.dataset
                         .direction) * 7);
                     save();
@@ -17736,6 +18310,14 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'simeq-format') { simEqFormat = b.dataset.format; render(); }
                 else if (a === 'chem-tab') { chemTab = b.dataset.tab; render(); }
             });
+
+            // ---- Games page click actions — another self-contained delegated listener, same reasoning as
+            // the Word Bank and Formula Book ones above.
+            document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
+                const a = b.dataset.action;
+                if (a === 'games-open') { gamesActiveGame = b.dataset.game; render(); }
+                else if (a === 'games-back') { unmountCurrentGame(); gamesActiveGame = null; render(); }
+            });
             document.addEventListener('keydown', e => { if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value);
                 else if (e.target && e.target.id === 'cao-target-input' && e.key === 'Enter') { const target = parseInt(e.target.value, 10); if (!isNaN(target) && target > 0) { caoCalcTargetInput = e.target.value; caoCalcTargetResults = caoCalcFindCombos(target); render(); } } });
 
@@ -17938,6 +18520,7 @@ If the user asks about how to study or study methods generally, answer from your
                 let event = b.dataset.action;
                 if (event === 'view' && b.dataset.view) event = `view:${b.dataset.view}`;
                 else if (event === 'tools-open' && b.dataset.tool) event = `tools-open:${b.dataset.tool}`;
+                else if ((event === 'games-open' || event === 'sm-game-select') && b.dataset.game) event = `games-open:${b.dataset.game}`;
                 logFeatureEvent(event); }, true);
 
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
