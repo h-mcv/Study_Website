@@ -3068,67 +3068,152 @@
         .sm-progress-dot.current { background: var(--primary); transform: scale(1.4); }
 
         /* ---- Games section — standalone Games page and the Study Mode break picker share these ---- */
-        .game-holder { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 0 40px; text-align: center; }
-        .game-stat-line { font-weight: 700; }
+        .game-holder { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 6px 0 40px; text-align: center;
+            width: 100%; max-width: 820px; margin: 0 auto; }
+        .game-stat-line { font-weight: 700; font-size: 16px; }
         .game-hint { color: var(--muted); }
-        .game-actions { display: flex; gap: 10px; justify-content: center; margin-top: 4px; }
-        .game-card { width: 54px; height: 76px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
+        .game-actions { display: flex; gap: 10px; justify-content: center; margin-top: 4px; flex-wrap: wrap; }
+        .game-card { width: 78px; height: 110px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
             display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;
-            box-shadow: 0 2px 5px rgba(0,0,0,.12); font-weight: 800; flex-shrink: 0; }
-        .game-card.small { width: 40px; height: 56px; }
+            box-shadow: 0 3px 8px rgba(0,0,0,.14); font-weight: 800; flex-shrink: 0; }
+        .game-card.small { width: 56px; height: 79px; }
         .game-card.red { color: #c0392b; }
         .game-card.black { color: var(--text); }
-        .game-card.back { background: repeating-linear-gradient(45deg, var(--primary), var(--primary) 6px, #1b46c9 6px, #1b46c9 12px); }
-        .game-card-corner { position: absolute; top: 4px; left: 5px; font-size: 11px; line-height: 1; }
-        .game-card-corner.bottom { top: auto; bottom: 4px; left: auto; right: 5px; transform: rotate(180deg); }
-        .game-card.small .game-card-corner { font-size: 9px; }
-        .game-card-suit-big { font-size: 22px; }
-        .game-card.small .game-card-suit-big { font-size: 16px; }
-        .game-card.selected { outline: 3px solid var(--primary); outline-offset: -3px; }
+        .game-card.back { background: repeating-linear-gradient(45deg, var(--primary), var(--primary) 8px, #1b46c9 8px, #1b46c9 16px); }
+        .game-card-corner { position: absolute; top: 5px; left: 7px; font-size: 15px; line-height: 1; }
+        .game-card-corner.bottom { top: auto; bottom: 5px; left: auto; right: 7px; transform: rotate(180deg); }
+        .game-card.small .game-card-corner { font-size: 11px; }
+        .game-card-suit-big { font-size: 30px; }
+        .game-card.small .game-card-suit-big { font-size: 20px; }
+        .game-card.selected { outline: 4px solid var(--primary); outline-offset: -4px; }
         .hl-cards { margin: 6px 0; }
-        .bj-row { margin: 6px 0; }
-        .bj-label { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
-        .bj-hand { display: flex; gap: 6px; justify-content: center; }
-        .ttt-board { display: grid; grid-template-columns: repeat(3, 72px); gap: 6px; }
-        .ttt-cell { width: 72px; height: 72px; font-size: 32px; font-weight: 800; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+        .bj-row { margin: 8px 0; }
+        .bj-label { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+        .bj-hand { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .ttt-board { display: grid; grid-template-columns: repeat(3, min(28vw, 120px)); gap: 8px; }
+        .ttt-cell { width: min(28vw, 120px); height: min(28vw, 120px); font-size: 48px; font-weight: 800; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
         .ttt-cell.filled { cursor: default; }
-        .simon-board { display: grid; grid-template-columns: repeat(2, 90px); grid-template-rows: repeat(2, 90px); gap: 8px; }
-        .simon-pad { border-radius: 14px; border: none; opacity: .55; cursor: pointer; }
+        .simon-board { display: grid; grid-template-columns: repeat(2, min(40vw, 150px)); grid-template-rows: repeat(2, min(40vw, 150px)); gap: 10px; }
+        .simon-pad { border-radius: 18px; border: none; opacity: .55; cursor: pointer; }
         .simon-pad.g { background: #2ecc71; } .simon-pad.r { background: #e74c3c; } .simon-pad.y { background: #f1c40f; } .simon-pad.b { background: #3498db; }
-        .simon-pad.lit { opacity: 1; box-shadow: 0 0 0 4px rgba(0,0,0,.15) inset; }
+        .simon-pad.lit { opacity: 1; box-shadow: 0 0 0 5px rgba(0,0,0,.15) inset; }
         .simon-pad:disabled { cursor: default; }
-        .wam-board { display: grid; grid-template-columns: repeat(3, 80px); gap: 10px; }
-        .wam-hole { width: 80px; height: 80px; border-radius: 50%; background: #7a5230; border: none; overflow: hidden; position: relative; cursor: pointer; }
-        .wam-mole { position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%); font-size: 34px; transition: bottom .15s; }
-        .wam-hole.up .wam-mole { bottom: 6px; }
-        .snake-wrap { position: relative; }
-        .snake-canvas { background: var(--surface-2); border-radius: 8px; image-rendering: pixelated; }
-        .snake-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); color: #fff; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 10px; border-radius: 8px; }
+        .wam-board { display: grid; grid-template-columns: repeat(3, min(28vw, 110px)); gap: 12px; }
+        .wam-hole { width: min(28vw, 110px); height: min(28vw, 110px); border-radius: 50%; background: #7a5230; border: none; overflow: hidden; position: relative; cursor: pointer; }
+        .wam-mole { position: absolute; left: 50%; bottom: -50px; transform: translateX(-50%); font-size: 44px; transition: bottom .15s; }
+        .wam-hole.up .wam-mole { bottom: 8px; }
+        .game-settings-panel { display: flex; flex-direction: column; gap: 12px; background: var(--surface-2); border-radius: 12px; padding: 16px; margin-top: 4px; width: 100%; max-width: 460px; }
+        .game-settings-group { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+        .game-settings-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .game-dpad { display: grid; grid-template-columns: 56px 56px 56px; grid-template-rows: 56px 56px; gap: 4px; margin: 4px 0; justify-content: center; }
+        .game-dpad-btn { font-size: 22px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; color: var(--text); }
+        .game-dpad-btn.up { grid-column: 2; grid-row: 1; }
+        .game-dpad-btn.left { grid-column: 1; grid-row: 2; }
+        .game-dpad-btn.down { grid-column: 2; grid-row: 2; }
+        .game-dpad-btn.right { grid-column: 3; grid-row: 2; }
+        .snake-wrap { position: relative; width: 100%; display: flex; justify-content: center; }
+        .snake-canvas { background: var(--surface-2); border-radius: 10px; image-rendering: pixelated; width: min(90vw, 560px); height: auto; aspect-ratio: 1 / 1; }
+        .snake-overlay { position: absolute; inset: 0; width: min(90vw, 560px); margin: 0 auto; background: rgba(0,0,0,.6); color: #fff; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 12px; border-radius: 10px; }
         .snake-overlay.hidden { display: none; }
-        .g2048-board { display: grid; grid-template-columns: repeat(4, 64px); grid-template-rows: repeat(4, 64px); gap: 8px; background: #bbada0; padding: 8px; border-radius: 10px; }
-        .g2048-tile { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; border-radius: 6px; background: rgba(238,228,218,.35); }
-        .brk-wrap { position: relative; }
-        .brk-canvas { background: #111; border-radius: 8px; touch-action: none; }
-        .brk-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; background: rgba(0,0,0,.5); border-radius: 8px; }
+        .g2048-board { display: grid; grid-template-columns: repeat(4, min(20vw, 100px)); grid-template-rows: repeat(4, min(20vw, 100px)); gap: 10px; background: #bbada0; padding: 10px; border-radius: 12px; }
+        .g2048-tile { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 28px; border-radius: 8px; background: rgba(238,228,218,.35); }
+        .brk-wrap { position: relative; width: 100%; display: flex; justify-content: center; }
+        .brk-canvas { background: #111; border-radius: 10px; touch-action: none; width: min(92vw, 560px); height: auto; }
+        .brk-overlay { position: absolute; inset: 0; width: min(92vw, 560px); margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; background: rgba(0,0,0,.55); border-radius: 10px; text-align: center; padding: 20px; }
         .brk-overlay.hidden { display: none; }
-        .mine-board { display: grid; grid-template-columns: repeat(9, 30px); gap: 2px; }
-        .mine-cell { width: 30px; height: 30px; border: 1px solid var(--line); background: var(--surface-2); font-size: 13px; font-weight: 800; border-radius: 3px; color: var(--text); }
+        .mine-board { display: grid; grid-template-columns: repeat(9, min(9vw, 42px)); gap: 3px; }
+        .mine-cell { width: min(9vw, 42px); height: min(9vw, 42px); border: 1px solid var(--line); background: var(--surface-2); font-size: 16px; font-weight: 800; border-radius: 4px; color: var(--text); }
         .mine-cell.revealed { background: var(--surface); }
         .mine-cell.mine { background: var(--danger-soft); }
-        .sol-top-row { display: flex; justify-content: space-between; width: 100%; max-width: 640px; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
-        .sol-stockwaste { display: flex; gap: 8px; }
-        .sol-foundations { display: flex; gap: 8px; }
+        .sol-top-row { display: flex; justify-content: space-between; width: 100%; max-width: 820px; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+        .sol-stockwaste { display: flex; gap: 10px; }
+        .sol-foundations { display: flex; gap: 10px; }
         .sol-pile { background: none; border: none; padding: 0; cursor: pointer; }
-        .sol-empty { width: 54px; height: 76px; border: 2px dashed var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 20px; }
-        .sol-tableau { display: flex; gap: 8px; width: 100%; max-width: 640px; justify-content: center; flex-wrap: wrap; }
-        .sol-col { background: none; border: none; padding: 0; cursor: pointer; display: flex; flex-direction: column; min-height: 76px; min-width: 54px; }
-        .sol-col .game-card, .sol-col .sol-empty { margin-top: -52px; }
+        .sol-empty { width: 78px; height: 110px; border: 2px dashed var(--line); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 26px; }
+        .sol-tableau { display: flex; gap: 10px; width: 100%; max-width: 820px; justify-content: center; flex-wrap: wrap; }
+        .sol-col { background: none; border: none; padding: 0; cursor: pointer; display: flex; flex-direction: column; min-height: 110px; min-width: 78px; }
+        .sol-col .game-card, .sol-col .sol-empty { margin-top: -80px; }
         .sol-col .game-card:first-child, .sol-col .sol-empty:first-child { margin-top: 0; }
         .sm-game-holder { width: 100%; }
-        .sm-stage.sm-game-stage { max-width: 640px; }
+        .sm-stage.sm-game-stage { max-width: 700px; }
         .sm-game-stage .class-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .sm-game-stage .class-tile { padding: 14px 12px; min-height: auto; }
+        .sm-game-stage .game-card { width: 60px; height: 84px; }
+        .sm-game-stage .sol-col .game-card, .sm-game-stage .sol-col .sol-empty { margin-top: -62px; }
+        .sm-game-stage .sol-empty { width: 60px; height: 84px; }
+        .sm-game-stage .ttt-cell { width: 84px; height: 84px; font-size: 34px; }
+        .sm-game-stage .simon-board, .sm-game-stage .simon-pad { grid-template-columns: repeat(2, 100px); grid-template-rows: repeat(2, 100px); width: 100px; height: 100px; }
+        .sm-game-stage .wam-board { grid-template-columns: repeat(3, 74px); }
+        .sm-game-stage .wam-hole { width: 74px; height: 74px; }
+        .sm-game-stage .g2048-board { grid-template-columns: repeat(4, 64px); grid-template-rows: repeat(4, 64px); }
+        .sm-game-stage .snake-canvas, .sm-game-stage .brk-canvas, .sm-game-stage .flap-canvas { width: min(80vw, 380px); }
+        .sm-game-stage .snake-overlay, .sm-game-stage .brk-overlay, .sm-game-stage .flap-overlay { width: min(80vw, 380px); }
+        .flap-wrap { position: relative; width: 100%; display: flex; justify-content: center; }
+        .flap-canvas { background: #70c5ce; border-radius: 10px; width: min(85vw, 420px); height: auto; }
+        .flap-overlay { position: absolute; inset: 0; width: min(85vw, 420px); margin: 0 auto; background: rgba(0,0,0,.55); color: #fff; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 12px; border-radius: 10px; text-align: center; padding: 16px; }
+        .flap-overlay.hidden { display: none; }
+        .bb-grid { display: grid; grid-template-columns: repeat(8, min(9vw, 44px)); grid-template-rows: repeat(8, min(9vw, 44px)); gap: 3px; background: var(--surface-2); padding: 8px; border-radius: 10px; }
+        .bb-cell { width: min(9vw, 44px); height: min(9vw, 44px); border-radius: 5px; border: none; background: var(--surface); }
+        .bb-pieces { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; justify-content: center; }
+        .bb-piece { display: grid; gap: 2px; padding: 8px; border-radius: 10px; border: 2px solid transparent; background: var(--surface-2); cursor: pointer; }
+        .bb-piece.selected { border-color: var(--primary); }
+        .bb-piece.used { opacity: .25; cursor: default; }
+        .bb-piece-cell { width: 18px; height: 18px; border-radius: 3px; }
+        .wordle-board { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+        .wordle-row { display: flex; gap: 6px; justify-content: center; }
+        .wordle-tile { width: min(12vw, 54px); height: min(12vw, 54px); border: 2px solid var(--line); border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 24px; text-transform: uppercase; color: var(--text); }
+        .wordle-tile.filled { border-color: var(--muted); }
+        .wordle-tile.correct { background: #2ecc71; border-color: #2ecc71; color: #fff; }
+        .wordle-tile.present { background: #f1c40f; border-color: #f1c40f; color: #fff; }
+        .wordle-tile.absent { background: var(--surface-2); border-color: var(--surface-2); color: var(--muted); }
+        .wordle-keyboard { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+        .wordle-kb-row { display: flex; gap: 5px; justify-content: center; }
+        .wordle-key { min-width: 30px; height: 46px; padding: 0 8px; border-radius: 6px; border: none; background: var(--surface-2); font-weight: 700; cursor: pointer; color: var(--text); font-size: 13px; }
+        .wordle-key.wide { min-width: 50px; font-size: 11px; }
+        .wordle-key.correct { background: #2ecc71; color: #fff; }
+        .wordle-key.present { background: #f1c40f; color: #fff; }
+        .wordle-key.absent { background: #666; color: #fff; }
+        .cw-grid { display: grid; gap: 1px; background: var(--line); border: 2px solid var(--line); }
+        .cw-cell, .cw-block { width: 34px; height: 34px; position: relative; background: var(--surface); }
+        .cw-block { background: var(--text); opacity: .85; }
+        .cw-cell.active { background: color-mix(in srgb, var(--primary) 18%, var(--surface)); }
+        .cw-input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; font-weight: 800; font-size: 16px; text-transform: uppercase; color: var(--text); padding: 0; }
+        .cw-input:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+        .cw-input.correct { color: #2ecc71; }
+        .cw-input.wrong { color: #e74c3c; }
+        .cw-num { position: absolute; top: 1px; left: 2px; font-size: 8px; font-weight: 700; color: var(--muted); pointer-events: none; }
+        .cw-clues { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; text-align: left; width: 100%; max-width: 600px; }
+        .cw-clues h4 { margin: 0 0 6px; }
+        .cw-clues ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+        .cw-clues li { cursor: pointer; padding: 2px 4px; border-radius: 4px; color: var(--text); }
+        .cw-clues li.active { background: color-mix(in srgb, var(--primary) 15%, transparent); font-weight: 700; }
+        @media (max-width: 480px) { .cw-clues { grid-template-columns: 1fr; } }
+        .conn-solved { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 520px; margin-bottom: 4px; }
+        .conn-solved-row { border-radius: 8px; padding: 12px; color: #1a1a1a; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+        .conn-solved-row span { font-size: 13px; opacity: .8; }
+        .conn-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 520px; }
+        .conn-tile { padding: 18px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 13px; cursor: pointer; color: var(--text); text-transform: uppercase; }
+        .conn-tile.selected { background: var(--text); color: var(--surface); border-color: var(--text); }
+        .conn-tile.shake { animation: conn-shake .4s; }
+        @keyframes conn-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        @media (max-width: 480px) { .conn-grid { grid-template-columns: repeat(2, 1fr); } }
+        .uttt-list { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 480px; margin: 8px 0 16px; text-align: left; }
+        .uttt-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
+        button.uttt-row { width: 100%; cursor: pointer; font: inherit; color: var(--text); text-align: left; }
+        .uttt-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--line); padding: 6px; border-radius: 10px; width: min(94vw, 480px); }
+        .uttt-big { position: relative; background: var(--surface-2); border-radius: 6px; padding: 4px; }
+        .uttt-big.legal { outline: 2px solid var(--primary); outline-offset: -2px; }
+        .uttt-small-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+        .uttt-small { aspect-ratio: 1/1; border: 1px solid var(--line); background: var(--surface); border-radius: 4px; font-weight: 800; font-size: min(4vw, 18px); color: var(--text); }
+        .uttt-small.filled.x { color: #3498db; }
+        .uttt-small.filled.o { color: #e74c3c; }
+        .uttt-small:disabled { cursor: default; }
+        .uttt-big-winner { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: min(14vw, 64px); font-weight: 800; background: color-mix(in srgb, var(--surface-2) 55%, transparent); border-radius: 6px; z-index: 1; }
+        .uttt-big.won-x .uttt-big-winner { color: #3498db; }
+        .uttt-big.won-o .uttt-big-winner { color: #e74c3c; }
         #study-mode-pip {
             position: fixed;
             right: 24px;
@@ -4558,6 +4643,65 @@
             }
             function chatDismissNotifyBanner() { chatNotifyBannerDismissed = true; render(); }
 
+            // ------------------------------------------------------------------
+            // Async multiplayer games (Ultimate Tic-Tac-Toe today — game_type in
+            // game_matches/game_invites is a free string, not an enum, so a future
+            // second turn-based game can reuse these same two tables). Same
+            // "poll app-wide, badge + toast + optional desktop notification"
+            // shape as chat's own polling just above, right down to reusing the
+            // chatNotificationsEnabled setting rather than adding a second
+            // notification toggle for what is, from the user's point of view,
+            // the same kind of thing (a desktop ping about an async message).
+            // ------------------------------------------------------------------
+            let gameInvites = null;        // pending challenges addressed to me
+            let gameMatches = null;        // my in-progress matches, across all game types
+            let gameLastSeen = {};         // matchId -> last-seen updated_at, persisted per-account like chatLastSeen
+            let gameGlobalPollTimer = null;
+            let gamePollBaselineDone = false;
+
+            function gameLastSeenStorageKey() { return currentUser ? `simple-study-game-last-seen:${currentUser.id}` : null; }
+            function loadGameLastSeen() { const key = gameLastSeenStorageKey(); if (!key) { gameLastSeen = {}; return; }
+                try { gameLastSeen = JSON.parse(localStorage.getItem(key)) || {}; } catch (err) { gameLastSeen = {}; } }
+            function saveGameLastSeen() { const key = gameLastSeenStorageKey(); if (key) localStorage.setItem(key, JSON.stringify(gameLastSeen)); }
+
+            function gameStartGlobalPoll() { gameStopGlobalPoll(); loadGameLastSeen(); gamePollBaselineDone = false;
+                gamePollForUpdates(); gameGlobalPollTimer = setInterval(gamePollForUpdates, 15000); }
+            function gameStopGlobalPoll() { if (gameGlobalPollTimer) { clearInterval(gameGlobalPollTimer); gameGlobalPollTimer = null; } }
+
+            // 'x' or 'o' — whichever colour the signed-in user is playing in this match.
+            function myTurnColor(match) { return match.player_x === currentUser.id ? 'x' : 'o'; }
+
+            async function gamePollForUpdates() {
+                if (!currentUser) return;
+                const [invitesRes, matchesRes] = await Promise.all([
+                    supabaseClient.from('game_invites').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
+                    supabaseClient.from('game_matches').select('*')
+                        .or(`player_x.eq.${currentUser.id},player_o.eq.${currentUser.id}`).eq('status', 'active').order('updated_at', { ascending: false }),
+                ]);
+                gameInvites = invitesRes.data || [];
+                gameMatches = matchesRes.data || [];
+                let changed = false;
+                gameMatches.forEach(m => { const seen = gameLastSeen[m.id];
+                    if (seen !== m.updated_at) { changed = true;
+                        if (myTurnColor(m) === m.turn && gamePollBaselineDone && seen !== undefined) gameNotifyMyTurn(m);
+                        gameLastSeen[m.id] = m.updated_at; } });
+                if (changed) saveGameLastSeen();
+                gamePollBaselineDone = true;
+                render();
+            }
+
+            function gameBadgeCount() { if (!currentUser) return 0;
+                const invitesCount = gameInvites ? gameInvites.filter(i => i.invitee_id === currentUser.id).length : 0;
+                const myTurnCount = gameMatches ? gameMatches.filter(m => myTurnColor(m) === m.turn).length : 0;
+                return invitesCount + myTurnCount; }
+
+            function gameNotifyMyTurn(match) { const opponent = match.player_x === currentUser.id ? match.player_o_name : match.player_x_name;
+                toast(`🎮 Your move against ${opponent}!`);
+                if (state.settings.chatNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+                    try { const notif = new Notification('Simple Study', { body: `Your move against ${opponent} in Ultimate Tic-Tac-Toe`, icon: MASCOT_ICON_IMG });
+                        notif.onclick = () => { window.focus(); view = 'games'; gamesActiveGame = 'ultimatettt'; render(); notif.close(); }; } catch (err) {} }
+            }
+
             // Chat images live in a private bucket (see migration 0012), so
             // there's no public URL to just read off the row -- each image_path
             // needs a signed URL minted per session. Cached by path so an image
@@ -5787,9 +5931,12 @@
                     spotifySyncOnSignIn();
                     loadChatInvites();
                     chatStartGlobalPoll();
+                    gameStartGlobalPoll();
                 }
                 else if (!currentUser && previousUserId) { chatInvites = null; chatStopGlobalPoll();
-                    chatLastSeen = {}; chatUnread = {}; chatPollBaselineDone = false; render(); }
+                    chatLastSeen = {}; chatUnread = {}; chatPollBaselineDone = false;
+                    gameInvites = null; gameMatches = null; gameLastSeen = {}; gameStopGlobalPoll(); gamePollBaselineDone = false;
+                    render(); }
                 else if (!currentUser && !previousUserId) { cloudResolutionPending = false; // a cached session token
                     render(); } // turned out not to restore a real session — nothing left to wait for
             });
@@ -7705,6 +7852,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 essayMarks: [], // { id, subjectId, topicIds: [], date, inputMode, text, overallComment, rating: 'good'|'ok'|'bad', spelling: [], grammar: [], suggestions: [] }
                 flashcardDecks: [], // { id, subjectId, topic, cards: [{id, front, back}], createdAt } — one deck per subject+topic
                 gameHighScores: {}, // { [gameId]: number } — best score so far for score-based games in the Games section
+                gameSettings: {}, // { [gameId]: {...} } — per-game user preferences (e.g. Snake's speed/board size/walls)
                 week: weekStart(localDate())
             });
             let state = load();
@@ -7935,7 +8083,8 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     wordbankLearnedTenses: saved.wordbankLearnedTenses && typeof saved.wordbankLearnedTenses === 'object' ? saved.wordbankLearnedTenses : {},
                     essayMarks: Array.isArray(saved.essayMarks) ? saved.essayMarks : [],
                     flashcardDecks: Array.isArray(saved.flashcardDecks) ? saved.flashcardDecks : [],
-                    gameHighScores: saved.gameHighScores && typeof saved.gameHighScores === 'object' ? saved.gameHighScores : {} };
+                    gameHighScores: saved.gameHighScores && typeof saved.gameHighScores === 'object' ? saved.gameHighScores : {},
+                    gameSettings: saved.gameSettings && typeof saved.gameSettings === 'object' ? saved.gameSettings : {} };
             }
 
             function load() {
@@ -9273,7 +9422,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 const shellClass = `app-shell sidebar-mode-${mode}${focusActive?' focus-mode':''}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">${sidebarIcon('star')}</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('exam-papers','archive','Past Papers')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${navButton('games','gamepad','Games')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
+        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('exam-papers','archive','Past Papers')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${navButton('games','gamepad','Games',gameBadgeCount()?`<span class="pill bad" style="margin-left:6px">${gameBadgeCount()}</span>`:'')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
       </nav><div class="sidebar-footer"><button data-action="open-search" aria-label="Search">${sidebarIcon('search')} <span>Search</span></button><button data-action="open-settings" aria-label="Settings">${sidebarIcon('settings')} <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${chatNotifyBannerHtml()}${content}</main></div>`;
             }
 
@@ -11176,8 +11325,12 @@ ${pointsSvg}
             function gameBestScore(id) { return state.gameHighScores[id] || 0; }
             function gameReportScore(id, score) { if (score > (state.gameHighScores[id] || 0)) {
                     state.gameHighScores[id] = score; save(); return true; } return false; }
+            function gameSettingsFor(id, defaults) { return { ...defaults, ...(state.gameSettings[id] || {}) }; }
+            function saveGameSettingsFor(id, patch) { state.gameSettings[id] = { ...(state.gameSettings[id] || {}), ...patch }; save(); }
 
             const GAME_ORDER = ['solitaire', 'blackjack', 'higherlower', 'snake', '2048', 'tictactoe', 'simon', 'whackamole', 'minesweeper', 'breakout'];
+            // New games (flappybird, blockblast, wordle, crossword, connections, ultimatettt) get appended to
+            // GAME_ORDER right after their GAMES registry entry is added, further down this file.
 
             function gameTilesHtml(actionName) { const tile = id => { const g = GAMES[id];
                     return `<button type="button" class="class-tile" data-action="${actionName}" data-game="${id}" style="--subject:var(--primary)"><strong>${g.icon} ${g.title}</strong><span class="small">${g.desc}</span></button>`; };
@@ -11314,48 +11467,86 @@ ${pointsSvg}
                 return () => { if (tickInterval) clearInterval(tickInterval); if (moleTimeout) clearTimeout(moleTimeout); container.innerHTML = ''; };
             }
 
-            // ---- Snake --------------------------------------------------------------------------------------
+            // ---- Snake (Google-Snake-ish: speed/board-size/wrap settings, on-screen d-pad) --------------------
             function mountSnake(container) {
-                const COLS = 18, ROWS = 18, CELL = 16;
-                let canvas, ctx, snake, dir, nextDir, food, score, best = gameBestScore('snake'), running = false, loopId = null, touchStart = null;
-                function randomFood() { let f; do { f = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) }; }
+                const RES = 480; // fixed canvas resolution; cell size derives from board size so it always fills it
+                const SPEED_MS = { slow: 160, normal: 110, fast: 75, extreme: 50 };
+                const BOARD_N = { small: 12, medium: 18, large: 26 };
+                let settings = gameSettingsFor('snake', { speed: 'normal', boardSize: 'medium', walls: 'solid' });
+                let canvas, ctx, snake, dir, nextDir, food, score, best = gameBestScore('snake'), running = false,
+                    loopId = null, touchStart = null, showSettings = false;
+                function n() { return BOARD_N[settings.boardSize]; }
+                function cell() { return RES / n(); }
+                function randomFood() { const c = n(); let f; do { f = { x: Math.floor(Math.random()*c), y: Math.floor(Math.random()*c) }; }
                     while (snake.some(s => s.x===f.x && s.y===f.y)); return f; }
-                function reset() { snake = [{x:8,y:9},{x:7,y:9},{x:6,y:9}]; dir = {x:1,y:0}; nextDir = dir; food = randomFood(); score = 0; }
-                function draw() { const surface2 = getComputedStyle(document.body).getPropertyValue('--surface-2') || '#eee';
-                    ctx.fillStyle = surface2; ctx.fillRect(0,0,COLS*CELL,ROWS*CELL);
-                    ctx.fillStyle = '#e74c3c'; ctx.fillRect(food.x*CELL, food.y*CELL, CELL, CELL);
-                    snake.forEach((s,i) => { ctx.fillStyle = i===0 ? '#2ecc71' : '#27ae60'; ctx.fillRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2); }); }
+                function reset() { const c = n(), mid = Math.floor(c/2);
+                    snake = [{x:mid,y:mid},{x:mid-1,y:mid},{x:mid-2,y:mid}]; dir = {x:1,y:0}; nextDir = dir; food = randomFood(); score = 0; }
+                function draw() { const c = n(), cs = cell();
+                    const surface2 = getComputedStyle(document.body).getPropertyValue('--surface-2') || '#eee';
+                    ctx.fillStyle = surface2; ctx.fillRect(0,0,RES,RES);
+                    ctx.strokeStyle = 'rgba(0,0,0,.06)'; ctx.lineWidth = 1;
+                    for (let i=1;i<c;i++) { ctx.beginPath(); ctx.moveTo(i*cs,0); ctx.lineTo(i*cs,RES); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0,i*cs); ctx.lineTo(RES,i*cs); ctx.stroke(); }
+                    ctx.fillStyle = '#e74c3c'; ctx.fillRect(food.x*cs+2, food.y*cs+2, cs-4, cs-4);
+                    snake.forEach((s,i) => { ctx.fillStyle = i===0 ? '#2ecc71' : '#27ae60'; ctx.fillRect(s.x*cs+1, s.y*cs+1, cs-2, cs-2); }); }
                 function renderInfo() { const info = container.querySelector('.snake-info');
                     if (info) info.innerHTML = `Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`; }
-                function tick() { dir = nextDir; const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
-                    if (head.x<0 || head.x>=COLS || head.y<0 || head.y>=ROWS || snake.some(s => s.x===head.x && s.y===head.y)) { endGame(); return; }
+                function tick() { dir = nextDir; const c = n();
+                    let hx = snake[0].x + dir.x, hy = snake[0].y + dir.y;
+                    if (settings.walls === 'wrap') { hx = (hx + c) % c; hy = (hy + c) % c; }
+                    else if (hx < 0 || hx >= c || hy < 0 || hy >= c) { endGame(); return; }
+                    if (snake.some(s => s.x===hx && s.y===hy)) { endGame(); return; }
+                    const head = { x: hx, y: hy };
                     snake.unshift(head);
                     if (head.x===food.x && head.y===food.y) { score++; food = randomFood(); } else snake.pop();
                     draw(); renderInfo(); }
                 function endGame() { running = false; if (loopId) clearInterval(loopId); loopId = null;
                     if (score > best) { best = score; gameReportScore('snake', best); } renderInfo();
-                    const ov = container.querySelector('.snake-overlay'); if (ov) ov.classList.remove('hidden'); }
+                    const ov = container.querySelector('.snake-overlay');
+                    if (ov) { const t = ov.querySelector('.snake-gameover-text'); if (t) t.textContent = `Game over! Score: ${score}`;
+                        ov.classList.remove('hidden'); } }
+                function setDir(d) { if (!running || !d) return; if (d.x === -dir.x && d.y === -dir.y) return; nextDir = d; }
                 function keyHandler(e) { const map = { ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0}, w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0} };
-                    const d = map[e.key]; if (!d || !running) return; e.preventDefault();
-                    if (d.x === -dir.x && d.y === -dir.y) return; nextDir = d; }
+                    const d = map[e.key]; if (!d || !running) return; e.preventDefault(); setDir(d); }
                 function touchStartHandler(e) { const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY }; }
                 function touchEndHandler(e) { if (!touchStart || !running) return; const t = e.changedTouches[0],
                         dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y; touchStart = null;
                     if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
-                    const d = Math.abs(dx) > Math.abs(dy) ? { x: dx>0?1:-1, y:0 } : { x:0, y: dy>0?1:-1 };
-                    if (d.x === -dir.x && d.y === -dir.y) return; nextDir = d; }
-                function start() { reset(); running = true; render(); loopId = setInterval(tick, 110); }
+                    setDir(Math.abs(dx) > Math.abs(dy) ? { x: dx>0?1:-1, y:0 } : { x:0, y: dy>0?1:-1 }); }
+                function start() { showSettings = false; reset(); running = true; render(); loopId = setInterval(tick, SPEED_MS[settings.speed]); }
+                function toggleSettings() { showSettings = !showSettings; render(); }
+                function setSetting(key, value) { settings = { ...settings, [key]: value }; saveGameSettingsFor('snake', { [key]: value }); render(); }
+                function settingsHtml() {
+                    const group = (key, label, options) => `<div class="game-settings-group"><span class="small">${label}</span><div class="game-settings-row">${options.map(([val,text]) =>
+                        `<button type="button" class="button ${settings[key]===val?'primary':'ghost'} snake-set" data-key="${key}" data-val="${val}">${text}</button>`).join('')}</div></div>`;
+                    return `<div class="game-settings-panel">
+          ${group('speed', 'Speed', [['slow','Slow'],['normal','Normal'],['fast','Fast'],['extreme','Extreme']])}
+          ${group('boardSize', 'Board size', [['small','Small'],['medium','Medium'],['large','Large']])}
+          ${group('walls', 'Walls', [['solid','Solid'],['wrap','Wrap around']])}
+        </div>`; }
+                function dpadHtml() { return `<div class="game-dpad">
+          <button type="button" class="game-dpad-btn up" data-dir="up">▲</button>
+          <button type="button" class="game-dpad-btn left" data-dir="left">◀</button>
+          <button type="button" class="game-dpad-btn down" data-dir="down">▼</button>
+          <button type="button" class="game-dpad-btn right" data-dir="right">▶</button>
+        </div>`; }
                 function render() {
-                    container.innerHTML = `<div class="game-stat-line snake-info">Score: <strong>0</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
-        <div class="snake-wrap"><canvas class="snake-canvas" width="${COLS*CELL}" height="${ROWS*CELL}"></canvas>
-        <div class="snake-overlay hidden"><div>Game over!</div><button type="button" class="button primary snake-restart">Play again</button></div></div>
-        <div class="small game-hint">Arrow keys / WASD, or swipe on mobile.</div>
-        ${running ? '' : '<button type="button" class="button primary snake-start">Start</button>'}`;
+                    container.innerHTML = `<div class="game-stat-line snake-info">Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="snake-wrap"><canvas class="snake-canvas" width="${RES}" height="${RES}"></canvas>
+        <div class="snake-overlay hidden"><div class="snake-gameover-text">Game over!</div><button type="button" class="button primary snake-restart">Play again</button></div></div>
+        ${running ? dpadHtml() : ''}
+        <div class="small game-hint">Arrow keys / WASD, on-screen arrows, or swipe.</div>
+        <div class="game-actions">${running ? '' : `<button type="button" class="button primary snake-start">${score?'Play again':'Start'}</button><button type="button" class="button ghost snake-settings-toggle">⚙ Settings</button>`}</div>
+        ${!running && showSettings ? settingsHtml() : ''}`;
                     canvas = container.querySelector('.snake-canvas'); ctx = canvas.getContext('2d');
                     canvas.addEventListener('touchstart', touchStartHandler, {passive:true});
                     canvas.addEventListener('touchend', touchEndHandler, {passive:true});
                     const startBtn = container.querySelector('.snake-start'); if (startBtn) startBtn.addEventListener('click', start);
+                    const settingsBtn = container.querySelector('.snake-settings-toggle'); if (settingsBtn) settingsBtn.addEventListener('click', toggleSettings);
+                    container.querySelectorAll('.snake-set').forEach(btn => btn.addEventListener('click', () => setSetting(btn.dataset.key, btn.dataset.val)));
                     const restartBtn = container.querySelector('.snake-restart'); if (restartBtn) restartBtn.addEventListener('click', () => { container.querySelector('.snake-overlay').classList.add('hidden'); start(); });
+                    container.querySelectorAll('.game-dpad-btn').forEach(btn => btn.addEventListener('click', () => {
+                        const map = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} }; setDir(map[btn.dataset.dir]); }));
                     draw(); }
                 document.addEventListener('keydown', keyHandler);
                 reset(); render();
@@ -11415,54 +11606,106 @@ ${pointsSvg}
             }
 
             // ---- Breakout -------------------------------------------------------------------------------------
+            // ---- Breakout (power-ups, explosive/strong bricks, multiple levels that loop with rising speed) ----
             function mountBreakout(container) {
-                const W = 320, H = 400, PADDLE_W = 64, PADDLE_H = 10, BALL_R = 5, BRICK_ROWS = 5, BRICK_COLS = 8, BRICK_H = 16, BRICK_PAD = 3, BRICK_TOP = 34;
-                let canvas, ctx, paddleX, ball, bricks, score, best = gameBestScore('breakout'), lives, running = false, everPlayed = false, rafId = null, keys = {};
-                function initBricks() { const brickW = (W - BRICK_PAD*(BRICK_COLS+1)) / BRICK_COLS, arr = [];
-                    for (let r=0;r<BRICK_ROWS;r++) for (let c=0;c<BRICK_COLS;c++)
-                        arr.push({ x: BRICK_PAD + c*(brickW+BRICK_PAD), y: BRICK_TOP + r*(BRICK_H+BRICK_PAD), w: brickW, h: BRICK_H, alive: true,
-                            color: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'][r] });
+                const W = 440, H = 560, BASE_PADDLE_W = 78, PADDLE_H = 12, BALL_R = 6, BRICK_H = 20, BRICK_PAD = 4, BRICK_TOP = 54, BRICK_COLS = 9;
+                const TYPE_COLOR = { normal: '#3498db', strong: '#8e44ad', explosive: '#e74c3c', powerup: '#f1c40f' };
+                const POWERUP_ICON = { wide: '↔', multi: '●●', slow: '🐢', life: '❤' };
+                // Each level is a function returning a grid of row-arrays; a cell is null (empty) or a brick type.
+                const LEVELS = [
+                    () => Array.from({length:5}, () => Array.from({length:BRICK_COLS}, () => 'normal')),
+                    () => Array.from({length:6}, (_,r) => Array.from({length:BRICK_COLS}, (_,c) =>
+                        Math.abs(c - (BRICK_COLS-1)/2) <= r ? (r < 2 ? 'strong' : 'normal') : null)),
+                    () => Array.from({length:6}, (_,r) => Array.from({length:BRICK_COLS}, (_,c) =>
+                        (r + c) % 2 === 0 ? (Math.random() < 0.18 ? 'explosive' : 'normal') : null)),
+                    () => Array.from({length:7}, (_,r) => Array.from({length:BRICK_COLS}, () => {
+                        if (Math.random() < 0.07) return 'powerup'; return Math.random() < 0.88 ? 'normal' : null; })),
+                ];
+                let canvas, ctx, paddleX, paddleW, balls, bricks, powerups, score, best = gameBestScore('breakout'),
+                    lives, level, lap, running = false, everPlayed = false, rafId = null, keys = {}, pendingTimeouts = [],
+                    effects = {}, banner = '', bannerUntil = 0;
+                function schedule(fn, ms) { pendingTimeouts.push(setTimeout(fn, ms)); }
+                function clearTimeouts() { pendingTimeouts.forEach(clearTimeout); pendingTimeouts = []; }
+                function brickWidth() { return (W - BRICK_PAD*(BRICK_COLS+1)) / BRICK_COLS; }
+                function buildBricks(levelIndex) { const layout = LEVELS[levelIndex % LEVELS.length](), bw = brickWidth(), arr = [];
+                    layout.forEach((row, r) => row.forEach((type, c) => { if (!type) return;
+                        arr.push({ x: BRICK_PAD + c*(bw+BRICK_PAD), y: BRICK_TOP + r*(BRICK_H+BRICK_PAD), w: bw, h: BRICK_H,
+                            type, hp: type === 'strong' ? 2 : 1, alive: true, row: r, col: c }); }));
                     return arr; }
-                function reset() { paddleX = W/2 - PADDLE_W/2; ball = { x: W/2, y: H-40, vx: 2.4, vy: -2.4 }; bricks = initBricks(); score = 0; lives = 3; }
-                function draw() { ctx.fillStyle = '#111'; ctx.fillRect(0,0,W,H);
-                    bricks.forEach(b => { if (!b.alive) return; ctx.fillStyle = b.color; ctx.fillRect(b.x,b.y,b.w,b.h); });
-                    ctx.fillStyle = '#fff'; ctx.fillRect(paddleX, H-16, PADDLE_W, PADDLE_H);
-                    ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI*2); ctx.fill();
-                    ctx.font = '13px sans-serif'; ctx.fillText(`Score ${score}   Lives ${lives}`, 8, 16); }
-                function step() { if (keys.ArrowLeft) paddleX -= 5; if (keys.ArrowRight) paddleX += 5;
-                    paddleX = Math.max(0, Math.min(W-PADDLE_W, paddleX));
-                    ball.x += ball.vx; ball.y += ball.vy;
+                function ballSpeed() { return 3.2 + lap * 0.5; }
+                function resetBallAndPaddle() { paddleW = BASE_PADDLE_W; paddleX = W/2 - paddleW/2;
+                    const s = ballSpeed(); balls = [{ x: W/2, y: H-70, vx: s*0.6, vy: -s }]; }
+                function newGame() { level = 0; lap = 0; score = 0; lives = 3; effects = {}; powerups = [];
+                    bricks = buildBricks(level); resetBallAndPaddle(); }
+                function nextLevel() { level++; if (level >= LEVELS.length) { level = 0; lap++; }
+                    bricks = buildBricks(level); resetBallAndPaddle(); powerups = [];
+                    banner = `Level ${lap*LEVELS.length + level + 1}`; bannerUntil = Date.now() + 1100; }
+                function spawnPowerup(x, y) { const types = ['wide','multi','slow','life'];
+                    powerups.push({ x, y, type: types[Math.floor(Math.random()*types.length)] }); }
+                function applyPowerup(type) { if (type === 'life') { lives++; renderInfo(); return; }
+                    if (type === 'multi') { const base = balls[0] || { x: W/2, y: H-80, vx: ballSpeed()*0.6, vy: -ballSpeed() };
+                        balls.push({ ...base, vx: base.vx + 1.6 }, { ...base, vx: base.vx - 1.6 }); return; }
+                    if (type === 'wide') { paddleW = BASE_PADDLE_W * 1.6; effects.wide = true;
+                        schedule(() => { paddleW = BASE_PADDLE_W; effects.wide = false; }, 10000); return; }
+                    if (type === 'slow') { effects.slow = true; schedule(() => { effects.slow = false; }, 8000); } }
+                function hitBrick(b) { b.hp--; score += 10;
+                    if (b.hp <= 0) { b.alive = false;
+                        if (b.type === 'explosive') bricks.forEach(n => { if (n.alive && Math.abs(n.row-b.row) + Math.abs(n.col-b.col) === 1) { n.alive = false; score += 5; } });
+                        if (b.type === 'powerup') spawnPowerup(b.x + b.w/2, b.y + b.h/2); } }
+                function stepBall(ball, speedMul) { ball.x += ball.vx*speedMul; ball.y += ball.vy*speedMul;
                     if (ball.x < BALL_R || ball.x > W-BALL_R) ball.vx *= -1;
                     if (ball.y < BALL_R) ball.vy *= -1;
-                    if (ball.y > H-16-BALL_R && ball.y < H-16+PADDLE_H && ball.x > paddleX && ball.x < paddleX+PADDLE_W) {
-                        ball.vy = -Math.abs(ball.vy); ball.vx = ((ball.x-(paddleX+PADDLE_W/2))/(PADDLE_W/2)) * 3.2; }
+                    if (ball.y > H-18-BALL_R && ball.y < H-18+PADDLE_H && ball.x > paddleX && ball.x < paddleX+paddleW) {
+                        ball.vy = -Math.abs(ball.vy); ball.vx = ((ball.x-(paddleX+paddleW/2))/(paddleW/2)) * ballSpeed(); }
                     bricks.forEach(b => { if (!b.alive) return;
-                        if (ball.x > b.x && ball.x < b.x+b.w && ball.y-BALL_R < b.y+b.h && ball.y+BALL_R > b.y) { b.alive = false; ball.vy *= -1; score += 10; } });
-                    if (ball.y > H) { lives--; if (lives <= 0) { endGame(false); return; } ball = { x: W/2, y: H-40, vx: 2.4, vy: -2.4 }; }
-                    if (bricks.every(b => !b.alive)) { endGame(true); return; }
+                        if (ball.x > b.x && ball.x < b.x+b.w && ball.y-BALL_R < b.y+b.h && ball.y+BALL_R > b.y) { hitBrick(b); ball.vy *= -1; } });
+                    return ball.y <= H; }
+                function draw() { ctx.fillStyle = '#111'; ctx.fillRect(0,0,W,H);
+                    bricks.forEach(b => { if (!b.alive) return; ctx.fillStyle = b.type === 'strong' && b.hp === 2 ? '#c39bd3' : TYPE_COLOR[b.type];
+                        ctx.fillRect(b.x, b.y, b.w, b.h);
+                        if (b.type === 'explosive') { ctx.font = `${b.h-4}px sans-serif`; ctx.fillText('💥', b.x+b.w/2-9, b.y+b.h-4); }
+                        if (b.type === 'powerup') { ctx.font = `${b.h-4}px sans-serif`; ctx.fillText('★', b.x+b.w/2-7, b.y+b.h-4); } });
+                    ctx.fillStyle = effects.wide ? '#2ecc71' : '#fff'; ctx.fillRect(paddleX, H-18, paddleW, PADDLE_H);
+                    ctx.fillStyle = '#fff'; balls.forEach(ball => { ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI*2); ctx.fill(); });
+                    ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+                    powerups.forEach(p => ctx.fillText(POWERUP_ICON[p.type] || '?', p.x, p.y));
+                    ctx.textAlign = 'left';
+                    if (Date.now() < bannerUntil) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, H/2-30, W, 60);
+                        ctx.fillStyle = '#fff'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(banner, W/2, H/2+9); ctx.textAlign = 'left'; } }
+                function renderInfo() { const info = container.querySelector('.brk-info');
+                    if (info) info.innerHTML = `Score: <strong>${score}</strong> &nbsp;·&nbsp; Lives: <strong>${lives}</strong> &nbsp;·&nbsp; Level: <strong>${lap*LEVELS.length + level + 1}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`; }
+                function step() { if (keys.ArrowLeft) paddleX -= 6; if (keys.ArrowRight) paddleX += 6;
+                    paddleX = Math.max(0, Math.min(W-paddleW, paddleX));
+                    const speedMul = effects.slow ? 0.55 : 1;
+                    balls = balls.filter(b => stepBall(b, speedMul));
+                    if (!balls.length) { lives--; renderInfo(); if (lives <= 0) { endGame(false); return; } resetBallAndPaddle(); }
+                    powerups.forEach(p => p.y += 2.2);
+                    powerups = powerups.filter(p => { if (p.y > H-18-10 && p.y < H && p.x > paddleX-10 && p.x < paddleX+paddleW+10) { applyPowerup(p.type); return false; } return p.y < H; });
+                    if (bricks.every(b => !b.alive)) { nextLevel(); renderInfo(); }
                     draw(); rafId = requestAnimationFrame(step); }
                 function endGame(win) { running = false; if (score > best) { best = score; gameReportScore('breakout', best); }
                     renderShell(); const ov = container.querySelector('.brk-overlay');
-                    if (ov) { ov.textContent = win ? '🎉 You cleared the board!' : 'Game over.'; ov.classList.remove('hidden'); } }
+                    if (ov) { ov.textContent = win ? '🎉 Cleared every level!' : `Game over — score ${score}.`; ov.classList.remove('hidden'); } }
                 function keydown(e) { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { keys[e.key] = true; e.preventDefault(); } }
                 function keyup(e) { keys[e.key] = false; }
                 function pointerMove(e) { if (!canvas) return; const rect = canvas.getBoundingClientRect(),
                         clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    paddleX = Math.max(0, Math.min(W-PADDLE_W, (clientX - rect.left) * (W/rect.width) - PADDLE_W/2)); }
-                function start() { everPlayed = true; reset(); running = true; renderShell(); rafId = requestAnimationFrame(step); }
+                    paddleX = Math.max(0, Math.min(W-paddleW, (clientX - rect.left) * (W/rect.width) - paddleW/2)); }
+                function start() { everPlayed = true; newGame(); running = true; renderShell(); renderInfo(); rafId = requestAnimationFrame(step); }
                 function renderShell() {
-                    container.innerHTML = `<div class="brk-wrap"><canvas class="brk-canvas" width="${W}" height="${H}"></canvas><div class="brk-overlay hidden"></div></div>
-        <div class="small game-hint">Arrow keys, or drag/swipe the paddle.</div>
+                    container.innerHTML = `<div class="game-stat-line brk-info">${everPlayed?`Score: <strong>${score}</strong> &nbsp;·&nbsp; Lives: <strong>${lives}</strong> &nbsp;·&nbsp; Level: <strong>${lap*LEVELS.length+level+1}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`:`Best score: <strong>${best}</strong>`}</div>
+        <div class="brk-wrap"><canvas class="brk-canvas" width="${W}" height="${H}"></canvas><div class="brk-overlay hidden"></div></div>
+        <div class="small game-hint">Arrow keys, or drag/swipe the paddle. ★ bricks drop power-ups, 💥 bricks blast their neighbours.</div>
         ${running ? '' : `<button type="button" class="button primary brk-start">${everPlayed?'Play again':'Start'}</button>`}`;
                     canvas = container.querySelector('.brk-canvas'); ctx = canvas.getContext('2d');
                     canvas.addEventListener('mousemove', pointerMove);
                     canvas.addEventListener('touchmove', e => { pointerMove(e); e.preventDefault(); }, {passive:false});
                     const startBtn = container.querySelector('.brk-start'); if (startBtn) startBtn.addEventListener('click', start);
-                    draw(); }
+                    if (bricks) draw(); }
                 document.addEventListener('keydown', keydown);
                 document.addEventListener('keyup', keyup);
-                reset(); renderShell();
-                return () => { running = false; if (rafId) cancelAnimationFrame(rafId);
+                newGame(); renderShell();
+                return () => { running = false; if (rafId) cancelAnimationFrame(rafId); clearTimeouts();
                     document.removeEventListener('keydown', keydown); document.removeEventListener('keyup', keyup); container.innerHTML = ''; };
             }
 
@@ -11612,6 +11855,591 @@ ${pointsSvg}
                 return () => { container.innerHTML = ''; };
             }
 
+            // ---- Flappy Bird ------------------------------------------------------------------------------
+            function mountFlappyBird(container) {
+                const W = 400, H = 560, GRAVITY = 0.45, FLAP = -8, BIRD_R = 14, PIPE_W = 60, GAP = 155, PIPE_SPEED = 2.7, PIPE_INTERVAL = 1400, GROUND_Y = 520;
+                let canvas, ctx, birdY, birdV, pipes, score, best = gameBestScore('flappybird'), running = false, rafId = null, lastPipeAt = 0;
+                function reset() { birdY = H/2; birdV = 0; pipes = []; score = 0; lastPipeAt = 0; }
+                function flap() { if (running) birdV = FLAP; }
+                function spawnPipe() { const gapY = 50 + Math.random()*(GROUND_Y-50-GAP-50); pipes.push({ x: W, gapY, passed: false }); }
+                function draw() { ctx.fillStyle = '#70c5ce'; ctx.fillRect(0,0,W,H);
+                    ctx.fillStyle = '#2ecc71'; pipes.forEach(p => { ctx.fillRect(p.x, 0, PIPE_W, p.gapY); ctx.fillRect(p.x, p.gapY+GAP, PIPE_W, GROUND_Y-(p.gapY+GAP)); });
+                    ctx.fillStyle = '#ded895'; ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
+                    ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(80, birdY, BIRD_R, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#2c3e50'; ctx.beginPath(); ctx.arc(87, birdY-3, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(score, W/2, 55); ctx.textAlign = 'left'; }
+                function renderInfo() { const info = container.querySelector('.flap-info'); if (info) info.innerHTML = `Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`; }
+                function step(ts) { birdV += GRAVITY; birdY += birdV;
+                    if (!lastPipeAt || ts - lastPipeAt > PIPE_INTERVAL) { spawnPipe(); lastPipeAt = ts; }
+                    pipes.forEach(p => { p.x -= PIPE_SPEED; if (!p.passed && p.x+PIPE_W < 80) { p.passed = true; score++; } });
+                    pipes = pipes.filter(p => p.x > -PIPE_W);
+                    if (birdY - BIRD_R < 0 || birdY + BIRD_R > GROUND_Y) { endGame(); return; }
+                    for (const p of pipes) { if (80+BIRD_R > p.x && 80-BIRD_R < p.x+PIPE_W) {
+                        if (birdY-BIRD_R < p.gapY || birdY+BIRD_R > p.gapY+GAP) { endGame(); return; } } }
+                    draw(); renderInfo(); rafId = requestAnimationFrame(step); }
+                function endGame() { running = false; if (rafId) cancelAnimationFrame(rafId);
+                    if (score > best) { best = score; gameReportScore('flappybird', best); } renderInfo();
+                    const ov = container.querySelector('.flap-overlay');
+                    if (ov) { ov.querySelector('.flap-gameover-text').textContent = `Game over! Score: ${score}`; ov.classList.remove('hidden'); } }
+                function keydown(e) { if (e.code === 'Space' || e.key === 'ArrowUp') { e.preventDefault(); flap(); } }
+                function start() { reset(); running = true; render(); rafId = requestAnimationFrame(step); }
+                function render() {
+                    container.innerHTML = `<div class="game-stat-line flap-info">Score: <strong>${score||0}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="flap-wrap"><canvas class="flap-canvas" width="${W}" height="${H}"></canvas>
+        <div class="flap-overlay hidden"><div class="flap-gameover-text">Game over!</div><button type="button" class="button primary flap-restart">Play again</button></div></div>
+        <div class="small game-hint">Click/tap the board, or press space, to flap.</div>
+        ${running ? '' : (score ? '' : '<button type="button" class="button primary flap-start">Start</button>')}`;
+                    canvas = container.querySelector('.flap-canvas'); ctx = canvas.getContext('2d');
+                    canvas.addEventListener('mousedown', flap);
+                    canvas.addEventListener('touchstart', e => { e.preventDefault(); flap(); }, {passive:false});
+                    const startBtn = container.querySelector('.flap-start'); if (startBtn) startBtn.addEventListener('click', start);
+                    const restartBtn = container.querySelector('.flap-restart'); if (restartBtn) restartBtn.addEventListener('click', () => { container.querySelector('.flap-overlay').classList.add('hidden'); start(); });
+                    draw(); }
+                document.addEventListener('keydown', keydown);
+                reset(); render();
+                return () => { running = false; if (rafId) cancelAnimationFrame(rafId); document.removeEventListener('keydown', keydown); container.innerHTML = ''; };
+            }
+
+            // ---- Block Blast (1010!-style block placement puzzle) -----------------------------------------
+            function mountBlockBlast(container) {
+                const SIZE = 8;
+                const SHAPES = [
+                    [[0,0]], [[0,0],[0,1]], [[0,0],[1,0]], [[0,0],[0,1],[0,2]], [[0,0],[1,0],[2,0]],
+                    [[0,0],[0,1],[1,0],[1,1]], [[0,0],[0,1],[0,2],[1,0]], [[0,0],[0,1],[0,2],[1,2]],
+                    [[0,0],[1,0],[2,0],[2,1]], [[0,0],[1,0],[2,0],[0,1]], [[0,0],[0,1],[1,1],[1,2]],
+                    [[0,1],[0,2],[1,0],[1,1]], [[0,0],[0,1],[0,2],[1,1]], [[0,0],[1,0],[1,1],[2,1]],
+                    [[0,0],[0,1],[0,2],[0,3]], [[0,0],[1,0],[2,0],[3,0]],
+                ];
+                const COLORS = ['#3498db','#e74c3c','#2ecc71','#f1c40f','#9b59b6','#e67e22','#1abc9c'];
+                let grid, score, best = gameBestScore('blockblast'), pieces, selectedPieceIdx, gameOver;
+                function emptyGrid() { return Array.from({length:SIZE}, () => Array(SIZE).fill(null)); }
+                function randomPiece() { return { shape: SHAPES[Math.floor(Math.random()*SHAPES.length)], color: COLORS[Math.floor(Math.random()*COLORS.length)], used: false }; }
+                function refillPieces() { pieces = [randomPiece(), randomPiece(), randomPiece()]; selectedPieceIdx = null; }
+                function reset() { grid = emptyGrid(); score = 0; gameOver = false; refillPieces(); }
+                function canPlace(shape, r0, c0) { return shape.every(([dr,dc]) => { const r = r0+dr, c = c0+dc; return r>=0 && r<SIZE && c>=0 && c<SIZE && !grid[r][c]; }); }
+                function anyPlacementExists(shape) { for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) if (canPlace(shape,r,c)) return true; return false; }
+                function checkGameOver() { return pieces.every(p => p.used || !anyPlacementExists(p.shape)); }
+                function clearLines() { const fullRows = [], fullCols = [];
+                    for (let r=0;r<SIZE;r++) if (grid[r].every(v=>v)) fullRows.push(r);
+                    for (let c=0;c<SIZE;c++) if (grid.every(row=>row[c])) fullCols.push(c);
+                    if (!fullRows.length && !fullCols.length) return;
+                    fullRows.forEach(r => { for (let c=0;c<SIZE;c++) grid[r][c]=null; });
+                    fullCols.forEach(c => { for (let r=0;r<SIZE;r++) grid[r][c]=null; });
+                    score += (fullRows.length+fullCols.length) * SIZE; }
+                function placeAt(r0, c0) { if (selectedPieceIdx===null || gameOver) return; const piece = pieces[selectedPieceIdx]; if (piece.used) return;
+                    if (!canPlace(piece.shape, r0, c0)) { toast("That piece doesn't fit there."); return; }
+                    piece.shape.forEach(([dr,dc]) => { grid[r0+dr][c0+dc] = piece.color; });
+                    piece.used = true; score += piece.shape.length; selectedPieceIdx = null;
+                    clearLines();
+                    if (pieces.every(p=>p.used)) refillPieces();
+                    if (checkGameOver()) { gameOver = true; if (score > best) { best = score; gameReportScore('blockblast', best); } }
+                    render(); }
+                function selectPiece(i) { if (pieces[i].used) return; selectedPieceIdx = selectedPieceIdx===i ? null : i; render(); }
+                function render() {
+                    const gridHtml = grid.map((row,r) => row.map((cell,c) =>
+                        `<button type="button" class="bb-cell" style="${cell?`background:${cell}`:''}" data-r="${r}" data-c="${c}"></button>`).join('')).join('');
+                    const piecesHtml = pieces.map((p,i) => { const maxR = Math.max(...p.shape.map(s=>s[0])), maxC = Math.max(...p.shape.map(s=>s[1])), cells = [];
+                        for (let r=0;r<=maxR;r++) for (let c=0;c<=maxC;c++) cells.push(p.shape.some(([dr,dc])=>dr===r&&dc===c));
+                        return `<button type="button" class="bb-piece ${p.used?'used':''} ${selectedPieceIdx===i?'selected':''}" data-i="${i}" style="grid-template-columns:repeat(${maxC+1},1fr)">
+            ${cells.map(f => `<span class="bb-piece-cell" style="background:${f?p.color:'transparent'}"></span>`).join('')}</button>`; }).join('');
+                    container.innerHTML = `<div class="game-stat-line">Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="bb-grid">${gridHtml}</div>
+        <div class="bb-pieces">${piecesHtml}</div>
+        <div class="small game-hint">${gameOver ? 'No moves left — game over.' : 'Pick a piece below, then click where it should go.'}</div>
+        ${gameOver ? '<button type="button" class="button primary bb-restart">Play again</button>' : ''}`;
+                    container.querySelectorAll('.bb-cell').forEach(btn => btn.addEventListener('click', () => placeAt(Number(btn.dataset.r), Number(btn.dataset.c))));
+                    container.querySelectorAll('.bb-piece').forEach(btn => btn.addEventListener('click', () => selectPiece(Number(btn.dataset.i))));
+                    const restartBtn = container.querySelector('.bb-restart'); if (restartBtn) restartBtn.addEventListener('click', () => { reset(); render(); }); }
+                reset(); render();
+                return () => { container.innerHTML = ''; };
+            }
+
+            // ---- Wordle (random word every play, from a bank of common 5-letter words) --------------------
+            const WORDLE_RAW_WORDS = ['ABOUT','ABOVE','ABUSE','ACTOR','ACUTE','ADMIT','ADOPT','ADULT','AFTER','AGAIN','AGENT','AGREE','AHEAD','ALARM','ALBUM','ALERT','ALIKE','ALIVE','ALLOW','ALONE','ALONG','ALTER','AMONG','ANGER','ANGLE','ANGRY','APPLE','APPLY','ARENA','ARGUE','ARISE','ARRAY','ASIDE','ASSET','AUDIO','AUDIT','AVOID','AWAKE','AWARD','AWARE','BADLY','BAKER','BASIC','BEACH','BEGAN','BEGIN','BEING','BELOW','BENCH','BIRTH','BLACK','BLAME','BLANK','BLIND','BLOCK','BLOOD','BOARD','BOAST','BONUS','BOOST','BOOTH','BOUND','BRAIN','BRAND','BREAD','BREAK','BREED','BRIEF','BRING','BROAD','BROKE','BROWN','BUILD','BUILT','BUYER','CABLE','CARRY','CATCH','CAUSE','CHAIN','CHAIR','CHAOS','CHARM','CHART','CHASE','CHEAP','CHECK','CHEST','CHIEF','CHILD','CHINA','CHOSE','CIVIL','CLAIM','CLASS','CLEAN','CLEAR','CLICK','CLIMB','CLOCK','CLOSE','CLOUD','COACH','COAST','COULD','COUNT','COURT','COVER','CRAFT','CRASH','CRAZY','CREAM','CRIME','CROSS','CROWD','CROWN','CRUDE','CURVE','CYCLE','DAILY','DANCE','DEALT','DEATH','DEBUT','DELAY','DEPTH','DOUBT','DOZEN','DRAFT','DRAMA','DRANK','DRAWN','DREAM','DRESS','DRIED','DRILL','DRINK','DRIVE','DROVE','EAGER','EARLY','EARTH','EIGHT','ELITE','EMPTY','ENEMY','ENJOY','ENTER','ENTRY','EQUAL','ERROR','EVENT','EVERY','EXACT','EXIST','EXTRA','FAITH','FALSE','FAULT','FIBER','FIELD','FIFTH','FIFTY','FIGHT','FINAL','FIRST','FIXED','FLASH','FLEET','FLOOR','FLUID','FOCUS','FORCE','FORTH','FORTY','FORUM','FOUND','FRAME','FRANK','FRAUD','FRESH','FRONT','FROST','FRUIT','FULLY','FUNNY','GHOST','GIANT','GIVEN','GLASS','GLOBE','GLORY','GRACE','GRADE','GRAND','GRANT','GRASS','GREAT','GREEN','GROSS','GROUP','GROWN','GUARD','GUESS','GUEST','GUIDE','HAPPY','HARSH','HEART','HEAVY','HELLO','HENCE','HORSE','HOTEL','HOUSE','HUMAN','IDEAL','IMAGE','INDEX','INNER','INPUT','ISSUE','JOINT','JUDGE','KNOWN','LABEL','LARGE','LASER','LATER','LAUGH','LAYER','LEARN','LEAST','LEAVE','LEGAL','LEMON','LEVEL','LIGHT','LIMIT','LOCAL','LOGIC','LOOSE','LOWER','LUCKY','LUNCH','MAGIC','MAJOR','MAKER','MARCH','MATCH','MAYOR','MEANT','MEDAL','MEDIA','MERIT','METAL','MIGHT','MINOR','MINUS','MIXED','MODEL','MONEY','MONTH','MORAL','MOTOR','MOUNT','MOUSE','MOUTH','MOVIE','MUSIC','NAKED','NAMED','NERVE','NEVER','NEWLY','NIGHT','NOISE','NORTH','NOTED','NOVEL','NURSE','OCCUR','OCEAN','OFFER','OFTEN','ORDER','OTHER','OUGHT','OUTER','OWNER','PAINT','PANEL','PAPER','PARTY','PEACE','PHASE','PHONE','PHOTO','PIECE','PILOT','PITCH','PLACE','PLAIN','PLANE','PLANT','PLATE','POINT','POUND','POWER','PRESS','PRICE','PRIDE','PRIME','PRINT','PRIOR','PRIZE','PROOF','PROUD','PROVE','QUEEN','QUICK','QUIET','QUITE','RADIO','RAISE','RANGE','RAPID','RATIO','REACH','READY','REALM','REBEL','REFER','RELAX','REPLY','RIGHT','RIVAL','RIVER','ROBOT','ROMAN','ROUGH','ROUND','ROUTE','ROYAL','RURAL','SCALE','SCENE','SCOPE','SCORE','SENSE','SERVE','SEVEN','SHALL','SHAPE','SHARE','SHARP','SHEET','SHELF','SHELL','SHIFT','SHINE','SHIRT','SHOCK','SHOOT','SHORT','SHOWN','SIGHT','SILLY','SINCE','SIXTH','SIXTY','SKILL','SLEEP','SLIDE','SMALL','SMART','SMILE','SMITH','SMOKE','SOLID','SOLVE','SORRY','SOUND','SOUTH','SPACE','SPARE','SPEAK','SPEED','SPEND','SPENT','SPLIT','SPOKE','SPORT','STAFF','STAGE','STAKE','STAND','START','STATE','STEAM','STEEL','STICK','STILL','STOCK','STONE','STOOD','STORE','STORM','STORY','STRIP','STUCK','STUDY','STUFF','STYLE','SUGAR','SUPER','SWEET','TABLE','TAKEN','TASTE','TAXES','TEACH','TERMS','THANK','THEFT','THEIR','THEME','THERE','THESE','THICK','THING','THINK','THIRD','THOSE','THREE','THREW','THROW','TIGHT','TIMES','TIRED','TITLE','TODAY','TOPIC','TOTAL','TOUCH','TOUGH','TOWER','TRACK','TRADE','TRAIN','TREAT','TREND','TRIAL','TRIBE','TRICK','TRIED','TRIES','TRUCK','TRULY','TRUST','TRUTH','TWICE','UNDER','UNION','UNITY','UNTIL','UPPER','UPSET','URBAN','USAGE','USUAL','VALID','VALUE','VIDEO','VIRUS','VISIT','VITAL','VOICE','WASTE','WATCH','WATER','WHEEL','WHERE','WHICH','WHILE','WHITE','WHOLE','WHOSE','WOMAN','WOMEN','WORLD','WORRY','WORSE','WORST','WORTH','WOULD','WOUND','WRITE','WRONG','WROTE','YIELD','YOUNG','YOUTH'];
+            const WORDLE_WORDS = WORDLE_RAW_WORDS.filter(w => w.length === 5);
+            function mountWordle(container) {
+                let answer, guesses, current, gameOver, won;
+                function reset() { answer = WORDLE_WORDS[Math.floor(Math.random()*WORDLE_WORDS.length)]; guesses = []; current = ''; gameOver = false; won = false; }
+                function evaluate(guess) { const res = Array(5).fill('absent'), answerArr = answer.split(''), used = Array(5).fill(false);
+                    for (let i=0;i<5;i++) if (guess[i]===answerArr[i]) { res[i]='correct'; used[i]=true; }
+                    for (let i=0;i<5;i++) { if (res[i]==='correct') continue;
+                        const idx = answerArr.findIndex((c,j)=>!used[j] && c===guess[i]);
+                        if (idx!==-1) { res[i]='present'; used[idx]=true; } }
+                    return res; }
+                function submitGuess() { if (current.length!==5 || gameOver) return;
+                    if (!WORDLE_WORDS.includes(current)) { toast("Not in my word list — try another word."); return; }
+                    const res = evaluate(current); guesses.push({ word: current, res });
+                    if (current === answer) { won = true; gameOver = true; } else if (guesses.length >= 6) gameOver = true;
+                    current = ''; render(); }
+                function keyPress(k) { if (gameOver) return;
+                    if (k === 'ENTER') { submitGuess(); return; }
+                    if (k === 'BACK') { current = current.slice(0,-1); render(); return; }
+                    if (/^[A-Z]$/.test(k) && current.length < 5) { current += k; render(); } }
+                function keyHandler(e) { if (e.key === 'Enter') keyPress('ENTER');
+                    else if (e.key === 'Backspace') keyPress('BACK');
+                    else if (/^[a-zA-Z]$/.test(e.key)) keyPress(e.key.toUpperCase()); }
+                function letterStatus() { const status = {};
+                    guesses.forEach(g => g.res.forEach((r,i) => { const l = g.word[i];
+                        if (r === 'correct') status[l] = 'correct';
+                        else if (r === 'present' && status[l] !== 'correct') status[l] = 'present';
+                        else if (r === 'absent' && !status[l]) status[l] = 'absent'; }));
+                    return status; }
+                function render() {
+                    const rows = [];
+                    for (let i=0;i<6;i++) { const g = guesses[i];
+                        if (g) rows.push(`<div class="wordle-row">${g.word.split('').map((l,j)=>`<div class="wordle-tile ${g.res[j]}">${l}</div>`).join('')}</div>`);
+                        else if (i === guesses.length) rows.push(`<div class="wordle-row">${Array.from({length:5},(_,j)=>`<div class="wordle-tile ${current[j]?'filled':''}">${current[j]||''}</div>`).join('')}</div>`);
+                        else rows.push(`<div class="wordle-row">${'<div class="wordle-tile"></div>'.repeat(5)}</div>`); }
+                    const status = letterStatus();
+                    const kbRows = [['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['ENTER','Z','X','C','V','B','N','M','BACK']];
+                    const kbHtml = kbRows.map(row => `<div class="wordle-kb-row">${row.map(k => `<button type="button" class="wordle-key ${status[k]||''} ${k.length>1?'wide':''}" data-key="${k}">${k==='BACK'?'⌫':k}</button>`).join('')}</div>`).join('');
+                    container.innerHTML = `<div class="game-stat-line">${gameOver ? (won ? `🎉 Got it in ${guesses.length}!` : `The word was ${answer}.`) : 'Guess the 5-letter word.'}</div>
+        <div class="wordle-board">${rows.join('')}</div>
+        <div class="wordle-keyboard">${kbHtml}</div>
+        ${gameOver ? '<button type="button" class="button primary wordle-restart">Play again</button>' : ''}`;
+                    container.querySelectorAll('.wordle-key').forEach(btn => btn.addEventListener('click', () => keyPress(btn.dataset.key)));
+                    const restartBtn = container.querySelector('.wordle-restart'); if (restartBtn) restartBtn.addEventListener('click', () => { reset(); render(); }); }
+                document.addEventListener('keydown', keyHandler);
+                reset(); render();
+                return () => { document.removeEventListener('keydown', keyHandler); container.innerHTML = ''; };
+            }
+
+            // ---- Crossword (procedurally generated from a word+clue bank — no AI/sign-in needed) -----------
+            const CROSSWORD_BANK = [
+                { word: 'GALAXY', clue: 'The Milky Way, for one' },
+                { word: 'VOLCANO', clue: 'Mountain that can erupt' },
+                { word: 'ECLIPSE', clue: 'When the moon blocks the sun, or vice versa' },
+                { word: 'GRAVITY', clue: 'Force that pulls objects toward Earth' },
+                { word: 'OXYGEN', clue: 'Element we breathe in to survive' },
+                { word: 'PLANET', clue: 'Earth or Mars, for example' },
+                { word: 'COMET', clue: 'Icy object with a glowing tail' },
+                { word: 'METEOR', clue: 'A shooting star' },
+                { word: 'NEBULA', clue: 'Cloud of gas and dust in space' },
+                { word: 'ORBIT', clue: "A planet's path around a star" },
+                { word: 'VACCINE', clue: 'Shot that helps prevent disease' },
+                { word: 'NEURON', clue: 'A brain cell' },
+                { word: 'ENZYME', clue: 'A biological catalyst' },
+                { word: 'PROTEIN', clue: 'Nutrient that builds muscle' },
+                { word: 'VITAMIN', clue: 'Nutrient like C or D' },
+                { word: 'BACTERIA', clue: 'Microscopic single-celled organisms' },
+                { word: 'VIRUS', clue: 'Pathogen smaller than a bacterium' },
+                { word: 'GENOME', clue: "An organism's complete set of DNA" },
+                { word: 'ALGEBRA', clue: 'Branch of maths using letters like x and y' },
+                { word: 'GEOMETRY', clue: 'The study of shapes' },
+                { word: 'FRACTION', clue: 'A half or a third, for example' },
+                { word: 'DECIMAL', clue: 'Number written with a point, like 0.5' },
+                { word: 'TRIANGLE', clue: 'A three-sided shape' },
+                { word: 'HEXAGON', clue: 'A six-sided shape' },
+                { word: 'CIRCLE', clue: 'A round shape with no corners' },
+                { word: 'VOLUME', clue: 'Amount of 3D space something takes up' },
+                { word: 'DENSITY', clue: 'Mass divided by volume' },
+                { word: 'FRICTION', clue: 'Force that resists motion between surfaces' },
+                { word: 'MAGNET', clue: 'An object that attracts iron' },
+                { word: 'CIRCUIT', clue: 'A path for electric current' },
+                { word: 'VOLTAGE', clue: 'Electrical pressure, measured in volts' },
+                { word: 'MOLECULE', clue: 'A group of atoms bonded together' },
+                { word: 'ELEMENT', clue: 'A substance on the periodic table' },
+                { word: 'ISOTOPE', clue: 'An atom with a different number of neutrons' },
+                { word: 'CATALYST', clue: 'Something that speeds up a reaction' },
+                { word: 'MIXTURE', clue: 'A combination of substances, not chemically bonded' },
+                { word: 'MONARCHY', clue: 'Rule by a king or queen' },
+                { word: 'REPUBLIC', clue: 'A state without a monarch' },
+                { word: 'SENATE', clue: 'An upper house of government' },
+                { word: 'CONGRESS', clue: 'The US legislative branch' },
+                { word: 'ELECTION', clue: 'The process of voting for leaders' },
+                { word: 'TREATY', clue: 'A formal agreement between nations' },
+                { word: 'EMPIRE', clue: 'A vast territory under one ruler' },
+                { word: 'COLONY', clue: 'A territory controlled by another country' },
+                { word: 'MEDIEVAL', clue: 'Relating to the Middle Ages' },
+                { word: 'ANCIENT', clue: 'Very old, like Rome or Egypt' },
+                { word: 'PHARAOH', clue: 'An Egyptian ruler' },
+                { word: 'PYRAMID', clue: 'Shape of an ancient Egyptian tomb' },
+                { word: 'GLADIATOR', clue: 'A Roman arena fighter' },
+                { word: 'SENATOR', clue: 'A member of the Senate' },
+                { word: 'DYNASTY', clue: 'A series of rulers from one family' },
+                { word: 'SONNET', clue: 'A 14-line poem' },
+                { word: 'METAPHOR', clue: 'A figure of speech, not to be taken literally' },
+                { word: 'SIMILE', clue: "A comparison using 'like' or 'as'" },
+                { word: 'IRONY', clue: 'Saying the opposite of what you mean' },
+                { word: 'NARRATOR', clue: 'The voice telling a story' },
+                { word: 'DIALOGUE', clue: 'Conversation written in a story' },
+                { word: 'CHAPTER', clue: 'A section of a book' },
+                { word: 'AUTHOR', clue: 'The writer of a book' },
+                { word: 'GRAMMAR', clue: 'The rules of a language' },
+                { word: 'SYNONYM', clue: 'A word that means the same as another' },
+                { word: 'ANTONYM', clue: 'A word that means the opposite of another' },
+                { word: 'PRONOUN', clue: "'He', 'she' or 'it', grammatically" },
+                { word: 'PENINSULA', clue: 'Land surrounded by water on three sides' },
+                { word: 'PLATEAU', clue: 'A flat, elevated area of land' },
+                { word: 'GLACIER', clue: 'A slow-moving mass of ice' },
+                { word: 'CANYON', clue: 'A deep gorge, like the Grand one' },
+                { word: 'DESERT', clue: 'A dry, sandy region' },
+                { word: 'TSUNAMI', clue: 'A giant wave often caused by an earthquake' },
+                { word: 'HURRICANE', clue: 'A powerful tropical storm' },
+                { word: 'DROUGHT', clue: 'A long period without rain' },
+                { word: 'CLIMATE', clue: 'The long-term weather pattern of a region' },
+                { word: 'EQUATOR', clue: "The line dividing Earth into two hemispheres" },
+                { word: 'LATITUDE', clue: 'Distance north or south of the equator' },
+                { word: 'CAPITAL', clue: "A country's main city" },
+                { word: 'CURRENCY', clue: "A country's official money" },
+                { word: 'ECONOMY', clue: "A country's financial system" },
+                { word: 'INFLATION', clue: 'A general rise in prices over time' },
+                { word: 'BUDGET', clue: 'A plan for spending money' },
+                { word: 'INTEREST', clue: 'The fee charged for borrowing money' },
+            ].filter(e => e.word.length >= 3 && e.word.length <= 10);
+            function generateCrossword() {
+                const ATTEMPTS = 40, TARGET_WORDS = 14, MIN_WORDS = 9, MAX_SPAN = 15;
+                for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+                    const pool = gameShuffle(CROSSWORD_BANK).slice(0, 34).sort((a,b) => b.word.length - a.word.length);
+                    const cells = new Map(), placed = [], key = (r,c) => r+','+c;
+                    function canPlace(word, row, col, dir) { const dr = dir==='down'?1:0, dc = dir==='across'?1:0;
+                        if (cells.has(key(row-dr, col-dc)) || cells.has(key(row+dr*word.length, col+dc*word.length))) return false;
+                        let crossed = false;
+                        for (let i=0;i<word.length;i++) { const r = row+dr*i, c = col+dc*i, existing = cells.get(key(r,c));
+                            if (existing !== undefined) { if (existing !== word[i]) return false; crossed = true; }
+                            else { const n1 = dir==='across'?key(r-1,c):key(r,c-1), n2 = dir==='across'?key(r+1,c):key(r,c+1);
+                                if (cells.has(n1) || cells.has(n2)) return false; } }
+                        return crossed; }
+                    let curMinR = 0, curMaxR = 0, curMinC = 0, curMaxC = 0;
+                    function span(row, col, dir, len) { const dr = dir==='down'?1:0, dc = dir==='across'?1:0,
+                            endR = row+dr*(len-1), endC = col+dc*(len-1);
+                        return { minR: Math.min(curMinR,row,endR), maxR: Math.max(curMaxR,row,endR),
+                            minC: Math.min(curMinC,col,endC), maxC: Math.max(curMaxC,col,endC) }; }
+                    function place(entry, row, col, dir) { const { word } = entry, dr = dir==='down'?1:0, dc = dir==='across'?1:0;
+                        for (let i=0;i<word.length;i++) cells.set(key(row+dr*i, col+dc*i), word[i]);
+                        const s = span(row, col, dir, word.length); curMinR=s.minR; curMaxR=s.maxR; curMinC=s.minC; curMaxC=s.maxC;
+                        placed.push({ ...entry, row, col, dir }); }
+                    place(pool[0], 0, 0, 'across');
+                    // Multiple passes over the still-unplaced words: a word with no valid crossing yet may
+                    // gain one once more words are on the board, so keep looping while any pass makes progress
+                    // rather than giving up on a word the first time it's tried. Among valid crossings for a
+                    // word, prefer whichever keeps the overall grid most compact (least bounding-box growth)
+                    // instead of a random one, so puzzles don't sprawl into an unplayably large grid.
+                    let remaining = pool.slice(1), progress = true;
+                    while (progress && placed.length < TARGET_WORDS) { progress = false;
+                        for (let wi=0; wi<remaining.length && placed.length<TARGET_WORDS; wi++) { const entry = remaining[wi], word = entry.word;
+                            if (placed.some(p=>p.word===word)) { remaining.splice(wi,1); wi--; continue; }
+                            let best = null, bestGrowth = Infinity;
+                            for (const p of placed) for (let pi=0;pi<p.word.length;pi++) for (let wj=0;wj<word.length;wj++) {
+                                if (p.word[pi] !== word[wj]) continue;
+                                const newDir = p.dir==='across'?'down':'across';
+                                const row = p.dir==='across' ? p.row-wj : p.row+pi, col = p.dir==='across' ? p.col+pi : p.col-wj;
+                                if (!canPlace(word, row, col, newDir)) continue;
+                                const s = span(row, col, newDir, word.length),
+                                    growth = (s.maxR-s.minR) + (s.maxC-s.minC) - ((curMaxR-curMinR)+(curMaxC-curMinC));
+                                if (growth < bestGrowth) { bestGrowth = growth; best = { row, col, dir: newDir }; } }
+                            if (best) { place(entry, best.row, best.col, best.dir); remaining.splice(wi,1); wi--; progress = true; } } }
+                    if (placed.length < MIN_WORDS) continue;
+                    const rows = [...cells.keys()].map(k=>Number(k.split(',')[0])), cols = [...cells.keys()].map(k=>Number(k.split(',')[1]));
+                    const minR = Math.min(...rows), maxR = Math.max(...rows), minC = Math.min(...cols), maxC = Math.max(...cols);
+                    if (maxR-minR > MAX_SPAN || maxC-minC > MAX_SPAN) continue;
+                    const shifted = placed.map(p => ({ ...p, row: p.row-minR, col: p.col-minC }));
+                    const solution = new Map([...cells.entries()].map(([k,v]) => { const [r,c] = k.split(',').map(Number); return [(r-minR)+','+(c-minC), v]; }));
+                    const startCells = [];
+                    shifted.forEach(p => { let s = startCells.find(x=>x.row===p.row && x.col===p.col);
+                        if (!s) { s = { row: p.row, col: p.col }; startCells.push(s); } s[p.dir] = p; });
+                    startCells.sort((a,b) => a.row-b.row || a.col-b.col);
+                    startCells.forEach((s,i) => s.number = i+1);
+                    shifted.forEach(p => { p.number = startCells.find(x=>x.row===p.row && x.col===p.col).number; });
+                    return { words: shifted, solution, height: maxR-minR+1, width: maxC-minC+1 };
+                }
+                return null;
+            }
+            function mountCrossword(container) {
+                let puzzle, entries, activeWord, checked = false, pendingFocus = null;
+                function fallbackPuzzle() { const e = CROSSWORD_BANK[0];
+                    return { words: [{ ...e, row:0, col:0, dir:'across', number:1 }],
+                        solution: new Map(e.word.split('').map((l,i)=>[`0,${i}`,l])), height: 1, width: e.word.length }; }
+                function newPuzzle() { puzzle = generateCrossword() || fallbackPuzzle();
+                    entries = new Map(); checked = false; activeWord = puzzle.words.find(w=>w.dir==='across') || puzzle.words[0]; }
+                function cellsOf(word) { const dr = word.dir==='down'?1:0, dc = word.dir==='across'?1:0;
+                    return Array.from({length: word.word.length}, (_,i) => ({ row: word.row+dr*i, col: word.col+dc*i })); }
+                function wordsAt(row, col) { return puzzle.words.filter(w => cellsOf(w).some(c=>c.row===row && c.col===col)); }
+                function focusCell(row, col) { const el = container.querySelector(`.cw-input[data-r="${row}"][data-c="${col}"]`); if (el) el.focus(); }
+                function selectCell(row, col) { const at = wordsAt(row, col); if (!at.length) return;
+                    if (activeWord && at.includes(activeWord)) { const other = at.find(w=>w!==activeWord); if (other) activeWord = other; }
+                    else activeWord = at[0];
+                    render(); focusCell(row, col); }
+                function selectClue(word) { activeWord = word; render(); const c = cellsOf(word)[0]; focusCell(c.row, c.col); }
+                function onInput(row, col, value) { const v = value.slice(-1).toUpperCase(); if (v && !/^[A-Z]$/.test(v)) return;
+                    entries.set(row+','+col, v);
+                    if (v && activeWord) { const cells = cellsOf(activeWord), idx = cells.findIndex(c=>c.row===row&&c.col===col);
+                        if (idx !== -1 && idx < cells.length-1) pendingFocus = cells[idx+1]; }
+                    checked = false; render(); }
+                function onKeyDown(e, row, col) { if (e.key === 'Backspace' && !entries.get(row+','+col) && activeWord) {
+                        const cells = cellsOf(activeWord), idx = cells.findIndex(c=>c.row===row&&c.col===col);
+                        if (idx > 0) { pendingFocus = cells[idx-1]; render(); } } }
+                function checkAnswers() { checked = true; render(); }
+                function isSolved() { return [...puzzle.solution.entries()].every(([k,v]) => entries.get(k) === v); }
+                function render() {
+                    const grid = Array.from({length: puzzle.height}, () => Array(puzzle.width).fill(false));
+                    puzzle.words.forEach(w => cellsOf(w).forEach(c => { grid[c.row][c.col] = true; }));
+                    const startNumbers = {}; puzzle.words.forEach(w => { startNumbers[w.row+','+w.col] = w.number; });
+                    const activeCells = activeWord ? cellsOf(activeWord).map(c=>c.row+','+c.col) : [];
+                    let gridHtml = '';
+                    for (let r=0;r<puzzle.height;r++) for (let c=0;c<puzzle.width;c++) { if (!grid[r][c]) { gridHtml += '<div class="cw-block"></div>'; continue; }
+                        const k = r+','+c, val = entries.get(k) || '', num = startNumbers[k], sol = puzzle.solution.get(k),
+                            correctness = checked ? (val && val===sol ? 'correct' : val ? 'wrong' : '') : '';
+                        gridHtml += `<div class="cw-cell ${activeCells.includes(k)?'active':''}">${num?`<span class="cw-num">${num}</span>`:''}<input class="cw-input ${correctness}" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" data-r="${r}" data-c="${c}" value="${val}"></div>`; }
+                    const clueList = dir => puzzle.words.filter(w=>w.dir===dir).sort((a,b)=>a.number-b.number)
+                        .map(w => `<li class="${activeWord===w?'active':''}" data-num="${w.number}" data-dir="${dir}">${w.number}. ${escape(w.clue)}</li>`).join('');
+                    container.innerHTML = `<div class="game-stat-line">${isSolved() ? '🎉 Solved!' : `${puzzle.words.length} words — fill in the grid.`}</div>
+        <div class="cw-grid" style="grid-template-columns:repeat(${puzzle.width}, 34px)">${gridHtml}</div>
+        <div class="cw-clues"><div><h4>Across</h4><ul>${clueList('across')}</ul></div><div><h4>Down</h4><ul>${clueList('down')}</ul></div></div>
+        <div class="game-actions"><button type="button" class="button ghost cw-check">Check answers</button><button type="button" class="button primary cw-new">New puzzle</button></div>`;
+                    container.querySelectorAll('.cw-input').forEach(input => { const r = Number(input.dataset.r), c = Number(input.dataset.c);
+                        input.addEventListener('focus', () => selectCell(r,c));
+                        input.addEventListener('input', e => onInput(r,c,e.target.value));
+                        input.addEventListener('keydown', e => onKeyDown(e,r,c)); });
+                    container.querySelectorAll('.cw-clues li').forEach(li => li.addEventListener('click', () => {
+                        const w = puzzle.words.find(x => x.number===Number(li.dataset.num) && x.dir===li.dataset.dir); if (w) selectClue(w); }));
+                    container.querySelector('.cw-check').addEventListener('click', checkAnswers);
+                    container.querySelector('.cw-new').addEventListener('click', () => { newPuzzle(); render(); });
+                    if (pendingFocus) { const p = pendingFocus; pendingFocus = null; focusCell(p.row, p.col); } }
+                newPuzzle(); render();
+                return () => { container.innerHTML = ''; };
+            }
+
+            // ---- Connections (curated puzzle bank — 4 groups of 4 related words) --------------------------
+            const CONNECTIONS_PUZZLES = [
+                { groups: [
+                    { name: '___ APPLE', color: 'yellow', words: ['CANDY','PINE','CRAB','BIG'] },
+                    { name: 'Card games', color: 'green', words: ['POKER','BRIDGE','RUMMY','SOLITAIRE'] },
+                    { name: 'Types of bread', color: 'blue', words: ['RYE','SOURDOUGH','BAGUETTE','CIABATTA'] },
+                    { name: '___ BREAK', color: 'purple', words: ['LUNCH','SPRING','COMMERCIAL','TIE'] } ] },
+                { groups: [
+                    { name: 'Planets', color: 'yellow', words: ['MARS','VENUS','SATURN','NEPTUNE'] },
+                    { name: 'Chocolate bars', color: 'green', words: ['TWIX','KITKAT','AERO','WISPA'] },
+                    { name: 'Dog breeds', color: 'blue', words: ['LABRADOR','POODLE','BEAGLE','COLLIE'] },
+                    { name: 'Weather phenomena', color: 'purple', words: ['THUNDER','LIGHTNING','HAIL','FOG'] } ] },
+                { groups: [
+                    { name: 'Shades of blue', color: 'yellow', words: ['NAVY','COBALT','TEAL','AZURE'] },
+                    { name: 'Boxing terms', color: 'green', words: ['JAB','HOOK','UPPERCUT','CLINCH'] },
+                    { name: 'Types of dance', color: 'blue', words: ['TANGO','SALSA','WALTZ','FOXTROT'] },
+                    { name: 'Kitchen appliances', color: 'purple', words: ['BLENDER','TOASTER','KETTLE','MICROWAVE'] } ] },
+                { groups: [
+                    { name: 'Greek letters', color: 'yellow', words: ['ALPHA','BETA','GAMMA','DELTA'] },
+                    { name: 'US states', color: 'green', words: ['TEXAS','UTAH','OHIO','IOWA'] },
+                    { name: 'Musical instruments', color: 'blue', words: ['VIOLIN','TRUMPET','CLARINET','CELLO'] },
+                    { name: 'Types of pasta', color: 'purple', words: ['PENNE','FUSILLI','LINGUINE','RIGATONI'] } ] },
+                { groups: [
+                    { name: 'Chess pieces', color: 'yellow', words: ['KNIGHT','BISHOP','ROOK','PAWN'] },
+                    { name: 'Birds', color: 'green', words: ['ROBIN','SPARROW','FALCON','CROW'] },
+                    { name: 'Types of tea', color: 'blue', words: ['GREEN','CHAMOMILE','EARLGREY','OOLONG'] },
+                    { name: 'Constellations', color: 'purple', words: ['ORION','URSA','LEO','CASSIOPEIA'] } ] },
+                { groups: [
+                    { name: 'Units of time', color: 'yellow', words: ['DECADE','CENTURY','FORTNIGHT','MOMENT'] },
+                    { name: 'Precious stones', color: 'green', words: ['RUBY','EMERALD','SAPPHIRE','DIAMOND'] },
+                    { name: 'Types of clouds', color: 'blue', words: ['CIRRUS','CUMULUS','STRATUS','NIMBUS'] },
+                    { name: 'Card game verbs', color: 'purple', words: ['SHUFFLE','DEAL','BLUFF','FOLD'] } ] },
+                { groups: [
+                    { name: 'Ocean layers', color: 'yellow', words: ['SUNLIGHT','TWILIGHT','MIDNIGHT','ABYSS'] },
+                    { name: 'Types of poems', color: 'green', words: ['HAIKU','SONNET','LIMERICK','BALLAD'] },
+                    { name: 'Baking ingredients', color: 'blue', words: ['FLOUR','YEAST','SUGAR','BUTTER'] },
+                    { name: 'Board games', color: 'purple', words: ['CHESS','CHECKERS','BACKGAMMON','DOMINOES'] } ] },
+                { groups: [
+                    { name: 'Types of maps', color: 'yellow', words: ['POLITICAL','TOPOGRAPHIC','WEATHER','TREASURE'] },
+                    { name: 'Sandwiches', color: 'green', words: ['CLUB','REUBEN','PANINI','SUBMARINE'] },
+                    { name: 'Musical genres', color: 'blue', words: ['JAZZ','REGGAE','TECHNO','FOLK'] },
+                    { name: 'Parts of a castle', color: 'purple', words: ['MOAT','TURRET','DRAWBRIDGE','RAMPART'] } ] },
+                { groups: [
+                    { name: 'Ways to laugh', color: 'yellow', words: ['GIGGLE','CHUCKLE','SNICKER','CACKLE'] },
+                    { name: 'Fencing terms', color: 'green', words: ['PARRY','LUNGE','THRUST','FOIL'] },
+                    { name: 'Farm animals', color: 'blue', words: ['GOAT','PIG','DONKEY','ROOSTER'] },
+                    { name: 'Types of knots', color: 'purple', words: ['REEF','BOWLINE','GRANNY','SLIP'] } ] },
+                { groups: [
+                    { name: 'Types of storms', color: 'yellow', words: ['HURRICANE','TORNADO','BLIZZARD','MONSOON'] },
+                    { name: 'Olympic sports', color: 'green', words: ['ARCHERY','FENCING','ROWING','DIVING'] },
+                    { name: 'Types of bridges', color: 'blue', words: ['SUSPENSION','ARCH','BEAM','CANTILEVER'] },
+                    { name: 'Spices', color: 'purple', words: ['CINNAMON','NUTMEG','PAPRIKA','TURMERIC'] } ] },
+                { groups: [
+                    { name: 'Shakespeare plays', color: 'yellow', words: ['HAMLET','MACBETH','OTHELLO','TEMPEST'] },
+                    { name: 'Types of galaxies', color: 'green', words: ['SPIRAL','ELLIPTICAL','IRREGULAR','LENTICULAR'] },
+                    { name: 'Poker hands', color: 'blue', words: ['PAIR','FLUSH','STRAIGHT','QUADS'] },
+                    { name: 'Types of volcanoes', color: 'purple', words: ['SHIELD','CINDER','COMPOSITE','CALDERA'] } ] },
+                { groups: [
+                    { name: 'Dinosaurs', color: 'yellow', words: ['TREX','TRICERATOPS','VELOCIRAPTOR','STEGOSAURUS'] },
+                    { name: 'Punctuation marks', color: 'green', words: ['COMMA','SEMICOLON','HYPHEN','ELLIPSIS'] },
+                    { name: 'Currencies', color: 'blue', words: ['DOLLAR','EURO','YEN','PESO'] },
+                    { name: 'Musical tempos', color: 'purple', words: ['ALLEGRO','ADAGIO','PRESTO','ANDANTE'] } ] },
+                { groups: [
+                    { name: 'Norse gods', color: 'yellow', words: ['ODIN','THOR','LOKI','FREYA'] },
+                    { name: 'Types of coffee', color: 'green', words: ['ESPRESSO','LATTE','MOCHA','CAPPUCCINO'] },
+                    { name: 'Monopoly tokens', color: 'blue', words: ['THIMBLE','TOPHAT','BOOT','WHEELBARROW'] },
+                    { name: 'Types of triangles', color: 'purple', words: ['EQUILATERAL','ISOSCELES','SCALENE','RIGHT'] } ] },
+                { groups: [
+                    { name: 'Egyptian gods', color: 'yellow', words: ['RA','ANUBIS','ISIS','HORUS'] },
+                    { name: 'Types of sushi', color: 'green', words: ['NIGIRI','SASHIMI','MAKI','URAMAKI'] },
+                    { name: 'Units of length', color: 'blue', words: ['INCH','FOOT','YARD','MILE'] },
+                    { name: 'Chess openings', color: 'purple', words: ['SICILIAN','CAROKANN','FRENCH','ITALIAN'] } ] },
+            ];
+            function mountConnections(container) {
+                const COLOR_HEX = { yellow: '#f1c40f', green: '#2ecc71', blue: '#3498db', purple: '#9b59b6' };
+                let puzzle, tiles, selected, solvedGroups, mistakes, gameOver, won, shake;
+                function newPuzzle() { puzzle = CONNECTIONS_PUZZLES[Math.floor(Math.random()*CONNECTIONS_PUZZLES.length)];
+                    const allWords = []; puzzle.groups.forEach((g,gi) => g.words.forEach(w => allWords.push({ word: w, groupIdx: gi })));
+                    tiles = gameShuffle(allWords); selected = []; solvedGroups = []; mistakes = 0; gameOver = false; won = false; shake = false; }
+                function toggle(word) { if (gameOver || shake) return;
+                    if (selected.includes(word)) { selected = selected.filter(w=>w!==word); render(); return; }
+                    if (selected.length >= 4) return; selected.push(word); render();
+                    if (selected.length === 4) setTimeout(submit, 250); }
+                function submit() { const idxs = selected.map(w => tiles.find(t=>t.word===w).groupIdx);
+                    if (idxs.every(i => i === idxs[0])) { solvedGroups.push(idxs[0]); tiles = tiles.filter(t => !selected.includes(t.word)); selected = [];
+                        if (solvedGroups.length === 4) { won = true; gameOver = true; } render(); }
+                    else { mistakes++; shake = true; render();
+                        setTimeout(() => { shake = false; selected = [];
+                            if (mistakes >= 4) { gameOver = true; puzzle.groups.forEach((g,i) => { if (!solvedGroups.includes(i)) solvedGroups.push(i); }); tiles = []; }
+                            render(); }, 700); } }
+                function render() {
+                    const solvedHtml = solvedGroups.map(i => { const g = puzzle.groups[i];
+                        return `<div class="conn-solved-row" style="background:${COLOR_HEX[g.color]}"><strong>${escape(g.name)}</strong><span>${g.words.join(', ')}</span></div>`; }).join('');
+                    const tilesHtml = tiles.map(t => `<button type="button" class="conn-tile ${selected.includes(t.word)?'selected':''} ${shake?'shake':''}" data-word="${t.word}">${t.word}</button>`).join('');
+                    container.innerHTML = `<div class="game-stat-line">${gameOver ? (won?'🎉 Solved it!':'Out of guesses — here are the groups.') : `Mistakes remaining: ${4-mistakes}`}</div>
+        <div class="conn-solved">${solvedHtml}</div>
+        <div class="conn-grid">${tilesHtml}</div>
+        <div class="small game-hint">${gameOver?'':'Pick four words you think belong together, then submit.'}</div>
+        <div class="game-actions">${!gameOver ?
+                        `<button type="button" class="button ghost conn-deselect">Deselect all</button><button type="button" class="button primary conn-submit" ${selected.length!==4?'disabled':''}>Submit</button>` :
+                        '<button type="button" class="button primary conn-new">New puzzle</button>'}</div>`;
+                    container.querySelectorAll('.conn-tile').forEach(btn => btn.addEventListener('click', () => toggle(btn.dataset.word)));
+                    const deselectBtn = container.querySelector('.conn-deselect'); if (deselectBtn) deselectBtn.addEventListener('click', () => { selected=[]; render(); });
+                    const submitBtn = container.querySelector('.conn-submit'); if (submitBtn) submitBtn.addEventListener('click', submit);
+                    const newBtn = container.querySelector('.conn-new'); if (newBtn) newBtn.addEventListener('click', () => { newPuzzle(); render(); }); }
+                newPuzzle(); render();
+                return () => { container.innerHTML = ''; };
+            }
+
+            // ---- Ultimate Tic-Tac-Toe — async multiplayer over game_invites/game_matches ------------------
+            // Pure board engine, shared between rendering and the move a player submits: a 9x9 grid of
+            // cells (index = bigCellIndex*9 + smallCellIndex), each 'x' | 'o' | null. `nextBig` says which
+            // of the 9 big cells the player about to move must play in, or null for a free choice.
+            function utttEmptyCells() { return Array(81).fill(null); }
+            function utttCheckWinner(cells9) { const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                for (const [a,b,c] of LINES) if (cells9[a] && cells9[a]===cells9[b] && cells9[a]===cells9[c]) return cells9[a];
+                return cells9.every(v=>v) ? 'draw' : null; }
+            function utttBigWinners(cells) { return Array.from({length:9}, (_,bi) => utttCheckWinner(cells.slice(bi*9, bi*9+9))); }
+            function utttOverallResult(cells) { const bigWinners = utttBigWinners(cells),
+                    forWin = bigWinners.map(w => (w==='x'||w==='o') ? w : null),
+                    LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                for (const [a,b,c] of LINES) if (forWin[a] && forWin[a]===forWin[b] && forWin[a]===forWin[c]) return forWin[a];
+                return bigWinners.every(w=>w) ? 'draw' : null; }
+            function utttLegalBigCells(cells, nextBig) { const bigWinners = utttBigWinners(cells);
+                if (nextBig !== null && nextBig !== undefined && !bigWinners[nextBig]) return [nextBig];
+                return bigWinners.map((w,i)=>w?-1:i).filter(i=>i>=0); }
+            function utttLegalMove(cells, nextBig, bigIdx, smallIdx) { if (cells[bigIdx*9+smallIdx]) return false;
+                if (utttOverallResult(cells)) return false;
+                return utttLegalBigCells(cells, nextBig).includes(bigIdx); }
+            function utttApplyMove(cells, bigIdx, smallIdx, mark) { const next = cells.slice(); next[bigIdx*9+smallIdx] = mark;
+                const bigWinners = utttBigWinners(next); return { cells: next, nextBig: bigWinners[smallIdx] ? null : smallIdx }; }
+
+            function mountUltimateTTT(container) {
+                const local = { view: 'list', activeMatchId: null, activeMatch: null, searchQuery: '', searchResults: null };
+                let matchPollId = null;
+                function stopMatchPoll() { if (matchPollId) { clearInterval(matchPollId); matchPollId = null; } }
+                async function refreshLists() { await gamePollForUpdates(); render(); }
+                async function loadMatch() { const { data, error } = await supabaseClient.from('game_matches').select('*').eq('id', local.activeMatchId).maybeSingle();
+                    if (!error && data) { local.activeMatch = data; render(); } }
+                async function openMatch(matchId) { local.view = 'match'; local.activeMatchId = matchId; local.activeMatch = null; render();
+                    await loadMatch(); stopMatchPoll(); matchPollId = setInterval(loadMatch, 4000); }
+                function backToList() { stopMatchPoll(); local.view = 'list'; local.activeMatchId = null; local.activeMatch = null; refreshLists(); }
+                async function acceptInvite(id) { const { error } = await supabaseClient.rpc('accept_game_invite', { p_invite_id: id });
+                    toast(error ? (error.message || 'Could not accept that challenge.') : 'Challenge accepted — your move!');
+                    await refreshLists(); }
+                async function declineInvite(id) { await supabaseClient.rpc('decline_game_invite', { p_invite_id: id }); await refreshLists(); }
+                function openSearch() { local.view = 'search'; local.searchQuery = ''; local.searchResults = null; render(); }
+                async function runSearch(q) { local.searchQuery = q; if (q.trim().length < 2) { local.searchResults = null; render(); return; }
+                    render();
+                    const { data, error } = await supabaseClient.rpc('chat_search_users', { p_query: q.trim() });
+                    local.searchResults = error ? [] : data; render(); }
+                async function sendChallenge(userId) { const { error } = await supabaseClient.rpc('create_game_invite', { p_invitee_id: userId, p_game_type: 'ultimate_ttt' });
+                    toast(error ? (error.message || 'Could not send that challenge.') : 'Challenge sent!');
+                    local.view = 'list'; await refreshLists(); }
+                async function makeMove(bigIdx, smallIdx) { const m = local.activeMatch; if (!m || m.status !== 'active') return;
+                    const myColor = myTurnColor(m); if (m.turn !== myColor) return;
+                    const cells = (m.board && m.board.cells) || utttEmptyCells();
+                    const nextBig = (m.board && 'nextBig' in m.board) ? m.board.nextBig : null;
+                    if (!utttLegalMove(cells, nextBig, bigIdx, smallIdx)) return;
+                    const applied = utttApplyMove(cells, bigIdx, smallIdx, myColor);
+                    const result = utttOverallResult(applied.cells);
+                    const newStatus = result === 'x' ? 'x_won' : result === 'o' ? 'o_won' : result === 'draw' ? 'draw' : 'active';
+                    const { error } = await supabaseClient.from('game_matches').update({
+                        board: { cells: applied.cells, nextBig: applied.nextBig }, turn: myColor === 'x' ? 'o' : 'x',
+                        status: newStatus, updated_at: new Date().toISOString() }).eq('id', m.id);
+                    if (error) { toast('Could not save that move — try again.'); return; }
+                    await loadMatch(); }
+                function renderList() {
+                    const myInvites = (gameInvites||[]).filter(i => i.invitee_id === currentUser.id);
+                    const sentInvites = (gameInvites||[]).filter(i => i.inviter_id === currentUser.id);
+                    const invitesHtml = myInvites.map(inv => `<div class="uttt-row">
+            <span><strong>${escape(inv.inviter_name)}</strong> challenged you to Ultimate Tic-Tac-Toe</span>
+            <div class="row" style="gap:6px"><button type="button" class="button ghost uttt-decline" data-id="${inv.id}">Decline</button><button type="button" class="button primary uttt-accept" data-id="${inv.id}">Accept</button></div>
+          </div>`).join('');
+                    const sentHtml = sentInvites.map(inv => `<div class="uttt-row"><span>Waiting on a reply from your challenge</span><span class="pill neutral">Pending</span></div>`).join('');
+                    const matchesHtml = (gameMatches||[]).map(m => { const myColor = myTurnColor(m), opp = myColor==='x' ? m.player_o_name : m.player_x_name;
+                        return `<button type="button" class="uttt-row uttt-match-row" data-id="${m.id}">
+            <span>vs <strong>${escape(opp)}</strong></span>
+            <span class="pill ${m.turn===myColor?'good':'neutral'}">${m.turn===myColor?'Your move':'Their move'}</span>
+          </button>`; }).join('');
+                    container.innerHTML = `<div class="game-stat-line">Play over a day or two, or in real time if you're both online at once.</div>
+        ${invitesHtml ? `<h4>Challenges</h4><div class="uttt-list">${invitesHtml}</div>` : ''}
+        ${sentHtml ? `<h4>Sent</h4><div class="uttt-list">${sentHtml}</div>` : ''}
+        <h4>Your matches</h4>
+        <div class="uttt-list">${matchesHtml || '<p class="small">No matches yet — challenge someone to get started.</p>'}</div>
+        <button type="button" class="button primary uttt-challenge">🎮 Challenge someone</button>`;
+                    container.querySelectorAll('.uttt-accept').forEach(b => b.addEventListener('click', () => acceptInvite(b.dataset.id)));
+                    container.querySelectorAll('.uttt-decline').forEach(b => b.addEventListener('click', () => declineInvite(b.dataset.id)));
+                    container.querySelectorAll('.uttt-match-row').forEach(b => b.addEventListener('click', () => openMatch(b.dataset.id)));
+                    container.querySelector('.uttt-challenge').addEventListener('click', openSearch); }
+                function renderSearch() {
+                    const results = local.searchResults;
+                    const resultsHtml = results===null ? '<p class="small">Type at least 2 characters of a name or email.</p>' :
+                        !results.length ? '<p class="empty">No matches.</p>' :
+                        results.map(u => `<div class="topic-row"><div><strong>${escape(u.name)}</strong><span class="small">${escape(u.email)}</span></div><button type="button" class="button primary uttt-send-challenge" data-id="${u.user_id}">Challenge</button></div>`).join('');
+                    container.innerHTML = `<button type="button" class="subject-page-back uttt-back">← Back</button>
+        <div class="game-stat-line">Find someone to challenge</div>
+        <input type="text" id="uttt-search-input" placeholder="Full name or email" value="${escape(local.searchQuery)}" style="width:100%;max-width:360px;margin-bottom:12px">
+        <div class="uttt-list">${resultsHtml}</div>`;
+                    container.querySelector('.uttt-back').addEventListener('click', backToList);
+                    const input = container.querySelector('#uttt-search-input');
+                    input.addEventListener('input', e => runSearch(e.target.value));
+                    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+                    container.querySelectorAll('.uttt-send-challenge').forEach(b => b.addEventListener('click', () => sendChallenge(b.dataset.id))); }
+                function renderMatch() {
+                    const m = local.activeMatch;
+                    if (!m) { container.innerHTML = `<button type="button" class="subject-page-back uttt-back">← Back</button><p class="small">Loading…</p>`;
+                        container.querySelector('.uttt-back').addEventListener('click', backToList); return; }
+                    const myColor = myTurnColor(m), oppName = myColor==='x' ? m.player_o_name : m.player_x_name;
+                    const cells = (m.board && m.board.cells) || utttEmptyCells();
+                    const nextBig = (m.board && 'nextBig' in m.board) ? m.board.nextBig : null;
+                    const bigWinners = utttBigWinners(cells);
+                    const legalBig = m.status==='active' ? utttLegalBigCells(cells, nextBig) : [];
+                    const myTurnNow = m.status === 'active' && m.turn === myColor;
+                    let statusText;
+                    if (m.status === 'x_won') statusText = myColor==='x' ? '🎉 You won!' : `${escape(m.player_x_name)} won.`;
+                    else if (m.status === 'o_won') statusText = myColor==='o' ? '🎉 You won!' : `${escape(m.player_o_name)} won.`;
+                    else if (m.status === 'draw') statusText = "It's a draw.";
+                    else statusText = myTurnNow ? 'Your move' : `Waiting for ${escape(oppName)}…`;
+                    const bigCellsHtml = Array.from({length:9}, (_,bi) => { const small = cells.slice(bi*9, bi*9+9),
+                            isLegal = legalBig.includes(bi), winner = bigWinners[bi];
+                        const smallHtml = Array.from({length:9}, (_,si) => { const v = small[si], clickable = myTurnNow && isLegal && !v && !winner;
+                            return `<button type="button" class="uttt-small ${v?'filled '+v:''}" ${clickable?'':'disabled'} data-big="${bi}" data-small="${si}">${v?v.toUpperCase():''}</button>`; }).join('');
+                        return `<div class="uttt-big ${isLegal&&myTurnNow?'legal':''} ${winner?'won-'+winner:''}">
+            ${winner && winner!=='draw' ? `<div class="uttt-big-winner">${winner.toUpperCase()}</div>` : ''}
+            <div class="uttt-small-grid">${smallHtml}</div>
+          </div>`; }).join('');
+                    container.innerHTML = `<button type="button" class="subject-page-back uttt-back">← Back to matches</button>
+        <div class="game-stat-line">${statusText}</div>
+        <div class="small game-hint">You're ${myColor.toUpperCase()} · vs ${escape(oppName)}</div>
+        <div class="uttt-board">${bigCellsHtml}</div>`;
+                    container.querySelector('.uttt-back').addEventListener('click', backToList);
+                    container.querySelectorAll('.uttt-small:not([disabled])').forEach(btn => btn.addEventListener('click', () => makeMove(Number(btn.dataset.big), Number(btn.dataset.small)))); }
+                function render() { if (!currentUser) { container.innerHTML = `<div class="game-stat-line">Sign in to challenge someone to a game.</div>
+        <button type="button" class="button primary" data-action="sign-in-google">Sign in with Google</button>`; return; }
+                    if (local.view === 'search') renderSearch(); else if (local.view === 'match') renderMatch(); else renderList(); }
+                refreshLists();
+                return () => { stopMatchPoll(); container.innerHTML = ''; };
+            }
+
             const GAMES = {
                 solitaire: { title: 'Solitaire', icon: '🃏', desc: 'Classic Klondike — click a card to pick it up, then click where it should go.', hasScore: false, mount: mountSolitaire },
                 blackjack: { title: 'Blackjack', icon: '♠️', desc: 'Get closer to 21 than the dealer without going over.', hasScore: false, mount: mountBlackjack },
@@ -11623,7 +12451,14 @@ ${pointsSvg}
                 whackamole: { title: 'Whack-a-Mole', icon: '🔨', desc: 'Whack as many moles as you can in 30 seconds.', hasScore: true, mount: mountWhackAMole },
                 minesweeper: { title: 'Minesweeper', icon: '💣', desc: 'Clear the board without clicking on a mine.', hasScore: false, mount: mountMinesweeper },
                 breakout: { title: 'Breakout', icon: '🧱', desc: 'Bounce the ball to break every brick without missing it.', hasScore: true, mount: mountBreakout },
+                flappybird: { title: 'Flappy Bird', icon: '🐤', desc: 'Tap or press space to flap through the gaps without hitting a pipe.', hasScore: true, mount: mountFlappyBird },
+                blockblast: { title: 'Block Blast', icon: '🧊', desc: 'Place the blocks to clear full rows and columns before you run out of room.', hasScore: true, mount: mountBlockBlast },
+                wordle: { title: 'Wordle', icon: '🟩', desc: 'Guess the 5-letter word in 6 tries — a fresh word every time.', hasScore: false, mount: mountWordle },
+                crossword: { title: 'Crossword', icon: '📰', desc: 'A freshly generated crossword every time — click a clue or a cell to start typing.', hasScore: false, mount: mountCrossword },
+                connections: { title: 'Connections', icon: '🟪', desc: 'Find the four groups of four related words — from a bank of tricky hand-made puzzles.', hasScore: false, mount: mountConnections },
+                ultimatettt: { title: 'Ultimate Tic-Tac-Toe', icon: '🎯', desc: 'Challenge someone by name or email — play over a day, or in real time if you\'re both online.', hasScore: false, mount: mountUltimateTTT },
             };
+            GAME_ORDER.push('flappybird', 'blockblast', 'wordle', 'crossword', 'connections', 'ultimatettt');
 
             function caoCourseFormModal(courseId) { const c = courseId ? state.caoCourses.find(x => x.id ===
                     courseId) : null;
@@ -14513,9 +15348,15 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
                     .innerHTML = renderTools(); } else if (view === 'exam-papers') { document.getElementById('app').innerHTML = renderExamPapers();
-                    requestAnimationFrame(renderExamPaperCanvases); } else if (view === 'games') { document.getElementById('app')
-                    .innerHTML = renderGames();
-                    requestAnimationFrame(() => { const holder = document.getElementById('game-holder'); if (holder && gamesActiveGame) mountGameInto(holder, gamesActiveGame); }); } else if (view === 'chatrooms') { document.getElementById('app')
+                    requestAnimationFrame(renderExamPaperCanvases); } else if (view === 'games') {
+                    // Skip rebuilding while a game is already mounted here -- a periodic call into
+                    // this render() (chat's poll, the multiplayer games poll) would otherwise tear
+                    // down and remount whatever's running (a canvas game loop, an in-progress board)
+                    // every tick. Same reasoning as renderStudyModeOverlay's `!s.activeGame` guard.
+                    const gameAlreadyMounted = gamesActiveGame && currentGameCleanup && document.getElementById('game-holder');
+                    if (!gameAlreadyMounted) { document.getElementById('app').innerHTML = renderGames();
+                        requestAnimationFrame(() => { const holder = document.getElementById('game-holder'); if (holder && gamesActiveGame) mountGameInto(holder, gamesActiveGame); }); }
+                } else if (view === 'chatrooms') { document.getElementById('app')
                     .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
                     .innerHTML = renderAdminPage(); } else if (view === 'period-builder') { document.getElementById(
                     'app').innerHTML = renderPeriodBuilderPage(); } else { document.getElementById('app').innerHTML = renderTimetable();
