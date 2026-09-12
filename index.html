@@ -3214,6 +3214,49 @@
         .uttt-big-winner { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: min(14vw, 64px); font-weight: 800; background: color-mix(in srgb, var(--surface-2) 55%, transparent); border-radius: 6px; z-index: 1; }
         .uttt-big.won-x .uttt-big-winner { color: #3498db; }
         .uttt-big.won-o .uttt-big-winner { color: #e74c3c; }
+        /* ---- Word Solitaire (word-association solitaire) ---------------------------------------------- */
+        .assoc-mode-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; width: 100%; max-width: 700px; }
+        .assoc-playarea { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
+        .assoc-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 760px; flex-wrap: wrap; margin-bottom: 10px; }
+        .assoc-moves { font-weight: 700; }
+        .assoc-stock { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+        .assoc-stock-icon { font-size: 22px; }
+        .assoc-categories { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 760px; margin-bottom: 22px; }
+        .assoc-cat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px 10px; min-width: 92px;
+            text-align: center; cursor: pointer; transition: box-shadow .2s, border-color .2s; }
+        .assoc-cat:hover { box-shadow: 0 4px 10px rgba(0,0,0,.1); }
+        .assoc-cat-name { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; color: var(--muted); min-height: 26px; }
+        .assoc-cat-progress { font-size: 12px; font-weight: 700; color: var(--primary); margin: 2px 0 6px; }
+        .assoc-cat-slot { width: 64px; height: 90px; margin: 0 auto; position: relative; border: 2px dashed var(--line); border-radius: 8px; background: var(--surface-2); }
+        .assoc-cat.assoc-cat-complete { border-color: #2ecc71; }
+        .assoc-cat.assoc-cat-complete .assoc-cat-slot { border-style: solid; border-color: #2ecc71; }
+        .assoc-cat.assoc-shake { animation: assoc-shake .4s; }
+        .assoc-card.assoc-shake { animation: assoc-shake .4s; }
+        @keyframes assoc-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+        .assoc-tableau { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 760px; padding: 6px 0 34px; }
+        .assoc-pile { position: relative; width: 64px; height: 122px; }
+        .assoc-card { position: absolute; left: 0; top: 0; width: 64px; height: 90px; border-radius: 8px; border: 1px solid var(--line);
+            background: var(--surface); box-shadow: 0 3px 8px rgba(0,0,0,.15); display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 4px; cursor: default; font: inherit; color: var(--text); text-align: center; }
+        .assoc-card-emoji { font-size: 20px; line-height: 1; }
+        .assoc-card-text { font-size: 11px; font-weight: 700; margin-top: 3px; line-height: 1.15; word-break: break-word; }
+        .assoc-card.assoc-card-top { cursor: pointer; }
+        .assoc-card.assoc-card-top:hover { box-shadow: 0 6px 14px rgba(0,0,0,.25); }
+        .assoc-card:not(.assoc-card-top) { opacity: .85; }
+        .assoc-card.assoc-selected { outline: 3px solid var(--primary); outline-offset: -3px; box-shadow: 0 10px 18px rgba(0,0,0,.22); z-index: 999 !important; }
+        .assoc-card.assoc-card-landed { position: absolute; inset: 0; transform: scale(.72); box-shadow: none; border-color: var(--primary); }
+        .assoc-bottombar { margin-top: 4px; }
+        .assoc-win { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; border-radius: 16px; z-index: 50; }
+        .assoc-win.hidden { display: none; }
+        .assoc-win-card { background: var(--surface); border-radius: 16px; padding: 28px; text-align: center; max-width: 320px; box-shadow: 0 12px 30px rgba(0,0,0,.3); }
+        .sm-game-stage .assoc-card { width: 48px; height: 68px; }
+        .sm-game-stage .assoc-pile { width: 48px; height: 96px; }
+        .sm-game-stage .assoc-cat-slot { width: 48px; height: 68px; }
+        @media (max-width: 480px) {
+            .assoc-card, .assoc-cat-slot, .assoc-pile { width: 54px; }
+            .assoc-card, .assoc-cat-slot { height: 76px; }
+            .assoc-tableau { gap: 14px; }
+        }
         #study-mode-pip {
             position: fixed;
             right: 24px;
@@ -12440,6 +12483,380 @@ ${pointsSvg}
                 return () => { stopMatchPoll(); container.innerHTML = ''; };
             }
 
+            // ---- Word Solitaire — word-association solitaire (sort word cards into the right category) ----
+            function assocWord(w) { return Array.isArray(w) ? { text: w[0], emoji: w[1] || '' } : { text: w, emoji: '' }; }
+            function assocCat(name, words) { return { name, words }; }
+
+            const WORDASSOC_CLASSIC_LEVELS = [
+                { id: 'c1', title: 'Everyday Basics', categories: [
+                    assocCat('Pets', [['Dog','🐶'],['Cat','🐱'],['Hamster','🐹'],['Rabbit','🐰'],['Goldfish','🐠']]),
+                    assocCat('Family Members', ['Mother','Father','Sister','Brother','Grandma']),
+                    assocCat('Desserts', [['Cake','🍰'],['Donut','🍩'],['Ice Cream','🍦'],['Pie','🥧'],['Brownie','🍫']]),
+                    assocCat('Fruits', [['Apple','🍎'],['Banana','🍌'],['Grape','🍇'],['Orange','🍊'],['Mango','🥭']]),
+                ]},
+                { id: 'c2', title: 'Around the House', categories: [
+                    assocCat('Kitchen Items', ['Kettle','Toaster','Fridge','Oven','Blender']),
+                    assocCat('Furniture', ['Sofa','Table','Wardrobe','Bed','Desk']),
+                    assocCat('Cleaning', ['Mop','Broom','Hoover','Sponge','Duster']),
+                    assocCat('Cozy', ['Blanket','Candle','Pillow','Slippers','Fireplace']),
+                ]},
+                { id: 'c3', title: 'Nature & Animals', categories: [
+                    assocCat('Ocean Animals', [['Shark','🦈'],['Dolphin','🐬'],['Octopus','🐙'],['Crab','🦀'],['Whale','🐋']]),
+                    assocCat('Birds', ['Eagle',['Parrot','🦜'],['Owl','🦉'],'Sparrow',['Flamingo','🦩']]),
+                    assocCat('Weather', [['Rain','🌧️'],['Snow','❄️'],['Sunny','☀️'],['Windy','🌬️'],['Storm','⛈️']]),
+                    assocCat('Flowers', [['Rose','🌹'],['Tulip','🌷'],'Daisy',['Sunflower','🌻'],'Lily']),
+                ]},
+                { id: 'c4', title: 'Around Town', categories: [
+                    assocCat('Shops', ['Bakery','Pharmacy','Butcher','Bookshop','Florist']),
+                    assocCat('Transport', [['Bus','🚌'],['Train','🚆'],['Bicycle','🚲'],['Taxi','🚕'],['Plane','✈️']]),
+                    assocCat('Jobs', ['Doctor','Teacher','Chef','Builder','Nurse']),
+                    assocCat('Buildings', ['School','Hospital','Library','Cinema','Church']),
+                ]},
+                { id: 'c5', title: 'Food & Drink', categories: [
+                    assocCat('Breakfast', ['Toast','Cereal','Pancakes',['Eggs','🍳'],'Porridge']),
+                    assocCat('Drinks', [['Coffee','☕'],'Tea',['Juice','🧃'],['Water','💧'],['Milk','🥛']]),
+                    assocCat('Takeaway', [['Pizza','🍕'],['Burger','🍔'],'Chips',['Sushi','🍣'],'Kebab']),
+                    assocCat('Vegetables', [['Carrot','🥕'],['Potato','🥔'],['Broccoli','🥦'],'Onion','Pepper']),
+                ]},
+                { id: 'c6', title: 'Sports & Hobbies', categories: [
+                    assocCat('Sports', [['Football','⚽'],['Rugby','🏉'],['Tennis','🎾'],['Swimming','🏊'],['Golf','⛳']]),
+                    assocCat('Music Genres', ['Pop','Rock','Jazz','Hip-Hop','Classical']),
+                    assocCat('Games', [['Chess','♟️'],['Cards','🃏'],'Darts',['Bowling','🎳'],'Pool']),
+                    assocCat('School Subjects', ['Maths','English','Art','Science','History']),
+                ]},
+                { id: 'c7', title: 'Feelings & Occasions', categories: [
+                    assocCat('Emotions', [['Happy','😊'],['Sad','😢'],['Angry','😠'],['Excited','🤩'],['Nervous','😬']]),
+                    assocCat('Relatives', ['Uncle','Aunt','Cousin','Nephew','Niece']),
+                    assocCat('Occasions', [['Birthday','🎂'],['Wedding','💍'],['Christmas','🎄'],['Halloween','🎃'],['Graduation','🎓']]),
+                    assocCat('Colours', ['Red','Blue','Green','Yellow','Purple']),
+                ]},
+                { id: 'c8', title: 'Travel & World', categories: [
+                    assocCat('Countries', [['Ireland','🇮🇪'],['France','🇫🇷'],['Spain','🇪🇸'],['Italy','🇮🇹'],['Japan','🇯🇵']]),
+                    assocCat('Holiday Items', [['Suitcase','🧳'],'Passport',['Sunscreen','🧴'],['Camera','📷'],['Map','🗺️']]),
+                    assocCat('Continents', ['Europe','Asia','Africa',['America','🌎'],'Oceania']),
+                    assocCat('Seasons', [['Spring','🌱'],['Summer','☀️'],['Autumn','🍂'],['Winter','❄️']]),
+                ]},
+            ];
+
+            const WORDASSOC_SUBJECTS = [
+                { id: 'economics', title: 'Economics', icon: '📈', levels: [
+                    { id: 'economics-l1', title: 'Level 1', categories: [
+                        assocCat('Factors That Affect Demand', ['Price','Income','Tastes','Population','Substitutes']),
+                        assocCat('Effects of Inflation', ['Wage Demands','Less Saving','Menu Costs','Export Decline','Uncertainty']),
+                        assocCat('Factors of Production', ['Land','Labour','Capital','Enterprise']),
+                        assocCat('Canons of Taxation', ['Equity','Certainty','Convenience','Economy']),
+                    ]},
+                    { id: 'economics-l2', title: 'Level 2', categories: [
+                        assocCat('Types of Unemployment', ['Structural','Frictional','Seasonal','Cyclical','Technological']),
+                        assocCat('Market Structures', ['Monopoly','Oligopoly','Duopoly','Competition']),
+                        assocCat('EU Institutions', ['Commission','Parliament','Council','ECB']),
+                        assocCat('Types of Tax', ['Income Tax','VAT','Corporation Tax','Excise']),
+                    ]},
+                ]},
+                { id: 'business', title: 'Business', icon: '💼', levels: [
+                    { id: 'business-l1', title: 'Level 1', categories: [
+                        assocCat('Sources of Finance', ['Bank Loan','Overdraft','Leasing','Debenture','Share Capital']),
+                        assocCat('Marketing Mix', ['Price','Product','Place','Promotion']),
+                        assocCat('Types of Business', ['Sole Trader','Partnership','Co-op','Company']),
+                        assocCat('Management Skills', ['Planning','Organising','Leading','Controlling','Motivating']),
+                    ]},
+                    { id: 'business-l2', title: 'Level 2', categories: [
+                        assocCat('Insurance Types', ['Life','Fire','Motor','Liability']),
+                        assocCat('Economic Sectors', ['Primary','Secondary','Tertiary','Quaternary']),
+                        assocCat('Stakeholders', ['Shareholders','Employees','Customers','Government','Suppliers']),
+                        assocCat('Recruitment Methods', ['Internal','Advertising','Agency','Networking']),
+                    ]},
+                ]},
+                { id: 'biology', title: 'Biology', icon: '🧬', levels: [
+                    { id: 'biology-l1', title: 'Level 1', categories: [
+                        assocCat('Cell Organelles', ['Nucleus','Mitochondria','Ribosome','Chloroplast','Golgi Body']),
+                        assocCat('Blood Components', ['Plasma','Red Cells','White Cells','Platelets']),
+                        assocCat('Human Organs', ['Heart','Liver','Kidney','Lungs','Brain']),
+                        assocCat('Plant Parts', ['Root','Stem','Leaf','Flower','Seed']),
+                    ]},
+                    { id: 'biology-l2', title: 'Level 2', categories: [
+                        assocCat('Types of Joints', ['Hinge','Ball-Socket','Pivot','Gliding']),
+                        assocCat('Food Tests', ["Iodine","Benedict's",'Biuret','Ethanol']),
+                        assocCat('Microorganism Types', ['Bacteria','Fungi','Virus','Protista']),
+                        assocCat('Stages of Mitosis', ['Prophase','Metaphase','Anaphase','Telophase']),
+                    ]},
+                ]},
+                { id: 'chemistry', title: 'Chemistry', icon: '🧪', levels: [
+                    { id: 'chemistry-l1', title: 'Level 1', categories: [
+                        assocCat('States of Matter', ['Solid','Liquid','Gas','Plasma']),
+                        assocCat('Types of Bonding', ['Ionic','Covalent','Metallic','Hydrogen']),
+                        assocCat('Lab Equipment', ['Beaker','Burette','Pipette','Flask','Funnel']),
+                        assocCat('Periodic Table Groups', ['Alkali Metals','Halogens','Noble Gases','Transition Metals']),
+                    ]},
+                    { id: 'chemistry-l2', title: 'Level 2', categories: [
+                        assocCat('Types of Reactions', ['Neutralisation','Oxidation','Reduction','Precipitation']),
+                        assocCat('Separation Techniques', ['Filtration','Distillation','Chromatography','Evaporation']),
+                        assocCat('Fossil Fuels', ['Coal','Oil','Natural Gas','Peat']),
+                        assocCat('Common Gases', ['Oxygen','Hydrogen','Carbon Dioxide','Chlorine']),
+                    ]},
+                ]},
+                { id: 'physics', title: 'Physics', icon: '⚛️', levels: [
+                    { id: 'physics-l1', title: 'Level 1', categories: [
+                        assocCat('Units of Measurement', ['Newton','Joule','Watt','Pascal','Ohm']),
+                        assocCat('Forms of Energy', ['Kinetic','Potential','Thermal','Electrical','Nuclear']),
+                        assocCat('Electrical Components', ['Resistor','Capacitor','Diode','Battery','Switch']),
+                        assocCat('Types of Waves', ['Sound','Light','Radio','Microwave']),
+                    ]},
+                    { id: 'physics-l2', title: 'Level 2', categories: [
+                        assocCat('Simple Machines', ['Lever','Pulley','Wedge','Screw']),
+                        assocCat('Forces', ['Gravity','Friction','Tension','Upthrust','Magnetic']),
+                        assocCat('Optical Instruments', ['Microscope','Telescope','Periscope','Camera']),
+                        assocCat('Renewable Energy', ['Solar','Wind','Hydro','Geothermal','Biomass']),
+                    ]},
+                ]},
+                { id: 'geography', title: 'Geography', icon: '🌍', levels: [
+                    { id: 'geography-l1', title: 'Level 1', categories: [
+                        assocCat('Rock Types', ['Igneous','Sedimentary','Metamorphic']),
+                        assocCat('River Landforms', ['Waterfall','Meander','Delta','Levee','Oxbow Lake']),
+                        assocCat('Types of Settlement', ['Urban','Rural','Suburban','Fringe']),
+                        assocCat('Economic Activities', ['Primary','Secondary','Tertiary','Quaternary']),
+                    ]},
+                    { id: 'geography-l2', title: 'Level 2', categories: [
+                        assocCat('Weather Instruments', ['Barometer','Thermometer','Anemometer','Rain Gauge']),
+                        assocCat('Population Terms', ['Birth Rate','Death Rate','Migration','Density']),
+                        assocCat('Volcanic Features', ['Crater','Magma','Lava','Vent','Caldera']),
+                        assocCat('Renewable Energy', ['Wind','Wave','Solar','Hydro']),
+                    ]},
+                ]},
+                { id: 'history', title: 'History', icon: '🏛️', levels: [
+                    { id: 'history-l1', title: 'Level 1', categories: [
+                        assocCat('WWI Causes', ['Entente','Alliance','Nationalism','Militarism']),
+                        assocCat('1916 Rising Leaders', ['Pearse','Connolly','Clarke','MacDonagh','Plunkett']),
+                        assocCat('Cold War Terms', ['Iron Curtain','Containment','Arms Race','Détente']),
+                        assocCat('Government Branches', ['Executive','Legislature','Judiciary']),
+                    ]},
+                    { id: 'history-l2', title: 'Level 2', categories: [
+                        assocCat('Nazi Germany Terms', ['Gestapo','Propaganda','Führer','Reich']),
+                        assocCat('US Civil Rights Figures', ['King','Parks','Malcolm X']),
+                        assocCat('Irish Free State Events', ['Treaty','Civil War','Partition','Boundary Comm.']),
+                        assocCat('WWII Key Events', ['Blitz','D-Day','Holocaust','Pearl Harbor']),
+                    ]},
+                ]},
+                { id: 'homeec', title: 'Home Economics', icon: '🍳', levels: [
+                    { id: 'homeec-l1', title: 'Level 1', categories: [
+                        assocCat('Food Nutrients', ['Protein','Carbohydrate','Fat','Vitamin','Mineral']),
+                        assocCat('Kitchen Equipment', ['Whisk','Sieve','Grater','Ladle','Spatula']),
+                        assocCat('Cooking Methods', ['Boiling','Grilling','Frying','Steaming','Roasting']),
+                        assocCat('Textile Fibres', ['Cotton','Wool','Silk','Polyester','Linen']),
+                    ]},
+                    { id: 'homeec-l2', title: 'Level 2', categories: [
+                        assocCat('Food Preservation', ['Freezing','Canning','Drying','Pickling','Smoking']),
+                        assocCat('Meal Planning Factors', ['Budget','Time','Skill','Occasion','Nutrition']),
+                        assocCat('Family Types', ['Nuclear','Extended','Blended','Single-Parent']),
+                        assocCat('Household Bills', ['Electricity','Rent','Insurance','Broadband']),
+                    ]},
+                ]},
+                { id: 'accounting', title: 'Accounting', icon: '📊', levels: [
+                    { id: 'accounting-l1', title: 'Level 1', categories: [
+                        assocCat('Financial Statements', ['Balance Sheet','Trading A/c','P&L','Cash Flow']),
+                        assocCat('Ledger Account Types', ['Assets','Liabilities','Capital','Expenses','Revenue']),
+                        assocCat('Depreciation Methods', ['Straight Line','Reducing Balance','Revaluation']),
+                        assocCat('Users of Accounts', ['Owners','Employees','Government','Investors','Suppliers']),
+                    ]},
+                    { id: 'accounting-l2', title: 'Level 2', categories: [
+                        assocCat('Current Assets', ['Stock','Debtors','Cash','Bank']),
+                        assocCat('Current Liabilities', ['Creditors','Overdraft','Accruals']),
+                        assocCat('Types of Capital', ['Authorised','Issued','Called-up','Paid-up']),
+                        assocCat('Club Accounts Terms', ['Subscriptions','Receipts','Payments','Donations']),
+                    ]},
+                ]},
+            ];
+
+            function mountWordAssociations(container) {
+                let view = 'home'; // 'home' | 'classic-levels' | 'subjects' | 'subject-levels' | 'play'
+                let activeSubject = null, backTarget = 'home', game = null, boardEls = null;
+                let cardElsById = new Map();
+                const STORE_KEY = 'wordassoc';
+                function progress() { return gameSettingsFor(STORE_KEY, { completed: [] }); }
+                function markComplete(levelId) { const p = progress(); if (!p.completed.includes(levelId)) saveGameSettingsFor(STORE_KEY, { completed: [...p.completed, levelId] }); }
+                function isComplete(levelId) { return progress().completed.includes(levelId); }
+                function cardHtml(card) { return `<div class="assoc-card-emoji">${card.emoji}</div><div class="assoc-card-text">${escape(card.text)}</div>`; }
+
+                function buildGame(level) {
+                    const categories = level.categories.map(c => ({ name: c.name, total: c.words.length, done: [] }));
+                    let cards = [];
+                    level.categories.forEach((c, ci) => { c.words.forEach((w, wi) => { const n = assocWord(w);
+                        cards.push({ id: `${level.id}-${ci}-${wi}`, text: n.text, emoji: n.emoji, catIndex: ci }); }); });
+                    cards = gameShuffle(cards);
+                    const numPiles = categories.length;
+                    const piles = Array.from({ length: numPiles }, () => []);
+                    let stock = cards.slice();
+                    const perPile = Math.max(1, Math.min(3, Math.floor(stock.length / numPiles)));
+                    for (let r = 0; r < perPile; r++) for (let p = 0; p < numPiles; p++) if (stock.length) piles[p].push(stock.shift());
+                    return { level, categories, piles, stock, selected: null, moves: 0, undoStack: [], won: false };
+                }
+
+                function locateCard(cardId) { for (let pi = 0; pi < game.piles.length; pi++) { const pile = game.piles[pi];
+                        if (pile.length && pile[pile.length - 1].id === cardId) return { pileIndex: pi, card: pile[pile.length - 1] }; }
+                    return null; }
+                function shakeEl(el) { if (!el) return; el.classList.remove('assoc-shake'); void el.offsetWidth; el.classList.add('assoc-shake');
+                    setTimeout(() => el.classList.remove('assoc-shake'), 420); }
+                function deselect() { if (game.selected) { const el = cardElsById.get(game.selected); if (el) el.classList.remove('assoc-selected'); } game.selected = null; }
+                function updateMovesDisplay() { if (boardEls.movesEl) boardEls.movesEl.textContent = String(game.moves); }
+                function updateStockDisplay() { if (boardEls.stockEl) boardEls.stockEl.textContent = String(game.stock.length); }
+                function updateUndoBtn() { if (boardEls.undoBtn) boardEls.undoBtn.disabled = game.undoStack.length === 0; }
+                function updateCategoryHeader(catIndex) { const c = game.categories[catIndex], el = boardEls.catEls[catIndex];
+                    el.querySelector('.assoc-cat-progress').textContent = `${c.done.length}/${c.total}`;
+                    el.classList.toggle('assoc-cat-complete', c.done.length === c.total); }
+
+                function layoutTransform(distFromTop) { return `translate(${distFromTop * 3}px, ${-distFromTop * 4}px)`; }
+                function createCardEl(card, pileEl, index, pileLen, flipFrom) {
+                    const el = document.createElement('button'); el.type = 'button'; el.className = 'assoc-card';
+                    el.dataset.cardId = card.id; el.innerHTML = cardHtml(card);
+                    pileEl.appendChild(el);
+                    const distFromTop = pileLen - 1 - index, rest = layoutTransform(distFromTop);
+                    el.style.zIndex = String(100 - distFromTop);
+                    el.classList.toggle('assoc-card-top', distFromTop === 0);
+                    el.style.pointerEvents = distFromTop === 0 ? 'auto' : 'none';
+                    el.addEventListener('click', () => onCardClick(card.id));
+                    cardElsById.set(card.id, el);
+                    if (flipFrom) { el.style.transform = rest; const last = el.getBoundingClientRect();
+                        const dx = flipFrom.left - last.left, dy = flipFrom.top - last.top;
+                        el.style.transition = 'none'; el.style.transform = `translate(${dx}px,${dy}px) scale(.6)`;
+                        void el.offsetWidth;
+                        requestAnimationFrame(() => { el.style.transition = 'transform .4s cubic-bezier(.22,.85,.3,1.05)'; el.style.transform = rest; });
+                    } else { el.style.transform = rest; }
+                    return el;
+                }
+                function refreshPileTopInteractivity(pileIndex) { const pile = game.piles[pileIndex];
+                    pile.forEach((card, idx) => { const el = cardElsById.get(card.id); if (!el) return;
+                        const distFromTop = pile.length - 1 - idx;
+                        el.style.transition = 'transform .3s ease'; el.style.transform = layoutTransform(distFromTop); el.style.zIndex = String(100 - distFromTop);
+                        el.classList.toggle('assoc-card-top', distFromTop === 0);
+                        el.style.pointerEvents = distFromTop === 0 ? 'auto' : 'none'; }); }
+                function flipCardToCategory(el, catIndex) { const slot = boardEls.catEls[catIndex].querySelector('.assoc-cat-slot');
+                    if (slot.firstElementChild && slot.firstElementChild !== el) slot.firstElementChild.remove();
+                    const first = el.getBoundingClientRect();
+                    el.classList.remove('assoc-card-top', 'assoc-selected'); el.classList.add('assoc-card-landed'); el.style.pointerEvents = 'none';
+                    slot.appendChild(el);
+                    const last = el.getBoundingClientRect(), dx = first.left - last.left, dy = first.top - last.top;
+                    el.style.transition = 'none'; el.style.transform = `translate(${dx}px,${dy}px)`;
+                    void el.offsetWidth;
+                    requestAnimationFrame(() => { el.style.transition = 'transform .45s cubic-bezier(.22,.9,.3,1.05)'; el.style.transform = 'translate(0,0)'; }); }
+
+                function maybeRefillPile(pileIndex) { const pile = game.piles[pileIndex];
+                    if (pile.length === 0 && game.stock.length > 0) { const card = game.stock.shift(); pile.push(card); updateStockDisplay();
+                        const stockRect = boardEls.stockIconEl.getBoundingClientRect();
+                        createCardEl(card, boardEls.pileEls[pileIndex], 0, 1, stockRect); } }
+
+                function pushUndoSnapshot() { game.undoStack.push({ piles: game.piles.map(p => p.slice()), stock: game.stock.slice(),
+                        done: game.categories.map(c => c.done.slice()), moves: game.moves }); }
+                function onUndo() { if (!game.undoStack.length) return; const snap = game.undoStack.pop();
+                    game.piles = snap.piles.map(p => p.slice()); game.stock = snap.stock.slice();
+                    game.categories.forEach((c, i) => { c.done = snap.done[i].slice(); });
+                    game.moves = snap.moves; game.selected = null; game.won = false;
+                    cardElsById.clear(); mountPlayView(); }
+
+                function checkWin() { const done = game.categories.every(c => c.done.length === c.total);
+                    if (done) { game.won = true; markComplete(game.level.id);
+                        setTimeout(() => { boardEls.winOverlay.classList.remove('hidden');
+                            boardEls.winOverlay.querySelector('.assoc-win-moves').textContent = game.moves; }, 500); } }
+
+                function onCardClick(cardId) { if (!game || game.won) return; const loc = locateCard(cardId); if (!loc) return;
+                    if (game.selected === cardId) { deselect(); return; }
+                    deselect(); game.selected = cardId; const el = cardElsById.get(cardId); el.classList.add('assoc-selected'); }
+                function onCategoryClick(catIndex) { if (!game || game.won) return;
+                    if (!game.selected) { shakeEl(boardEls.catEls[catIndex]); return; }
+                    const loc = locateCard(game.selected); if (!loc) { deselect(); return; }
+                    const { pileIndex, card } = loc, el = cardElsById.get(card.id);
+                    if (card.catIndex !== catIndex) { shakeEl(el); shakeEl(boardEls.catEls[catIndex]); deselect(); return; }
+                    pushUndoSnapshot();
+                    game.piles[pileIndex].pop(); game.categories[catIndex].done.push(card); game.moves++; game.selected = null;
+                    flipCardToCategory(el, catIndex);
+                    updateCategoryHeader(catIndex); updateMovesDisplay(); updateUndoBtn();
+                    refreshPileTopInteractivity(pileIndex); maybeRefillPile(pileIndex); checkWin(); }
+
+                function mountPlayView() {
+                    const catHtml = game.categories.map((c, ci) => `<div class="assoc-cat" data-cat="${ci}">
+              <div class="assoc-cat-name">${escape(c.name)}</div>
+              <div class="assoc-cat-progress">${c.done.length}/${c.total}</div>
+              <div class="assoc-cat-slot"></div>
+            </div>`).join('');
+                    const pileHtml = game.piles.map((p, pi) => `<div class="assoc-pile" data-pile="${pi}"></div>`).join('');
+                    container.innerHTML = `<button type="button" class="subject-page-back assoc-back">← Levels</button>
+        <div class="assoc-playarea">
+          <div class="assoc-topbar">
+            <div class="assoc-moves">Moves: <strong class="assoc-moves-n">${game.moves}</strong></div>
+            <div class="assoc-stock"><span class="assoc-stock-icon">🂠</span><span class="assoc-stock-n">${game.stock.length}</span></div>
+          </div>
+          <div class="assoc-categories">${catHtml}</div>
+          <div class="assoc-tableau">${pileHtml}</div>
+          <div class="assoc-bottombar"><button type="button" class="button ghost assoc-undo-btn" disabled>↩ Undo</button></div>
+          <div class="assoc-win hidden"><div class="assoc-win-card"><h3>🎉 Level complete!</h3><p>Solved in <strong class="assoc-win-moves"></strong> moves.</p>
+            <div class="game-actions"><button type="button" class="button ghost assoc-win-levels">Back to levels</button><button type="button" class="button primary assoc-win-replay">Play again</button></div></div></div>
+        </div>`;
+                    boardEls = { catEls: [...container.querySelectorAll('.assoc-cat')], pileEls: [...container.querySelectorAll('.assoc-pile')],
+                        movesEl: container.querySelector('.assoc-moves-n'), stockEl: container.querySelector('.assoc-stock-n'),
+                        stockIconEl: container.querySelector('.assoc-stock-icon'), undoBtn: container.querySelector('.assoc-undo-btn'),
+                        winOverlay: container.querySelector('.assoc-win') };
+                    container.querySelector('.assoc-back').addEventListener('click', () => { view = backTarget; game = null; boardEls = null; cardElsById.clear(); render(); });
+                    boardEls.catEls.forEach(el => el.addEventListener('click', () => onCategoryClick(Number(el.dataset.cat))));
+                    boardEls.undoBtn.addEventListener('click', onUndo);
+                    container.querySelector('.assoc-win-levels').addEventListener('click', () => { view = backTarget; game = null; boardEls = null; cardElsById.clear(); render(); });
+                    container.querySelector('.assoc-win-replay').addEventListener('click', () => startLevel(game.level));
+                    game.piles.forEach((pile, pi) => pile.forEach((card, depth) => createCardEl(card, boardEls.pileEls[pi], depth, pile.length)));
+                    updateUndoBtn();
+                }
+
+                function startLevel(level) { view = 'play'; game = buildGame(level); mountPlayView(); }
+
+                function levelTileHtml(lv) { return `<button type="button" class="class-tile assoc-level-tile" data-level="${lv.id}" style="--subject:var(--primary)">
+            <strong>${isComplete(lv.id) ? '✅ ' : ''}${escape(lv.title)}</strong>
+            <span class="small">${lv.categories.map(c => escape(c.name)).join(' · ')}</span>
+          </button>`; }
+
+                function renderHome() {
+                    container.innerHTML = `<div class="assoc-mode-grid">
+          <button type="button" class="class-tile assoc-mode-tile" data-mode="classic" style="--subject:var(--primary)">
+            <strong>🗂️ Classic</strong><span class="small">Everyday categories — pets, desserts, family and more.</span>
+          </button>
+          <button type="button" class="class-tile assoc-mode-tile" data-mode="subjects" style="--subject:var(--primary)">
+            <strong>🎓 Leaving Cert Subjects</strong><span class="small">Sort key terms into the right topic for each subject.</span>
+          </button>
+        </div>`;
+                    container.querySelectorAll('.assoc-mode-tile').forEach(b => b.addEventListener('click', () => { view = b.dataset.mode === 'classic' ? 'classic-levels' : 'subjects'; render(); }));
+                }
+                function renderClassicLevels() {
+                    const tiles = WORDASSOC_CLASSIC_LEVELS.map(levelTileHtml).join('');
+                    container.innerHTML = `<button type="button" class="subject-page-back assoc-back-home">← Back</button>
+        <div class="class-grid">${tiles}</div>`;
+                    container.querySelector('.assoc-back-home').addEventListener('click', () => { view = 'home'; render(); });
+                    container.querySelectorAll('.assoc-level-tile').forEach(b => b.addEventListener('click', () => {
+                        const lv = WORDASSOC_CLASSIC_LEVELS.find(x => x.id === b.dataset.level); backTarget = 'classic-levels'; startLevel(lv); }));
+                }
+                function renderSubjectsList() {
+                    const tiles = WORDASSOC_SUBJECTS.map(s => `<button type="button" class="class-tile assoc-subject-tile" data-subject="${s.id}" style="--subject:var(--primary)">
+            <strong>${s.icon} ${escape(s.title)}</strong><span class="small">${s.levels.length} level${s.levels.length === 1 ? '' : 's'}</span>
+          </button>`).join('');
+                    container.innerHTML = `<button type="button" class="subject-page-back assoc-back-home">← Back</button>
+        <div class="class-grid">${tiles}</div>`;
+                    container.querySelector('.assoc-back-home').addEventListener('click', () => { view = 'home'; render(); });
+                    container.querySelectorAll('.assoc-subject-tile').forEach(b => b.addEventListener('click', () => {
+                        activeSubject = WORDASSOC_SUBJECTS.find(x => x.id === b.dataset.subject); view = 'subject-levels'; render(); }));
+                }
+                function renderSubjectLevels() {
+                    const s = activeSubject, tiles = s.levels.map(levelTileHtml).join('');
+                    container.innerHTML = `<button type="button" class="subject-page-back assoc-back-subjects">← Back to subjects</button>
+        <h3>${s.icon} ${escape(s.title)}</h3>
+        <div class="class-grid">${tiles}</div>`;
+                    container.querySelector('.assoc-back-subjects').addEventListener('click', () => { view = 'subjects'; render(); });
+                    container.querySelectorAll('.assoc-level-tile').forEach(b => b.addEventListener('click', () => {
+                        const lv = s.levels.find(x => x.id === b.dataset.level); backTarget = 'subject-levels'; startLevel(lv); }));
+                }
+                function render() { if (view === 'classic-levels') renderClassicLevels();
+                    else if (view === 'subjects') renderSubjectsList();
+                    else if (view === 'subject-levels') renderSubjectLevels();
+                    else if (view === 'play') { /* mounted directly by startLevel */ }
+                    else renderHome(); }
+                render();
+                return () => { container.innerHTML = ''; };
+            }
+
             const GAMES = {
                 solitaire: { title: 'Solitaire', icon: '🃏', desc: 'Classic Klondike — click a card to pick it up, then click where it should go.', hasScore: false, mount: mountSolitaire },
                 blackjack: { title: 'Blackjack', icon: '♠️', desc: 'Get closer to 21 than the dealer without going over.', hasScore: false, mount: mountBlackjack },
@@ -12457,8 +12874,10 @@ ${pointsSvg}
                 crossword: { title: 'Crossword', icon: '📰', desc: 'A freshly generated crossword every time — click a clue or a cell to start typing.', hasScore: false, mount: mountCrossword },
                 connections: { title: 'Connections', icon: '🟪', desc: 'Find the four groups of four related words — from a bank of tricky hand-made puzzles.', hasScore: false, mount: mountConnections },
                 ultimatettt: { title: 'Ultimate Tic-Tac-Toe', icon: '🎯', desc: 'Challenge someone by name or email — play over a day, or in real time if you\'re both online.', hasScore: false, mount: mountUltimateTTT },
+                wordassoc: { title: 'Word Solitaire', icon: '🗂️', desc: 'Sort word cards into the right category, solitaire-style — classic categories or Leaving Cert subjects.', hasScore: false, mount: mountWordAssociations },
             };
             GAME_ORDER.push('flappybird', 'blockblast', 'wordle', 'crossword', 'connections', 'ultimatettt');
+            GAME_ORDER.push('wordassoc');
 
             function caoCourseFormModal(courseId) { const c = courseId ? state.caoCourses.find(x => x.id ===
                     courseId) : null;
