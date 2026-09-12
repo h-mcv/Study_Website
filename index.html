@@ -6669,12 +6669,10 @@
             // knows exactly where they need to write.
             const EXAM_PAPER_SCALE = 1.4; // fixed pdf.js render scale -- legible without huge canvases; no zoom control in v1
             // Public, deduplicated mirror of the archive (English/bilingual papers only) -- see
-            // sec-exam-papers-public's README for what's in it. Served free via jsDelivr's GitHub
-            // CDN, so papers load on any device with no per-device setup. REPLACE THE OWNER BELOW
-            // once that repo is pushed to GitHub (see the Past Papers section of the PR/commit
-            // message for the one-time push commands). A connected local folder (below) still
-            // works as a fallback -- e.g. for offline use, or before the repo above is set up.
-            const EXAM_ARCHIVE_CDN_BASE = 'https://cdn.jsdelivr.net/gh/REPLACE_WITH_YOUR_GITHUB_USERNAME/sec-exam-papers-public@main/';
+            // https://github.com/h-mcv/sec-exam-papers-public's README for what's in it. Served
+            // free via jsDelivr's GitHub CDN, so papers load on any device with no per-device
+            // setup. A connected local folder (below) still works as a fallback -- e.g. offline.
+            const EXAM_ARCHIVE_CDN_BASE = 'https://cdn.jsdelivr.net/gh/h-mcv/sec-exam-papers-public@main/';
             let examPaperLevel = null; // 'lc' | 'jc' | null while browsing
             let examPaperSubjectId = null;
             let examPaperSearch = '';
