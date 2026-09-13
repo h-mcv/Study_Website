@@ -3259,8 +3259,8 @@
         }
         .jb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 560px; }
         .jb-wrap { position: relative; width: 100%; display: flex; justify-content: center; }
-        .jb-canvas { background: var(--surface-2); border-radius: 14px; width: min(92vw, 560px); height: auto; aspect-ratio: 1 / 1; }
-        .jb-overlay { position: absolute; inset: 0; width: min(92vw, 560px); margin: 0 auto; display: flex; align-items: center; justify-content: center; text-align: center;
+        .jb-canvas { background: var(--surface-2); border-radius: 14px; width: min(94vw, 640px); height: auto; aspect-ratio: 1 / 1; }
+        .jb-overlay { position: absolute; inset: 0; width: min(94vw, 640px); margin: 0 auto; display: flex; align-items: center; justify-content: center; text-align: center;
             color: #fff; font-weight: 700; font-size: 18px; background: rgba(0,0,0,.55); border-radius: 14px; padding: 16px; }
         .jb-overlay.hidden { display: none; }
         .jb-legend { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 460px; }
@@ -3276,8 +3276,8 @@
             color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,.18); flex-shrink: 0; }
         .jb-jelly-btn.queued { opacity: .5; cursor: default; box-shadow: none; }
         .jb-jelly-btn:disabled { opacity: .35; cursor: default; box-shadow: none; }
-        .sm-game-stage .jb-canvas { width: min(80vw, 380px); }
-        .sm-game-stage .jb-overlay { width: min(80vw, 380px); }
+        .sm-game-stage .jb-canvas { width: min(84vw, 420px); }
+        .sm-game-stage .jb-overlay { width: min(84vw, 420px); }
         .sm-game-stage .jb-jelly-btn, .sm-game-stage .jb-bar-slot { width: 38px; height: 38px; }
         #study-mode-pip {
             position: fixed;
@@ -12880,7 +12880,7 @@ ${pointsSvg}
             }
 
             // ---- Jelly Busters --------------------------------------------------------------------------------
-            const JB_GRID = 26;
+            const JB_GRID = 36;
             function jbMaskGrid(size, fn) { const g = [];
                 for (let row = 0; row < size; row++) { const r = [];
                     for (let col = 0; col < size; col++) { const x = (col - (size - 1) / 2) / (size / 2),
@@ -12890,6 +12890,8 @@ ${pointsSvg}
                 return g; }
             function jbNear(x, y, pts, r) { for (let i = 0; i < pts.length; i++) if (Math.hypot(x-pts[i][0], y-pts[i][1]) < r) return true; return false; }
             function jbNearIndex(x, y, pts, r) { for (let i = 0; i < pts.length; i++) if (Math.hypot(x-pts[i][0], y-pts[i][1]) < r) return i; return -1; }
+            function jbChecker(x, y, n, a, b) { const cx = Math.floor((x+1)/2*n), cy = Math.floor((y+1)/2*n); return (cx+cy) % 2 === 0 ? a : b; }
+            function jbWithBg(shapeFn, bgFn) { return (x, y) => shapeFn(x, y) || bgFn(x, y); }
             function jbWedge(x, y) { const dx = x, dy = y - 0.85, rad = Math.hypot(dx, dy),
                     ang = Math.atan2(dy, dx) * 180 / Math.PI;
                 if (ang < -150 || ang > -30 || rad > 1.55) return null;
@@ -12925,31 +12927,44 @@ ${pointsSvg}
                 ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath(); }
 
             const JB_WATERMELON_SEEDS = [[-0.25,0.3],[0.15,0.25],[-0.05,0.5],[0.3,0.5],[-0.35,0.6],[0.05,0.65],[0.35,0.15],[-0.15,0.1]];
+            const JB_WATERMELON_HI = [[-0.3,0.35],[0.25,0.55]];
             const JB_PIZZA_PEPPERONI = [[-0.3,0.3],[0.25,0.35],[0,0.5],[-0.15,0.6],[0.3,0.6],[-0.35,0.15]];
             const JB_PIZZA_PEPPER = [[0.1,0.2],[-0.2,0.45]];
             const JB_PIZZA_MUSHROOM = [[0.35,0.45],[-0.05,0.15]];
+            const JB_PIZZA_OLIVES = [[0.2,0.55],[-0.3,0.5],[0.05,0.3]];
+            const JB_PIZZA_BASIL = [[-0.1,0.35],[0.25,0.5]];
+            const JB_PIZZA_CHEESE = [[-0.25,0.25],[0.15,0.4],[0.3,0.2]];
+            const JB_ROCKET_STARS = [[-0.7,-0.8],[0.6,-0.7],[-0.5,-0.4],[0.75,-0.2],[-0.8,0.1],[0.5,0.5],[-0.6,0.7],[0.8,0.8],[-0.3,-0.9],[0.2,-0.85],[-0.85,0.5],[0.85,-0.5],[0.15,0.85],[-0.2,0.3]];
             const JB_BFLY_SPOTS = [[0.55,-0.2],[0.35,0.05]];
             const JB_BFLY_SPOTS_L = JB_BFLY_SPOTS.map(([x,y]) => [-x,y]);
             const JB_BFLY_SPOT2 = [0.42,0.4];
-            const JB_DONUT_SPRINKLES = [[-0.4,-0.35],[-0.15,-0.5],[0.1,-0.4],[0.35,-0.3],[-0.3,-0.15],[0.25,-0.55],[0,-0.2],[0.45,-0.1],[-0.5,0.0]];
-            const JB_DONUT_SPRINKLE_KEY = ['SP1','SP2','SP3','SP1','SP3','SP2','SP1','SP2','SP3'];
+            const JB_BFLY_FLOWERS = [[-0.75,0.5],[0.7,0.6],[-0.6,0.75],[0.55,0.8]];
+            const JB_DONUT_SPRINKLES = [[-0.4,-0.35],[-0.15,-0.5],[0.1,-0.4],[0.35,-0.3],[-0.3,-0.15],[0.25,-0.55],[0,-0.2],[0.45,-0.1],[-0.5,0.0],[0.2,-0.1],[-0.1,-0.55],[0.4,0.05]];
+            const JB_DONUT_SPRINKLE_KEY = ['SP1','SP2','SP3','SP4','SP1','SP2','SP3','SP4','SP1','SP2','SP3','SP4'];
 
             const JB_LEVELS = [
                 { id: 'watermelon', title: 'Watermelon Wedge',
-                    colors: { G2: '#1b4332', G1: '#40916c', W: '#f1faee', R: '#e5383b', K: '#1a1a1a' },
-                    build: size => jbMaskGrid(size, (x, y) => { const rad = jbWedge(x, y); if (rad === null) return null;
-                        if (rad > 0.9) return 'G2'; if (rad > 0.8) return 'G1'; if (rad > 0.72) return 'W';
-                        if (jbNear(x, y, JB_WATERMELON_SEEDS, 0.045)) return 'K'; return 'R'; }) },
+                    colors: { G2: '#1b4332', G1: '#40916c', G3: '#74c69d', W: '#f1faee', HI: '#ff8fa3', R: '#e5383b', K: '#1a1a1a', K2: '#3d2b1f', BG1: '#fff3e0', BG2: '#ffd6a5' },
+                    build: size => jbMaskGrid(size, jbWithBg((x, y) => { const rad = jbWedge(x, y); if (rad === null) return null;
+                        if (rad > 0.92) return 'G2'; if (rad > 0.84) return 'G1'; if (rad > 0.76) return 'G3'; if (rad > 0.68) return 'W';
+                        const si = jbNearIndex(x, y, JB_WATERMELON_SEEDS, 0.045); if (si >= 0) return si % 2 === 0 ? 'K' : 'K2';
+                        if (jbNear(x, y, JB_WATERMELON_HI, 0.1)) return 'HI'; return 'R'; },
+                        (x, y) => jbChecker(x, y, 8, 'BG1', 'BG2'))) },
                 { id: 'pizza', title: 'Pizza Slice',
-                    colors: { C2: '#8a5a2b', C1: '#e3a857', Y: '#ffd60a', P: '#c1121f', M: '#8d6e63', G: '#40916c' },
-                    build: size => jbMaskGrid(size, (x, y) => { const rad = jbWedge(x, y); if (rad === null) return null;
-                        if (rad > 0.88) return 'C2'; if (rad > 0.78) return 'C1';
+                    colors: { C2: '#8a5a2b', C1: '#e3a857', Y: '#ffd60a', Y2: '#ffe066', P: '#c1121f', M: '#8d6e63', G: '#40916c', BL: '#2d6a4f', O: '#1a1a1a', BG1: '#ffffff', BG2: '#e63946' },
+                    build: size => jbMaskGrid(size, jbWithBg((x, y) => { const rad = jbWedge(x, y); if (rad === null) return null;
+                        if (rad > 0.9) return 'C2'; if (rad > 0.8) return 'C1';
                         if (jbNear(x, y, JB_PIZZA_PEPPERONI, 0.09)) return 'P';
+                        if (jbNear(x, y, JB_PIZZA_OLIVES, 0.045)) return 'O';
                         if (jbNear(x, y, JB_PIZZA_PEPPER, 0.06)) return 'G';
-                        if (jbNear(x, y, JB_PIZZA_MUSHROOM, 0.06)) return 'M'; return 'Y'; }) },
+                        if (jbNear(x, y, JB_PIZZA_MUSHROOM, 0.06)) return 'M';
+                        if (jbNear(x, y, JB_PIZZA_BASIL, 0.05)) return 'BL';
+                        if (jbNear(x, y, JB_PIZZA_CHEESE, 0.07)) return 'Y2';
+                        return 'Y'; },
+                        (x, y) => jbChecker(x, y, 8, 'BG1', 'BG2'))) },
                 { id: 'rocket', title: 'Rocket Ship',
-                    colors: { N: '#e63946', B: '#f1faee', RV: '#6c757d', WR: '#1d3557', GL: '#48cae4', S: '#7209b7', F: '#fb6f92', FL1: '#ffd60a', FL2: '#fb8500', FL3: '#d00000' },
-                    build: size => jbMaskGrid(size, (x, y) => {
+                    colors: { N: '#e63946', B: '#f1faee', RV: '#6c757d', WR: '#1d3557', GL: '#48cae4', S: '#7209b7', F: '#fb6f92', FL1: '#ffd60a', FL2: '#fb8500', FL3: '#d00000', SKY: '#03071e', STAR: '#ffffff', STAR2: '#f4a261', MOON: '#adb5bd' },
+                    build: size => jbMaskGrid(size, jbWithBg((x, y) => {
                         if (y >= -0.85 && y < -0.4) { const t = (y + 0.85) / 0.45; return Math.abs(x) <= 0.32 * t ? 'N' : null; }
                         if (jbInTri(x,y,[0.32,0.30],[0.32,0.58],[0.68,0.62])) return 'F';
                         if (jbInTri(x,y,[-0.32,0.30],[-0.32,0.58],[-0.68,0.62])) return 'F';
@@ -12960,10 +12975,13 @@ ${pointsSvg}
                             if (jbNear(x, y, [[-0.18,-0.32],[0.18,-0.32]], 0.05)) return 'RV';
                             const d = Math.hypot(x, y+0.05); if (d < 0.17) return d < 0.14 ? 'GL' : 'WR';
                             return 'B'; }
-                        return null; }) },
+                        return null; },
+                        (x, y) => { if (Math.hypot(x-0.6, y+0.6) < 0.15) return 'MOON';
+                            const si = jbNearIndex(x, y, JB_ROCKET_STARS, 0.045); if (si >= 0) return si % 2 === 0 ? 'STAR' : 'STAR2';
+                            return 'SKY'; })) },
                 { id: 'butterfly', title: 'Butterfly',
-                    colors: { BD: '#22223b', RIM: '#3a0ca3', WING: '#4361ee', SPOT1: '#f9c74f', SPOTC: '#ffffff', WING2: '#2a9d8f', SPOT2: '#f72585' },
-                    build: size => jbMaskGrid(size, (x, y) => {
+                    colors: { BD: '#22223b', RIM: '#3a0ca3', WING: '#4361ee', SPOT1: '#f9c74f', SPOTC: '#ffffff', WING2: '#2a9d8f', SPOT2: '#f72585', SKY1: '#90e0ef', SKY2: '#95d5b2', FLOWER: '#ff9770', CLOUD: '#caf0f8' },
+                    build: size => jbMaskGrid(size, jbWithBg((x, y) => {
                         if (Math.abs(x) <= 0.055 && y >= -0.55 && y <= 0.6) return 'BD';
                         if (jbNear(x,y,[[-0.1,-0.62],[0.1,-0.62]],0.045)) return 'BD';
                         for (const side of [-1,1]) { const spots = side < 0 ? JB_BFLY_SPOTS_L : JB_BFLY_SPOTS;
@@ -12973,19 +12991,22 @@ ${pointsSvg}
                             const lx=(x-side*0.4)/0.34, ly=(y-0.38)/0.28, lEdge = lx*lx+ly*ly;
                             if (x*side >= 0.03 && lEdge <= 1) { if (lEdge > 0.7) return 'RIM';
                                 if (jbNear(x,y,[[side*JB_BFLY_SPOT2[0],JB_BFLY_SPOT2[1]]],0.08)) return 'SPOT2'; return 'WING2'; } }
-                        return null; }) },
+                        return null; },
+                        (x, y) => { if (y > 0.55) { if (jbNear(x, y, JB_BFLY_FLOWERS, 0.06)) return 'FLOWER'; return 'SKY2'; }
+                            if (jbNear(x, y, [[-0.6,-0.7],[0.65,-0.75]], 0.14)) return 'CLOUD'; return 'SKY1'; })) },
                 { id: 'donut', title: 'Sprinkle Donut',
-                    colors: { ICE1: '#ff8fa3', ICE2: '#ff477e', D1: '#e3a857', D2: '#c17817', SP1: '#ffd60a', SP2: '#48cae4', SP3: '#06d6a0' },
-                    build: size => jbMaskGrid(size, (x, y) => { const d = Math.hypot(x, y);
+                    colors: { ICE1: '#ff8fa3', ICE2: '#ff477e', D1: '#e3a857', D2: '#c17817', SP1: '#ffd60a', SP2: '#48cae4', SP3: '#06d6a0', SP4: '#9b5de5', PLATE: '#e9ecef', BG1: '#fff0f3', BG2: '#ffc2d1' },
+                    build: size => jbMaskGrid(size, jbWithBg((x, y) => { const d = Math.hypot(x, y);
                         if (d > 0.85 || d < 0.35) return null;
                         const icingLine = 0.05 + 0.1 * Math.sin(x * 9);
-                        if (y < icingLine) { const si = jbNearIndex(x, y, JB_DONUT_SPRINKLES, 0.05);
+                        if (y < icingLine) { const si = jbNearIndex(x, y, JB_DONUT_SPRINKLES, 0.045);
                             if (si >= 0) return JB_DONUT_SPRINKLE_KEY[si]; return d > 0.75 ? 'ICE2' : 'ICE1'; }
-                        return d > 0.75 ? 'D2' : 'D1'; }) },
+                        return d > 0.75 ? 'D2' : 'D1'; },
+                        (x, y) => { const d = Math.hypot(x, y); if (d < 0.95) return 'PLATE'; return jbChecker(x, y, 8, 'BG1', 'BG2'); })) },
             ];
 
             function mountJellyBusters(container) {
-                const RES = 620, ORIGIN = 100, BOARD = 420, CELL = BOARD / JB_GRID, PATH_MARGIN = 70, CORNER_R = 46;
+                const RES = 680, ORIGIN = 100, BOARD = 480, CELL = BOARD / JB_GRID, PATH_MARGIN = 70, CORNER_R = 46;
                 const PATH = jbBuildPath({ left: ORIGIN-PATH_MARGIN, top: ORIGIN-PATH_MARGIN, right: ORIGIN+BOARD+PATH_MARGIN, bottom: ORIGIN+BOARD+PATH_MARGIN, r: CORNER_R });
                 const MAX_BAR = 5, COL_COUNT = 5, COL_VISIBLE = 3, COL_QUEUE_LEN = 6, FIRE_COOLDOWN = 0.35, JELLY_POINTS = 20, JELLY_SPEED = 78;
                 let settings = gameSettingsFor('jellybusters', { levelIndex: 0 });
@@ -13135,7 +13156,7 @@ ${pointsSvg}
                 function draw() { if (!ctx) return; ctx.clearRect(0, 0, RES, RES); ctx.fillStyle = bg; ctx.fillRect(0, 0, RES, RES);
                     jbRoundRect(ctx, ORIGIN-4, ORIGIN-4, BOARD+8, BOARD+8, 14); ctx.strokeStyle = line; ctx.lineWidth = 2; ctx.stroke();
                     for (let y = 0; y < JB_GRID; y++) for (let x = 0; x < JB_GRID; x++) { const c = grid[y][x]; if (!c || c.cleared) continue;
-                        ctx.fillStyle = img.colors[c.letter]; jbRoundRect(ctx, ORIGIN+x*CELL+0.5, ORIGIN+y*CELL+0.5, CELL-1, CELL-1, 2.5); ctx.fill(); }
+                        ctx.fillStyle = img.colors[c.letter]; jbRoundRect(ctx, ORIGIN+x*CELL+0.4, ORIGIN+y*CELL+0.4, CELL-0.8, CELL-0.8, 2); ctx.fill(); }
                     rings.forEach(r => { ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2);
                         ctx.strokeStyle = r.color; ctx.globalAlpha = Math.max(0, r.life/r.maxLife) * 0.7; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1; });
                     particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life/p.maxLife);
