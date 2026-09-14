@@ -10584,6 +10584,14 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     den = Math.pow(10, fracPart.length),
                     num = Number((intPart || '0') + fracPart || '0');
                 return makeFraction((neg ? -1 : 1) * num, den); }
+            // Parses a coefficient that may be written as "numerator/denominator" (each side a plain decimal,
+            // e.g. "3/4", "-1/2", "2.5/-3") in addition to a plain decimal.
+            function parseCoefficientInput(str) { str = (str || '').trim();
+                const slash = str.indexOf('/');
+                if (slash === -1) return decimalToFraction(str);
+                const numFrac = decimalToFraction(str.slice(0, slash)), denFrac = decimalToFraction(str.slice(slash + 1));
+                if (!numFrac || !denFrac || fracIsZero(denFrac)) return null;
+                return divFrac(numFrac, denFrac); }
             // Factors non-negative integer n into coeff²·radicand with radicand squarefree, so √n = coeff·√radicand.
             function simplifySqrtInt(n) { if (n === 0) return { coeff: 0, radicand: 1 };
                 let coeff = 1, radicand = n;
@@ -10680,10 +10688,10 @@ ${pointsSvg}
 
             function quadraticSolverHtml() { const hasAll = quadA.trim() !== '' && quadB.trim() !== '' && quadC
                     .trim() !== '';
-                const A = decimalToFraction(quadA), B = decimalToFraction(quadB), C = decimalToFraction(quadC),
+                const A = parseCoefficientInput(quadA), B = parseCoefficientInput(quadB), C = parseCoefficientInput(quadC),
                     valid = hasAll && A && B && C;
                 const resultHtml = !hasAll ? '<p class="empty">Enter a, b and c to see the roots.</p>' : (!valid ?
-                    '<p class="empty">Enter valid numbers for a, b and c.</p>' : quadraticRootsHtml(A, B, C,
+                    '<p class="empty">Enter valid numbers or fractions (e.g. 3/4) for a, b and c.</p>' : quadraticRootsHtml(A, B, C,
                         quadFormat));
                 const graphHtml = valid && !(fracIsZero(A) && fracIsZero(B) && fracIsZero(C)) ?
                     `<section class="card section" style="margin-top:14px">
@@ -10691,9 +10699,9 @@ ${pointsSvg}
           ${quadraticGraphSvg(A,B,C)}
         </section>` : '';
                 const field = (id, label, val) =>
-                    `<div class="field"><label for="${id}">${label}</label><input type="text" inputmode="decimal" autocomplete="off" id="${id}" placeholder="0" value="${escape(val)}"></div>`;
+                    `<div class="field"><label for="${id}">${label}</label><input type="text" autocomplete="off" id="${id}" placeholder="0" value="${escape(val)}"></div>`;
                 return `<section class="card section">
-          <p class="small">Solves ax² + bx + c = 0 — the roots update automatically as you type.</p>
+          <p class="small">Solves ax² + bx + c = 0 — the roots update automatically as you type. Coefficients can be fractions, e.g. 3/4.</p>
           <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px">
             ${field('quad-input-a','a',quadA)}
             ${field('quad-input-b','b',quadB)}
