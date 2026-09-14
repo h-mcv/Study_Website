@@ -3279,6 +3279,13 @@
         .sm-game-stage .jb-canvas { width: min(84vw, 420px); }
         .sm-game-stage .jb-overlay { width: min(84vw, 420px); }
         .sm-game-stage .jb-jelly-btn, .sm-game-stage .jb-bar-slot { width: 38px; height: 38px; }
+        .xrd-wrap { position: relative; width: 100%; display: flex; justify-content: center; }
+        .xrd-canvas { background: #7ec850; border-radius: 10px; touch-action: none; width: min(90vw, 480px); height: auto; }
+        .xrd-overlay { position: absolute; inset: 0; width: min(90vw, 480px); margin: 0 auto; background: rgba(0,0,0,.6); color: #fff; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 12px; border-radius: 10px; text-align: center; padding: 16px; }
+        .xrd-overlay.hidden { display: none; }
+        .sm-game-stage .xrd-canvas { width: min(80vw, 380px); }
+        .sm-game-stage .xrd-overlay { width: min(80vw, 380px); }
         #study-mode-pip {
             position: fixed;
             right: 24px;
@@ -13211,6 +13218,216 @@ ${pointsSvg}
                 rafId = requestAnimationFrame(loop);
                 return () => { if (rafId) cancelAnimationFrame(rafId); ctx = null; container.innerHTML = ''; };
             }
+            // ---- Crossy Road ------------------------------------------------------------------------------
+            function mountCrossyRoad(container) {
+                const COLS = 8, TILE = 48, VIEW_ROWS = 10, W = COLS*TILE, H = VIEW_ROWS*TILE, HOP_MS = 140, LEAD = 6,
+                    HAWK_WARN_MS = 4500, HAWK_KILL_MS = 1300,
+                    CAR_COLORS = ['#e74c3c','#3498db','#f1c40f','#9b59b6','#e67e22','#1abc9c','#ecf0f1'];
+                let canvas, ctx, lanes, player, maxRow, score, best = gameBestScore('crossyroad'), camY, running = false,
+                    gameOver = false, deathReason = '', rafId = null, lastTs = 0, idleTimer = 0, hawkT = 0, touchStart = null;
+
+                function generateLane(row) {
+                    if (row <= 1) { lanes[row] = { type: 'grass', trees: new Set() }; return; }
+                    const prev1 = lanes[row-1], prev2 = lanes[row-2];
+                    let type;
+                    if (prev1.type !== 'grass' && prev2.type !== 'grass') type = 'grass';
+                    else { const r = Math.random(); type = r < 0.42 ? 'grass' : r < 0.74 ? 'road' : r < 0.88 ? 'water' : 'rail'; }
+                    if (type === 'grass') { const trees = new Set(), n = Math.floor(Math.random()*3);
+                        while (trees.size < n) trees.add(Math.floor(Math.random()*COLS));
+                        lanes[row] = { type, trees }; }
+                    else if (type === 'road') lanes[row] = { type, dir: Math.random()<0.5?1:-1, speed: 70+Math.random()*70, cars: [], spawnTimer: Math.random()*1.2 };
+                    else if (type === 'water') lanes[row] = { type, dir: Math.random()<0.5?1:-1, speed: 45+Math.random()*40, logs: [], spawnTimer: Math.random()*1.0 };
+                    else lanes[row] = { type: 'rail', phase: 'safe', timer: 3+Math.random()*2.5, dir: Math.random()<0.5?1:-1, train: null };
+                }
+                function ensureLanesUpTo(n) { while (lanes.length <= n) generateLane(lanes.length); }
+
+                function updateRoad(lane, dt) {
+                    lane.spawnTimer -= dt;
+                    if (lane.spawnTimer <= 0) { const w = (Math.random()<0.25?1.6:1)*TILE;
+                        lane.cars.push({ x: lane.dir>0 ? -w-4 : W+4, w, color: CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)] });
+                        lane.spawnTimer = (1.0+Math.random()*1.1) * (110/lane.speed); }
+                    lane.cars.forEach(c => c.x += lane.dir*lane.speed*dt);
+                    lane.cars = lane.cars.filter(c => c.x > -TILE*3 && c.x < W+TILE*3);
+                }
+                function updateWater(lane, dt) {
+                    lane.spawnTimer -= dt;
+                    if (lane.spawnTimer <= 0) { const w = (1.4+Math.random()*1.4)*TILE;
+                        lane.logs.push({ x: lane.dir>0 ? -w-4 : W+4, w });
+                        lane.spawnTimer = 1.3+Math.random()*1.1; }
+                    lane.logs.forEach(l => l.x += lane.dir*lane.speed*dt);
+                    lane.logs = lane.logs.filter(l => l.x > -TILE*3 && l.x < W+TILE*3);
+                }
+                function updateRail(lane, dt) {
+                    lane.timer -= dt;
+                    if (lane.timer <= 0) {
+                        if (lane.phase === 'safe') { lane.phase = 'warn'; lane.timer = 1.1; }
+                        else if (lane.phase === 'warn') { lane.phase = 'cross'; lane.timer = 0.55;
+                            lane.train = { x: lane.dir>0 ? -TILE*3 : W+TILE*3, w: TILE*3, speed: (W+TILE*6)/0.55 }; }
+                        else { lane.phase = 'safe'; lane.timer = 3.5+Math.random()*3; lane.dir = Math.random()<0.5?1:-1; lane.train = null; }
+                    }
+                    if (lane.phase === 'cross' && lane.train) lane.train.x += lane.dir*lane.train.speed*dt;
+                }
+
+                function hop(dCol, dRow) {
+                    if (!running || gameOver || player.hopping) return;
+                    const targetCol = player.col+dCol, targetRow = player.row+dRow;
+                    if (targetCol < 0 || targetCol >= COLS) return;
+                    if (targetRow < camY) return;
+                    ensureLanesUpTo(targetRow);
+                    const lane = lanes[targetRow];
+                    if (lane.type === 'grass' && lane.trees.has(targetCol)) return;
+                    player.hopping = true; player.hopFrom = { row: player.row, col: player.col };
+                    player.hopTo = { row: targetRow, col: targetCol }; player.hopStart = performance.now(); player.carry = 0;
+                    player.face = dRow>0 ? 'up' : dRow<0 ? 'down' : dCol>0 ? 'right' : 'left';
+                    idleTimer = 0; hawkT = 0;
+                }
+
+                function death(reason) { if (gameOver) return; gameOver = true; running = false; deathReason = reason;
+                    if (rafId) cancelAnimationFrame(rafId);
+                    if (score > best) { best = score; gameReportScore('crossyroad', best); }
+                    renderInfo();
+                    const ov = container.querySelector('.xrd-overlay');
+                    if (ov) { ov.querySelector('.xrd-gameover-text').textContent = `You were ${reason}! Score: ${score}`; ov.classList.remove('hidden'); } }
+
+                function update(dt) {
+                    camY = Math.max(0, maxRow-LEAD);
+                    ensureLanesUpTo(camY+VIEW_ROWS+1);
+                    for (let r = camY; r <= camY+VIEW_ROWS+1; r++) { const lane = lanes[r]; if (!lane) continue;
+                        if (lane.type === 'road') updateRoad(lane, dt);
+                        else if (lane.type === 'water') updateWater(lane, dt);
+                        else if (lane.type === 'rail') updateRail(lane, dt); }
+                    if (player.hopping) { const t = Math.min(1, (performance.now()-player.hopStart)/HOP_MS);
+                        if (t >= 1) { player.row = player.hopTo.row; player.col = player.hopTo.col; player.hopping = false; player.carry = 0;
+                            if (player.row > maxRow) { maxRow = player.row; score = maxRow; renderInfo(); } } }
+                    if (!player.hopping) { const lane = lanes[player.row];
+                        if (lane.type === 'road') { const cx0 = player.col*TILE, cx1 = cx0+TILE;
+                            if (lane.cars.some(c => c.x < cx1 && c.x+c.w > cx0)) { death('flattened by a car'); return; } }
+                        else if (lane.type === 'rail') { if (lane.phase === 'cross' && lane.train) { const cx0 = player.col*TILE, cx1 = cx0+TILE;
+                            if (lane.train.x < cx1 && lane.train.x+lane.train.w > cx0) { death('hit by a train'); return; } } }
+                        else if (lane.type === 'water') { const px = (player.col+0.5+player.carry)*TILE;
+                            const log = lane.logs.find(l => px >= l.x && px <= l.x+l.w);
+                            if (!log) { death('swept into the river'); return; }
+                            player.carry += lane.dir*lane.speed*dt/TILE;
+                            while (player.carry > 0.5) { player.col++; player.carry -= 1; }
+                            while (player.carry < -0.5) { player.col--; player.carry += 1; }
+                            if (player.col < 0 || player.col >= COLS) { death('carried off by the river'); return; } }
+                        else player.carry = 0; }
+                    idleTimer += dt*1000;
+                    if (idleTimer > HAWK_WARN_MS) { hawkT = idleTimer-HAWK_WARN_MS;
+                        if (hawkT > HAWK_KILL_MS) { death('snatched by a hawk'); return; } }
+                    else hawkT = 0;
+                }
+
+                function roundRect(x,y,w,h,r) { ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+                    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+                function drawTree(cx, cy) { ctx.fillStyle = '#6b4423'; ctx.fillRect(cx-4, cy-2, 8, 14);
+                    ctx.fillStyle = '#3f9142'; ctx.beginPath(); ctx.arc(cx, cy-8, 14, 0, Math.PI*2); ctx.fill(); }
+                function drawCar(c, y, dir) { const h = TILE-10, cy = y+5;
+                    roundRect(c.x, cy, c.w, h, 6); ctx.fillStyle = c.color; ctx.fill();
+                    ctx.fillStyle = 'rgba(255,255,255,.35)'; roundRect(c.x+4, cy+4, c.w-8, h*0.4, 4); ctx.fill();
+                    ctx.fillStyle = '#222'; ctx.fillRect(dir>0 ? c.x+c.w-6 : c.x+2, cy+h/2-3, 4, 6); }
+                function drawLog(l, y) { const h = TILE-16, cy = y+8;
+                    roundRect(l.x, cy, l.w, h, h/2); ctx.fillStyle = '#a9713c'; ctx.fill();
+                    ctx.fillStyle = '#8a5a2b'; for (let x = l.x+10; x < l.x+l.w-6; x += 26) { ctx.beginPath(); ctx.ellipse(x, cy+h/2, 4, h/2-3, 0, 0, Math.PI*2); ctx.fill(); } }
+                function drawTrain(t, y) { const h = TILE-6, cy = y+3;
+                    ctx.fillStyle = '#2c3e50'; ctx.fillRect(t.x, cy, t.w, h);
+                    ctx.fillStyle = '#f1c40f'; for (let x = t.x+8; x < t.x+t.w-8; x += 30) ctx.fillRect(x, cy+h*0.3, 14, h*0.3); }
+                function drawLane(lane, y, row) {
+                    if (lane.type === 'grass') { ctx.fillStyle = row%2===0 ? '#7ec850' : '#74bd47'; ctx.fillRect(0, y, W, TILE);
+                        lane.trees.forEach(col => drawTree(col*TILE+TILE/2, y+TILE/2)); }
+                    else if (lane.type === 'road') { ctx.fillStyle = '#4a4a4a'; ctx.fillRect(0, y, W, TILE);
+                        ctx.strokeStyle = 'rgba(255,220,80,.85)'; ctx.lineWidth = 3; ctx.setLineDash([14,10]);
+                        ctx.beginPath(); ctx.moveTo(0, y+TILE/2); ctx.lineTo(W, y+TILE/2); ctx.stroke(); ctx.setLineDash([]);
+                        lane.cars.forEach(c => drawCar(c, y, lane.dir)); }
+                    else if (lane.type === 'water') { ctx.fillStyle = '#3fa4d6'; ctx.fillRect(0, y, W, TILE);
+                        ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 2;
+                        for (let i=0;i<2;i++) { ctx.beginPath(); ctx.moveTo(0, y+14+i*16); ctx.lineTo(W, y+14+i*16); ctx.stroke(); }
+                        lane.logs.forEach(l => drawLog(l, y)); }
+                    else if (lane.type === 'rail') { ctx.fillStyle = '#8a7355'; ctx.fillRect(0, y, W, TILE);
+                        ctx.fillStyle = '#5c4a35'; for (let x=4; x<W; x+=18) ctx.fillRect(x, y+8, 8, TILE-16);
+                        ctx.strokeStyle = '#c7c7c7'; ctx.lineWidth = 3;
+                        ctx.beginPath(); ctx.moveTo(0,y+12); ctx.lineTo(W,y+12); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0,y+TILE-12); ctx.lineTo(W,y+TILE-12); ctx.stroke();
+                        if (lane.phase === 'warn') { const flash = Math.floor(performance.now()/180)%2===0;
+                            ctx.fillStyle = flash ? '#e74c3c' : '#fff'; ctx.fillRect(0, y, 10, TILE); ctx.fillRect(W-10, y, 10, TILE); }
+                        else if (lane.phase === 'cross' && lane.train) drawTrain(lane.train, y); }
+                }
+                function drawPlayer() {
+                    let col = player.col, row = player.row, carry = player.carry, bounce = 0;
+                    if (player.hopping) { const t = Math.min(1, (performance.now()-player.hopStart)/HOP_MS);
+                        col = player.hopFrom.col + (player.hopTo.col-player.hopFrom.col)*t;
+                        row = player.hopFrom.row + (player.hopTo.row-player.hopFrom.row)*t;
+                        carry = 0; bounce = Math.sin(t*Math.PI) * 14; }
+                    const px = (col+0.5+carry)*TILE, py = (VIEW_ROWS-1-(row-camY)+0.5)*TILE - bounce;
+                    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(px, py+16, 14, 6, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; roundRect(px-15, py-15, 30, 28, 10); ctx.fill();
+                    ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.moveTo(px-4,py-15); ctx.lineTo(px,py-24); ctx.lineTo(px+4,py-15); ctx.fill();
+                    ctx.fillStyle = '#f39c12';
+                    const dir = player.face, bx = dir==='left'?-15:dir==='right'?15:0, by = dir==='up'?-8:dir==='down'?8:-2;
+                    ctx.beginPath(); ctx.moveTo(px+bx*0.6, py+by-4); ctx.lineTo(px+bx*1.1, py+by); ctx.lineTo(px+bx*0.6, py+by+4); ctx.fill();
+                    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(px+(dir==='left'?-6:6), py-6, 2.5, 0, Math.PI*2); ctx.fill();
+                }
+                function drawHawk() {
+                    const p = Math.min(1, hawkT/HAWK_KILL_MS), px = (player.col+0.5)*TILE, py = (VIEW_ROWS-1-(player.row-camY)+0.5)*TILE;
+                    ctx.fillStyle = `rgba(0,0,0,${0.15+p*0.5})`; ctx.beginPath(); ctx.ellipse(px, py, 10+p*30, 6+p*16, 0, 0, Math.PI*2); ctx.fill();
+                    const hawkY = -30 + p*(py+30);
+                    ctx.fillStyle = '#5d4037'; ctx.beginPath(); ctx.moveTo(px-26,hawkY); ctx.lineTo(px,hawkY+14); ctx.lineTo(px+26,hawkY); ctx.lineTo(px,hawkY-6); ctx.closePath(); ctx.fill();
+                }
+                function draw() { if (!ctx) return; ctx.clearRect(0,0,W,H);
+                    for (let r = camY; r <= camY+VIEW_ROWS-1; r++) { const lane = lanes[r]; if (!lane) continue;
+                        drawLane(lane, (VIEW_ROWS-1-(r-camY))*TILE, r); }
+                    drawPlayer(); if (hawkT > 0) drawHawk(); }
+
+                function renderInfo() { const info = container.querySelector('.xrd-info');
+                    if (info) info.innerHTML = `Score: <strong>${score}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong>`; }
+                function dpadHtml() { return `<div class="game-dpad">
+          <button type="button" class="game-dpad-btn up" data-dir="up">▲</button>
+          <button type="button" class="game-dpad-btn left" data-dir="left">◀</button>
+          <button type="button" class="game-dpad-btn down" data-dir="down">▼</button>
+          <button type="button" class="game-dpad-btn right" data-dir="right">▶</button>
+        </div>`; }
+                function touchStartHandler(e) { const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY }; }
+                function touchEndHandler(e) { if (!touchStart) return; const t = e.changedTouches[0],
+                        dx = t.clientX-touchStart.x, dy = t.clientY-touchStart.y; touchStart = null;
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+                    if (Math.abs(dx) > Math.abs(dy)) hop(dx>0?1:-1, 0); else hop(0, dy<0?1:-1); }
+                function keydown(e) { const map = { ArrowUp:[0,1], ArrowDown:[0,-1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,1], s:[0,-1], a:[-1,0], d:[1,0] };
+                    const d = map[e.key]; if (!d) return; e.preventDefault(); hop(d[0], d[1]); }
+
+                function loop(ts) { if (!ctx || !running) return;
+                    const dt = Math.min(0.05, lastTs ? (ts-lastTs)/1000 : 0.016); lastTs = ts;
+                    update(dt); draw(); if (running) rafId = requestAnimationFrame(loop); }
+
+                function start() { lanes = []; ensureLanesUpTo(VIEW_ROWS+2);
+                    player = { row: 0, col: Math.floor(COLS/2), carry: 0, hopping: false, hopFrom: null, hopTo: null, hopStart: 0, face: 'up' };
+                    maxRow = 0; score = 0; camY = 0; idleTimer = 0; hawkT = 0; gameOver = false; deathReason = ''; running = true;
+                    render(); lastTs = 0; rafId = requestAnimationFrame(loop); }
+
+                function render() {
+                    container.innerHTML = `<div class="game-stat-line xrd-info">Score: <strong>${score||0}</strong> &nbsp;·&nbsp; Best: <strong>${best}</strong></div>
+        <div class="xrd-wrap"><canvas class="xrd-canvas" width="${W}" height="${H}"></canvas>
+        <div class="xrd-overlay hidden"><div class="xrd-gameover-text">Game over!</div><button type="button" class="button primary xrd-restart">Play again</button></div></div>
+        ${running ? dpadHtml() : ''}
+        <div class="small game-hint">Arrow keys / WASD, on-screen arrows, or swipe — hop across roads, rail lines, and rivers. Don't dawdle, or a hawk will get you.</div>
+        ${running ? '' : `<button type="button" class="button primary xrd-start">${score?'Play again':'Start'}</button>`}`;
+                    canvas = container.querySelector('.xrd-canvas'); ctx = canvas.getContext('2d');
+                    canvas.addEventListener('touchstart', touchStartHandler, {passive:true});
+                    canvas.addEventListener('touchend', touchEndHandler, {passive:true});
+                    const startBtn = container.querySelector('.xrd-start'); if (startBtn) startBtn.addEventListener('click', start);
+                    const restartBtn = container.querySelector('.xrd-restart'); if (restartBtn) restartBtn.addEventListener('click', () => { container.querySelector('.xrd-overlay').classList.add('hidden'); start(); });
+                    container.querySelectorAll('.game-dpad-btn').forEach(btn => btn.addEventListener('click', () => {
+                        const map = { up:[0,1], down:[0,-1], left:[-1,0], right:[1,0] }; const d = map[btn.dataset.dir]; hop(d[0], d[1]); }));
+                    draw();
+                }
+
+                lanes = []; ensureLanesUpTo(VIEW_ROWS+2);
+                player = { row: 0, col: Math.floor(COLS/2), carry: 0, hopping: false, hopFrom: null, hopTo: null, hopStart: 0, face: 'up' };
+                maxRow = 0; score = 0; camY = 0;
+                render();
+                document.addEventListener('keydown', keydown);
+                return () => { running = false; if (rafId) cancelAnimationFrame(rafId); document.removeEventListener('keydown', keydown); container.innerHTML = ''; ctx = null; };
+            }
+
             const GAMES = {
                 solitaire: { title: 'Solitaire', icon: '🃏', desc: 'Classic Klondike — click a card to pick it up, then click where it should go.', hasScore: false, mount: mountSolitaire },
                 blackjack: { title: 'Blackjack', icon: '♠️', desc: 'Get closer to 21 than the dealer without going over.', hasScore: false, mount: mountBlackjack },
@@ -13230,9 +13447,11 @@ ${pointsSvg}
                 ultimatettt: { title: 'Ultimate Tic-Tac-Toe', icon: '🎯', desc: 'Challenge someone by name or email — play over a day, or in real time if you\'re both online.', hasScore: false, mount: mountUltimateTTT },
                 wordassoc: { title: 'Word Solitaire', icon: '🗂️', desc: 'Sort word cards into the right category, solitaire-style — classic categories or Leaving Cert subjects.', hasScore: false, mount: mountWordAssociations },
                 jellybusters: { title: 'Jelly Busters', icon: '🍮', desc: "Send jellies from the queue onto the conveyor belt — each shoots straight into the picture and clears the first pixel it lines up with, if it's a colour match. Jellies that finish a lap wait on the bar (same colours combine); if the bar's full and nothing matches, it's game over.", hasScore: true, mount: mountJellyBusters },
+                crossyroad: { title: 'Crossy Road', icon: '🐔', desc: "Hop across roads, rail lines, and rivers without getting flattened, hit, or swept away — and don't dawdle, or a hawk will get you.", hasScore: true, mount: mountCrossyRoad },
             };
             GAME_ORDER.push('flappybird', 'blockblast', 'wordle', 'crossword', 'connections', 'ultimatettt');
             GAME_ORDER.push('wordassoc', 'jellybusters');
+            GAME_ORDER.push('crossyroad');
 
             function caoCourseFormModal(courseId) { const c = courseId ? state.caoCourses.find(x => x.id ===
                     courseId) : null;
