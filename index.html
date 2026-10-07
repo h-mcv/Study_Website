@@ -4252,6 +4252,16 @@
         .exam-year-group { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
         .exam-paper-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
         .exam-paper-row:first-of-type { border-top: none; }
+        .exam-topic-search { display: flex; gap: 8px; align-items: center; margin: 10px 0 16px; flex-wrap: wrap; }
+        .exam-topic-search input { flex: 1 1 280px; min-width: 200px; }
+        .exam-topic-results { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+        .exam-topic-result-group { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; background: var(--surface); }
+        .exam-topic-result-group h4 { margin: 0 0 6px; }
+        .exam-topic-result-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid var(--line); cursor: pointer; }
+        .exam-topic-result-row:first-of-type { border-top: none; }
+        .exam-topic-result-row:hover { opacity: .8; }
+        .exam-topic-result-q { font-weight: 600; }
+        .exam-topic-result-snip { color: var(--muted); font-size: .9em; }
         .exam-viewer-toolbar { position: sticky; top: 10px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; box-shadow: var(--shadow); }
         .exam-tool-group { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 4px; }
         .exam-tool-group button[data-action="examp-set-tool"] { padding: 7px 10px; border-radius: 8px; border: none; background: transparent; color: var(--text); font-weight: 700; font-size: 12px; cursor: pointer; }
@@ -7005,6 +7015,19 @@
             let examPaperLevel = null; // 'lc' | 'jc' | null while browsing
             let examPaperSubjectId = null;
             let examPaperSearch = '';
+            // ---- AI-powered topic search over this subject's past papers -----------------------
+            // Studyclix-style: student types a (possibly loosely-worded) topic, the AI standardises
+            // it into a topic_key, then every paper for the subject not yet scanned for that topic_key
+            // gets its text pulled via pdf.js and sent to the AI to find matching questions. Results
+            // are cached in Supabase (exam_topic_index / exam_topic_scan_log -- see migration
+            // 0017_exam_topic_index.sql) so the next search for the same subject+topic is instant and
+            // free, and only newly-added papers need scanning on a later search.
+            let topicSearchQuery = '';          // raw text in the topic search box
+            let topicSearchActive = null;       // { level, subjectId, topicKey, rawQuery } once a search has been run
+            let topicSearchLoading = false;
+            let topicSearchLoadingDetail = '';  // short progress line, e.g. "Scanning 2023 paper…"
+            let topicSearchError = '';
+            let topicSearchResults = null;      // rows from exam_topic_index for the active search
             let examPaperOpen = null; // { level, subjectId, year, label, file } of the paper open in the viewer
             let examPaperDoc = null; // pdf.js PDFDocumentProxy for examPaperOpen
             let examPaperLoading = false;
@@ -7031,6 +7054,123 @@
             function examPaperEntryFromFile(file) {
                 const row = EXAM_PAPER_INDEX.find(r => r[4] === file);
                 return row ? { level: row[0], subjectId: row[1], year: row[2], label: row[3], file: row[4] } : null;
+            }
+
+            // ---- Topic search over past papers (see state vars near examPaperSearch) ------------
+            function topicSearchSectionHtml(level, subjectId) {
+                const box = `<div class="exam-topic-search">
+    <input type="text" id="topic-search-input" placeholder="Search a topic across every paper below — e.g. 'enzymes', 'the Easter Rising', 'differentiation'…" value="${escape(topicSearchQuery)}">
+    <button type="button" class="button primary" data-action="topic-search-run" ${topicSearchLoading?'disabled':''}>${topicSearchLoading?'Searching…':'🔎 Search'}</button>
+    ${topicSearchActive ? `<button type="button" class="button ghost" data-action="topic-search-clear">Clear</button>` : ''}
+</div>`;
+                if (topicSearchLoading) return box + `<p class="small">${escape(topicSearchLoadingDetail || 'Searching…')}</p>`;
+                if (topicSearchError) return box + `<p class="empty">${escape(topicSearchError)}</p>`;
+                if (!topicSearchActive) return box;
+                const results = topicSearchResults || [];
+                if (!results.length) return box + `<p class="empty">No questions found for "${escape(topicSearchActive.rawQuery)}" in these papers yet.</p>`;
+                const byFile = new Map();
+                for (const r of results) { if (!byFile.has(r.exam_file)) byFile.set(r.exam_file, []); byFile.get(r.exam_file).push(r); }
+                const rows = [...byFile.entries()].map(([file, hits]) => {
+                    const entry = examPaperEntryFromFile(file); if (!entry) return '';
+                    return `<div class="exam-topic-result-group"><h4>${escape(entry.label)} (${entry.year})</h4>
+${hits.map(h => `<div class="exam-topic-result-row" data-action="topic-search-open" data-file="${escape(file)}" data-page="${h.page_number}" role="button" tabindex="0">
+<span class="exam-topic-result-q">${escape(h.question_label || ('Page ' + h.page_number))}</span>
+${h.snippet ? `<span class="exam-topic-result-snip">${escape(h.snippet)}</span>` : ''}
+</div>`).join('')}
+</div>`;
+                }).join('');
+                return box + `<p class="small">${results.length} question${results.length===1?'':'s'} found for "${escape(topicSearchActive.rawQuery)}" (as "${escape(topicSearchActive.topicKey)}").</p><div class="exam-topic-results">${rows}</div>`;
+            }
+
+            // Standardises free-text topic queries into a consistent key so different phrasings of
+            // the same topic ("enzymes", "stuff about enzymes", "enzyme catalysis") share one cache
+            // entry instead of each spawning a separate, redundant scan of the same papers.
+            async function topicSearchNormalize(subjectName, rawQuery) {
+                const sys = `A student studying "${subjectName}" for Irish state exams typed this search looking for past exam questions on a topic: "${rawQuery}". Convert it into a short, standardised topic label suitable as a database key -- lowercase, 1-4 words, the conventional name for this syllabus topic (not the student's exact wording unless it's already standard). E.g. "stuff about how enzymes work" -> "enzymes"; "ww1 causes" -> "causes of world war one"; "differentiating polynomials" -> "differentiation". Reply with ONLY compact JSON: {"topicKey": "..."}`;
+                const result = await aiJsonOnce(sys, [{ text: rawQuery }]);
+                const key = String(result.topicKey || '').trim().toLowerCase();
+                return key || rawQuery.trim().toLowerCase();
+            }
+
+            // Extracts all text from a PDF's pages via pdf.js, as one string per page -- used to
+            // hand each paper's actual text to the AI rather than re-sending PDF bytes/images for
+            // every topic search (cheaper, faster, and works on text-layer PDFs without needing
+            // vision). Papers with no text layer (pure scans) will yield empty strings and simply
+            // won't match -- acceptable for v1 given this archive's papers are the "-ev" (exam-view,
+            // text-based) variants already used by the rest of the viewer.
+            async function examPaperExtractPageTexts(doc) {
+                const pages = [];
+                for (let p = 1; p <= doc.numPages; p++) {
+                    const page = await doc.getPage(p);
+                    const content = await page.getTextContent();
+                    pages.push(content.items.map(it => it.str).join(' '));
+                }
+                return pages;
+            }
+
+            // Runs (or re-runs) a topic search for the subject currently being browsed. Checks
+            // exam_topic_scan_log for which papers are already indexed for this topicKey; scans only
+            // the rest; caches new results; then reads back everything indexed for this topic so the
+            // results include both newly- and previously-scanned papers together.
+            async function runTopicSearch(level, subjectId) {
+                const rawQuery = topicSearchQuery.trim();
+                if (!rawQuery) return;
+                if (!currentUser) { topicSearchError = 'Sign in with Google to use topic search.'; render(); return; }
+                topicSearchLoading = true; topicSearchError = ''; topicSearchResults = null; topicSearchLoadingDetail = 'Working out the topic…'; render();
+                try {
+                    const subjName = examPaperSubjectMeta(subjectId).name;
+                    const topicKey = await topicSearchNormalize(subjName, rawQuery);
+                    const allPapers = EXAM_PAPER_INDEX.filter(r => r[0] === level && r[1] === subjectId).map(r => ({ level: r[0], subjectId: r[1], year: r[2], label: r[3], file: r[4] }));
+
+                    const { data: scanned, error: scanErr } = await supabaseClient.from('exam_topic_scan_log')
+                        .select('exam_file').eq('level', level).eq('subject_id', subjectId).eq('topic_key', topicKey);
+                    if (scanErr) throw scanErr;
+                    const scannedFiles = new Set((scanned || []).map(r => r.exam_file));
+                    const toScan = allPapers.filter(p => !scannedFiles.has(p.file));
+
+                    // Scan unindexed papers one at a time (keeps progress visible and each AI call
+                    // small/focused rather than one huge multi-paper prompt).
+                    for (let i = 0; i < toScan.length; i++) {
+                        const p = toScan[i];
+                        topicSearchLoadingDetail = `Scanning ${p.label} ${p.year}… (${i+1}/${toScan.length})`; render();
+                        try {
+                            const buf = await examArchiveGetPdfBytes(p.file);
+                            const doc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
+                            const pageTexts = await examPaperExtractPageTexts(doc);
+                            doc.destroy();
+                            const numbered = pageTexts.map((t, idx) => `--- PAGE ${idx+1} ---\n${t}`).join('\n\n');
+                            const sys = `You are searching an exam paper (subject: "${subjName}", ${p.label} ${p.year}) for every question that relates to the topic "${topicKey}". The paper's text is provided below, split into pages (PAGE N markers). For each matching question, report its page number, its question label as printed on the paper if you can identify one (e.g. "Question 6 (b)", "Q3", "Section B, Question 2") or null if unclear, and a short one-sentence snippet/summary of what the question asks (not the full question text). Only include genuine matches to the topic -- don't force-fit unrelated questions. Reply with ONLY compact JSON: {"hits": [{"page": 1, "label": "...", "snippet": "..."}, ...]}. If nothing matches, reply {"hits": []}.
+
+PAPER TEXT:
+${numbered}`;
+                            // Explicitly request the strongest available model for this categorization
+                            // step (vs. the lighter default used for quick per-card AI calls elsewhere) --
+                            // the edge function resolves 'quality' to whichever of its configured
+                            // providers it considers best for careful multi-page reasoning like this.
+                            const result = await aiJsonOnce(sys, [{ text: 'Find matching questions.' }], 'quality');
+                            const hits = (Array.isArray(result.hits) ? result.hits : []).filter(h => h && h.page);
+                            if (hits.length) {
+                                const rows = hits.map(h => ({ level, subject_id: subjectId, topic_key: topicKey, exam_file: p.file,
+                                    page_number: Number(h.page), question_label: h.label || null, snippet: h.snippet || null }));
+                                const { error: upsertErr } = await supabaseClient.from('exam_topic_index')
+                                    .upsert(rows, { onConflict: 'level,subject_id,topic_key,exam_file,page_number' });
+                                if (upsertErr) console.error('Could not cache topic search hits for', p.file, upsertErr);
+                            }
+                            const { error: logErr } = await supabaseClient.from('exam_topic_scan_log')
+                                .upsert({ level, subject_id: subjectId, topic_key: topicKey, exam_file: p.file }, { onConflict: 'level,subject_id,topic_key,exam_file' });
+                            if (logErr) console.error('Could not log topic scan for', p.file, logErr);
+                        } catch (e) { console.error('Topic scan failed for', p.file, e); /* skip this paper, keep going -- a single bad paper shouldn't abort the whole search */ }
+                    }
+
+                    topicSearchLoadingDetail = 'Fetching results…'; render();
+                    const { data: results, error: resErr } = await supabaseClient.from('exam_topic_index')
+                        .select('*').eq('level', level).eq('subject_id', subjectId).eq('topic_key', topicKey)
+                        .order('exam_file', { ascending: false }).order('page_number', { ascending: true });
+                    if (resErr) throw resErr;
+                    topicSearchResults = results || [];
+                    topicSearchActive = { level, subjectId, topicKey, rawQuery };
+                } catch (err) { topicSearchError = err.message || "Couldn't complete that search — try again."; }
+                topicSearchLoading = false; topicSearchLoadingDetail = ''; render();
             }
 
             // ---- Local archive folder (IndexedDB just stores the directory handle) ----------
@@ -7385,7 +7525,7 @@
                 return fields;
             }
 
-            async function openExamPaper(entry) {
+            async function openExamPaper(entry, targetPage) {
                 examPaperOpen = entry;
                 examPaperDoc = null;
                 examPaperAnswers = null;
@@ -7421,6 +7561,13 @@
                 if (examPaperDoc && examPaperAnswers) {
                     await new Promise(r => requestAnimationFrame(r));
                     await renderExamPaperCanvases();
+                    // Jump straight to the page a topic-search result pointed at, rather than making
+                    // the student scroll through the whole paper to find the question that was found.
+                    if (targetPage && examPaperOpen === entry) {
+                        const slotId = 'pdf-' + targetPage;
+                        const wrap = document.querySelector(`.exam-page-wrap[data-slot-id="${slotId}"]`);
+                        if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
                     // Detection reads each page's raw drawing commands via pdf.js's getOperatorList().
                     // Calling that on a page ever touches something in pdf.js's internal state for that
                     // page (confirmed by testing) that corrupts *any future* page.render() call on that
@@ -7558,7 +7705,8 @@
                 for (const [level, subjectId, year, label, file] of papers) { if (!byYear.has(year)) byYear.set(year, []); byYear.get(year).push({ level, subjectId, year, label, file }); }
                 const back = `<button type="button" class="subject-page-back" data-action="examp-back-to-subjects">← Back to subjects</button>`;
                 return appFrame(`<div class="page">${back}
-        ${header(meta.name + ' — Past Papers', 'Pick a paper to open it and start filling it in.', '')}
+        ${header(meta.name + ' — Past Papers', 'Pick a paper to open it and start filling it in, or search a topic across every paper below.', '')}
+        ${topicSearchSectionHtml(examPaperLevel, examPaperSubjectId)}
         <div class="exam-year-list">
             ${[...byYear.entries()].map(([year, list]) => `<div class="exam-year-group"><h3>${year}</h3>${list.map(entry => `<div class="exam-paper-row"><span>${escape(entry.label)}</span><button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(entry.file)}">Open</button></div>`).join('')}</div>`).join('')}
         </div>
@@ -7803,6 +7951,9 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 else if (a === 'examp-back-to-levels') { examPaperLevel = null; examPaperSubjectId = null; examPaperSearch = ''; render(); }
                 else if (a === 'examp-back-to-subjects') { examPaperSubjectId = null; render(); }
                 else if (a === 'examp-open-paper') { const entry = examPaperEntryFromFile(b.dataset.file); if (entry) openExamPaper(entry); }
+                else if (a === 'topic-search-run') { runTopicSearch(examPaperLevel, examPaperSubjectId); }
+                else if (a === 'topic-search-clear') { topicSearchQuery = ''; topicSearchActive = null; topicSearchResults = null; topicSearchError = ''; render(); }
+                else if (a === 'topic-search-open') { const entry = examPaperEntryFromFile(b.dataset.file); if (entry) openExamPaper(entry, Number(b.dataset.page)); }
                 else if (a === 'examp-retry-open') { if (examPaperOpen) openExamPaper(examPaperOpen); }
                 else if (a === 'examp-close-paper') examPaperClose();
                 else if (a === 'examp-connect-folder' || a === 'examp-change-folder') examArchiveConnect();
@@ -7836,7 +7987,13 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     render();
                     const el = document.querySelector('[data-examp-search]');
                     if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch {} }
+                } else if (e.target.id === 'topic-search-input') {
+                    topicSearchQuery = e.target.value;
                 }
+            });
+
+            document.addEventListener('keydown', e => {
+                if (e.target.id === 'topic-search-input' && e.key === 'Enter') { e.preventDefault(); runTopicSearch(examPaperLevel, examPaperSubjectId); }
             });
 
             // --- Custom date/time picker -------------------------------------------------
@@ -8021,6 +8178,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             let flashcardsSelectedDeckId = null; // null = showing that subject's topic/deck list
             let flashcardCreateDraft = null; // { mode: 'manual'|'image', subjectId, topic, cards: [{front,back}], images: [{mimeType,data,dataUrl,name}], reviewCards: [{front,back,include}]|null }
             let flashcardCreateLoading = false; // true while the image-extraction AI call is in flight
+            let flashcardCreateLoadingStage = null; // 'extracting' | 'checking' | null -- which AI pass is in flight, for the loading message
             let flashcardStudySession = null; // active click-through/smart-test/mcq-test/match/gravity/cloze/tf/listening/srs-review session — see startFlashcard*
             let gravityTimeoutId = null; // single in-flight per-word timer for the Gravity typing game (cleared on submit/exit)
             let sparkySetChatDeckId = null; // which deck the "Ask Sparky about this set" modal is scoped to
@@ -8797,10 +8955,28 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     total = top6.reduce((sum, b) => sum + b.points, 0);
                 return { pending: false, total, breakdown, top6Ids }; }
 
+            // Rough guide for how strong a raw percent needs to be to NOT count as weak, given the student's
+            // own CAO points goal -- a flat cutoff means someone aiming for 600+ (needs mostly H1s, ~90%+) and
+            // someone aiming for under 300 get judged by the same bar, which doesn't match what "weak" means
+            // for either of them. Deliberately coarse (CAO points depend on far more than one subject's
+            // percent), just enough to make resultLooksWeak relative to the goal rather than one-size-fits-all.
+            function weakResultThreshold() { const mid = pointsTargetMidpoint(state.settings.studyPreferences &&
+                    state.settings.studyPreferences.pointsTarget);
+                if (mid == null) return 60; // no target set -- fall back to the old flat bar (matches the H5/H6 line below)
+                if (mid >= 580) return 80; // 600+: needs mostly H1/H2
+                if (mid >= 480) return 70; // 500-599: needs mostly H2/H3
+                if (mid >= 380) return 60; // 400-499: needs mostly H3/H4
+                return 50; }
+
             // Simple, deliberately loose additive signal: did the subject's most recent recorded exam result (in
             // the last ~6 months) look weak? Feeds a small, easily-tunable/removable boost into study-plan scoring
             // — not meant to be a precise model, just a nudge toward subjects that clearly need more attention.
-            function resultLooksWeak(r) { if (!r) return false; if (r.percent != null) return r.percent < 50; if (
+            // The plain-percent case is compared against the student's own points goal (see
+            // weakResultThreshold) rather than a flat 50%, and matches the LC-band case below at least at the
+            // no-goal-set default (H5 and below, i.e. under 60%, already counted as weak there) -- previously a
+            // raw 63% class-test entry silently passed as "not weak" even though the equivalent H4 LC band
+            // narrowly avoids the same flag, and neither reflected a 600+ points goal, which needs H1/H2 work.
+            function resultLooksWeak(r) { if (!r) return false; if (r.percent != null) return r.percent < weakResultThreshold(); if (
                     r.markingType === 'lc') return r.band >= 6; if (r.markingType === 'jc') return ['achieved',
                     'partiallyAchieved', 'notGraded'].includes(r.jcGrade); if (r.markingType === 'letter') return [
                     'D', 'E', 'F'].includes(r.letter);
@@ -11975,9 +12151,9 @@ ${pointsSvg}
                     if (!lastPipeAt || ts - lastPipeAt > PIPE_INTERVAL) { spawnPipe(); lastPipeAt = ts; }
                     pipes.forEach(p => { p.x -= PIPE_SPEED; if (!p.passed && p.x+PIPE_W < 80) { p.passed = true; score++; } });
                     pipes = pipes.filter(p => p.x > -PIPE_W);
-                    if (birdY - BIRD_R < 0 || birdY + BIRD_R > GROUND_Y) { endGame(); return; }
+                    if (birdY - BIRD_R < 0 || birdY + BIRD_R > GROUND_Y) { draw(); endGame(); return; }
                     for (const p of pipes) { if (80+BIRD_R > p.x && 80-BIRD_R < p.x+PIPE_W) {
-                        if (birdY-BIRD_R < p.gapY || birdY+BIRD_R > p.gapY+GAP) { endGame(); return; } } }
+                        if (birdY-BIRD_R < p.gapY || birdY+BIRD_R > p.gapY+GAP) { draw(); endGame(); return; } } }
                     draw(); renderInfo(); rafId = requestAnimationFrame(step); }
                 function endGame() { running = false; if (rafId) cancelAnimationFrame(rafId);
                     if (score > best) { best = score; gameReportScore('flappybird', best); } renderInfo();
@@ -13421,9 +13597,14 @@ ${pointsSvg}
                         if (t >= 1) { player.row = player.hopTo.row; player.col = player.hopTo.col; player.hopping = false; player.carry = 0;
                             if (player.row > maxRow) { maxRow = player.row; score = maxRow; renderInfo(); } } }
                     if (!player.hopping) { const lane = lanes[player.row];
-                        if (lane.type === 'road') { const cx0 = player.col*TILE, cx1 = cx0+TILE;
+                        // Player-side hitbox uses the drawn sprite's actual width (30px, see drawPlayer's
+                        // roundRect(px-15, py-15, 30, 28, 10)) centered on the tile, not the full 48px tile --
+                        // using the full tile here meant a car/train could be flush with the tile's edge,
+                        // clearly not yet touching the drawn player body, and still register a hit.
+                        const PLAYER_HIT_W = 30;
+                        if (lane.type === 'road') { const cx0 = player.col*TILE + (TILE-PLAYER_HIT_W)/2, cx1 = cx0+PLAYER_HIT_W;
                             if (lane.cars.some(c => c.x < cx1 && c.x+c.w > cx0)) { death('flattened by a car'); return; } }
-                        else if (lane.type === 'rail') { if (lane.phase === 'cross' && lane.train) { const cx0 = player.col*TILE, cx1 = cx0+TILE;
+                        else if (lane.type === 'rail') { if (lane.phase === 'cross' && lane.train) { const cx0 = player.col*TILE + (TILE-PLAYER_HIT_W)/2, cx1 = cx0+PLAYER_HIT_W;
                             if (lane.train.x < cx1 && lane.train.x+lane.train.w > cx0) { death('hit by a train'); return; } } }
                         else if (lane.type === 'water') { const px = (player.col+0.5+player.carry)*TILE;
                             const log = lane.logs.find(l => px >= l.x && px <= l.x+l.w);
@@ -14610,11 +14791,13 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 const topicField = `<div class="field" style="margin-bottom:14px"><label>Topic${s?` (${escape(s.name)})`:''}</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div>`;
                 const manualCardRow = (c, i) => `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea></div><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
                 const manualBody = `${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
-                const imgThumb = (img, i) => `<div style="position:relative;display:inline-block;margin:0 8px 8px 0"><img src="${img.dataUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="${escape(img.name||'photo')}"><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove photo">✕</button></div>`;
+                const imgThumb = (img, i) => img.mimeType === 'application/pdf'
+                    ? `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:72px;height:72px;margin:0 8px 8px 0;border-radius:8px;border:1px solid var(--line);background:var(--card)"><span style="font-size:22px">📄</span><span class="small" style="max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escape(img.name||'PDF')}</span><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove file">✕</button></div>`
+                    : `<div style="position:relative;display:inline-block;margin:0 8px 8px 0"><img src="${img.dataUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="${escape(img.name||'photo')}"><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove photo">✕</button></div>`;
                 const reviewRow = (item, i) => `<div class="topic-row" style="align-items:flex-start"><input type="checkbox" data-action="flashcard-review-toggle" data-index="${i}" ${item.include?'checked':''} style="margin-top:10px"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-review-edit-front" data-index="${i}" value="${escape(item.front)}"><textarea data-action="flashcard-review-edit-back" data-index="${i}" style="min-height:52px">${escape(item.back)}</textarea></div></div>`;
                 const imageBody = d.reviewCards ?
                     `<p class="small">Review what was found — untick or edit anything that's wrong, then confirm.</p><div class="list" style="margin-top:10px">${d.reviewCards.length?d.reviewCards.map(reviewRow).join(''):'<p class="empty">Nothing usable was found in those photos.</p>'}</div>`
-                    : `${topicField}<input type="file" id="flashcard-image-file" accept="image/*" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) of notes, a textbook page, or your own paper flashcards</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>${d.images.length?`<p class="small">${d.images.length} photo${d.images.length===1?'':'s'} added.</p>`:''}`;
+                    : `${topicField}<input type="file" id="flashcard-image-file" accept="image/*,application/pdf" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) or a PDF of notes, a textbook page/chapter, or your own paper flashcards</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>${d.images.length?`<p class="small">${d.images.length} file${d.images.length===1?'':'s'} added.</p>`:''}`;
                 const pasteCount = d.mode === 'paste' ? parsePastedFlashcards(d.pasteText || '').length : 0;
                 const pasteBody = `${topicField}<p class="small" style="margin-bottom:8px">One card per line: <code>term - definition</code>, <code>term, definition</code>, or paste straight from a spreadsheet (tab-separated). Also works with lines copied from Quizlet's own export.</p><textarea id="flashcard-paste-text" placeholder="Mitochondria - The powerhouse of the cell&#10;Photosynthesis - The process plants use to convert light into energy" style="min-height:180px">${escape(d.pasteText || '')}</textarea><p class="small" style="margin-top:8px">${pasteCount} card${pasteCount===1?'':'s'} detected</p>`;
                 const magicReviewRow = (item, i) => `<div class="topic-row" style="align-items:flex-start"><input type="checkbox" data-action="magic-review-toggle" data-index="${i}" ${item.include?'checked':''} style="margin-top:10px"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="magic-review-edit-front" data-index="${i}" value="${escape(item.front)}"><textarea data-action="magic-review-edit-back" data-index="${i}" style="min-height:52px">${escape(item.back)}</textarea></div></div>`;
@@ -14630,7 +14813,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 else if (d.mode === 'magic' && d.magicResult) footer = `<button type="button" class="button ghost" data-action="magic-review-cancel">Back</button><button type="button" class="button primary" data-action="magic-review-confirm">Add ticked cards</button>`;
                 else if (d.mode === 'magic') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-magic-extract" ${flashcardCreateLoading||!(d.notesText&&d.notesText.trim())?'disabled':''}>${flashcardCreateLoading?'Reading notes…':'✨ Generate with AI'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
-                else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?'Reading photos…':'Generate flashcards'}</button>`;
+                else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?(flashcardCreateLoadingStage==='checking'?'Double-checking cards…':'Reading files…'):'Generate flashcards'}</button>`;
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
 
             async function runMagicNotesExtract() { const d = flashcardCreateDraft; if (!d) return;
@@ -14695,19 +14878,73 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             async function runFlashcardExtract() { const d = flashcardCreateDraft; if (!d) return;
                 const topic = (d.topic || '').trim();
                 if (!topic) { toast('Enter a topic name.'); return; }
-                if (!d.images.length) { toast('Add at least one photo first.'); return; }
+                if (!d.images.length) { toast('Add at least one photo or PDF first.'); return; }
                 const s = subject(d.subjectId);
-                flashcardCreateLoading = true; renderModal();
+                const hasPdf = d.images.some(img => img.mimeType === 'application/pdf');
+                const sourceDesc = hasPdf ? "photos and/or PDF(s) (which may be a scanned/exported textbook chapter or notes)" : "photos";
+                flashcardCreateLoading = true; flashcardCreateLoadingStage = 'extracting'; renderModal();
                 try {
-                    const sys = `You read photos of a student's notes, a textbook page, or their own handwritten paper flashcards for the subject "${s?.name||'this subject'}", on the topic "${topic}". Extract distinct flashcard-worthy concepts from them. For each one, write a short "front" (the key term, name, or question — the "cover word") and a "back" that is a precise, exam-ready definition or explanation, written the way a top-scoring answer would be phrased against an official exam marking scheme — include the specific terminology/buzzwords an examiner would be checking for, not just a vague paraphrase. Split compound or multi-part notes into several smaller cards rather than one huge card. If the photos are already laid out as flashcards (term on one side, definition on the other, or clearly separated), use those pairs directly rather than re-inventing them. Only include a card when you're reasonably confident of both sides. Reply with ONLY compact JSON: {"cards": [{"front": "...", "back": "..."}, ...]}. If nothing usable is found, reply {"cards": []}.`;
-                    const parts = [...d.images.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })), { text: 'Extract flashcards from these photos.' }];
+                    const sys = `You read ${sourceDesc} of a student's notes, a textbook page or chapter, or their own handwritten paper flashcards for the subject "${s?.name||'this subject'}", on the topic "${topic}". Extract distinct flashcard-worthy concepts from them.
+
+For each one, write:
+- "front": a short key term, name, or question — the "cover word".
+- "back": the ACTUAL DEFINITION of that term, not a summary of the surrounding paragraph. If the source states a definition explicitly (e.g. "X is defined as...", a bolded/highlighted term followed by its meaning, a glossary-style entry, or a sentence that functions as the definition), extract THAT sentence/statement itself, trimmed of any surrounding narrative, examples, or context that isn't part of the definition. Do not pad it with extra explanation that wasn't part of the actual definition. Where the textbook's own phrasing is the clean, precise definition, prefer reusing that exact phrasing closely over writing your own looser paraphrase — the goal is what a student would need to reproduce for an exam, not a general explanation of the concept.
+- Write it to the standard of an official exam marking scheme — precise terminology, not vague paraphrase — but still grounded in the actual definition found in the source, not invented.
+
+Split compound or multi-part notes into several smaller cards rather than one huge card. If the source is already laid out as flashcards (term on one side, definition on the other, or clearly separated), use those pairs directly rather than re-inventing them. Only include a card when you're reasonably confident of both sides. A multi-page PDF may contain far more material than is relevant to "${topic}" — only extract content that actually belongs to that topic, skip unrelated chapters/sections.
+
+Reply with ONLY compact JSON: {"cards": [{"front": "...", "back": "..."}, ...]}. If nothing usable is found, reply {"cards": []}.`;
+                    const parts = [...d.images.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })), { text: `Extract flashcards from these ${sourceDesc}.` }];
                     const result = await aiJsonOnce(sys, parts);
-                    const cards = (Array.isArray(result.cards) ? result.cards : []).filter(c => c && c.front && c.back)
+                    let cards = (Array.isArray(result.cards) ? result.cards : []).filter(c => c && c.front && c.back)
                         .map(c => ({ front: String(c.front).trim(), back: String(c.back).trim(), include: true }));
-                    if (!cards.length) toast("Couldn't find any flashcard content in those photos — try clearer photos.");
-                    d.reviewCards = cards;
-                } catch (err) { toast(err.message || 'Could not read those photos.'); }
-                flashcardCreateLoading = false; renderModal(); }
+                    if (!cards.length) { toast("Couldn't find any flashcard content in those files — try clearer photos or a different PDF."); d.reviewCards = cards; }
+                    else {
+                        // Second pass: send the drafted cards back to the AI, alongside the same source
+                        // material, specifically to check for misreadings before the student ever sees them —
+                        // each card gets kept as-is, corrected, or dropped if it doesn't actually hold up.
+                        flashcardCreateLoadingStage = 'checking'; renderModal();
+                        try { cards = await runFlashcardVerifyPass(s, topic, d.images, cards); }
+                        catch (verifyErr) { /* verification is a safety net, not a hard requirement -- if it
+                            fails, fall back to the first-pass cards rather than losing the student's work */ }
+                        d.reviewCards = cards;
+                    }
+                } catch (err) { toast(err.message || 'Could not read those files.'); }
+                flashcardCreateLoading = false; flashcardCreateLoadingStage = null; renderModal(); }
+
+            // Second AI pass over the drafted cards, re-checking each one against the same source material
+            // before the student ever sees it. Catches misreadings (OCR slips, a definition attributed to the
+            // wrong term, a card that drifted from what the source actually said) that the first pass alone
+            // wouldn't self-correct. Cards the AI is confident are accurate are kept as drafted; a card with a
+            // real error is corrected if the fix is clear, or dropped if it can't be made accurate. Falls back
+            // to the original cards on any failure (missing/malformed response, request error) so a flaky
+            // verification pass never blocks the student from reviewing what the first pass already found.
+            async function runFlashcardVerifyPass(s, topic, images, draftCards) {
+                const sys = `You are proofreading a set of exam flashcards that were just generated by another AI pass from the attached source material (photos and/or PDF of a student's notes or textbook), for the subject "${s?.name||'this subject'}", topic "${topic}". Your job is only to catch mistakes — not to rewrite cards that are already correct.
+
+For EACH card below, re-check it against the attached source material and decide:
+- "keep": the front and back are accurate and faithfully reflect what the source actually says — no changes needed.
+- "fix": there's a real error (e.g. the back doesn't match what the source says for that term, a definition got attached to the wrong term, part of the definition is missing or garbled, or it's a paraphrase drifted from the source when the source's own wording should have been used) — provide a corrected "front"/"back".
+- "drop": the card is wrong in a way that can't be confidently fixed from the source, or it doesn't actually correspond to real content in the source.
+
+Cards to check (by index):
+${draftCards.map((c,i) => `${i}. front: "${c.front}" | back: "${c.back}"`).join('\n')}
+
+Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|"drop", "front": "...", "back": "..."}, ...]} — one entry per card index above. For "keep", you may omit front/back (or repeat them unchanged). For "fix", front/back are the corrected version. For "drop", front/back are not needed.`;
+                const parts = [...images.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })), { text: 'Check these drafted flashcards against the source material.' }];
+                const result = await aiJsonOnce(sys, parts);
+                const results = Array.isArray(result.results) ? result.results : null;
+                if (!results) return draftCards; // malformed response -- keep the first-pass cards rather than discard them
+                const byIndex = new Map(results.map(r => [r.index, r]));
+                const out = [];
+                draftCards.forEach((c, i) => {
+                    const r = byIndex.get(i);
+                    if (!r || r.verdict === 'keep') { out.push(c); return; }
+                    if (r.verdict === 'fix' && r.front && r.back) { out.push({ front: String(r.front).trim(), back: String(r.back).trim(), include: true }); return; }
+                    // 'drop', or a 'fix' missing usable front/back -- leave it out.
+                });
+                return out.length ? out : draftCards; // never leave the student with zero cards over a verify-pass quirk
+            }
 
             function confirmFlashcardReview() { const d = flashcardCreateDraft; if (!d || !d.reviewCards) return;
                 const chosen = d.reviewCards.filter(c => c.include && c.front.trim() && c.back.trim());
@@ -16444,6 +16681,24 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 const chatWasNearBottom = !chatThreadBefore ||
                     (chatThreadBefore.scrollHeight - chatThreadBefore.scrollTop - chatThreadBefore.clientHeight < 80);
                 const chatPrevScrollTop = chatThreadBefore ? chatThreadBefore.scrollTop : null;
+                // General case of the chat fix above: ANY text/number input or textarea inside #app can be
+                // mid-type when an unrelated render() fires (poll timers being the main offender -- chat's
+                // 15s global poll and the games' 15s poll both call render() app-wide, not just on their own
+                // page). Those fields aren't all individually wired to restore themselves (chat's composer and
+                // a handful of calculator tools are; things like the global search box, formula/periodic-table
+                // search, word counter, etc. are not), so a poll landing mid-keystroke silently erases whatever
+                // was typed. Capturing/restoring the currently-focused field here, once, covers every such
+                // field without needing a per-input special case -- mirrors the chat approach above but applies
+                // it generically instead of to one hardcoded id.
+                const appEl = document.getElementById('app');
+                const focusedEl = document.activeElement;
+                const focusedInApp = appEl && focusedEl && appEl.contains(focusedEl) &&
+                    focusedEl !== chatInputBefore &&
+                    (focusedEl.tagName === 'INPUT' || focusedEl.tagName === 'TEXTAREA');
+                const focusedId = focusedInApp ? focusedEl.id : null;
+                const focusedDraft = focusedInApp ? focusedEl.value : null;
+                const focusedSelStart = focusedInApp ? focusedEl.selectionStart : null;
+                const focusedSelEnd = focusedInApp ? focusedEl.selectionEnd : null;
                 updateAiChatGateUI(); document.body.classList.toggle('dark', state.settings.theme === 'dark');
                 document.body.classList.toggle('color-mode', state.settings.theme === 'color');
                 if (state.settings.theme === 'color') applyColorModeTheme(state.settings.themeAccentColor || DEFAULT_THEME_ACCENT);
@@ -16483,6 +16738,20 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 }
                 const chatThreadAfter = document.getElementById('chat-thread');
                 if (chatThreadAfter) chatThreadAfter.scrollTop = chatWasNearBottom ? chatThreadAfter.scrollHeight : chatPrevScrollTop;
+                if (focusedId != null) {
+                    // ids repeat across some views (e.g. a modal and the page behind it could in principle
+                    // share one), so only restore into an element of the same tag we captured from.
+                    const restoreEl = document.getElementById(focusedId);
+                    if (restoreEl && restoreEl.tagName === focusedEl.tagName) {
+                        // Only overwrite the value if this render() didn't already produce a newer one for
+                        // this field (e.g. the field's own input handler re-rendered it with fresh state) --
+                        // an unrelated render firing mid-type is the case we're guarding, so only step in
+                        // when the freshly-rendered value still matches what was there before this call.
+                        if (restoreEl.value !== focusedDraft) restoreEl.value = focusedDraft;
+                        restoreEl.focus();
+                        try { restoreEl.setSelectionRange(focusedSelStart, focusedSelEnd); } catch (err) {}
+                    }
+                }
                 if (view === 'admin') return; if (
                     !state.settings.onboarded && !modal) openModal('onboarding');
                 else if (state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
@@ -17903,7 +18172,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             // ----------------------------------------------------------------------
             const AI_TOOLS = {
                 read_app_state: {
-                    description: "Read the user's full current app data: settings, subjects, timetable events, tasks, exams/tests, class topics (what's currently/previously been covered in each class — see classTopics), spaced-repetition topics, reminders, holidays/days-off, today's date, and the currently viewed week. Call this first whenever you need real ids, existing schedule details, or anything you are not already certain of from earlier in the conversation.",
+                    description: "Read the user's full current app data: settings, subjects, timetable events, tasks, exams/tests (with recorded results), class topics (what's currently/previously been covered in each class — see classTopics), spaced-repetition topics, reminders, holidays/days-off, past papers and their results, language word/verb banks, flashcard decks, essay marking history, CAO course shortlist, exam-linked tasks/milestones, game high scores, coins/closet unlocks, today's date, and the currently viewed week. Call this first whenever you need real ids, existing schedule details, or anything you are not already certain of from earlier in the conversation — this always reflects the app's current feature set, so re-check it rather than assuming from earlier in the conversation what data shapes or features exist.",
                     parameters: { type: "OBJECT", properties: {} },
                     handler: () => ({
                         today: localDate(),
@@ -17917,7 +18186,23 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         classTopics: state.classTopics,
                         topics: state.topics,
                         reminders: state.reminders,
-                        holidays: state.holidays
+                        holidays: state.holidays,
+                        pastPapers: state.pastPapers,
+                        wordbankVocab: state.wordbankVocab,
+                        wordbankVerbs: state.wordbankVerbs,
+                        wordbankLearnedTenses: state.wordbankLearnedTenses,
+                        essayMarks: state.essayMarks,
+                        flashcardDecks: state.flashcardDecks,
+                        flashcardFolders: state.flashcardFolders,
+                        caoCourses: state.caoCourses,
+                        examTasks: state.examTasks,
+                        studySessionLog: state.studySessionLog,
+                        longestStudyStreak: state.longestStudyStreak,
+                        coins: state.coins,
+                        equippedColor: state.equippedColor,
+                        unlockedColors: state.unlockedColors,
+                        unlockedExpressions: state.unlockedExpressions,
+                        gameHighScores: state.gameHighScores
                     })
                 },
 
@@ -20709,9 +20994,10 @@ If the user asks about how to study or study methods generally, answer from your
             document.addEventListener('change', e => { const t = e.target;
                 if (t.id === 'flashcard-image-file') { const files = Array.from(t.files || []); t.value = '';
                     if (!files.length || !flashcardCreateDraft) return;
-                    Promise.all(files.filter(f => f.type.startsWith('image/')).map(f => fileToDataUrl(f).then(dataUrl => ({ mimeType: f.type, data: dataUrl.split(',')[1], dataUrl, name: f.name }))))
+                    const usable = files.filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
+                    Promise.all(usable.map(f => fileToDataUrl(f).then(dataUrl => ({ mimeType: f.type, data: dataUrl.split(',')[1], dataUrl, name: f.name }))))
                         .then(imgs => { if (flashcardCreateDraft) { flashcardCreateDraft.images.push(...imgs); renderModal(); } })
-                        .catch(err => toast(err.message || "Couldn't read one of those photos.")); }
+                        .catch(err => toast(err.message || "Couldn't read one of those files.")); }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-toggle') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].include = t.checked; }
                 else if (t.dataset && t.dataset.action === 'magic-review-toggle') { if (flashcardCreateDraft?.magicResult) flashcardCreateDraft.magicResult.cards[Number(t.dataset.index)].include = t.checked; }
                 else if (t.id === 'diagram-image-file') { const file = t.files?.[0]; t.value = ''; if (!file || !modal?.deckId) return;
