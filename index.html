@@ -8063,6 +8063,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             const blankState = () => ({
                 settings: { firstName: '', lastName: '', dob: '', yearGroup: '', termStart: '', termEnd: '',
                     theme: 'light', themeAccentColor: DEFAULT_THEME_ACCENT, onboarded: false, sidebarMode: 'hover', studyEngineDisabled: false,
+                    studyPlanningMode: 'topics',
                     notificationsEnabled: false, chatNotificationsEnabled: true, tourVersion: 0, tourBannerDismissedVersion: 0,
                     dyslexiaMode: false, cabbageCount: 0,
                     timetableStyle: 'boxes', timetableAccentColor: DEFAULT_TIMETABLE_ACCENT,
@@ -8300,8 +8301,10 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             // Settings has one nested object (studyPreferences) — a plain {...base, ...saved} would let an
             // older or imported settings blob wholesale-replace it, silently dropping any newer subfields added
             // since that data was saved. Merges one level deeper specifically for that field.
-            function mergeSettings(base, saved) { return { ...base, ...saved, studyPreferences: { ...base
-                        .studyPreferences, ...(saved.studyPreferences || {}) } }; }
+            function mergeSettings(base, saved) { const merged = { ...base, ...saved, studyPreferences: { ...base
+                        .studyPreferences, ...(saved.studyPreferences || {}) } };
+                merged.studyPlanningMode = saved.studyPlanningMode || (saved.studyEngineDisabled ? 'none' : 'topics');
+                return merged; }
 
             // Turns a raw parsed state blob (from localStorage or an imported backup file) into a safe, complete
             // state object — supplies defaults for anything missing, and coerces fields that must be a
@@ -9539,7 +9542,8 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 // Automatic study planning turned off in Settings — this is just a timetable now. Blocks still
                 // render (so the Study page/Dashboard don't break expecting a plan), but nothing gets suggested
                 // or auto-filled; whatever's already logged stays, everything else is left for the user.
-                if (state.settings.studyEngineDisabled) { state.studyPlans[date] = plan;
+                const planningMode = state.settings.studyPlanningMode || (state.settings.studyEngineDisabled ? 'none' : 'topics');
+                if (planningMode === 'none' || state.settings.studyEngineDisabled) { state.studyPlans[date] = plan;
                     return plan; }
                 const isFull = (block) => block.items.reduce((n, i) => n + i.minutes, 0) >= (block.end - block
                     .start) - 10;
@@ -9549,7 +9553,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 const covered = new Set(); plan.blocks.forEach(b => b.items.forEach(i => covered.add(
                     candidateKey(i.kind, i.subjectId, i.taskId, i.topicId, i.classTopicId))));
                 const candidates = [];
-                state.tasks.filter(t => !t.done && t.due >= date && t.due <= addDays(date, 5)).forEach(t => {
+                state.tasks.filter(t => !t.done && t.due && t.due <= addDays(date, 5)).forEach(t => {
                     if (covered.has(candidateKey('task', t.subjectId, t.id, '', ''))) return;
                     const dayGap = Math.round((dateFrom(t.due) - dateFrom(date)) / 86400000),
                         urgency = t.type === 'test' ? 6 : 4;
@@ -9557,7 +9561,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                         DEFAULT_SESSION_MIN, t.minutes || DEFAULT_SESSION_MIN), kind: 'task', taskId: t.id,
                         score: urgency + Math.max(0, 5 - dayGap) * 2 + (t.important ? 2 : 0) });
                 });
-                (state.topics || []).filter(top => top.nextReview && top.nextReview <= date).forEach(top => {
+                if (planningMode === 'topics') (state.topics || []).filter(top => top.nextReview && top.nextReview <= date).forEach(top => {
                     if (covered.has(candidateKey('review', top.subjectId, '', top.id, ''))) return;
                     const topSubject = subject(top.subjectId); if (topSubject && topSubject.examSubject === false)
                         return; // non-exam subjects aren't used to fill spare study time
@@ -9566,7 +9570,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                         DEFAULT_SESSION_MIN * 0.6), kind: 'review', topicId: top.id, score: 5 + Math.min(6,
                         overdue) });
                 });
-                const subjectsWithClassTopics = new Set(); (state.classTopics || []).forEach(ct => { const s =
+                const subjectsWithClassTopics = new Set(); if (planningMode === 'topics') (state.classTopics || []).forEach(ct => { const s =
                         subject(ct.subjectId); if (!s || !s.active || s.examSubject === false || ct.status ===
                         'paused') return;
                     subjectsWithClassTopics.add(ct.subjectId); if (covered.has(candidateKey('classtopic', ct
@@ -9587,7 +9591,8 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     candidates.push({ subjectId: ct.subjectId, label, minutes: DEFAULT_SESSION_MIN,
                         kind: 'classtopic', classTopicId: ct.id, score: score + examBoost * 1.2,
                         examName: examInfo?.exam?.name }); });
-                state.subjects.filter(s => s.active && s.examSubject !== false && !subjectsWithClassTopics.has(s.id))
+                state.subjects.filter(s => s.active && s.examSubject !== false && (planningMode === 'subject' ||
+                    !subjectsWithClassTopics.has(s.id)))
                     .forEach(s => { if (covered.has(candidateKey('balance', s.id, '', '', ''))) return;
                     const plannedSoFar = plannedMinutes(s.id, weekStart(date)),
                         shortfall = Math.max(0, (s.target || 0) - plannedSoFar),
@@ -9596,7 +9601,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                         examInfo = examUrgencyForSubject(s.id, date),
                         examBoost = examInfo ? examInfo.score : 0,
                         weakResultBoost = subjectNeedsWork(s.id, date) ? 2 : 0; candidates.push({ subjectId: s.id,
-                        label: noTopicsLabel(s),
+                        label: planningMode === 'subject' ? `Study ${s.name}` : noTopicsLabel(s),
                         minutes: DEFAULT_SESSION_MIN, kind: 'balance', score: shortfall / 30 + age * 0.5 +
                             examBoost * 1.5 + weakResultBoost, examName: examInfo?.exam?.name }); });
                 candidates.sort((a, b) => b.score - a.score);
@@ -15815,25 +15820,51 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             let studyModeTickHandle = null;
             let studyModeLogDraft = null; // { taskMs, tasksCompleted, overallRating, checkedTaskIds, checkedTopicIds } — the post-session "what did you do" checklist
 
-            // Entry point — always asks how long there is rather than guessing from the timetable: "Free
-            // study" for a set number of minutes, or "Just start" for an open-ended session that runs
-            // until it's manually finished.
-            function startStudyMode() { openModal('study-mode-start'); }
+            function activeStudyBlockNow() {
+                const now = new Date(), minute = now.getHours() * 60 + now.getMinutes(),
+                    plan = ensureStudyPlan(localDate());
+                const segment = segmentsForDate(localDate()).find(x => x.event.type === 'study' &&
+                    x.start <= minute && minute < x.end);
+                if (!segment || !plan) return null;
+                const block = plan.blocks.find(b => b.blockEventId === segment.event.id &&
+                    b.blockSlotId === segment.slot.id);
+                return block ? { ...segment, block } : null;
+            }
 
-            function studyModeBegin(minutes) { const mins = minutes ? Math.max(10, Math.min(240, Number(
-                        minutes) || DEFAULT_SESSION_MIN)) : null;
-                const now = Date.now();
-                studyModeSession = { mode: mins ? 'timed' : 'open', endTs: mins ? now + mins * 60000 : null,
+            // Starting from the Study page uses the current timetable block when there is one. Outside a
+            // block, retain the free-study flow so the button remains useful at any time of day.
+            function startStudyMode() {
+                const active = activeStudyBlockNow();
+                if (active) { studyModeBegin(null, active); return; }
+                openModal('study-mode-start');
+            }
+
+            function studyModeBegin(minutes, scheduledBlock = null) { const mins = minutes ? Math.max(10, Math.min(240, Number(
+                        minutes) || DEFAULT_SESSION_MIN)) : null, now = Date.now(),
+                    scheduledEndTs = scheduledBlock ? now + Math.max(0, (scheduledBlock.end -
+                        (new Date().getHours() * 60 + new Date().getMinutes())) * 60000) : null,
+                    plannedItems = scheduledBlock ? scheduledBlock.block.items.filter(i => !i.logged) : [];
+                studyModeSession = { mode: scheduledBlock || mins ? 'timed' : 'open',
+                    endTs: scheduledEndTs || (mins ? now + mins * 60000 : null),
                     startedAt: now, phase: 'task', taskIndex: 1, phaseStartedAt: now, taskMs: 0, breaksMs: 0,
                     countdownRevealed: false, pipMode: false, lastForegroundAt: now, lastNudgeAt: null,
-                    activeGame: null, gamePickerOpen: false };
+                    activeGame: null, gamePickerOpen: false, scheduledBlock: scheduledBlock ? {
+                        date: localDate(), eventId: scheduledBlock.block.blockEventId,
+                        slotId: scheduledBlock.block.blockSlotId
+                    } : null, plannedItems, completedPlanItems: [] };
                 closeModal();
                 enterStudyModeView(); }
+
+            function studyModeCurrentItem(s) {
+                return s.plannedItems && s.plannedItems[s.taskIndex - 1];
+            }
 
             // "Finish task" always leads to the same choice — a short break before the next task, or
             // finishing the session outright — rather than silently moving on by itself.
             function studyModeFinishTask() { const s = studyModeSession; if (!s || s.phase !== 'task') return;
                 s.taskMs += Date.now() - s.phaseStartedAt;
+                const item = studyModeCurrentItem(s);
+                if (item && !s.completedPlanItems.includes(item.id)) s.completedPlanItems.push(item.id);
                 s.phase = 'deciding';
                 renderStudyModeOverlay(); }
 
@@ -15902,11 +15933,14 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             // minutes away rather than a constant stream.
             function studyModeTick() { const s = studyModeSession; if (!s) { clearInterval(studyModeTickHandle);
                     studyModeTickHandle = null;
-                    return; } if (s.pipMode) { renderStudyModePip();
+                            return; } if (s.endTs && Date.now() >= s.endTs) {
+                            if (s.phase === 'task') s.taskMs += Date.now() - s.phaseStartedAt;
+                            else if (s.phase === 'break') s.breaksMs += Date.now() - s.phaseStartedAt;
+                            studyModeEndSession();
+                            return; } if (s.pipMode) { renderStudyModePip();
                     const awayMs = Date.now() - s.lastForegroundAt; if (awayMs > 180000 && (!s.lastNudgeAt || Date
-                            .now() - s.lastNudgeAt > 120000)) { s.lastNudgeAt = Date.now();
-                        toast("You've been away from Study Mode for a few minutes — ready to get back to it?"); } } else if (!s.activeGame)
-                    renderStudyModeOverlay(); }
+                        .now() - s.lastNudgeAt > 120000)) { s.lastNudgeAt = Date.now();
+                    toast("You've been away from Study Mode for a few minutes — ready to get back to it?"); } } else if (!s.activeGame) renderStudyModeOverlay(); }
 
             function fmtCountdown(ms) { const total = Math.max(0, Math.round(ms / 1000)),
                     m = Math.floor(total / 60), sec = total % 60; return `${m}:${String(sec).padStart(2, '0')}`; }
@@ -15929,11 +15963,15 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         `<span class="sm-progress-dot ${i<completedTasks?'done':'current'}"></span>`).join('');
                 if (s.phase === 'task') { const elapsedMs = Date.now() - s.phaseStartedAt,
                         elapsedMin = Math.floor(elapsedMs / 60000);
+                    const plannedItem = studyModeCurrentItem(s),
+                        taskTitle = plannedItem ? plannedItem.label : `Task ${s.taskIndex}`,
+                        taskSubject = plannedItem ? subject(plannedItem.subjectId) : null;
                     overlay.innerHTML =
-                        `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Task ${s.taskIndex}</div><div class="sm-stage-title">Task ${s.taskIndex}</div><div class="sm-stage-sub">${elapsedMin>=STUDY_MODE_HOUR_NUDGE_MIN?"You've been at this for over an hour — worth taking a break soon.":'Work on whatever you need to, then finish the task when you\'re ready.'}</div><div class="sm-task-timer">${fmtCountdown(elapsedMs)}</div><div class="sm-actions"><button type="button" class="button primary" data-action="sm-finish-task">Finish task</button></div><div class="sm-progress">${progressDots}</div></div>`;
+                        `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">${s.scheduledBlock?'Planned activity':'Task '+s.taskIndex}</div><div class="sm-stage-title">${escape(taskTitle)}</div><div class="sm-stage-sub">${taskSubject?escape(taskSubject.name)+' · ':''}${elapsedMin>=STUDY_MODE_HOUR_NUDGE_MIN?"You've been at this for over an hour — worth taking a break soon.":s.scheduledBlock?'Follow the activity planned for this study block.':'Work on whatever you need to, then finish the task when you\'re ready.'}</div><div class="sm-task-timer">${fmtCountdown(elapsedMs)}</div><div class="sm-actions"><button type="button" class="button primary" data-action="sm-finish-task">Finish task</button></div><div class="sm-progress">${progressDots}</div></div>`;
                     return; }
-                if (s.phase === 'deciding') { overlay.innerHTML =
-                        `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Task ${s.taskIndex} done</div><div class="sm-stage-title">Next task, or finish for now?</div><div class="sm-stage-sub">A short break helps before diving into the next one — or stop here if you're done.</div><div class="sm-actions"><button type="button" class="button ghost" data-action="sm-choose-finish">Finish session</button><button type="button" class="button primary" data-action="sm-choose-next">Take a break, then next task</button></div><div class="sm-progress">${progressDots}</div></div>`;
+                if (s.phase === 'deciding') { const hasNextPlanned = !!(s.plannedItems && s.plannedItems[s.taskIndex]);
+                    overlay.innerHTML =
+                        `${topBar}${countdownHtml}<div class="sm-stage"><div class="sm-stage-kind">Task ${s.taskIndex} done</div><div class="sm-stage-title">${s.scheduledBlock && !hasNextPlanned?'Planned activities complete':'Next task, or finish for now?'}</div><div class="sm-stage-sub">${s.scheduledBlock && !hasNextPlanned?'You have reached the end of the activities planned for this study block.':'A short break helps before diving into the next one — or stop here if you\'re done.'}</div><div class="sm-actions"><button type="button" class="button ghost" data-action="sm-choose-finish">Finish session</button>${s.scheduledBlock && !hasNextPlanned?'':`<button type="button" class="button primary" data-action="sm-choose-next">Take a break, then next task</button>`}</div><div class="sm-progress">${progressDots}</div></div>`;
                     return; }
                 if (s.activeGame) { const g = GAMES[s.activeGame];
                     overlay.innerHTML =
@@ -17391,7 +17429,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Timetable style</strong><span class="small">How your weekly timetable and dashboard schedule are displayed.</span></div><div class="type-picker">${TIMETABLE_STYLES.map(t=>`<button type="button" class="type-option ${((s.timetableStyle||'boxes')===t.id)?'selected':''}" data-action="set-timetable-style" data-style="${t.id}"><strong>${t.label}</strong><span>${t.desc}</span></button>`).join('')}</div>${s.timetableStyle==='monochrome'?`<div class="field" style="max-width:170px"><label for="setting-timetable-accent">Timetable colour</label><input id="setting-timetable-accent" type="color" value="${s.timetableAccentColor||DEFAULT_TIMETABLE_ACCENT}"></div>`:''}</div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Sidebar</strong><span class="small">How the sidebar behaves.</span></div><div class="row">${[['hover','Expand on hover'],['expanded','Always expanded'],['collapsed','Always collapsed']].map(([m,l])=>`<button type="button" class="button ${((s.sidebarMode||'hover')===m)?'primary':'ghost'}" data-action="set-sidebar-mode" data-mode="${m}">${l}</button>`).join('')}</div></div>
           <div class="settings-row"><div><strong>Study preferences</strong><span class="small">How much and when you'd like to study.</span></div><button class="button" data-action="open-study-preferences">Edit</button></div>
-          <div class="settings-row"><div><strong>Automatic study planning</strong><span class="small">When off, this is just a timetable — study blocks stay empty for you to fill in, and no self-study time gets added automatically.</span></div><label class="switch-row"><input id="setting-study-engine" type="checkbox" ${s.studyEngineDisabled?'':'checked'}> Let the planner decide what and how much to study</label></div>
+          <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>What should study blocks plan?</strong><span class="small">Choose whether each block gets specific topics, only a subject, or no study content. Homework due soon is included when planning is enabled.</span></div><div class="type-picker">${[['topics','Topic by topic','Plan the exact topics and homework to work on.'],['subject','Subject only','Plan the subject; you choose what to do within it.'],['none','Nothing','Leave study content for you to choose.']].map(([id,label,desc])=>`<button type="button" class="type-option ${(s.studyPlanningMode|| (s.studyEngineDisabled?'none':'topics'))===id?'selected':''}" data-action="set-study-planning-mode" data-mode="${id}" style="text-align:left;min-height:50px"><strong>${label}</strong><span>${desc}</span></button>`).join('')}</div></div>
           ${spotifySettingsRowHtml()}
           ${garminSettingsRowHtml()}
           <div class="settings-row"><div><strong>Notifications</strong><span class="small">Only for genuinely important things — a test tomorrow, a CAO hard deadline in the next couple of days. Nothing more frequent than that.</span></div><label class="switch-row"><input id="setting-notifications" type="checkbox" ${s.notificationsEnabled?'checked':''}> Enable browser notifications</label></div>
@@ -19905,7 +19943,10 @@ If the user asks about how to study or study methods generally, answer from your
                     a === 'studyprefs-pick') { state.settings.studyPreferences = state.settings.studyPreferences ||
                     {};
                     state.settings.studyPreferences[b.dataset.field] = b.dataset.value;
-                    renderModal(); } else if (a === 'save-study-preferences') { state.settings.studyPreferences =
+                    renderModal(); } else if (a === 'set-study-planning-mode') { state.settings.studyPlanningMode =
+                    b.dataset.mode; state.settings.studyEngineDisabled = b.dataset.mode === 'none';
+                    invalidateFutureStudyPlans(); save(); render(); renderModal();
+                    } else if (a === 'save-study-preferences') { state.settings.studyPreferences =
                     state.settings.studyPreferences || {};
                     state.settings.studyPreferences.notes = document.getElementById('studyprefs-notes')?.value.trim() ||
                     '';
@@ -20647,7 +20688,8 @@ If the user asks about how to study or study methods generally, answer from your
                     save();
                     render();
                     return; } if (e.target.id === 'setting-study-engine') { state.settings.studyEngineDisabled = !e
-                    .target.checked; if (state.settings.studyEngineDisabled) invalidateFutureStudyPlans(); // clear any pending unlogged auto-suggestions immediately, rather than leaving stale ones until each block is next touched
+                    .target.checked; state.settings.studyPlanningMode = e.target.checked ? 'topics' : 'none';
+                    invalidateFutureStudyPlans();
                     save();
                     render();
                     return; } if (e.target.id === 'setting-notifications') { state.settings.notificationsEnabled = e
