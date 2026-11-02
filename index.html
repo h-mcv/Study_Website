@@ -4508,6 +4508,7 @@
             let adminChatrooms = null;   // [{id,name,isGlobal,members:[{name,email,joinedAt}],...}]
             let adminBusy = false;
             let adminError = '';
+            let adminAiDraft = null;      // { userId, prompt, answer, busy }
             function isAdminTokenValid() { return !!adminToken && Date.now() < adminTokenExpiresAt; }
 
             // ------------------------------------------------------------------
@@ -5316,6 +5317,42 @@
                 try { await adminFetch('replace-state', { userId, state: parsed }); toast('Data saved.'); }
                 catch (err) { toast(err.message); }
                 finally { adminBusy = false; loadAdminUserDetail(userId); }
+            }
+
+            function openAdminAi(userId) {
+                adminAiDraft = { userId, prompt: '', answer: '', busy: false };
+                openModal('admin-ai');
+            }
+
+            async function adminRunAi() {
+                const draft = adminAiDraft;
+                if (!draft) return;
+                draft.prompt = document.getElementById('admin-ai-prompt')?.value.trim() || '';
+                if (!draft.prompt) { draft.answer = 'Write a request first.'; renderModal(); return; }
+                const target = adminUserDetail?.state;
+                if (!target || draft.userId !== adminSelectedUserId) { draft.answer = 'Load the user again before using the assistant.'; renderModal(); return; }
+                draft.busy = true; draft.answer = ''; renderModal();
+                try {
+                    const result = await aiJsonOnce(
+                        `You are an admin assistant for Simple Study. The admin is managing one student's saved app state. Answer questions about the state, or make the requested change. Return JSON only with this exact shape: {"answer":"short plain-text response","changedState":null} for questions, or {"answer":"short confirmation","changedState":{...complete state...}} for changes. Preserve every field not related to the request exactly. Never invent ids, subjects, classes, or dates. The current date is ${localDate()}.`,
+                        [{ text: `Student state:\n${JSON.stringify(target)}\n\nAdmin request:\n${draft.prompt}` }]
+                    );
+                    draft.answer = result?.answer || 'The assistant returned no answer.';
+                    if (result?.changedState && typeof result.changedState === 'object' && !Array.isArray(result.changedState)) {
+                        if (!confirm(`${draft.answer}\n\nApply this change to the user's saved data?`)) {
+                            draft.answer += ' The change was not applied.';
+                        } else {
+                            await adminFetch('replace-state', { userId: draft.userId, state: result.changedState });
+                            draft.answer += ' Applied.';
+                            await loadAdminUserDetail(draft.userId);
+                        }
+                    }
+                } catch (err) {
+                    draft.answer = err.message || 'The assistant could not complete that request.';
+                } finally {
+                    draft.busy = false;
+                    renderModal();
+                }
             }
 
             async function adminExportCsv() {
@@ -9556,9 +9593,10 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 state.tasks.filter(t => !t.done && t.due && t.due <= addDays(date, 5)).forEach(t => {
                     if (covered.has(candidateKey('task', t.subjectId, t.id, '', ''))) return;
                     const dayGap = Math.round((dateFrom(t.due) - dateFrom(date)) / 86400000),
-                        urgency = t.type === 'test' ? 6 : 4;
-                    candidates.push({ subjectId: t.subjectId, label: `Prep: ${t.title}`, minutes: Math.min(
-                        DEFAULT_SESSION_MIN, t.minutes || DEFAULT_SESSION_MIN), kind: 'task', taskId: t.id,
+                        urgency = t.type === 'test' ? 6 : 4,
+                        taskKind = t.type === 'homework' ? 'homework' : 'project';
+                    candidates.push({ subjectId: t.subjectId, label: `${t.type === 'test' ? 'Prep' : taskKind === 'project' ? 'Project' : 'Homework'}: ${t.title}`, minutes: Math.max(
+                        15, Number(t.minutes || DEFAULT_SESSION_MIN)), kind: taskKind, taskId: t.id,
                         score: urgency + Math.max(0, 5 - dayGap) * 2 + (t.important ? 2 : 0) });
                 });
                 if (planningMode === 'topics') (state.topics || []).filter(top => top.nextReview && top.nextReview <= date).forEach(top => {
@@ -9616,12 +9654,12 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 // large pre-existing timetable block treated as one sitting, not chopped into a string of
                 // default-length items across different subjects — so cap how many items go into any one
                 // block and let each of those items claim a larger share of it instead.
-                const preferLongContent = (state.settings.studyPreferences || {}).sessionLength === 'long',
-                    maxItemsPerBlock = preferLongContent ? 2 : Infinity;
+                const preferLongContent = (state.settings.studyPreferences || {}).sessionLength === 'long';
                 plan.blocks.filter(b => !isFull(b)).forEach(block => { const used = block.items.reduce((n, i) => n +
                         i.minutes, 0);
                     let remaining = (block.end - block.start) - used;
                     const usedInBlock = new Set(block.items.map(i => i.subjectId));
+                    const maxItemsPerBlock = Math.max(2, Math.ceil((block.end - block.start) / (preferLongContent ? 35 : 30)));
                     let guard = 0; while (remaining >= 15 && candidates.length && block.items.length <
                         maxItemsPerBlock && guard++ < 20) { let idx = -1,
                         bestUseCount = Infinity, bestScore = -Infinity;
@@ -9663,7 +9701,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 const block = plan.blocks.find(b => b.blockEventId === blockEventId && b.blockSlotId ===
                     blockSlotId); if (!block) return;
                 const item = block.items.find(i => i.id === itemId); if (!item) return;
-                const label = (actualLabel || '').trim() || item.label.replace(/^(Prep: |Review: |Quick review: )/, '');
+                const label = (actualLabel || '').trim() || item.label.replace(/^(Prep: |Homework: |Project: |Review: |Quick review: )/, '');
                 item.logged = true;
                 item.loggedLabel = label; if (item.classTopicId) { const ct = state.classTopics.find(c => c.id ===
                         item.classTopicId); if (ct) ct.lastStudied = date; } else recordStudyTopic(date, item
@@ -9689,7 +9727,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     'Important project' : 'Important') : task.type === 'test' ? 'Test' : task.type === 'project' ?
                     'Project' : 'Homework'; return `<span class="task-indicator ${cls}" title="${label}" aria-hidden="true"></span>`; }
 
-            function taskRow(task, map) { const s = subject(task.subjectId); return `<div class="task-row ${task.done?'done':''}"><button class="check ${task.done?'done':''}" aria-label="Mark ${escape(task.title)} ${task.done?'incomplete':'complete'}" data-action="toggle-task" data-id="${task.id}">${task.done?'✓':''}</button><button class="button ghost task-main" data-action="open-task" data-id="${task.id}"><span class="task-name">${taskIndicator(task)}${escape(task.title)}</span><span class="task-meta">${s?escape(s.name)+' · ':''}${fmtDate(task.due)}${task.type==='test'?' · test':''}${task.type!=='test'?' · '+fmtMins(task.minutes):''}</span></button>${statusPill(task,map)}</div>`; }
+            function taskRow(task, map) { const s = subject(task.subjectId); return `<div class="task-row ${task.done?'done':''}"><button class="check ${task.done?'done':''}" aria-label="Mark ${escape(task.title)} ${task.done?'incomplete':'complete'}" data-action="toggle-task" data-id="${task.id}">${task.done?'✓':''}</button><button class="button ghost task-main" data-action="open-task" data-id="${task.id}"><span class="task-name">${taskIndicator(task)}${escape(task.title)}</span><span class="task-meta">${s?escape(s.name)+' · ':''}${fmtDate(task.due)}${task.type==='test'?' · test':''}${task.type!=='test'?' · '+fmtMins(task.minutes):''}</span></button><button class="button ghost" data-action="open-task" data-id="${task.id}" aria-label="Edit ${escape(task.title)}">Edit</button>${statusPill(task,map)}</div>`; }
 
             function appFrame(content) {
                 const mode = state.settings.sidebarMode || 'hover';
@@ -9822,6 +9860,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 edit: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>',
                 grid: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>',
                 'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line>',
+                archive: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
                 target: '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>',
                 'trending-up': '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline>',
                 calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
@@ -16353,7 +16392,14 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
 
             function renderTestsExams() { const items = state.exams.slice().sort((a, b) => (a.start || '9999')
                         .localeCompare(b.start || '9999')),
+                    today = localDate(),
                     tests = items.filter(x => x.assessmentType === 'test'),
+                    upcomingTests = tests.filter(x => (x.start || '9999') >= today && !(x.sittings || [])[0]?.result)
+                        .sort((a, b) => (a.start || '9999').localeCompare(b.start || '9999')),
+                    waitingTests = tests.filter(x => (x.start || '9999') < today && !(x.sittings || [])[0]?.result)
+                        .sort((a, b) => (a.start || '').localeCompare(b.start || '')),
+                    completedTests = tests.filter(x => !!(x.sittings || [])[0]?.result)
+                        .sort((a, b) => (b.start || '').localeCompare(a.start || '')),
                     exams = items.filter(x => x.assessmentType !== 'test'),
                     examTasks = state.examTasks.slice().sort((a, b) => (a.dueDate || '9999').localeCompare(b
                         .dueDate || '9999'));
@@ -16361,6 +16407,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         caoBadge = cao ? `<span class="pill ${cao.pending?'':'good'}">${cao.pending?'Awaiting results':`${cao.total} pts`}</span>` :
                         '';
                     return `<div class="holiday-row" data-action="${x.assessmentType==='test'?'open-test-detail':'open-exam-schedule'}" data-id="${x.id}" style="cursor:pointer"><div><strong>${escape(examDisplayName(x))}</strong><span>${x.start&&x.end?(x.start===x.end?fmtDate(x.start):`${fmtDate(x.start)} – ${fmtDate(x.end)}`):'No date set'} · ${(x.sittings||[]).length} subject${(x.sittings||[]).length===1?'':'s'}</span></div>${caoBadge}<button class="button ghost danger" data-action="delete-exam" data-id="${x.id}" aria-label="Delete ${escape(examDisplayName(x))}">×</button></div>`; };
+                const testSection = (title, list, empty) => `<section class="card side-note"><div class="section-title"><h2>${title}</h2><span class="count">${list.length}</span></div><div class="holiday-list">${list.length?list.map(row).join(''):`<p class="empty">${empty}</p>`}</div></section>`;
                 const examTaskRow = (t) => { const s = subject(t.subjectId),
                         info = SUBJECT_PROJECT_INFO.find(p => p.taxonomyId === t.taxonomyId),
                         ms = t.milestones || [],
@@ -16368,7 +16415,9 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     return `<div class="holiday-row" data-action="open-exam-task-form" data-id="${t.id}" style="cursor:pointer"><div><strong>${escape(t.title)}</strong><span>${s?escape(s.name)+' · ':''}${info?escape(info.label)+' · ':''}${t.dueDate?fmtDate(t.dueDate):'No date set'}${progress}</span></div>${t.done?'<span class="pill good">Done</span>':''}<button class="button ghost danger" data-action="delete-exam-task" data-id="${t.id}" aria-label="Delete">×</button></div>`; };
                 return appFrame(`<div class="page">${header('Tests and Exams',"Everything you're being assessed on, from class tests to state exams.",`<button class="button primary" data-action="add-exam">＋ Add a test or exam</button>`)}
         <div class="timetable-info-grid">
-          <section class="card side-note"><div class="section-title"><h2>Tests</h2></div><div class="holiday-list">${tests.length?tests.map(row).join(''):'<p class="empty">No tests added yet.</p>'}</div></section>
+          ${testSection('Upcoming', upcomingTests, 'No upcoming tests.')}
+          ${testSection('Waiting for results', waitingTests, 'No tests are waiting for results.')}
+          ${testSection('Completed', completedTests, 'No completed tests yet.')}
           <section class="card side-note"><div class="section-title"><h2>Exams</h2><div class="row">${infoBtn('extraStudy')}</div></div><div class="holiday-list">${exams.length?exams.map(row).join(''):`<p class="empty">Add the real exams you're building up to — Christmas/Summer exams, Mocks, JC/LC.</p>`}</div></section>
         </div>
         <section class="card section" style="margin-top:16px"><div class="section-title"><h2>Exam Tasks</h2><button class="button" data-action="open-exam-task-form">＋ Add</button></div><p class="small">Coursework and projects — portfolios, research studies, practicals — kept separate from ordinary homework.</p><div class="holiday-list" style="margin-top:8px">${examTasks.length?examTasks.map(examTaskRow).join(''):'<p class="empty">Nothing added yet.</p>'}</div></section>
@@ -16880,6 +16929,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     modal.kind === 'search') return layer.innerHTML = searchModal(); if (
                     modal.kind === 'admin-unlock') return layer.innerHTML = adminUnlockModal(); if (
                     modal.kind === 'admin-create-user') return layer.innerHTML = adminCreateUserModal(); if (
+                    modal.kind === 'admin-ai') return layer.innerHTML = adminAiModal(); if (
                     modal.kind === 'announcement-popup') return layer.innerHTML = announcementPopupModal(modal.announcement); if (
                     modal.kind === 'print-choice') return layer.innerHTML = printChoiceModal(); if (
                     modal.kind === 'self-study-plan') return layer.innerHTML = selfStudyPlanSummaryModal(modal
@@ -17133,6 +17183,16 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     false);
             }
 
+            function adminAiModal() {
+                const d = adminAiDraft || { prompt: '', answer: '', busy: false };
+                return modalShell('Ask the admin assistant',
+                    `<p class="small">Describe a change in plain English, such as “remove their Maths class”, or ask a question about this student's data.</p>
+                     <div class="field"><label for="admin-ai-prompt">Request</label><textarea id="admin-ai-prompt" rows="4" placeholder="What would you like to know or change?">${escape(d.prompt)}</textarea></div>
+                     ${d.answer ? `<div class="card side-note"><strong>Assistant</strong><p style="white-space:pre-wrap">${escape(d.answer)}</p></div>` : ''}`,
+                    `<button class="button" data-action="close-modal">Close</button><button class="button primary" data-action="admin-ai-submit" ${d.busy?'disabled':''}>${d.busy?'Thinking…':'Ask assistant'}</button>`,
+                    true);
+            }
+
             function announcementPopupModal(a) {
                 return modalShell('Announcement',
                     `<p>${escape(a.message)}</p>`,
@@ -17252,7 +17312,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     <h2>Raw saved data</h2>
                     <p class="small">Edit directly only if you know what you're doing — saving this overwrites everything for this account.</p>
                     <textarea id="admin-raw-state" rows="10" style="width:100%;font-family:monospace;font-size:12px">${escape(JSON.stringify(s || {}, null, 2))}</textarea>
-                    <button class="button danger" style="margin-top:8px" data-action="admin-save-state" data-id="${id}">Save raw data</button>
+                    <div class="row" style="margin-top:8px"><button class="button danger" data-action="admin-save-state" data-id="${id}">Save raw data</button><button class="button" data-action="admin-open-ai" data-id="${id}">Ask AI assistant</button></div>
                 </div>`;
             }
 
@@ -17491,7 +17551,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     ); }
 
             function examDisplayName(x) { if (x.assessmentType === 'test') { const subjId = (x.sittings || [])[0]
-                    ?.subjectId, subj = subjId ? subject(subjId) : null; return `${subj?subj.name:x.name||'Subject'} test`; }
+                    ?.subjectId, subj = subjId ? subject(subjId) : null; return x.name && x.name !== subj?.name ? x.name : `${subj?subj.name:'Subject'} test`; }
                 return x.kind === 'other' ? (x.name || 'Exam') : (EXAM_KINDS.find(k =>
                 k.id === x.kind)?.label || 'Exam'); }
 
@@ -17544,7 +17604,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         return examWizardModal(); }
                     if (ew.step === 't-datetime') { const existingSitting = ew.sittings[0];
                         return modalShell('Add a test',
-                            `<div class="onboarding"><div class="brand-mark" style="background:${testSubj.color}22;color:${testSubj.color}">🗓️</div><h2>${escape(testSubj.name)} test</h2><p>What day is it? The time will use ${escape(testSubj.name)}'s usual class time that day.</p><div class="field" style="text-align:left">${pickerFieldHtml('id="examwizard-test-date"','date',existingSitting?.date||'')}</div></div>`,
+                            `<div class="onboarding"><div class="brand-mark" style="background:${testSubj.color}22;color:${testSubj.color}">🗓️</div><h2>Name and date</h2><div class="field" style="text-align:left"><label for="examwizard-test-name">Test name</label><input id="examwizard-test-name" required value="${escape(ew.name || `${testSubj.name} test`)}" placeholder="e.g. Algebra test"></div><p>What day is it? The time will use ${escape(testSubj.name)}'s usual class time that day.</p><div class="field" style="text-align:left">${pickerFieldHtml('id="examwizard-test-date"','date',existingSitting?.date||'')}</div></div>`,
                             `<button class="button ghost" data-action="examwizard-back-to-test-subject">← Back</button><button class="button primary" data-action="examwizard-next-test-datetime">Continue →</button>`); }
                     // t-topics
                     return modalShell('Add a test',
@@ -20400,6 +20460,9 @@ If the user asks about how to study or study methods generally, answer from your
                             "This subject doesn't have a class on that day — pick a day it actually meets.");
                         return; } if (!hasAnyClass) toast(
                         "Heads up: this subject has no class on your timetable yet, so I've used a default time — edit it after saving if needed.");
+                    const testName = document.getElementById('examwizard-test-name')?.value.trim();
+                    if (!testName) { toast('Give this test a name.'); return; }
+                    examWizard.name = testName;
                     examWizard.sittings = [{ subjectId: examWizard.testSubjectId, date: dateVal,
                             time: derivedTime || '09:30',
                         topics: examWizard.sittings[0]?.topics || [], topicsUnknown: examWizard.sittings[0]
@@ -20413,7 +20476,7 @@ If the user asks about how to study or study methods generally, answer from your
                         topics: examWizard.pendingTopicsUnknown ? [] : (examWizard.pendingTopics || []).slice(),
                         topicsUnknown: !!examWizard.pendingTopicsUnknown };
                     const exam = { id: examWizard.editingId || uid(), assessmentType: 'test', kind: 'test',
-                        name: subj.name, start: sitting.date, end: sitting.date, sittings: [sitting] }; if (
+                        name: examWizard.name || `${subj.name} test`, start: sitting.date, end: sitting.date, sittings: [sitting] }; if (
                         examWizard.editingId) state.exams = state.exams.map(x => x.id === examWizard.editingId ?
                         exam : x);
                     else state.exams.push(exam);
@@ -20834,6 +20897,8 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'admin-set-school') adminSetUserSchool(b.dataset.id, b.dataset.school);
                 else if (a === 'admin-delete-user') adminDeleteUserConfirmed(b.dataset.id, b.dataset.email);
                 else if (a === 'admin-save-state') adminSaveRawState(b.dataset.id);
+                else if (a === 'admin-open-ai') openAdminAi(b.dataset.id);
+                else if (a === 'admin-ai-submit') adminRunAi();
                 else if (a === 'admin-export-csv') adminExportCsv();
                 else if (a === 'dismiss-announcement') { dismissAnnouncement(Number(b.dataset.id)); render(); }
                 else if (a === 'dismiss-announcement-popup') { dismissAnnouncement(Number(b.dataset.id)); closeModal(); } });
