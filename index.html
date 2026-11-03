@@ -6959,6 +6959,27 @@
             // index above remains the offline/failure fallback.
             const EXAM_ARCHIVE_MANIFEST_URL = 'https://cdn.jsdelivr.net/gh/h-mcv/sec-exam-papers-public@main/manifest.json';
             let examArchiveManifestStatus = 'bundled'; // 'bundled' | 'loading' | 'loaded' | 'error'
+            function examArchiveIsMarkingScheme(item) {
+                return /marking[\s-]?scheme/i.test(item.label || '') || /marking[\s-]?scheme/i.test(item.file || '');
+            }
+            function examArchiveSchemeForPaper(paper, schemes) {
+                const candidates = schemes.filter(s => s.level === paper.level && s.subjectId === paper.subjectId && Number(s.year) === Number(paper.year));
+                if (!candidates.length) return null;
+                const paperLabel = String(paper.label || '').toLowerCase();
+                const paperLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => paperLabel.includes(level));
+                const paperPart = paperLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                const levelCandidates = candidates.filter(s => {
+                    const schemeLabel = String(s.label || '').toLowerCase();
+                    const schemeLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => schemeLabel.includes(level));
+                    return !paperLevel || !schemeLevel || paperLevel === schemeLevel;
+                });
+                if (!levelCandidates.length) return null;
+                return levelCandidates.find(s => {
+                    const schemeLabel = String(s.label || '').toLowerCase();
+                    const schemePart = schemeLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                    return !paperPart || !schemePart || paperPart === schemePart;
+                }) || levelCandidates[0];
+            }
             async function examArchiveLoadManifest() {
                 examArchiveManifestStatus = 'loading';
                 try {
@@ -6968,10 +6989,14 @@
                     if (!Array.isArray(manifest) || !manifest.length) throw new Error('Manifest is empty or invalid');
                     const entries = manifest.filter(item => item && item.level && item.subjectId && item.year && item.label && item.file);
                     if (!entries.length) throw new Error('Manifest contains no usable papers');
-                    EXAM_PAPER_INDEX = entries.map(item => [
-                        item.level, item.subjectId, Number(item.year), item.label, item.file,
-                        item.markingSchemeFile || item.markingSchemeUrl || null
-                    ]);
+                    const schemes = entries.filter(examArchiveIsMarkingScheme);
+                    EXAM_PAPER_INDEX = entries.filter(item => !examArchiveIsMarkingScheme(item)).map(item => {
+                        const scheme = examArchiveSchemeForPaper(item, schemes);
+                        return [
+                            item.level, item.subjectId, Number(item.year), item.label, item.file,
+                            item.markingSchemeFile || item.markingSchemeUrl || scheme?.file || null
+                        ];
+                    });
                     examArchiveManifestStatus = 'loaded';
                     if (view === 'exam-papers' && !examPaperOpen) render();
                 } catch (error) {
