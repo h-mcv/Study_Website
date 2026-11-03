@@ -6527,7 +6527,7 @@
             // Past-exam-paper index: [examLevel, subjectId (matches SUBJECT_TAXONOMY id), year, label, relative file path]
             // relative file path is resolved against the user's locally-selected exam archive folder (see examArchive* below) --
             // nothing here is ever uploaded anywhere. subjectId/level pairs are looked up against SUBJECT_TAXONOMY for display names.
-            const EXAM_PAPER_INDEX = [
+            let EXAM_PAPER_INDEX = [
                 ['jc','business',2026,'Common Level','jc/business/2026/paper-common-level-ev.pdf'],
                 ['jc','business',2025,'Common Level','jc/business/2025/paper-common-level-ev.pdf'],
                 ['jc','business',2024,'Common Level','jc/business/2024/paper-common-level-ev.pdf'],
@@ -6954,6 +6954,57 @@
                 ['lc','spanish',2021,'Higher Level','lc/spanish/2021/paper-higher-level-ev.pdf'],
             ];
 
+            // The public archive publishes a manifest alongside the PDFs. Load it at runtime so
+            // newly-added papers appear without another hand-edited list in this app. The bundled
+            // index above remains the offline/failure fallback.
+            const EXAM_ARCHIVE_MANIFEST_URL = 'https://cdn.jsdelivr.net/gh/h-mcv/sec-exam-papers-public@main/manifest.json';
+            let examArchiveManifestStatus = 'bundled'; // 'bundled' | 'loading' | 'loaded' | 'error'
+            function examArchiveIsMarkingScheme(item) {
+                return /marking[\s-]?scheme/i.test(item.label || '') || /marking[\s-]?scheme/i.test(item.file || '');
+            }
+            function examArchiveSchemeForPaper(paper, schemes) {
+                const candidates = schemes.filter(s => s.level === paper.level && s.subjectId === paper.subjectId && Number(s.year) === Number(paper.year));
+                if (!candidates.length) return null;
+                const paperLabel = String(paper.label || '').toLowerCase();
+                const paperLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => paperLabel.includes(level));
+                const paperPart = paperLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                const levelCandidates = candidates.filter(s => {
+                    const schemeLabel = String(s.label || '').toLowerCase();
+                    const schemeLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => schemeLabel.includes(level));
+                    return !paperLevel || !schemeLevel || paperLevel === schemeLevel;
+                });
+                if (!levelCandidates.length) return null;
+                return levelCandidates.find(s => {
+                    const schemeLabel = String(s.label || '').toLowerCase();
+                    const schemePart = schemeLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                    return !paperPart || !schemePart || paperPart === schemePart;
+                }) || levelCandidates[0];
+            }
+            async function examArchiveLoadManifest() {
+                examArchiveManifestStatus = 'loading';
+                try {
+                    const response = await fetch(EXAM_ARCHIVE_MANIFEST_URL, { cache: 'no-cache' });
+                    if (!response.ok) throw new Error(`Manifest request failed (${response.status})`);
+                    const manifest = await response.json();
+                    if (!Array.isArray(manifest) || !manifest.length) throw new Error('Manifest is empty or invalid');
+                    const entries = manifest.filter(item => item && item.level && item.subjectId && item.year && item.label && item.file);
+                    if (!entries.length) throw new Error('Manifest contains no usable papers');
+                    const schemes = entries.filter(examArchiveIsMarkingScheme);
+                    EXAM_PAPER_INDEX = entries.filter(item => !examArchiveIsMarkingScheme(item)).map(item => {
+                        const scheme = examArchiveSchemeForPaper(item, schemes);
+                        return [
+                            item.level, item.subjectId, Number(item.year), item.label, item.file,
+                            item.markingSchemeFile || item.markingSchemeUrl || scheme?.file || null
+                        ];
+                    });
+                    examArchiveManifestStatus = 'loaded';
+                    if (view === 'exam-papers' && !examPaperOpen) render();
+                } catch (error) {
+                    examArchiveManifestStatus = 'error';
+                    console.warn('Could not load the latest exam-paper manifest; using the bundled index.', error);
+                }
+            }
+
             const EXAM_KINDS = [
                 { id: 'christmas', label: 'Christmas exams' },
                 { id: 'summer', label: 'Summer exams' },
@@ -7089,8 +7140,22 @@
             }
 
             function examPaperEntryFromFile(file) {
-                const row = EXAM_PAPER_INDEX.find(r => r[4] === file);
-                return row ? { level: row[0], subjectId: row[1], year: row[2], label: row[3], file: row[4] } : null;
+                const row = EXAM_PAPER_INDEX.find(r => r[4] === file || r[5] === file);
+                return row ? {
+                    level: row[0], subjectId: row[1], year: row[2],
+                    label: row[5] === file ? `${row[3]} — Marking scheme` : row[3],
+                    file, markingSchemeFile: row[5] || null,
+                    isMarkingScheme: row[5] === file
+                } : null;
+            }
+
+            function examPaperMarkingSchemeEntry(entry) {
+                if (!entry?.markingSchemeFile) return null;
+                return {
+                    level: entry.level, subjectId: entry.subjectId, year: entry.year,
+                    label: `${entry.label} — Marking scheme`, file: entry.markingSchemeFile,
+                    isMarkingScheme: true
+                };
             }
 
             // ---- Topic search over past papers (see state vars near examPaperSearch) ------------
@@ -7302,12 +7367,20 @@ ${numbered}`;
 
             function examArchiveHasLocalFallback() { return !!(examArchiveFallbackFiles || examArchiveDirHandle); }
 
+            function examPaperBulkHelpHtml() {
+                return `<div class="exam-archive-banner subtle">
+                    <span><strong>Need everything at once?</strong> Download the archive as a ZIP, unzip it, then use <em>Connect a folder</em> below. It keeps all papers on your device and preserves the folders the app expects.</span>
+                    <a class="button ghost" href="https://github.com/h-mcv/sec-exam-papers-public/archive/refs/heads/main.zip" target="_blank" rel="noopener">Download all papers</a>
+                </div>`;
+            }
+
             // Primary path: fetch the PDF straight from the public CDN mirror -- works on any
             // device, no setup. Only falls back to a connected local folder (optional, e.g. for
             // offline use) if the CDN fetch fails; only throws CONNECT_NEEDED if neither works.
             async function examArchiveGetPdfBytes(relativePath) {
                 try {
-                    const resp = await fetch(EXAM_ARCHIVE_CDN_BASE + relativePath);
+                    const url = /^https?:\/\//i.test(relativePath) ? relativePath : EXAM_ARCHIVE_CDN_BASE + relativePath;
+                    const resp = await fetch(url);
                     if (resp.ok) return await resp.arrayBuffer();
                 } catch (e) { /* offline, or the CDN mirror isn't set up yet -- try a local folder next */ }
                 if (examArchiveHasLocalFallback()) {
@@ -7717,6 +7790,7 @@ ${numbered}`;
                     return appFrame(`<div class="page">
             ${header('Past Papers', "Real state exam papers you can fill in right on screen — pick a level to get started.", '')}
             ${examPaperArchiveBannerHtml()}
+            ${examPaperBulkHelpHtml()}
             ${recents.length ? `<div class="section-title"><h2>Continue where you left off</h2></div><div class="exam-year-list" style="margin-bottom:24px">${recents.slice(0, 5).map(examPaperRecentRowHtml).join('')}</div>` : ''}
             <div class="exam-level-grid">
                 <button type="button" class="class-tile" data-action="examp-pick-level" data-level="lc" style="--subject:var(--primary)"><strong>Leaving Certificate</strong><span class="class-tile-count">${countLc} papers available</span></button>
@@ -7745,7 +7819,10 @@ ${numbered}`;
         ${header(meta.name + ' — Past Papers', 'Pick a paper to open it and start filling it in, or search a topic across every paper below.', '')}
         ${topicSearchSectionHtml(examPaperLevel, examPaperSubjectId)}
         <div class="exam-year-list">
-            ${[...byYear.entries()].map(([year, list]) => `<div class="exam-year-group"><h3>${year}</h3>${list.map(entry => `<div class="exam-paper-row"><span>${escape(entry.label)}</span><button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(entry.file)}">Open</button></div>`).join('')}</div>`).join('')}
+            ${[...byYear.entries()].map(([year, list]) => `<div class="exam-year-group"><h3>${year}</h3>${list.map(entry => {
+                const scheme = examPaperMarkingSchemeEntry(entry);
+                return `<div class="exam-paper-row"><span>${escape(entry.label)}</span><div class="row">${scheme ? `<button type="button" class="button ghost" data-action="examp-open-paper" data-file="${escape(scheme.file)}">Open marking scheme</button>` : ''}<button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(entry.file)}">Open</button></div></div>`;
+            }).join('')}</div>`).join('')}
         </div>
         </div>`);
             }
@@ -21141,6 +21218,7 @@ If the user asks about how to study or study methods generally, answer from your
 
             render();
             handleSpotifyCallback();
+            examArchiveLoadManifest();
 
             // PWA offline caching — lets the app shell load with no connection so already-synced
             // flashcard data (in localStorage) can still be reviewed; installable via "Add to Home
