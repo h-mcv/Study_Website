@@ -8466,10 +8466,10 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             // While a demo/preview tour has temporarily swapped in sample data (see startDemoTour), nothing
             // gets persisted — not to localStorage, not to the cloud — no matter what triggers a save, so a
             // crash or stray click mid-tour can never leave demo content in place of someone's real data.
-            function save() { if (demoModeActive) return; localStorage.setItem(STORE, JSON.stringify(state));
+            function save(immediateCloud = false) { if (demoModeActive) return; localStorage.setItem(STORE, JSON.stringify(state));
                 localStorage.setItem(STORE_UPDATED_AT, String(Date.now()));
                 if (currentUser) localStorage.setItem(STORE_USER_ID, currentUser.id);
-                pushStateToCloud(); }
+                pushStateToCloud(immediateCloud); }
 
             function toast(message) { if (demoModeActive) return; const el = document.getElementById('toast');
                 el.textContent = message;
@@ -14183,7 +14183,10 @@ ${pointsSvg}
                 if (!phrase || !english) return null;
                 const entry = { id: uid(), subjectId, phrase, english, addedDate: localDate(), source: source || 'manual' };
                 state.wordbankVocab.push(entry);
-                save();
+                // Word-bank changes must reach the cloud before the user leaves the page.
+                // Unlike routine planner edits, these are commonly followed immediately by
+                // closing the popup or navigating back.
+                save(true);
                 return entry;
             }
 
@@ -14288,7 +14291,7 @@ ${pointsSvg}
                 if (!infinitive || !english) return null;
                 const entry = { id: uid(), subjectId, infinitive, english, addedDate: localDate(), source: source || 'manual', conjugations: {} };
                 state.wordbankVerbs.push(entry);
-                save();
+                save(true);
                 return entry;
             }
 
@@ -14325,7 +14328,7 @@ ${pointsSvg}
                 const cur = new Set(state.wordbankLearnedTenses[subjectId] || []);
                 if (on) cur.add(tenseId); else cur.delete(tenseId);
                 state.wordbankLearnedTenses[subjectId] = Array.from(cur);
-                save();
+                save(true);
             }
 
             // --------------------------------------------------------------------------------------
@@ -14710,7 +14713,7 @@ ${pointsSvg}
                 const stillNeed = [];
                 need.forEach(tid => { const local = localConjugate(s.taxonomyId, verb.infinitive, tid);
                     if (local) verb.conjugations[tid] = local; else stillNeed.push(tid); });
-                if (Object.keys(verb.conjugations).length) save();
+                if (Object.keys(verb.conjugations).length) save(true);
                 if (!stillNeed.length) { renderModal(); return; }
                 verbConjLoading = true; renderModal();
                 try {
@@ -14720,7 +14723,7 @@ ${pointsSvg}
                     const result = await aiJsonOnce(sys, [{ text: userText }], preferredProviderFor(s));
                     (Array.isArray(result.tenses) ? result.tenses : []).forEach(t => { if (t && t.tenseId) verb.conjugations[t.tenseId] =
                         { irregular: !!t.irregular, note: t.note || '', forms: Array.isArray(t.forms) ? t.forms.filter(f => f && f.pronoun && f.form) : [] }; });
-                    save();
+                    save(true);
                 } catch (err) { toast(err.message || 'Could not generate conjugations.'); }
                 verbConjLoading = false; renderModal();
             }
@@ -20659,7 +20662,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'open-add-vocab') { vocabAddDraft = { phrase: '', english: '' }; openModal('add-vocab', { subjectId: b.dataset.subject }); }
                 else if (a === 'add-vocab') runVocabAdd(b.dataset.subject);
                 else if (a === 'delete-vocab') { state.wordbankVocab = state.wordbankVocab.filter(v => v.id !== b.dataset.id);
-                    save(); if (modal?.kind === 'vocab-detail' && modal.entryId === b.dataset.id) closeModal(); else render(); }
+                    save(true); if (modal?.kind === 'vocab-detail' && modal.entryId === b.dataset.id) closeModal(); else render(); }
                 else if (a === 'open-vocab-detail') { vocabAlternatives = null; openModal('vocab-detail', { entryId: b.dataset.id }); }
                 else if (a === 'pick-vocab-photo') document.getElementById('vocab-ocr-file')?.click();
                 else if (a === 'vocab-search') runVocabSearch(b.dataset.subject, document.getElementById('vocab-search-input')?.value);
@@ -20673,7 +20676,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'open-add-verb') { verbAddDraft = { infinitive: '', english: '' }; openModal('add-verb', { subjectId: b.dataset.subject }); }
                 else if (a === 'add-verb') runVerbAdd(b.dataset.subject);
                 else if (a === 'delete-verb') { state.wordbankVerbs = state.wordbankVerbs.filter(v => v.id !== b.dataset.id);
-                    save(); if (modal?.kind === 'verb-detail' && modal.entryId === b.dataset.id) closeModal(); else render(); }
+                    save(true); if (modal?.kind === 'verb-detail' && modal.entryId === b.dataset.id) closeModal(); else render(); }
                 else if (a === 'open-verb-detail') { verbAlternatives = null; const v = state.wordbankVerbs.find(x => x.id === b.dataset.id);
                     openModal('verb-detail', { entryId: b.dataset.id }); if (v) ensureVerbConjugations(v); }
                 else if (a === 'verb-search') runVerbSearch(b.dataset.subject, document.getElementById('verb-search-input')?.value);
