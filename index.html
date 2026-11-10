@@ -2094,6 +2094,17 @@
             gap: 18px;
             align-items: start;
         }
+        .tests-exams-columns {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 18px;
+            align-items: start;
+        }
+        .tests-exams-column {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
         .holiday-list,
         .settings-list {
             display: grid;
@@ -3910,6 +3921,9 @@
         }
         @media (max-width: 1100px) {
             .timetable-info-grid {
+                grid-template-columns: 1fr;
+            }
+            .tests-exams-columns {
                 grid-template-columns: 1fr;
             }
         }
@@ -8245,7 +8259,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             let activeLogItem = null; // { itemId } of the check-in form currently open on the Study page
             let editingTopicId = null; // which class topic (if any) is being inline-edited on the subject detail modal
             let onboardingStep = 1; // which step of the welcome wizard is showing
-            let examWizard = null; // { step, editingId, kind, name, start, end, examSubjects, subjectIndex, sittings, photo }
+            let examWizard = null; // { step, editingId, kind, name, start, end, examSubjects, subjectIndex, sittings, supervisedSlots, photo }
             let examScheduleWeek = null; // Monday string currently shown in the exam-schedule popup
             let examResultDraft = null; // { markingType, percentUnknown } — just enough to know which fields to show
             let pastPaperResultDraft = null; // same shape, for the separate past-papers result form
@@ -16486,7 +16500,11 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 const row = (x) => { const cao = examCaoResults(x.id),
                         caoBadge = cao ? `<span class="pill ${cao.pending?'':'good'}">${cao.pending?'Awaiting results':`${cao.total} pts`}</span>` :
                         '';
-                    return `<div class="holiday-row" data-action="${x.assessmentType==='test'?'open-test-detail':'open-exam-schedule'}" data-id="${x.id}" style="cursor:pointer"><div><strong>${escape(examDisplayName(x))}</strong><span>${x.start&&x.end?(x.start===x.end?fmtDate(x.start):`${fmtDate(x.start)} – ${fmtDate(x.end)}`):'No date set'} · ${(x.sittings||[]).length} subject${(x.sittings||[]).length===1?'':'s'}</span></div>${caoBadge}<button class="button ghost danger" data-action="delete-exam" data-id="${x.id}" aria-label="Delete ${escape(examDisplayName(x))}">×</button></div>`; };
+                    const details = x.assessmentType === 'test'
+                        ? `${x.start&&x.end?(x.start===x.end?fmtDate(x.start):`${fmtDate(x.start)} – ${fmtDate(x.end)}`):'No date set'} · ${(x.sittings||[]).length} subject${(x.sittings||[]).length===1?'':'s'}`
+                        : `${x.start&&x.end?(x.start===x.end?fmtDate(x.start):`${fmtDate(x.start)} – ${fmtDate(x.end)}`):'No date set'} · ${(x.sittings||[]).length} subject${(x.sittings||[]).length===1?'':'s'}${(x.sittings||[]).filter(s=>s.notes).length?` · ${(x.sittings||[]).filter(s=>s.notes).length} with notes`:''}`;
+                    const examDetails = x.assessmentType === 'exam' ? `<div class="small" style="margin-top:5px">${(x.sittings||[]).map(s => `${escape(s.subjectName || subject(s.subjectId)?.name || 'Subject')} · ${fmtDate(s.date)} · ${s.time||'—'}${s.end?`–${s.end}`:''}`).join('<br>')}</div>` : '';
+                    return `<div class="holiday-row" data-action="${x.assessmentType==='test'?'open-test-detail':'open-exam-schedule'}" data-id="${x.id}" style="cursor:pointer;align-items:flex-start"><div><strong>${escape(examDisplayName(x))}</strong><span>${details}</span>${examDetails}</div>${caoBadge}<button class="button ghost danger" data-action="delete-exam" data-id="${x.id}" aria-label="Delete ${escape(examDisplayName(x))}">×</button></div>`; };
                 const testSection = (title, list, empty) => `<section class="card side-note"><div class="section-title"><h2>${title}</h2><span class="count">${list.length}</span></div><div class="holiday-list">${list.length?list.map(row).join(''):`<p class="empty">${empty}</p>`}</div></section>`;
                 const examTaskRow = (t) => { const s = subject(t.subjectId),
                         info = SUBJECT_PROJECT_INFO.find(p => p.taxonomyId === t.taxonomyId),
@@ -16494,11 +16512,15 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         progress = ms.length ? ` · ${ms.filter(m=>m.done).length}/${ms.length} milestones` : '';
                     return `<div class="holiday-row" data-action="open-exam-task-form" data-id="${t.id}" style="cursor:pointer"><div><strong>${escape(t.title)}</strong><span>${s?escape(s.name)+' · ':''}${info?escape(info.label)+' · ':''}${t.dueDate?fmtDate(t.dueDate):'No date set'}${progress}</span></div>${t.done?'<span class="pill good">Done</span>':''}<button class="button ghost danger" data-action="delete-exam-task" data-id="${t.id}" aria-label="Delete">×</button></div>`; };
                 return appFrame(`<div class="page">${header('Tests and Exams',"Everything you're being assessed on, from class tests to state exams.",`<button class="button primary" data-action="add-exam">＋ Add a test or exam</button>`)}
-        <div class="timetable-info-grid">
-          ${testSection('Upcoming', upcomingTests, 'No upcoming tests.')}
-          ${testSection('Waiting for results', waitingTests, 'No tests are waiting for results.')}
-          ${testSection('Completed', completedTests, 'No completed tests yet.')}
-          <section class="card side-note"><div class="section-title"><h2>Exams</h2><div class="row">${infoBtn('extraStudy')}</div></div><div class="holiday-list">${exams.length?exams.map(row).join(''):`<p class="empty">Add the real exams you're building up to — Christmas/Summer exams, Mocks, JC/LC.</p>`}</div></section>
+        <div class="tests-exams-columns">
+          <div class="tests-exams-column">
+            ${testSection('Upcoming tests', upcomingTests, 'No upcoming tests.')}
+            ${testSection('Waiting for results', waitingTests, 'No tests are waiting for results.')}
+            ${testSection('Completed tests', completedTests, 'No completed tests yet.')}
+          </div>
+          <div class="tests-exams-column">
+            <section class="card side-note"><div class="section-title"><h2>Exams</h2><div class="row">${infoBtn('extraStudy')}</div></div><div class="holiday-list">${exams.length?exams.map(row).join(''):`<p class="empty">Add the real exams you're building up to — Christmas/Summer exams, Mocks, JC/LC.</p>`}</div></section>
+          </div>
         </div>
         <section class="card section" style="margin-top:16px"><div class="section-title"><h2>Exam Tasks</h2><button class="button" data-action="open-exam-task-form">＋ Add</button></div><p class="small">Coursework and projects — portfolios, research studies, practicals — kept separate from ordinary homework.</p><div class="holiday-list" style="margin-top:8px">${examTasks.length?examTasks.map(examTaskRow).join(''):'<p class="empty">Nothing added yet.</p>'}</div></section>
         </div>`); }
@@ -17657,12 +17679,24 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     kind: existing.kind, name: existing.name || '', start: existing.start || '',
                     end: existing.end || '', examSubjects: [], subjectIndex: 0, testSubjectId: (existing.sittings ||
                         [])[0]?.subjectId || '', sittings: (existing.sittings || []).map(s => ({ ...s,
+                        end: s.end || fmtHM(mins(s.time || '09:30') + 120),
                         topics: (s.topics || []).slice() })), pendingTopics: (existing.sittings || [])[0]?.topics
                         ?.slice() || [], pendingTopicsUnknown: !!(existing.sittings || [])[0]?.topicsUnknown,
-                    photo: null } : { step: 0, assessmentType: '', editingId: null, kind: '', name: '', start: '',
+                    customSubjects: [], supervisedSlots: [{ dates: [], start: '16:00', end: '17:00' }], photo: null } : { step: 0, assessmentType: '', editingId: null, kind: '', name: '', start: '',
                     end: '', examSubjects: [], subjectIndex: 0, testSubjectId: '', sittings: [], pendingTopics: [],
-                    pendingTopicsUnknown: false, photo: null };
+                    pendingTopicsUnknown: false, customSubjects: [], supervisedSlots: [{ dates: [], start: '16:00', end: '17:00' }], photo: null };
                 openModal('exam-wizard'); }
+
+            function sittingName(s) { return s?.subjectName || subject(s?.subjectId)?.name || 'Subject'; }
+
+            function sittingEnd(s) { return s?.end || (s?.time ? fmtHM(mins(s.time) + 120) : ''); }
+
+            function sittingHasPassed(s) {
+                if (!s?.date) return false;
+                if (s.date < localDate()) return true;
+                if (s.date > localDate()) return false;
+                return mins(sittingEnd(s) || s.time || '00:00') <= (new Date().getHours() * 60 + new Date().getMinutes());
+            }
 
             function topicAssignmentBlock(subjectId) { const topics = state.classTopics.filter(t => t.subjectId ===
                         subjectId && t.status !== 'paused'),
@@ -17701,14 +17735,27 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     `<div class="onboarding"><div class="brand-mark">🗓️</div><h2>When does this exam period run?</h2><p>Subjects usually sit at different times across this period — you'll set each one's day and time next.</p><div class="form-grid"><div class="field" style="text-align:left"><label for="examwizard-start">Starts</label>${pickerFieldHtml('id="examwizard-start"','date',ew.start)}</div><div class="field" style="text-align:left"><label for="examwizard-end">Ends</label>${pickerFieldHtml('id="examwizard-end"','date',ew.end)}</div></div></div>`,
                     `<button class="button ghost" data-action="examwizard-back-to-1">← Back</button><button class="button primary" data-action="examwizard-next-2">Continue →</button>`);
                 // step 3: walk through each exam subject one at a time
+                if (ew.step === 4) return modalShell('Add an exam',
+                    `<div class="onboarding"><div class="brand-mark">✓</div><h2>Are those all the subjects?</h2><p>${ew.sittings.length ? `${ew.sittings.length} subject${ew.sittings.length===1?'':'s'} added so far.` : 'No subjects added yet.'}</p><p class="small">You can add a named subject for an oral, practical, or another paper that is not in your class list.</p></div>`,
+                    `<button class="button ghost" data-action="examwizard-add-custom-subject">Add another subject</button><button class="button primary" data-action="examwizard-subjects-done">Yes, continue</button>`);
+                if (ew.step === 'custom-subject') return modalShell('Add an exam subject',
+                    `<div class="onboarding"><div class="brand-mark">✎</div><h2>Name this subject</h2><div class="form-grid"><div class="field span-2" style="text-align:left"><label for="examwizard-custom-subject">Subject or paper name</label><input id="examwizard-custom-subject" placeholder="e.g. English oral" value="${escape(ew.customSubjectName||'')}"></div><div class="field" style="text-align:left"><label for="examwizard-custom-date">Day</label>${pickerFieldHtml('id="examwizard-custom-date"','date',ew.customSubjectDate||ew.start)}</div><div class="field" style="text-align:left"><label for="examwizard-custom-start">Start time</label>${pickerFieldHtml('id="examwizard-custom-start"','time',ew.customSubjectStart||'09:30')}</div><div class="field" style="text-align:left"><label for="examwizard-custom-end">End time</label>${pickerFieldHtml('id="examwizard-custom-end"','time',ew.customSubjectEnd||'11:30')}</div><div class="field span-2" style="text-align:left"><label for="examwizard-custom-notes">Notes</label><textarea id="examwizard-custom-notes" placeholder="Optional notes">${escape(ew.customSubjectNotes||'')}</textarea></div></div></div>`,
+                    `<button class="button ghost" data-action="examwizard-back-to-subject-confirm">← Back</button><button class="button primary" data-action="examwizard-save-custom-subject">Add subject</button>`);
+                if (ew.step === 'supervised') {
+                    const dates = datesInRange(ew.start, ew.end), slots = ew.supervisedSlots || [];
+                    const slotHtml = slots.map((slot, i) => `<div class="card examwizard-supervised-slot" style="margin-top:10px;padding:12px"><div class="form-grid"><div class="field"><label>Start time</label>${pickerFieldHtml(`data-supervised-start="${i}"`, 'time', slot.start||'16:00')}</div><div class="field"><label>End time</label>${pickerFieldHtml(`data-supervised-end="${i}"`, 'time', slot.end||'17:00')}</div></div><div class="small" style="margin:8px 0 5px">Dates</div><div class="row" style="flex-wrap:wrap">${dates.map(d=>`<label class="switch-row" style="width:auto;padding:5px 8px"><input type="checkbox" data-supervised-date="${i}" value="${d}" ${slot.dates?.includes(d)?'checked':''}> ${fmtDate(d,{weekday:'short',day:'numeric',month:'short'})}</label>`).join('')}</div>${i?`<button type="button" class="button ghost danger" data-action="examwizard-remove-supervised-slot" data-index="${i}" style="margin-top:8px">Remove time</button>`:''}</div>`).join('');
+                    return modalShell('Supervised study',
+                        `<div class="onboarding"><div class="brand-mark">⏱</div><h2>Add supervised study times</h2><p>Choose the dates and a start/end time for each supervised study session. You can add more than one time.</p>${slotHtml}<button type="button" class="button ghost" data-action="examwizard-add-supervised-slot" style="margin-top:10px">＋ Add another time</button></div>`,
+                        `<button class="button ghost" data-action="examwizard-skip-supervised">Skip</button><button class="button primary" data-action="examwizard-finish">Save exam</button>`);
+                }
                 const subj = subject(ew.examSubjects[ew.subjectIndex]); if (!subj) return modalShell('Add an exam',
                     `<div class="onboarding"><div class="brand-mark">✓</div><h2>All set.</h2><p>${ew.sittings.length?`${ew.sittings.length} subject${ew.sittings.length===1?'':'s'} scheduled for this exam period.`:"You don't have any exam subjects yet — add classes and mark them as exam subjects first, then come back to add sitting times."}</p></div>`,
-                    `<button class="button primary" data-action="examwizard-finish">Done</button>`);
+                    `<button class="button primary" data-action="examwizard-subjects-done">Continue</button>`);
                 const existingSitting = ew.sittings.find(s => s.subjectId === subj.id),
                     dayOptions = datesInRange(ew.start, ew.end),
                     topicsApplicable = !['jc', 'lc', 'mock'].includes(ew.kind);
                 return modalShell('Add an exam',
-                    `<div class="onboarding"><div class="brand-mark" style="background:${subj.color}22;color:${subj.color}">✎</div><h2>${escape(subj.name)}</h2><p>Subject ${ew.subjectIndex+1} of ${ew.examSubjects.length} — what day and time is this exam?</p><div class="form-grid"><div class="field" style="text-align:left"><label for="examwizard-sitting-date">Day</label><select id="examwizard-sitting-date">${dayOptions.map(d=>`<option value="${d}" ${(existingSitting?.date||dayOptions[0])===d?'selected':''}>${fmtDate(d,{weekday:'short',day:'numeric',month:'short'})}</option>`).join('')}</select></div><div class="field" style="text-align:left"><label for="examwizard-sitting-time">Time</label>${pickerFieldHtml('id="examwizard-sitting-time"','time',existingSitting?.time||'09:30')}</div></div>${topicsApplicable?topicAssignmentBlock(subj.id):''}</div>`,
+                    `<div class="onboarding"><div class="brand-mark" style="background:${subj.color}22;color:${subj.color}">✎</div><h2>${escape(subj.name)}</h2><p>Subject ${ew.subjectIndex+1} of ${ew.examSubjects.length} — what day and time is this exam?</p><div class="form-grid"><div class="field" style="text-align:left"><label for="examwizard-sitting-date">Day</label><select id="examwizard-sitting-date">${dayOptions.map(d=>`<option value="${d}" ${(existingSitting?.date||dayOptions[0])===d?'selected':''}>${fmtDate(d,{weekday:'short',day:'numeric',month:'short'})}</option>`).join('')}</select></div><div class="field" style="text-align:left"><label for="examwizard-sitting-time">Start time</label>${pickerFieldHtml('id="examwizard-sitting-time"','time',existingSitting?.time||'09:30')}</div><div class="field" style="text-align:left"><label for="examwizard-sitting-end">End time</label>${pickerFieldHtml('id="examwizard-sitting-end"','time',sittingEnd(existingSitting)||'11:30')}</div><div class="field span-2" style="text-align:left"><label for="examwizard-sitting-notes">Notes</label><textarea id="examwizard-sitting-notes" placeholder="Optional notes for this exam">${escape(existingSitting?.notes||'')}</textarea></div></div>${topicsApplicable?topicAssignmentBlock(subj.id):''}</div>`,
                     `<button class="button ghost" data-action="examwizard-skip-subject">Skip — no exam this period</button><button class="button primary" data-action="examwizard-next-subject">${ew.subjectIndex+1>=ew.examSubjects.length?'Finish':'Next →'}</button>`); }
 
             function openExamSchedule(examId) { const ex = state.exams.find(x => x.id === examId); if (!ex) return;
@@ -17719,9 +17766,9 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     return []; const answer = []; (ex.sittings || []).filter(s => s.date === date).forEach(s => {
                     const subj = subject(s.subjectId),
                         start = mins(s.time); answer.push({ event: { id: `sitting-${ex.id}-${s.subjectId}`,
-                            type: 'examSitting', name: `${subj?subj.name:'Subject'} exam`,
+                            type: 'examSitting', name: `${sittingName(s)} exam`,
                             color: subj ? subj.color : '#335CFF' }, slot: { id: 'sitting', start: s.time,
-                            end: fmtHM(start + 120) }, start, end: Math.min(1440, start + 120), sourceDate: date,
+                            end: sittingEnd(s) }, start, end: Math.min(1440, mins(sittingEnd(s))), sourceDate: date,
                         isSitting: true, subjectId: s.subjectId, result: s.result || null }); }); state.events
                     .forEach(e => { if (e.examPeriodId !== examId) return; e.slots.forEach(slot => { const start =
                             mins(slot.start), end = mins(slot.end), overnight = end <= start; if (sourceMatches(e,
@@ -17734,7 +17781,9 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         height = (x.end - x.start) * px,
                         rich = `${escape(e.name)}${x.isSitting&&x.result?' ✓':''}`,
                         timeHtml = `<span class="event-time">${time(x.start)} – ${time(x.end)}${x.isSitting?' · tap for result':''}</span>`;
-                    return `<button class="event-block ${e.type}" data-action="${x.isSitting?'open-exam-result':'open-event'}" ${x.isSitting?`data-exam="${examId}" data-subject="${x.subjectId}"`:`data-id="${e.id}" data-slot="${x.slot.id}" data-date="${date}"`} style="top:${x.start*px}px;height:${height}px;background:${e.color};color:${contrast(e.color)}">${eventBlockInner(height,TYPE_INFO[e.type].icon,escape(e.name),rich,timeHtml)}</button>`;
+                    const sitting = x.isSitting ? state.exams.find(exam => exam.id === examId)?.sittings?.find(s => s.subjectId === x.subjectId) : null,
+                        sittingAction = sitting && sittingHasPassed(sitting) ? 'open-exam-result' : 'open-exam-schedule';
+                    return `<button class="event-block ${e.type}" data-action="${x.isSitting?sittingAction:'open-event'}" ${x.isSitting?`data-exam="${examId}" data-subject="${x.subjectId}" data-id="${examId}"`:`data-id="${e.id}" data-slot="${x.slot.id}" data-date="${date}"`} style="top:${x.start*px}px;height:${height}px;background:${e.color};color:${contrast(e.color)}">${eventBlockInner(height,TYPE_INFO[e.type].icon,escape(e.name),rich,timeHtml)}</button>`;
                     }).join(''); }
 
             function examScheduleModal(examId) { const ex = state.exams.find(x => x.id === examId); if (!ex) return modalShell(
@@ -17757,9 +17806,12 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 const caoResults = examCaoResults(examId),
                     seeResultsButton = caoResults ? `<button type="button" class="button ${caoResults.pending?'ghost':'primary'}" data-action="open-cao-results" data-id="${ex.id}" style="margin-bottom:10px;width:100%">${caoResults.pending?`See results — waiting (${caoResults.doneCount}/${caoResults.totalCount} in)`:`See results — ${caoResults.total} CAO points`}</button>` :
                     '';
+                const examPassed = (ex.sittings || []).length > 0 && (ex.sittings || []).every(sittingHasPassed),
+                    gradeButtons = (ex.sittings || []).filter(s => sittingHasPassed(s) && !s.result).map(s => `<button class="button primary" data-action="open-exam-result" data-exam="${ex.id}" data-subject="${s.subjectId}">Submit grade: ${escape(sittingName(s))}</button>`).join(''),
+                    sittingNotes = (ex.sittings || []).filter(s => s.notes).map(s => `<div class="topic-row"><span>${escape(sittingName(s))}</span><span class="small">${escape(s.notes)}</span></div>`).join('');
                 return modalShell(examDisplayName(ex),
-                    `${seeResultsButton}<div class="weekbar" style="margin-bottom:10px"><span class="small">${fmtDate(ex.start,{day:'numeric',month:'short'})} – ${fmtDate(ex.end,{day:'numeric',month:'short',year:'numeric'})}</span><div class="toolbar"><button class="button icon" data-action="examschedule-nav" data-id="${ex.id}" data-dir="-1" ${canPrev?'':'disabled'} aria-label="Previous week">‹</button><button class="button icon" data-action="examschedule-nav" data-id="${ex.id}" data-dir="1" ${canNext?'':'disabled'} aria-label="Next week">›</button></div></div><section class="card timeline-card" style="padding:0">${grid}</section>${studyLegend('Tap ＋ to add study for this period, or tap a subject\'s exam block to record its result.')}`,
-                    `<button class="button ghost" data-action="edit-exam" data-id="${ex.id}">Edit exam details</button><button class="button primary" data-action="open-event-form-exam" data-id="${ex.id}">＋ Add to this period</button>`,
+                    `${seeResultsButton}${sittingNotes?`<section class="card side-note" style="margin-bottom:10px"><h3>Exam notes</h3><div class="list">${sittingNotes}</div></section>`:''}<div class="weekbar" style="margin-bottom:10px"><span class="small">${fmtDate(ex.start,{day:'numeric',month:'short'})} – ${fmtDate(ex.end,{day:'numeric',month:'short',year:'numeric'})}</span><div class="toolbar"><button class="button icon" data-action="examschedule-nav" data-id="${ex.id}" data-dir="-1" ${canPrev?'':'disabled'} aria-label="Previous week">‹</button><button class="button icon" data-action="examschedule-nav" data-id="${ex.id}" data-dir="1" ${canNext?'':'disabled'} aria-label="Next week">›</button></div></div><section class="card timeline-card" style="padding:0">${grid}</section>${studyLegend('Tap ＋ to add study for this period, or tap a subject\'s exam block to edit it before it happens or submit its grade afterwards.')}`,
+                    `${examPassed?'': '<button class="button ghost" data-action="edit-exam" data-id="'+ex.id+'">Edit exam details</button>'}${gradeButtons}<button class="button primary" data-action="open-event-form-exam" data-id="${ex.id}">＋ Add to this period</button>`,
                     true); }
 
             function examCaoResultsModal(examId) { const ex = state.exams.find(x => x.id === examId); if (!ex)
@@ -17793,7 +17845,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             // entry afterward — rather than the exam-style mini-timetable, which doesn't make sense for one
             // subject on one day.
             function openTestDetail(examId) { const ex = state.exams.find(x => x.id === examId); if (!ex) return;
-                const sitting = ex.sittings[0]; if (!sitting) return; if (sitting.date && sitting.date < localDate())
+                const sitting = ex.sittings[0]; if (!sitting) return; if (sittingHasPassed(sitting))
                     openExamResult(examId, sitting.subjectId);
                 else openModal('test-detail', { examId }); }
 
@@ -17836,10 +17888,10 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     true); }
 
             function examResultModal(examId, subjectId) { const ex = state.exams.find(x => x.id === examId),
-                    subj = subject(subjectId); if (!ex || !subj) return modalShell('Result',
+                    sitting = (ex?.sittings || []).find(s => s.subjectId === subjectId),
+                    subj = subject(subjectId) || (sitting ? { name: sittingName(sitting), color: '#335CFF' } : null); if (!ex || !subj) return modalShell('Result',
                     '<p class="empty">Not found.</p>', '<button class="button" data-action="close-modal">Close</button>');
-                const sitting = (ex.sittings || []).find(s => s.subjectId === subjectId),
-                    r = sitting?.result || {}, mt = examResultDraft.markingType,
+                const r = sitting?.result || {}, mt = examResultDraft.markingType,
                     unknown = examResultDraft.percentUnknown, level = examResultDraft.level || 'H';
                 const gradeFields = mt === 'letter' ?
                     `<div class="field span-2"><label for="result-letter">Grade</label><select id="result-letter">${LETTER_GRADES.map(l=>`<option value="${l}" ${(r.letter||'A')===l?'selected':''}>${l}</option>`).join('')}</select></div>`
@@ -18828,7 +18880,9 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                                     properties: {
                                         subjectId: { type: "STRING" },
                                         date: { type: "STRING", description: "YYYY-MM-DD, within start–end." },
-                                        time: { type: "STRING", description: "24h HH:MM. Required for an exam sitting. Optional for a test — if omitted, it's derived automatically from that subject's usual class time on that date." },
+                                        time: { type: "STRING", description: "24h HH:MM start time. Required for an exam sitting. Optional for a test — if omitted, it's derived automatically from that subject's usual class time on that date." },
+                                        end: { type: "STRING", description: "24h HH:MM end time for an exam sitting. If omitted, the UI treats it as two hours after the start." },
+                                        notes: { type: "STRING", description: "Optional notes for this subject's exam sitting." },
                                         topics: { type: "ARRAY", items: { type: "STRING" }, description: "Optional classTopic ids covered by this sitting. Not applicable for exam kinds jc/lc/mock." },
                                         topicsUnknown: { type: "BOOLEAN", description: "True if it could be anything already covered — mutually exclusive with topics." }
                                     }
@@ -18850,6 +18904,8 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         const sittings = (args.sittings || []).filter(s => s.subjectId && s.date).map(s => ({
                             subjectId: s.subjectId, date: s.date,
                             time: s.time || (assessmentType === "test" ? (classTimeOnDate(s.subjectId, s.date) || "09:30") : ""),
+                            end: s.end || (s.time ? fmtHM(mins(s.time) + 120) : ""),
+                            notes: s.notes || "",
                             topics: topicsAllowed && !s.topicsUnknown ? (s.topics || []).filter(id => state.classTopics.some(t => t.id === id)) : [],
                             topicsUnknown: topicsAllowed ? !!s.topicsUnknown : false })).filter(s => s.time);
                         if (assessmentType === "test" && sittings.length !== 1) return { error: "A test needs exactly one sitting (one subject)." };
@@ -18876,7 +18932,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                             topicsAllowed = effectiveType === "test" || !["jc", "lc", "mock"].includes(effectiveKind);
                         if (patch.sittings) patch.sittings = patch.sittings
                             .filter(s => s.subjectId && s.date && s.time).map(s => ({ subjectId: s.subjectId,
-                                date: s.date, time: s.time,
+                                date: s.date, time: s.time, end: s.end || fmtHM(mins(s.time) + 120), notes: s.notes || "",
                                 topics: topicsAllowed && !s.topicsUnknown ? (s.topics || []).filter(id => state
                                     .classTopics.some(t => t.id === id)) : [],
                                 topicsUnknown: topicsAllowed ? !!s.topicsUnknown : false }));
@@ -20609,8 +20665,11 @@ If the user asks about how to study or study methods generally, answer from your
                     timeVal = document.getElementById('examwizard-sitting-time').value; if (!dateVal || !timeVal) {
                         toast('Pick a day and time, or skip this subject.'); return; } const topicsApplicable = ![
                         'jc', 'lc', 'mock'].includes(examWizard.kind);
+                    const endVal = document.getElementById('examwizard-sitting-end')?.value;
+                    if (!endVal || mins(endVal) <= mins(timeVal)) { toast('End time must be after the start time.'); return; }
                     examWizard.sittings = examWizard.sittings.filter(s => s.subjectId !== subjId).concat([{
-                        subjectId: subjId, date: dateVal, time: timeVal,
+                        subjectId: subjId, date: dateVal, time: timeVal, end: endVal,
+                        notes: document.getElementById('examwizard-sitting-notes')?.value.trim() || '',
                         topics: topicsApplicable && !examWizard.pendingTopicsUnknown ? (examWizard.pendingTopics ||
                             []).slice() : [], topicsUnknown: topicsApplicable ? !!examWizard.pendingTopicsUnknown :
                             false }]);
@@ -20618,9 +20677,37 @@ If the user asks about how to study or study methods generally, answer from your
                         examWizard.examSubjects[examWizard.subjectIndex]);
                     examWizard.pendingTopics = next?.topics?.slice() || [];
                     examWizard.pendingTopicsUnknown = !!next?.topicsUnknown;
-                    renderModal(); } else if (a === 'examwizard-finish') { const exam = { id: examWizard.editingId ||
-                        uid(), assessmentType: 'exam', kind: examWizard.kind, name: examWizard.kind === 'other' ?
-                        examWizard.name : '', start: examWizard.start, end: examWizard.end,
+                    renderModal(); } else if (a === 'examwizard-subjects-done') { examWizard.step = 'supervised';
+                    renderModal(); } else if (a === 'examwizard-add-custom-subject') { examWizard.step = 'custom-subject';
+                    examWizard.customSubjectName = ''; examWizard.customSubjectDate = examWizard.start;
+                    examWizard.customSubjectStart = '09:30'; examWizard.customSubjectEnd = '11:30'; examWizard.customSubjectNotes = '';
+                    renderModal(); } else if (a === 'examwizard-back-to-subject-confirm') { examWizard.step = 4;
+                    renderModal(); } else if (a === 'examwizard-save-custom-subject') { const name = document.getElementById(
+                    'examwizard-custom-subject')?.value.trim(), date = document.getElementById('examwizard-custom-date')?.value,
+                    start = document.getElementById('examwizard-custom-start')?.value, end = document.getElementById('examwizard-custom-end')?.value;
+                    if (!name || !date || !start || !end) { toast('Add the subject, date, and both times.'); return; }
+                    if (mins(end) <= mins(start)) { toast('End time must be after the start time.'); return; }
+                    examWizard.sittings.push({ subjectId: `custom-${uid()}`, subjectName: name, date, time: start, end,
+                        notes: document.getElementById('examwizard-custom-notes')?.value.trim() || '', topics: [], topicsUnknown: false });
+                    examWizard.step = 4; renderModal(); } else if (a === 'examwizard-add-supervised-slot') {
+                    document.querySelectorAll('.examwizard-supervised-slot').forEach((el, i) => {
+                        if (!examWizard.supervisedSlots[i]) examWizard.supervisedSlots[i] = {};
+                        examWizard.supervisedSlots[i].start = el.querySelector(`[data-supervised-start="${i}"]`)?.value || '16:00';
+                        examWizard.supervisedSlots[i].end = el.querySelector(`[data-supervised-end="${i}"]`)?.value || '17:00';
+                        examWizard.supervisedSlots[i].dates = [...el.querySelectorAll(`[data-supervised-date="${i}"]:checked`)].map(x => x.value);
+                    });
+                    examWizard.supervisedSlots.push({ dates: [], start: '16:00', end: '17:00' }); renderModal();
+                    } else if (a === 'examwizard-remove-supervised-slot') {
+                    document.querySelectorAll('.examwizard-supervised-slot').forEach((el, i) => {
+                        if (!examWizard.supervisedSlots[i]) examWizard.supervisedSlots[i] = {};
+                        examWizard.supervisedSlots[i].start = el.querySelector(`[data-supervised-start="${i}"]`)?.value || '16:00';
+                        examWizard.supervisedSlots[i].end = el.querySelector(`[data-supervised-end="${i}"]`)?.value || '17:00';
+                        examWizard.supervisedSlots[i].dates = [...el.querySelectorAll(`[data-supervised-date="${i}"]:checked`)].map(x => x.value);
+                    });
+                    examWizard.supervisedSlots.splice(Number(b.dataset.index), 1);
+                    renderModal(); } else if (a === 'examwizard-skip-supervised') { examWizard.supervisedSlots = [];
+                    const exam = { id: examWizard.editingId || uid(), assessmentType: 'exam', kind: examWizard.kind,
+                        name: examWizard.kind === 'other' ? examWizard.name : '', start: examWizard.start, end: examWizard.end,
                         sittings: examWizard.sittings }; if (examWizard
                         .editingId) state.exams = state.exams.map(x => x.id === examWizard.editingId ? exam : x);
                     else state.exams.push(exam);
@@ -20628,6 +20715,24 @@ If the user asks about how to study or study methods generally, answer from your
                     save();
                     closeModal();
                     render();
+                    toast(`${examDisplayName(exam)} saved — ${exam.sittings.length} subject${exam.sittings.length===1?'':'s'} scheduled.`); } else if (a === 'examwizard-finish') {
+                    const examId = examWizard.editingId || uid();
+                    document.querySelectorAll('.examwizard-supervised-slot').forEach((el, i) => {
+                        const start = el.querySelector(`[data-supervised-start="${i}"]`)?.value,
+                            end = el.querySelector(`[data-supervised-end="${i}"]`)?.value,
+                            dates = [...el.querySelectorAll(`[data-supervised-date="${i}"]:checked`)].map(x => x.value);
+                        if (!start || !end || mins(end) <= mins(start)) return;
+                        dates.forEach(date => state.events.push({ id: uid(), type: 'study', studyKind: 'supervised',
+                            skippable: false, name: 'Supervised study', subjectId: '', color: STUDY_COLOR_SUPERVISED,
+                            inSchool: true, details: `Supervised study for ${examWizard.name || examWizard.kind || 'exam'}.`,
+                            date, skipDates: [], examPeriodId: examId, slots: [{ id: uid(), days: [], start, end }] }));
+                    });
+                    const exam = { id: examId, assessmentType: 'exam', kind: examWizard.kind,
+                        name: examWizard.kind === 'other' ? examWizard.name : '', start: examWizard.start, end: examWizard.end,
+                        sittings: examWizard.sittings }; if (examWizard
+                        .editingId) state.exams = state.exams.map(x => x.id === examWizard.editingId ? exam : x);
+                    else state.exams.push(exam);
+                    invalidateFutureStudyPlans(); save(); closeModal(); render();
                     toast(`${examDisplayName(exam)} saved — ${exam.sittings.length} subject${exam.sittings.length===1?'':'s'} scheduled.`); } else if (a === 'show-info') { openModal('info', { topic: b.dataset.topic }); } else if (
                     a === 'study-day') { studyViewDate = addDays(studyViewDate, Number(b.dataset.direction));
                     activeLogItem = null;
