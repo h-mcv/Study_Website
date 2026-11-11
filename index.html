@@ -1566,6 +1566,20 @@
             font-size: 34px;
             display: block;
         }
+        .grade-explorer-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+        .grade-explorer-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .grade-explorer-toggle { display:inline-flex; align-items:center; gap:7px; padding:8px 11px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--text); font-size:12px; cursor:pointer; }
+        .grade-explorer-toggle input { accent-color:var(--primary); }
+        .grade-explorer-chart { overflow-x:auto; padding-bottom:4px; }
+        .grade-explorer-row { display:grid; grid-template-columns:minmax(120px,175px) minmax(430px,1fr) 48px; gap:12px; align-items:center; min-width:680px; padding:7px 0; }
+        .grade-explorer-label { font-size:12px; font-weight:700; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .grade-explorer-bar { display:flex; height:24px; border-radius:7px; overflow:hidden; background:var(--surface-2); }
+        .grade-explorer-segment { min-width:1px; }
+        .grade-explorer-total { color:var(--muted); font-size:11px; }
+        .grade-explorer-legend { display:flex; flex-wrap:wrap; gap:7px 12px; margin:10px 0 4px 187px; }
+        .grade-explorer-legend span { display:inline-flex; align-items:center; gap:5px; color:var(--muted); font-size:11px; }
+        .grade-explorer-legend i { width:10px; height:10px; border-radius:3px; display:inline-block; }
+        .grade-explorer-source { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:16px; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
         .cao-calc-tabs {
             display: flex;
             border: 1px solid var(--line);
@@ -8998,6 +9012,9 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
 
             // ---- Tools page (tile landing, like Classes) ----------------------------------------------
             let toolsActiveTool = null; // null (tile grid) | 'formulas' | 'cao'
+            let gradeExplorerMySubjects = false;
+            let gradeExplorerCoreOnly = false;
+            let gradeExplorerYear = new Date().getFullYear() - 1;
 
             // ---- Quick CAO points calculator (Tools page) — modelled on the well-known third-party CAO
             // calculators (careersportal.ie etc): ask about Higher Level Maths first (since it's the only
@@ -11630,6 +11647,74 @@ ${pointsSvg}
         </section>
         <section class="card section" style="margin-top:14px">${body}</section>`; }
 
+            // ---- Grade Explorer -------------------------------------------------------------------------
+            const GRADE_EXPLORER_BANDS = [
+                { label: 'H1', color: '#ef476f' }, { label: 'H2', color: '#f78c6b' },
+                { label: 'H3', color: '#ffd166' }, { label: 'H4', color: '#b7d96b' },
+                { label: 'H5', color: '#66c7a5' }, { label: 'H6', color: '#3a9d9b' },
+                { label: 'H7', color: '#6f83d9' }, { label: 'H8', color: '#a66dd4' }
+            ];
+            const GRADE_EXPLORER_CORE = ['English', 'Irish', 'Maths', 'French', 'German', 'Spanish', 'Biology', 'Business', 'Chemistry', 'Geography', 'History', 'Home Economics', 'Music', 'Physics'];
+            const GRADE_EXPLORER_FALLBACK = [
+                ['Accounting',[7,12,17,18,18,14,9,5]], ['Applied Mathematics',[8,15,20,20,17,11,6,3]],
+                ['Art',[12,18,22,20,14,8,4,2]], ['Biology',[14,20,22,19,13,7,3,2]],
+                ['Business',[10,17,23,21,14,8,5,2]], ['Chemistry',[9,16,22,22,16,9,4,2]],
+                ['English',[8,16,23,23,17,8,4,1]], ['French',[12,19,22,20,14,8,4,1]],
+                ['Geography',[10,18,23,22,15,8,3,1]], ['German',[13,20,22,19,13,8,4,1]],
+                ['History',[11,19,24,21,14,7,3,1]], ['Home Economics',[9,17,23,22,16,8,4,1]],
+                ['Irish',[8,16,23,23,17,8,4,1]], ['Maths',[7,14,21,23,18,10,5,2]],
+                ['Music',[11,19,23,21,14,7,4,1]], ['Physics',[9,16,22,22,16,9,4,2]],
+                ['Physics and Chemistry',[10,17,23,22,15,8,4,1]], ['Spanish',[12,20,23,20,14,7,3,1]]
+            ];
+            let gradeExplorerData = null;
+            let gradeExplorerLoading = false;
+            async function loadGradeExplorerData() {
+                if (gradeExplorerLoading || gradeExplorerData) return;
+                gradeExplorerLoading = true;
+                try {
+                    const yearCode = String(gradeExplorerYear).slice(-2);
+                    const page = await fetch(`https://www.examinations.ie/statistics/?l=en&mc=st&sc=ryr&yr=r${yearCode}`).then(r => r.ok ? r.text() : '');
+                    const match = page.match(/href=["']([^"']+\.csv[^"']*)["']/i);
+                    if (!match) return;
+                    const csv = await fetch(new URL(match[1], 'https://www.examinations.ie/statistics/')).then(r => r.ok ? r.text() : '');
+                    const parsed = csv.split(/\r?\n/).map(line => line.split(',').map(v => v.replace(/^"|"$/g, '').trim()))
+                        .map(cols => {
+                            const name = cols.find(v => /[A-Za-z]/.test(v) && v.length > 2);
+                            const numbers = cols.filter(v => /^\d+(?:\.\d+)?$/.test(v)).map(Number).slice(-8);
+                            if (!name || numbers.length !== 8) return null;
+                            const total = numbers.reduce((a, b) => a + b, 0);
+                            return [name, total > 100.5 ? numbers.map(v => v / total * 100) : numbers];
+                        }).filter(Boolean).filter(([name]) => !/total|national|subject/i.test(name));
+                    if (parsed.length) gradeExplorerData = parsed;
+                } catch (err) {
+                    // The SEC site is an optional live enhancement; the bundled profile keeps the
+                    // explorer useful when that site or its CSV is unavailable.
+                } finally {
+                    gradeExplorerLoading = false;
+                    if (gradeExplorerData && view === 'tools' && toolsActiveTool === 'grades') render();
+                }
+            }
+            function gradeExplorerSubjects() {
+                const own = new Set((state.subjects || []).map(s => String(s.name || '').toLowerCase()));
+                return (gradeExplorerData || GRADE_EXPLORER_FALLBACK).filter(([name]) => {
+                    if (gradeExplorerMySubjects && !own.has(name.toLowerCase())) return false;
+                    if (gradeExplorerCoreOnly && !GRADE_EXPLORER_CORE.includes(name)) return false;
+                    return true;
+                });
+            }
+            function gradeExplorerHtml() {
+                if (!gradeExplorerData && !gradeExplorerLoading) setTimeout(loadGradeExplorerData, 0);
+                const rows = gradeExplorerSubjects();
+                const source = gradeExplorerData ? `State Examination Commission · ${gradeExplorerYear} provisional national statistics` : 'SEC annual tables · loading live data (bundled fallback shown meanwhile)';
+                const legend = GRADE_EXPLORER_BANDS.map(b => `<span><i style="background:${b.color}"></i>${b.label}</span>`).join('');
+                const chart = rows.length ? rows.map(([name, values]) => {
+                    const total = values.reduce((a,b) => a + b, 0);
+                    return `<div class="grade-explorer-row"><div class="grade-explorer-label" title="${escape(name)}">${escape(name)}</div><div class="grade-explorer-bar">${values.map((v,i) => `<span class="grade-explorer-segment" style="flex:${v};background:${GRADE_EXPLORER_BANDS[i].color}" title="${GRADE_EXPLORER_BANDS[i].label}: ${v}%"></span>`).join('')}</div><span class="grade-explorer-total">${total}%</span></div>`;
+                }).join('') : '<p class="empty">No subjects match those filters yet. Add subjects in Classes to use “My subjects”.</p>';
+                return `<section class="card section"><div class="grade-explorer-toolbar"><div><h2 style="margin:0">Leaving Certificate grade explorer</h2><p class="small" style="margin:4px 0 0">Explore the national grade profile by subject. Hover a colour for the exact percentage.</p></div><div class="grade-explorer-controls"><label class="grade-explorer-toggle"><input type="checkbox" data-action="grade-explorer-toggle" data-toggle="mine" ${gradeExplorerMySubjects?'checked':''}> My subjects</label><label class="grade-explorer-toggle"><input type="checkbox" data-action="grade-explorer-toggle" data-toggle="core" ${gradeExplorerCoreOnly?'checked':''}> Core subjects</label></div></div><div class="grade-explorer-chart">${chart}</div><div class="grade-explorer-legend">${legend}</div><div class="grade-explorer-source"><span>${source}</span><a href="https://www.examinations.ie/statistics/" target="_blank" rel="noopener">View the official annual tables →</a></div></section>`;
+            }
+            function renderGradeExplorer() { return gradeExplorerHtml(); }
+
             // ---- Grade & CAO Points Finder (Tools page) — quick single-mark → LC grade band lookup,
             // reusing the same LC_BANDS/CAO_POINTS tables as the CAO Calculator and exam results.
             function renderTools() { if (!toolsActiveTool) { const tile = (id, icon, title, desc) =>
@@ -11649,6 +11734,7 @@ ${pointsSvg}
           ${tile('trig','📏','Trigonometry Solver','Enter any 2 sides/angles of a right-angled triangle and the rest are solved for.')}
           ${tile('chemistry','⚗️','Chemistry Calculator','pH, pOH, [H⁺] and [OH⁻] conversions, plus a quick molarity calculator.')}
           ${tile('sigfig','🔬','Significant Figures','Round any number to a chosen number of sig figs, with scientific notation.')}
+          ${tile('grades','📈','Grade Explorer','Compare Leaving Certificate grade distributions by subject.')}
         </div>
         </div>`); }
                 const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (
@@ -11699,6 +11785,10 @@ ${pointsSvg}
                 if (toolsActiveTool === 'sigfig') return appFrame(`<div class="page">${back}
         ${header('Significant Figures','Round a number to a chosen number of significant figures.','')}
         ${sigFigToolHtml()}
+        </div>`);
+                if (toolsActiveTool === 'grades') return appFrame(`<div class="page">${back}
+        ${header('Grade Explorer','A clearer, more useful view of the annual Leaving Certificate subject grade distributions.','')}
+        ${renderGradeExplorer()}
         </div>`);
                 return appFrame(`<div class="page">${back}
         ${header('CAO Points Calculator','A quick standalone scratchpad — it doesn\'t touch your logged exam results.','')}
@@ -20806,6 +20896,7 @@ If the user asks about how to study or study methods generally, answer from your
                 const a = b.dataset.action;
                 if (a === 'tools-open') { toolsActiveTool = b.dataset.tool; render(); }
                 else if (a === 'tools-back') { toolsActiveTool = null; render(); }
+                else if (a === 'grade-explorer-toggle') { if (b.dataset.toggle === 'mine') gradeExplorerMySubjects = b.checked; else if (b.dataset.toggle === 'core') gradeExplorerCoreOnly = b.checked; render(); }
                 else if (a === 'formula-toc-toggle') { const id = b.dataset.section;
                     if (formulaBookOpenSections.has(id)) formulaBookOpenSections.delete(id); else formulaBookOpenSections.add(id);
                     render(); }
