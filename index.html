@@ -1572,11 +1572,14 @@
         .grade-explorer-toggle input { accent-color:var(--primary); }
         .grade-explorer-select { padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--text); font:inherit; font-size:12px; }
         .grade-explorer-chart { overflow-x:auto; padding-bottom:4px; }
-        .grade-explorer-row { display:grid; grid-template-columns:minmax(120px,175px) minmax(430px,1fr) 48px; gap:12px; align-items:center; min-width:680px; padding:7px 0; }
+        .grade-explorer-row { display:grid; grid-template-columns:minmax(120px,175px) minmax(430px,1fr) 64px 48px; gap:12px; align-items:center; min-width:760px; padding:0; }
         .grade-explorer-label { font-size:12px; font-weight:700; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .grade-explorer-bar { display:flex; height:24px; border-radius:7px; overflow:hidden; background:var(--surface-2); }
         .grade-explorer-segment { min-width:1px; }
         .grade-explorer-segment.selected { outline:3px solid var(--text); outline-offset:-3px; filter:brightness(.88); }
+        .grade-explorer-average { height:24px; border-radius:7px; overflow:hidden; background:var(--surface-2); position:relative; }
+        .grade-explorer-average::before { content:""; display:block; height:100%; width:var(--average); background:#a66dd4; }
+        .grade-explorer-average span { position:absolute; inset:0; display:grid; place-items:center; color:var(--text); font-size:10px; font-weight:700; }
         .grade-explorer-total { color:var(--muted); font-size:11px; }
         .grade-explorer-detail { margin-top:14px; padding:12px 14px; border:1px solid var(--primary); border-radius:12px; background:color-mix(in srgb, var(--primary) 8%, var(--surface)); }
         .grade-explorer-detail strong { font-size:18px; }
@@ -11691,9 +11694,27 @@ ${pointsSvg}
                 'Religious Education':[5,22,27,23,15,6,2,0], Russian:[5,32,28,18,11,4,2,0], Spanish:[6,22,24,20,15,8,4,1],
                 Technology:[5,16,26,23,16,9,4,1], Ukrainian:[5,30,27,19,12,5,2,0]
             };
+            const GRADE_EXPLORER_H1 = {
+                'Mandarin-Chinese':90, Russian:73, Portuguese:49, Lithuanian:47, Greek:39, Polish:33, Latin:33,
+                Italian:33, Ukrainian:30, Japanese:30, Arabic:27, 'Applied Maths':22, Chemistry:18, Physics:16,
+                French:15, Accounting:14, Biology:14, 'Design and Comm Graphics':14, Spanish:13, German:13,
+                English:13, Music:13, History:12, Art:12, 'Computer Science':12, 'Classical Studies':11, Irish:11,
+                Technology:10, 'Home Economics':10, 'Politics and Society':9, Engineering:9, Mathematics:9,
+                'Agricultural Science':8, Business:8, Geography:7, 'Physics and Chemistry':6,
+                'Religious Education':5, Economics:5, 'Construction Technology':5, 'Physical Education':4
+            };
             const GRADE_EXPLORER_GRADE_POINTS = [100, 88, 77, 66, 56, 46, 37, 0];
             const GRADE_EXPLORER_FALLBACK = GRADE_EXPLORER_SUBJECTS.map(name => {
-                const distribution = GRADE_EXPLORER_FALLBACK_PROFILES[name] || [12, 19, 22, 20, 14, 8, 4, 1];
+                const profile = GRADE_EXPLORER_FALLBACK_PROFILES[name] || [12, 19, 22, 20, 14, 8, 4, 1];
+                const h1 = GRADE_EXPLORER_H1[name] ?? profile[0];
+                const tailTotal = profile.slice(1).reduce((sum, value) => sum + value, 0);
+                const distribution = [h1];
+                let assigned = h1;
+                profile.slice(1).forEach((value, index, tail) => {
+                    const next = index === tail.length - 1 ? 100 - assigned : Math.round(value * (100 - h1) / tailTotal);
+                    distribution.push(next);
+                    assigned += next;
+                });
                 const candidates = GRADE_EXPLORER_CANDIDATES_2026[name] || null;
                 const averagePoints = Math.round(distribution.reduce((sum, pct, j) => sum + pct * GRADE_EXPLORER_GRADE_POINTS[j], 0) / 100);
                 return { name, distribution, candidates, averagePoints };
@@ -11721,7 +11742,7 @@ ${pointsSvg}
                 const legend = GRADE_EXPLORER_BANDS.map(b => `<span><i style="background:${b.color}"></i>${b.label}</span>`).join('');
                 const chart = rows.length ? rows.map(row => {
                     const { name, distribution: values, candidates, averagePoints } = row;
-                    return `<div class="grade-explorer-row"><div class="grade-explorer-label" title="${escape(name)}">${escape(name)}<div class="small" style="font-weight:400;text-align:right">${averagePoints} est. avg pts</div></div><div class="grade-explorer-bar">${values.map((v,i) => `<button type="button" class="grade-explorer-segment ${gradeExplorerSelected && gradeExplorerSelected.name === name && gradeExplorerSelected.index === i ? 'selected' : ''}" data-action="grade-explorer-select" data-subject="${escape(name)}" data-index="${i}" style="flex:${v};background:${GRADE_EXPLORER_BANDS[i].color}" aria-label="${escape(name)} ${GRADE_EXPLORER_BANDS[i].label}: ${v.toFixed(1)}%"></button>`).join('')}</div><span class="grade-explorer-total">${candidates ? candidates.toLocaleString() : '—'}</span></div>`;
+                    return `<div class="grade-explorer-row"><div class="grade-explorer-label" title="${escape(name)}">${escape(name)}</div><div class="grade-explorer-bar">${values.map((v,i) => `<button type="button" class="grade-explorer-segment ${gradeExplorerSelected && gradeExplorerSelected.name === name && gradeExplorerSelected.index === i ? 'selected' : ''}" data-action="grade-explorer-select" data-subject="${escape(name)}" data-index="${i}" style="flex:${v};background:${GRADE_EXPLORER_BANDS[i].color}" aria-label="${escape(name)} ${GRADE_EXPLORER_BANDS[i].label}: ${v.toFixed(1)}%"></button>`).join('')}</div><div class="grade-explorer-average" style="--average:${Math.min(100, averagePoints)}%" title="${averagePoints} average points"><span>${averagePoints}</span></div><span class="grade-explorer-total">${candidates ? candidates.toLocaleString() : '—'}</span></div>`;
                 }).join('') : '<p class="empty">No subjects match those filters yet. Add subjects in Classes to use “My subjects”.</p>';
                 const selectedRow = gradeExplorerSelected && rows.find(row => row.name === gradeExplorerSelected.name);
                 const selectedDetail = selectedRow ? `<div class="grade-explorer-detail"><strong>${escape(selectedRow.name)} · ${GRADE_EXPLORER_BANDS[gradeExplorerSelected.index].label}: ${selectedRow.distribution[gradeExplorerSelected.index].toFixed(1)}%</strong><div class="small">${selectedRow.candidates ? selectedRow.candidates.toLocaleString() + ' candidates' : 'Candidate count unavailable'} · Average estimated CAO points: ${selectedRow.averagePoints}</div></div>` : '<p class="small" style="margin-top:12px">Click a coloured section to see its exact percentage.</p>';
