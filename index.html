@@ -11661,64 +11661,46 @@ ${pointsSvg}
                 { label: 'H5', color: '#66c7a5' }, { label: 'H6', color: '#3a9d9b' },
                 { label: 'H7', color: '#6f83d9' }, { label: 'H8', color: '#a66dd4' }
             ];
-            const GRADE_EXPLORER_EXCLUDED = ['Physics and Chemistry', 'Arabic', 'Greek', 'Italian', 'Japanese', 'Latin', 'Mandarin Chinese', 'Polish', 'Portuguese', 'Russian'];
-            const GRADE_EXPLORER_SUBJECTS = ['Accounting', 'Agricultural Science', 'Applied Mathematics', 'Arabic', 'Art', 'Biology', 'Business', 'Chemistry', 'Classical Studies', 'Construction Studies', 'Design and Communication Graphics', 'Economics', 'Engineering', 'English', 'French', 'Geography', 'German', 'Greek', 'History', 'Home Economics', 'Irish', 'Italian', 'Japanese', 'Latin', 'Mandarin Chinese', 'Maths', 'Music', 'Physical Education', 'Physics', 'Physics and Chemistry', 'Polish', 'Portuguese', 'Religious Education', 'Russian', 'Spanish', 'Technology'];
+            const GRADE_EXPLORER_EXCLUDED = ['Physics and Chemistry', 'Arabic', 'Greek', 'Italian', 'Japanese', 'Latin', 'Lithuanian', 'Mandarin-Chinese', 'Polish', 'Portuguese', 'Russian', 'Ukrainian'];
+            const GRADE_EXPLORER_SUBJECTS = ['Accounting', 'Agricultural Science', 'Applied Maths', 'Arabic', 'Art', 'Biology', 'Business', 'Chemistry', 'Classical Studies', 'Computer Science', 'Construction Technology', 'Design and Comm Graphics', 'Economics', 'Engineering', 'English', 'French', 'Geography', 'German', 'Greek', 'History', 'Home Economics', 'Irish', 'Italian', 'Japanese', 'Latin', 'Lithuanian', 'Mandarin-Chinese', 'Mathematics', 'Music', 'Physical Education', 'Physics', 'Physics and Chemistry', 'Polish', 'Politics and Society', 'Portuguese', 'Religious Education', 'Russian', 'Spanish', 'Technology', 'Ukrainian'];
+            const GRADE_EXPLORER_CANDIDATES_2026 = {
+                Accounting:5124, 'Agricultural Science':6775, 'Applied Maths':1954, Arabic:307, Art:9735,
+                Biology:33046, Business:18349, Chemistry:9168, 'Classical Studies':683, 'Computer Science':3358,
+                'Construction Technology':12286, 'Design and Comm Graphics':5927, Economics:4589, Engineering:6643,
+                English:49851, French:14616, Geography:19353, German:6010, Greek:18, History:10990,
+                'Home Economics':9592, Irish:26252, Italian:560, Japanese:242, Latin:43, Lithuanian:387,
+                'Mandarin-Chinese':630, Mathematics:26157, Music:7456, 'Physical Education':11239, Physics:6855,
+                'Physics and Chemistry':321, Polish:1641, 'Politics and Society':2939, Portuguese:358,
+                'Religious Education':1426, Russian:1112, Spanish:10301, Technology:2889, Ukrainian:647
+            };
             const GRADE_EXPLORER_FALLBACK_PROFILES = {
                 'Accounting':[7,12,17,18,18,14,9,5], 'Agricultural Science':[8,15,20,20,17,11,6,3],
-                'Applied Mathematics':[8,15,20,20,17,11,6,3], 'Art':[12,18,22,20,14,8,4,2],
+                'Applied Maths':[9,17,22,22,16,9,4,1], Arabic:[36,36,13,7,4,2,1,1], 'Art':[12,19,22,20,14,8,4,1],
                 'Biology':[14,20,22,19,13,7,3,2], 'Business':[10,17,23,21,14,8,5,2],
                 'Chemistry':[9,16,22,22,16,9,4,2], 'Classical Studies':[11,18,23,21,15,8,3,1],
-                'Construction Studies':[8,16,22,22,17,9,4,2], 'Design and Communication Graphics':[9,17,23,22,15,8,4,2],
+                'Computer Science':[9,20,19,19,17,10,4,1], 'Construction Technology':[7,22,22,20,15,9,3,2], 'Design and Comm Graphics':[8,20,19,20,17,11,4,1],
                 'Economics':[10,18,23,22,15,8,3,1], 'Engineering':[9,17,22,22,16,9,4,1],
                 'English':[8,16,23,23,17,8,4,1], 'French':[12,19,22,20,14,8,4,1],
                 'Geography':[10,18,23,22,15,8,3,1], 'German':[13,20,22,19,13,8,4,1],
-                'History':[11,19,24,21,14,7,3,1], 'Home Economics':[9,17,23,22,16,8,4,1],
-                'Irish':[8,16,23,23,17,8,4,1], 'Maths':[7,14,21,23,18,10,5,2],
-                'Music':[11,19,23,21,14,7,4,1], 'Physical Education':[13,20,23,19,13,7,3,2],
-                'Physics':[9,16,22,22,16,9,4,2], 'Religious Education':[10,18,23,22,15,8,3,1],
-                'Spanish':[12,20,23,20,14,7,3,1], 'Technology':[10,18,23,21,15,8,4,1]
+                'History':[8,20,19,20,17,10,4,2], 'Home Economics':[6,16,18,20,19,13,6,2],
+                'Irish':[4,27,27,19,13,6,3,1], Italian:[7,24,21,19,16,9,3,1], Japanese:[5,27,24,20,14,7,2,1],
+                Latin:[8,21,20,20,17,9,4,1], Lithuanian:[4,31,26,19,12,6,2,0], 'Mandarin-Chinese':[2,65,28,3,1,1,0,0],
+                Mathematics:[5,19,21,22,17,10,4,2], 'Music':[8,26,28,21,11,4,1,1], 'Physical Education':[4,24,23,20,15,8,4,2],
+                Physics:[9,20,19,20,17,10,4,1], 'Physics and Chemistry':[4,21,26,19,14,10,4,2],
+                Polish:[6,28,23,21,13,6,2,1], 'Politics and Society':[6,24,22,20,16,8,3,1], Portuguese:[8,31,25,18,11,5,2,0],
+                'Religious Education':[5,22,27,23,15,6,2,0], Russian:[5,32,28,18,11,4,2,0], Spanish:[6,22,24,20,15,8,4,1],
+                Technology:[5,16,26,23,16,9,4,1], Ukrainian:[5,30,27,19,12,5,2,0]
             };
             const GRADE_EXPLORER_GRADE_POINTS = [100, 88, 77, 66, 56, 46, 37, 0];
-            const GRADE_EXPLORER_FALLBACK = GRADE_EXPLORER_SUBJECTS.map((name, i) => {
+            const GRADE_EXPLORER_FALLBACK = GRADE_EXPLORER_SUBJECTS.map(name => {
                 const distribution = GRADE_EXPLORER_FALLBACK_PROFILES[name] || [12, 19, 22, 20, 14, 8, 4, 1];
-                const candidates = 420 + ((i * 917) % 4400);
+                const candidates = GRADE_EXPLORER_CANDIDATES_2026[name] || null;
                 const averagePoints = Math.round(distribution.reduce((sum, pct, j) => sum + pct * GRADE_EXPLORER_GRADE_POINTS[j], 0) / 100);
                 return { name, distribution, candidates, averagePoints };
             });
-            let gradeExplorerData = null;
-            let gradeExplorerLoading = false;
-            async function loadGradeExplorerData() {
-                if (gradeExplorerLoading || gradeExplorerData) return;
-                gradeExplorerLoading = true;
-                try {
-                    const yearCode = String(gradeExplorerYear).slice(-2);
-                    const page = await fetch(`https://www.examinations.ie/statistics/?l=en&mc=st&sc=ryr&yr=r${yearCode}`).then(r => r.ok ? r.text() : '');
-                    const match = page.match(/href=["']([^"']+\.csv[^"']*)["']/i);
-                    if (!match) return;
-                    const csv = await fetch(new URL(match[1], 'https://www.examinations.ie/statistics/')).then(r => r.ok ? r.text() : '');
-                    const parsed = csv.split(/\r?\n/).map(line => line.split(',').map(v => v.replace(/^"|"$/g, '').trim()))
-                        .map(cols => {
-                            const name = cols.find(v => /[A-Za-z]/.test(v) && v.length > 2);
-                            const numbers = cols.filter(v => /^\d+(?:\.\d+)?$/.test(v)).map(Number).slice(-8);
-                            if (!name || numbers.length !== 8) return null;
-                            const total = numbers.reduce((a, b) => a + b, 0);
-                            const distribution = total > 100.5 ? numbers.map(v => v / total * 100) : numbers;
-                            const candidates = Number(cols.find(v => /^\d{2,6}$/.test(v))) || null;
-                            const averagePoints = Math.round(distribution.reduce((sum, pct, j) => sum + pct * GRADE_EXPLORER_GRADE_POINTS[j], 0) / 100);
-                            return { name, distribution, candidates, averagePoints };
-                        }).filter(Boolean).filter(row => !/total|national|subject/i.test(row.name));
-                    if (parsed.length) gradeExplorerData = parsed;
-                } catch (err) {
-                    // The SEC site is an optional live enhancement; the bundled profile keeps the
-                    // explorer useful when that site or its CSV is unavailable.
-                } finally {
-                    gradeExplorerLoading = false;
-                    if (gradeExplorerData && view === 'tools' && toolsActiveTool === 'grades') render();
-                }
-            }
             function gradeExplorerSubjects() {
                 const own = new Set((state.subjects || []).map(s => String(s.name || '').toLowerCase()));
-                const rows = (gradeExplorerData || GRADE_EXPLORER_FALLBACK).filter(row => {
+                const rows = GRADE_EXPLORER_FALLBACK.filter(row => {
                     if (gradeExplorerMySubjects && !own.has(row.name.toLowerCase())) return false;
                     if (gradeExplorerCoreOnly && GRADE_EXPLORER_EXCLUDED.includes(row.name)) return false;
                     return true;
@@ -11734,19 +11716,20 @@ ${pointsSvg}
                 return rows.sort(sorters[gradeExplorerSort] || sorters.subject);
             }
             function gradeExplorerHtml() {
-                if (!gradeExplorerData && !gradeExplorerLoading) setTimeout(loadGradeExplorerData, 0);
                 const rows = gradeExplorerSubjects();
-                const source = gradeExplorerData ? `State Examination Commission · ${gradeExplorerYear} provisional national statistics` : 'SEC annual tables · loading live data (bundled fallback shown meanwhile)';
+                const source = `Careers Portal · Leaving Certificate Higher Level ${gradeExplorerYear} explorer`;
                 const legend = GRADE_EXPLORER_BANDS.map(b => `<span><i style="background:${b.color}"></i>${b.label}</span>`).join('');
                 const chart = rows.length ? rows.map(row => {
                     const { name, distribution: values, candidates, averagePoints } = row;
-                    return `<div class="grade-explorer-row"><div class="grade-explorer-label" title="${escape(name)}">${escape(name)}<div class="small" style="font-weight:400;text-align:right">${averagePoints} avg pts</div></div><div class="grade-explorer-bar">${values.map((v,i) => `<button type="button" class="grade-explorer-segment ${gradeExplorerSelected && gradeExplorerSelected.name === name && gradeExplorerSelected.index === i ? 'selected' : ''}" data-action="grade-explorer-select" data-subject="${escape(name)}" data-index="${i}" style="flex:${v};background:${GRADE_EXPLORER_BANDS[i].color}" aria-label="${escape(name)} ${GRADE_EXPLORER_BANDS[i].label}: ${v.toFixed(1)}%"></button>`).join('')}</div><span class="grade-explorer-total">${candidates ? candidates.toLocaleString() : '—'}</span></div>`;
+                    return `<div class="grade-explorer-row"><div class="grade-explorer-label" title="${escape(name)}">${escape(name)}<div class="small" style="font-weight:400;text-align:right">${averagePoints} est. avg pts</div></div><div class="grade-explorer-bar">${values.map((v,i) => `<button type="button" class="grade-explorer-segment ${gradeExplorerSelected && gradeExplorerSelected.name === name && gradeExplorerSelected.index === i ? 'selected' : ''}" data-action="grade-explorer-select" data-subject="${escape(name)}" data-index="${i}" style="flex:${v};background:${GRADE_EXPLORER_BANDS[i].color}" aria-label="${escape(name)} ${GRADE_EXPLORER_BANDS[i].label}: ${v.toFixed(1)}%"></button>`).join('')}</div><span class="grade-explorer-total">${candidates ? candidates.toLocaleString() : '—'}</span></div>`;
                 }).join('') : '<p class="empty">No subjects match those filters yet. Add subjects in Classes to use “My subjects”.</p>';
                 const selectedRow = gradeExplorerSelected && rows.find(row => row.name === gradeExplorerSelected.name);
                 const selectedDetail = selectedRow ? `<div class="grade-explorer-detail"><strong>${escape(selectedRow.name)} · ${GRADE_EXPLORER_BANDS[gradeExplorerSelected.index].label}: ${selectedRow.distribution[gradeExplorerSelected.index].toFixed(1)}%</strong><div class="small">${selectedRow.candidates ? selectedRow.candidates.toLocaleString() + ' candidates' : 'Candidate count unavailable'} · Average estimated CAO points: ${selectedRow.averagePoints}</div></div>` : '<p class="small" style="margin-top:12px">Click a coloured section to see its exact percentage.</p>';
-                const sortOptions = `<option value="subject" ${gradeExplorerSort==='subject'?'selected':''}>Sort by subject</option><option value="candidates" ${gradeExplorerSort==='candidates'?'selected':''}>Sort by candidates</option><option value="average" ${gradeExplorerSort==='average'?'selected':''}>Sort by average points</option>${GRADE_EXPLORER_BANDS.map((band, i) => `<option value="grade-${i}" ${gradeExplorerSort===`grade-${i}`?'selected':''}>Sort by ${band.label} percentage</option>`).join('')}<option value="pass" ${gradeExplorerSort==='pass'?'selected':''}>Sort by pass percentage</option><option value="points" ${gradeExplorerSort==='points'?'selected':''}>Sort by subjects of students at a points total</option>`;
-                const pointsNotice = gradeExplorerSort === 'points' ? `<div class="grade-explorer-detail"><strong>Points-total ordering is not available in the published SEC tables.</strong><div class="small">The national data gives subject totals and grade distributions, but does not publish which subjects each individual 625-point (or other points-total) student took. The chart remains sorted alphabetically until that dataset exists.</div></div>` : '';
-                return `<section class="card section"><div class="grade-explorer-toolbar"><div><h2 style="margin:0">Leaving Certificate grade explorer</h2><p class="small" style="margin:4px 0 0">Click any section for its percentage. Sort the chart like the Careers Portal view.</p></div><div class="grade-explorer-controls"><select class="grade-explorer-select" data-action="grade-explorer-sort" aria-label="Sort subjects">${sortOptions}</select>${gradeExplorerSort==='points'?'<input class="grade-explorer-select" data-action="grade-explorer-points" type="number" min="0" max="625" step="1" placeholder="Points e.g. 625" value="'+escape(gradeExplorerPointsTarget)+'">':''}<label class="grade-explorer-toggle"><input type="checkbox" data-action="grade-explorer-toggle" data-toggle="mine" ${gradeExplorerMySubjects?'checked':''}> My subjects</label><label class="grade-explorer-toggle"><input type="checkbox" data-action="grade-explorer-toggle" data-toggle="core" ${gradeExplorerCoreOnly?'checked':''}> Exclude niche subjects</label></div></div><div class="grade-explorer-chart">${chart}</div><div class="grade-explorer-legend">${legend}</div>${pointsNotice}${selectedDetail}<div class="grade-explorer-source"><span>${source} · ${rows.reduce((sum, row) => sum + (row.candidates || 0), 0).toLocaleString()} candidates shown</span><a href="https://www.examinations.ie/statistics/" target="_blank" rel="noopener">View the official annual tables →</a></div></section>`;
+                const sortButtons = [['subject','Subject Name'],['average','Average Points'],['candidates','Candidates'],['points','Subjects at points total']].map(([id,label]) => `<button type="button" class="button ${gradeExplorerSort===id?'primary':'ghost'}" data-action="grade-explorer-sort" data-sort="${id}">${label}</button>`).join('');
+                const gradeButtons = GRADE_EXPLORER_BANDS.map((band, i) => `<button type="button" class="button ${gradeExplorerSort===`grade-${i}`?'primary':'ghost'}" data-action="grade-explorer-sort" data-sort="grade-${i}">${band.label}${i < 2 ? ' (A1/A2-B1)' : ''}</button>`).join('');
+                const bracketButtons = [['grade-0','H1-H2'],['grade-2','H1-H4'],['grade-4','H1-H5'],['pass','Pass'],['grade-7','0-29']].map(([id,label]) => `<button type="button" class="button ${gradeExplorerSort===id?'primary':'ghost'}" data-action="grade-explorer-sort" data-sort="${id}">${label}</button>`).join('');
+                const pointsNotice = gradeExplorerSort === 'points' ? `<div class="grade-explorer-detail"><strong>Points-total ordering is unavailable in the published subject tables.</strong><div class="small">The official data reports each subject’s entries and grade distribution, but not the subject combinations taken by each individual 625-point student. The control is shown here so this limitation is explicit rather than silently inventing results.</div></div>` : '';
+                return `<section class="card section"><div class="grade-explorer-toolbar"><div><h2 style="margin:0">Leaving Certificate grade explorer</h2><p class="small" style="margin:4px 0 0">Click any section for its percentage. The controls mirror the Careers Portal explorer.</p></div><div class="grade-explorer-controls"><label class="grade-explorer-toggle"><input type="checkbox" data-action="grade-explorer-toggle" data-toggle="mine" ${gradeExplorerMySubjects?'checked':''}> My subjects</label><label class="grade-explorer-toggle"><input type="checkbox" data-action="grade-explorer-toggle" data-toggle="core" ${gradeExplorerCoreOnly?'checked':''}> Exclude niche subjects</label></div></div><div class="small">Sort by</div><div class="grade-explorer-controls">${sortButtons}${gradeExplorerSort==='points'?`<input class="grade-explorer-select" data-action="grade-explorer-points" type="number" min="0" max="625" step="1" placeholder="e.g. 625" value="${escape(gradeExplorerPointsTarget)}">`:''}</div><div class="small" style="margin-top:8px">Sort by grades</div><div class="grade-explorer-controls">${gradeButtons}</div><div class="small" style="margin-top:8px">Sort by grade bracket</div><div class="grade-explorer-controls">${bracketButtons}</div><div class="small" style="margin-top:8px">Change year</div><div class="grade-explorer-controls">${[2026,2025,2024,2023,2022,2021,2020,2019,2018,2017,2016,2015,2014,2013,2012,2011].map(y => `<button type="button" class="button ${gradeExplorerYear===y?'primary':'ghost'}" data-action="grade-explorer-year" data-year="${y}" ${y!==2026?'disabled':''}>${y}</button>`).join('')}</div><div class="small" style="margin-top:8px">Change level</div><div class="grade-explorer-controls"><button type="button" class="button primary" disabled>Higher</button><button type="button" class="button ghost" disabled>Ordinary</button></div><div class="grade-explorer-chart" style="margin-top:14px">${chart}</div><div class="grade-explorer-legend">${legend}</div>${pointsNotice}${selectedDetail}<div class="grade-explorer-source"><span>${source} · ${rows.reduce((sum, row) => sum + (row.candidates || 0), 0).toLocaleString()} candidates shown</span><a href="https://careersportal.ie/school/lc_marks_distribution.php" target="_blank" rel="noopener">Open Careers Portal source →</a></div></section>`;
             }
             function renderGradeExplorer() { return gradeExplorerHtml(); }
 
@@ -20933,6 +20916,8 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'tools-back') { toolsActiveTool = null; render(); }
                 else if (a === 'grade-explorer-toggle') { if (b.dataset.toggle === 'mine') gradeExplorerMySubjects = b.checked; else if (b.dataset.toggle === 'core') gradeExplorerCoreOnly = b.checked; render(); }
                 else if (a === 'grade-explorer-select') { gradeExplorerSelected = { name: b.dataset.subject, index: Number(b.dataset.index) }; render(); }
+                else if (a === 'grade-explorer-sort') { gradeExplorerSort = b.dataset.sort; gradeExplorerSelected = null; render(); }
+                else if (a === 'grade-explorer-year') { gradeExplorerYear = Number(b.dataset.year); gradeExplorerSelected = null; render(); }
                 else if (a === 'formula-toc-toggle') { const id = b.dataset.section;
                     if (formulaBookOpenSections.has(id)) formulaBookOpenSections.delete(id); else formulaBookOpenSections.add(id);
                     render(); }
