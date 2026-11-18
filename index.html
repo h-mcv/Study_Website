@@ -2617,12 +2617,12 @@
             }
         }
         .flashcard-stage {
-            max-width: 620px;
+            max-width: 760px;
             margin: 0 auto;
             text-align: center;
         }
         .flashcard-face {
-            min-height: 220px;
+            min-height: 280px;
             border: 1px solid var(--line);
             border-radius: var(--radius);
             background: var(--surface);
@@ -2695,6 +2695,64 @@
             border-color: var(--danger);
             background: var(--danger-soft);
             color: var(--danger);
+        }
+        /* ---- Flashcards page (own sidebar view) ---- */
+        .fc-wrap { max-width: 1040px; margin: 0 auto; }
+        .fc-wrap.narrow { max-width: 640px; }
+        .fc-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .fc-topbar .fc-title { flex: 1; min-width: 0; text-align: left; }
+        .fc-topbar .fc-title strong { display: block; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fc-topbar .fc-title span { color: var(--muted); font-size: 12px; }
+        .fc-progressbar { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin-bottom: 18px; }
+        .fc-progressbar > i { display: block; height: 100%; background: var(--primary); border-radius: 99px; transition: width .3s ease; }
+        .fc-scene { perspective: 1600px; height: clamp(320px, 58vh, 620px); }
+        .fc-card { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2, .8, .2, 1); cursor: pointer; }
+        .fc-card.flipped { transform: rotateY(180deg); }
+        .fc-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 40px; text-align: center; overflow: auto; font-size: clamp(22px, 3.2vw, 34px); font-weight: 700; line-height: 1.3; white-space: pre-wrap; word-break: break-word; }
+        .fc-face.back { transform: rotateY(180deg); font-weight: 500; font-size: clamp(18px, 2.4vw, 26px); }
+        .fc-face .fc-label { position: absolute; top: 16px; left: 22px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+        .fc-face .fc-hint { position: absolute; bottom: 16px; left: 0; right: 0; font-size: 12px; color: var(--muted); font-weight: 600; }
+        .fc-enter-next { animation: fcEnterNext .28s cubic-bezier(.2, .8, .2, 1); }
+        .fc-enter-prev { animation: fcEnterPrev .28s cubic-bezier(.2, .8, .2, 1); }
+        .fc-exit-next { animation: fcExitNext .13s ease-in forwards; }
+        .fc-exit-prev { animation: fcExitPrev .13s ease-in forwards; }
+        @keyframes fcEnterNext { from { opacity: 0; transform: translateX(70px) scale(.96); } to { opacity: 1; transform: none; } }
+        @keyframes fcEnterPrev { from { opacity: 0; transform: translateX(-70px) scale(.96); } to { opacity: 1; transform: none; } }
+        @keyframes fcExitNext { to { opacity: 0; transform: translateX(-70px) scale(.96); } }
+        @keyframes fcExitPrev { to { opacity: 0; transform: translateX(70px) scale(.96); } }
+        .fc-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }
+        .fc-controls .button.round { width: 54px; height: 54px; border-radius: 50%; font-size: 20px; padding: 0; justify-content: center; }
+        .fc-controls .fc-count { min-width: 80px; text-align: center; font-weight: 700; color: var(--muted); }
+        .fc-tools { display: flex; justify-content: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .fc-kbd { text-align: center; color: var(--muted); font-size: 12px; margin-top: 12px; }
+        .fc-grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+        .fc-grades[hidden] { display: none; }
+        .fc-done { text-align: center; padding: 40px 20px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
+        .fc-done-emoji { font-size: 52px; }
+        .fc-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .fc-chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 13px; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; }
+        .fc-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .fc-deck-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+        .fc-deck { text-align: left; border: 1px solid var(--line); border-top: 5px solid var(--subject, var(--primary)); border-radius: 16px; background: var(--surface); padding: 16px; cursor: pointer; box-shadow: var(--shadow); transition: transform .15s ease, border-color .15s ease; display: flex; flex-direction: column; gap: 6px; min-height: 128px; color: var(--text); }
+        .fc-deck:hover { transform: translateY(-2px); border-color: var(--subject, var(--primary)); }
+        .fc-deck strong { font-size: 16px; }
+        .fc-deck .meta { color: var(--muted); font-size: 12px; }
+        .fc-deck-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; }
+        .fc-mini { flex: 1; height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+        .fc-mini > i { display: block; height: 100%; background: var(--subject, var(--primary)); }
+        .fc-empty { text-align: center; padding: 56px 20px; border: 2px dashed var(--line); border-radius: 22px; }
+        .fc-empty-emoji { font-size: 48px; }
+        .fc-listgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; margin-top: 16px; }
+        .fc-listcard { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+        .fc-listcard .fc-idx { color: var(--muted); font-size: 12px; font-weight: 700; min-width: 20px; padding-top: 2px; }
+        .fc-listcard .fc-listtext { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+        @media (prefers-reduced-motion: reduce) {
+            .fc-card { transition: none; }
+            .fc-enter-next, .fc-enter-prev, .fc-exit-next, .fc-exit-prev { animation: none; }
+        }
+        @media (max-width: 640px) {
+            .fc-face { padding: 36px 20px; }
+            .fc-grades { grid-template-columns: repeat(2, 1fr); }
         }
         .gravity-well {
             position: relative;
@@ -9849,11 +9907,11 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
 
             function appFrame(content) {
                 const mode = state.settings.sidebarMode || 'hover';
-                const focusActive = state.settings.flashcardFocusMode && !!flashcardStudySession;
+                const focusActive = state.settings.flashcardFocusMode && !!flashcardStudySession && view === 'flashcards';
                 const shellClass = `app-shell sidebar-mode-${mode}${focusActive?' focus-mode':''}`;
                 const sidebarClass = mode === 'collapsed' ? 'sidebar collapsed' : 'sidebar';
                 return `<div class="${shellClass}"><aside class="${sidebarClass}"><div class="brand"><span class="brand-mark">${sidebarIcon('star')}</span><span class="brand-label">Simple Study</span></div><nav class="nav">
-        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('exam-papers','archive','Past Papers')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${navButton('games','gamepad','Games',gameBadgeCount()?`<span class="pill bad" style="margin-left:6px">${gameBadgeCount()}</span>`:'')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
+        ${navButton('dashboard','home','Dashboard')}${navButton('tasks','check-square','Tasks')}${navButton('study','edit','Study')}${navButton('classes','grid','Classes')}${navButton('flashcards','layers','Flashcards')}${navButton('tests-exams','file-text','Tests & Exams')}${navButton('exam-papers','archive','Past Papers')}${navButton('closet','star',"Sparky's Closet")}${state.settings.yearGroup==='6th'?navButton('cao','target','CAO Planning'):''}${navButton('insights','trending-up','Insights')}${navButton('timetable','calendar','Timetable')}${navButton('tools','tool','Tools')}${navButton('games','gamepad','Games',gameBadgeCount()?`<span class="pill bad" style="margin-left:6px">${gameBadgeCount()}</span>`:'')}${currentUser?navButton('chatrooms','message-circle','Chat',chatBadgeCount()?`<span class="pill bad" style="margin-left:6px">${chatBadgeCount()}</span>`:''):''}
       </nav><div class="sidebar-footer"><button data-action="open-search" aria-label="Search">${sidebarIcon('search')} <span>Search</span></button><button data-action="open-settings" aria-label="Settings">${sidebarIcon('settings')} <span>Settings</span></button></div></aside><main>${syncBannerHtml()}${tourBannerHtml()}${announcementBannerHtml()}${chatNotifyBannerHtml()}${content}</main></div>`;
             }
 
@@ -9975,6 +10033,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
                 home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
                 'check-square': '<polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>',
+                layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline>',
                 edit: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>',
                 grid: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>',
                 'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line>',
@@ -14202,7 +14261,7 @@ ${pointsSvg}
                 } else if (section === 'formulas') {
                     content = `<p class="small" style="margin-bottom:12px">The Formulae and Tables booklet allowed in the exam for this subject — browse the contents on the left, or search for what you need below.</p>${formulaBookHtml()}`;
                 } else if (section === 'flashcards') {
-                    content = renderSubjectFlashcards(s);
+                    content = `<p class="small" style="margin-bottom:12px">Flashcards now have their own page in the sidebar.</p><button type="button" class="button primary" data-action="open-flashcards-for-subject" data-subject="${s.id}">Open Flashcards</button>`;
                 } else { const summary =
                     subjectPerformanceSummary(s.id);
                     content =
@@ -14217,7 +14276,7 @@ ${pointsSvg}
         <button type="button" class="subject-page-back" data-action="nav-classes">← Back to Classes</button>
         ${header(escape(s.name), `${CATEGORY_LABELS[s.category]||'Other'}${s.examSubject===false?' · not an exam subject':''}`,'')}
         <div class="subject-page-layout">
-          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}${navBtn('flashcards','Flashcards')}${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}${hasFormulaBook?navBtn('formulas','Formula Book'):''}</div>
+          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}<button type="button" data-action="open-flashcards-for-subject" data-subject="${s.id}">Flashcards ↗</button>${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}${hasFormulaBook?navBtn('formulas','Formula Book'):''}</div>
           <div>${content}</div>
         </div>
         </div>`); }
@@ -14985,11 +15044,13 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function deleteFlashcardCard(deckId, cardId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 deck.cards = deck.cards.filter(c => c.id !== cardId); save(); }
 
-            function openFlashcardDeck(deckId) { flashcardsSelectedDeckId = deckId; render(); }
+            function openFlashcardDeck(deckId) { flashcardsSelectedDeckId = deckId; view = 'flashcards'; render(); }
             function flashcardsBackToTopics() { flashcardsSelectedDeckId = null; render(); }
 
-            function openFlashcardCreateModal(subjectId, mode) { flashcardCreateDraft = { mode: mode || 'manual',
-                    subjectId, topic: '', cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+            function openFlashcardCreateModal(subjectId, mode) {
+                if (!subjectId || !subject(subjectId)) subjectId = (state.subjects.find(x => x.active !== false) || {}).id;
+                flashcardCreateDraft = { mode: mode || 'manual',
+                    subjectId, topic: '', cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                 openModal('flashcard-create'); }
 
             // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
@@ -15018,31 +15079,81 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
         ${folders.length?'<p class="small" style="margin:10px 0">Ungrouped</p>':''}
         <div class="class-grid">${ungrouped.length?ungrouped.map(tile).join(''):(decks.length?'':`<p class="empty">No flashcards yet for ${escape(s.name)} — create some above.</p>`)}</div>`; }
 
-            function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
-                if (!deck) { flashcardsSelectedDeckId = null; const s = subject(selectedSubjectId); return s ? renderFlashcardTopicsFor(s) : ''; }
-                const cardRow = (c) => `<div class="topic-row"><div><strong>${escape(c.front)}${c.known?' ⭐':''}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost danger" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete">🗑</button></div>`;
-                const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck), weakCount = weakCardsForDeck(deck).length;
-                return `<button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← Topics</button>
-        <h2 style="margin-bottom:4px">${escape(deck.topic)}</h2>
-        <p class="small" style="margin-bottom:14px">${deck.cards.length} card${deck.cards.length===1?'':'s'} · Memory score ${score}%${dueCount?` · <strong>${dueCount} due for review</strong>`:''}</p>
-        <section class="card section">
-          <div class="row" style="gap:8px;flex-wrap:wrap">
-            <button type="button" class="button" data-action="flashcard-start-clickthrough" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>👀 Click Through</button>
-            <button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${deck.id}" ${deck.cards.length?'':'disabled'}>🧠 Test</button>
-            ${dueCount?`<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>`:''}
-            ${weakCount?`<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>`:''}
-            <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add more cards</button>
-            <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram&&deck.diagram.points.length?'🖼 Edit Diagram':'🖼 Add Diagram'}</button>
-            <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
-            <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">💬 Ask Sparky</button>
-            <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete topic</button>
+function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
+                if (!deck) { flashcardsSelectedDeckId = null; return renderFlashcardLibrary(); }
+                const s = subject(deck.subjectId), n = deck.cards.length;
+                const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck), weakCount = weakCardsForDeck(deck).length, knownCount = deck.cards.filter(c => c.known).length;
+                const stat = (label, value) => `<div class="card stat"><span class="label">${label}</span><span class="value">${value}</span></div>`;
+                const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext"><strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${c.id}" aria-label="Toggle known" title="Mark known">${c.known ? '⭐' : '☆'}</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
+                const folders = foldersFor(deck.subjectId), current = folders.find(f => f.deckIds.includes(deck.id));
+                return `<div class="fc-wrap">
+          <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
+          <div style="border-top:5px solid ${s ? s.color : 'var(--primary)'};padding-top:12px;margin-bottom:16px">
+            <h1 style="margin:0">${escape(deck.topic)}</h1>
+            <p class="muted" style="margin:4px 0 0">${escape(s ? s.name : 'No subject')}</p>
           </div>
-          ${(() => { const folders = foldersFor(deck.subjectId); if (!folders.length) return '';
-              const current = folders.find(f => f.deckIds.includes(deck.id));
-              return `<div class="row" style="margin-top:10px;align-items:center;gap:8px"><span class="small">Folder:</span><select data-action="flashcard-assign-folder" data-deck="${deck.id}" style="max-width:200px"><option value="">No folder</option>${folders.map(f => `<option value="${f.id}" ${current&&current.id===f.id?'selected':''}>${escape(f.name)}</option>`).join('')}</select></div>`; })()}
-        </section>
-        <div class="list" style="margin-top:14px">${deck.cards.length?deck.cards.map(cardRow).join(''):'<p class="empty">No cards yet.</p>'}</div>`; }
+          <div class="stats" style="margin-bottom:16px">${stat('Cards', n)}${stat('Memory score', score + '%')}${stat('To review', dueCount)}${stat('Marked known', knownCount)}</div>
+          <section class="card section">
+            <div class="row" style="gap:10px;flex-wrap:wrap">
+              <button type="button" class="button primary" style="padding:12px 20px" data-action="flashcard-start-clickthrough" data-deck="${deck.id}" ${n ? '' : 'disabled'}>👀 Flip through</button>
+              <button type="button" class="button primary" style="padding:12px 20px" data-action="open-flashcard-test-choice" data-deck="${deck.id}" ${n ? '' : 'disabled'}>🧠 Test yourself</button>
+              ${dueCount && n ? `<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>` : ''}
+              ${weakCount ? `<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>` : ''}
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
+              <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add cards</button>
+              <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram && deck.diagram.points.length ? '🖼 Edit diagram' : '🖼 Add diagram'}</button>
+              <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
+              <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">💬 Ask Sparky</button>
+              <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete deck</button>
+            </div>
+            ${folders.length ? `<div class="row" style="margin-top:12px;align-items:center;gap:8px"><span class="small">Folder:</span><select data-action="flashcard-assign-folder" data-deck="${deck.id}" style="max-width:220px"><option value="">No folder</option>${folders.map(f => `<option value="${f.id}" ${current && current.id === f.id ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select></div>` : ''}
+          </section>
+          <div class="fc-listgrid">${n ? deck.cards.map(cardRow).join('') : '<p class="empty">No cards yet — add some above.</p>'}</div>
+        </div>`; }
 
+            // ---- Flashcards page: page state, library, routing ------------------------------------------
+            let flashcardsFilterSubject = 'all'; // 'all' | subject id
+            let flashcardsSearch = '';
+            let fcSlideDir = null; // 'next' | 'prev' -- set just before render() so the freshly drawn card animates in once
+
+            function flashcardsOpenForSubject(subjectId) { flashcardsFilterSubject = subjectId || 'all'; flashcardsSelectedDeckId = null;
+                flashcardStudySession = null; view = 'flashcards'; render(); }
+
+            function renderFlashcardsPage() { return appFrame(`<div class="page">${renderFlashcardsBody()}</div>`); }
+
+            function renderFlashcardsBody() {
+                if (flashcardStudySession) { if (flashcardDeck(flashcardStudySession.deckId)) return renderFlashcardSession(); flashcardStudySession = null; }
+                if (flashcardsSelectedDeckId) { if (flashcardDeck(flashcardsSelectedDeckId)) return renderFlashcardDeckDetail(); flashcardsSelectedDeckId = null; }
+                return renderFlashcardLibrary(); }
+
+            function renderFlashcardLibrary() {
+                if (flashcardsFilterSubject !== 'all' && !subject(flashcardsFilterSubject)) flashcardsFilterSubject = 'all';
+                const q = flashcardsSearch.trim().toLowerCase(), filterId = flashcardsFilterSubject;
+                const inScope = (d) => (filterId === 'all' || d.subjectId === filterId) && (!q || d.topic.toLowerCase().includes(q) ||
+                    d.cards.some(c => String(c.front || '').toLowerCase().includes(q) || String(c.back || '').toLowerCase().includes(q)));
+                const decks = state.flashcardDecks.filter(inScope).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                const tile = (d) => { const s = subject(d.subjectId), due = dueCardsForDeck(d).length, score = deckMemoryScore(d);
+                    return `<button type="button" class="fc-deck" data-action="open-flashcard-deck" data-deck="${d.id}" style="--subject:${s ? s.color : 'var(--primary)'}"><strong>${escape(d.topic)}</strong><span class="meta">${escape(s ? s.name : 'No subject')} · ${d.cards.length} card${d.cards.length === 1 ? '' : 's'}</span><span class="fc-deck-foot"><span class="fc-mini"><i style="width:${score}%"></i></span><span class="meta">${score}%${due && d.cards.length ? ` · ${due} to review` : ''}</span></span></button>`; };
+                const subjectsWithDecks = state.subjects.filter(s => s.active !== false && (state.flashcardDecks.some(d => d.subjectId === s.id) || s.id === filterId));
+                const chips = `<div class="fc-chips"><button type="button" class="fc-chip ${filterId === 'all' ? 'active' : ''}" data-action="fc-filter-subject" data-subject="all">All</button>${subjectsWithDecks.map(s => `<button type="button" class="fc-chip ${filterId === s.id ? 'active' : ''}" data-action="fc-filter-subject" data-subject="${s.id}">${escape(s.name)}</button>`).join('')}</div>`;
+                const allFolders = state.flashcardFolders || [], grouped = new Set(allFolders.flatMap(f => f.deckIds));
+                const shownFolders = allFolders.filter(f => filterId === 'all' || f.subjectId === filterId);
+                const folderSection = (f) => { const fDecks = decks.filter(d => f.deckIds.includes(d.id)); if (q && !fDecks.length) return '';
+                    const fs = subject(f.subjectId);
+                    return `<div class="card section" style="margin-bottom:14px"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px"><strong>📁 ${escape(f.name)}${fs && filterId === 'all' ? ` <span class="small">· ${escape(fs.name)}</span>` : ''}</strong><button type="button" class="button ghost danger" data-action="delete-flashcard-folder" data-folder="${f.id}">Delete folder</button></div><div class="fc-deck-grid">${fDecks.length ? fDecks.map(tile).join('') : '<p class="empty">No decks in this folder yet — assign one from its deck page.</p>'}</div></div>`; };
+                const ungrouped = decks.filter(d => !grouped.has(d.id));
+                const hasAny = state.flashcardDecks.length > 0;
+                const tools = `${filterId !== 'all' ? `<button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${filterId}">📁 New folder</button>` : ''}<button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${filterId === 'all' ? '' : filterId}">+ Create deck</button>`;
+                const body = !hasAny
+                    ? `<div class="fc-empty"><div class="fc-empty-emoji">🗂️</div><h2>No flashcards yet</h2><p class="muted" style="max-width:420px;margin:6px auto 18px">Make your first deck by hand, from a photo of your notes, by pasting from Quizlet, or let Sparky turn your class notes into cards.</p><button type="button" class="button primary" style="padding:12px 22px" data-action="open-flashcard-create" data-subject="">+ Create your first deck</button></div>`
+                    : `<div class="field" style="margin-bottom:14px"><input type="search" id="fc-search" placeholder="Search decks and cards…" value="${escape(flashcardsSearch)}" autocomplete="off"></div>${chips}
+          ${shownFolders.map(folderSection).join('')}
+          ${shownFolders.length && ungrouped.length ? '<p class="small" style="margin:10px 0">Ungrouped</p>' : ''}
+          ${ungrouped.length ? `<div class="fc-deck-grid">${ungrouped.map(tile).join('')}</div>` : (decks.length ? '' : `<p class="empty">${q ? 'No decks or cards match that search.' : 'No decks for this subject yet — create one above.'}</p>`)}`;
+                return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${body}</div>`; }
+
+            
             // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
             function flashcardCreateModal() { const d = flashcardCreateDraft;
                 if (!d) return modalShell('Create Flashcards', '', '');
@@ -15055,7 +15166,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
           <button type="button" class="button ${d.mode==='paste'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="paste">📋 Paste / Import</button>
           <button type="button" class="button ${d.mode==='magic'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="magic">🪄 Magic Notes (AI)</button>
         </div>`;
-                const topicField = `<div class="field" style="margin-bottom:14px"><label>Topic${s?` (${escape(s.name)})`:''}</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div>`;
+                const subjectOptions = state.subjects.filter(x => x.active !== false || x.id === d.subjectId).map(x => `<option value="${x.id}" ${x.id === d.subjectId ? 'selected' : ''}>${escape(x.name)}</option>`).join('');
+                const topicField = `<div style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1.4fr;gap:10px"><div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div><div class="field"><label>Deck name</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div></div>`;
                 const manualCardRow = (c, i) => `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea></div><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
                 const manualBody = `${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
                 const imgThumb = (img, i) => img.mimeType === 'application/pdf'
@@ -15263,23 +15375,42 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 } catch (err) { toast(err.message || 'Could not grade your answers — try again.'); s.phase = 'answering'; s.index = s.queue.length - 1; }
                 render(); }
 
+// Multiple-choice distractors are cached on the deck so repeat attempts reuse the SAME quiz (otherwise a
+            // student can end up "learning the options" rather than the cards, and every attempt costs an AI call).
+            // The set is regenerated once the student has done well on it -- 3+ attempts and the latest >= 80% -- or
+            // after 10 attempts regardless; cards that were added or edited since get fresh distractors on their own.
+            function mcqCardKey(c) { return `${c.front}\u0001${c.back}`; }
+            function mcqCacheStale(cache) { if (!cache || !cache.items) return true; const runs = cache.runs || [];
+                if (runs.length >= 10) return true;
+                if (runs.length >= 3) { const last = runs[runs.length - 1]; if (last.total && last.score / last.total >= 0.8) return true; }
+                return false; }
+            function recordMcqRun(s) { if (s.recorded) return; s.recorded = true; const deck = flashcardDeck(s.deckId); if (!deck || !deck.mcqCache) return;
+                deck.mcqCache.runs = [...(deck.mcqCache.runs || []), { score: s.score || 0, total: s.questions.length, at: Date.now() }].slice(-20); save(); }
             async function runMcqGenerationForSession(deck) { const s = flashcardStudySession; if (!s) return;
                 try {
-                    const sys = `Create a hard, exam-style multiple choice quiz from these flashcards. For EACH card, write exactly 3 distractor definitions that could plausibly be mistaken for the real one — the same approximate length and level of detail as the correct definition (never short, vague, or obviously-wrong throwaway options), each testing a genuinely similar or adjacent concept, a common misconception, or one subtly wrong detail (a swapped number, a related-but-different term, a reversed cause/effect, a mixed-up name). A student who only half-knows the topic should have to think carefully — none of the four options should stand out by length or specificity alone. Reply with ONLY compact JSON: {"items": [{"id": "...", "distractors": ["...", "...", "..."]}, ...]}`;
-                    const payload = deck.cards.map(c => `ID: ${c.id}\nTerm: ${c.front}\nCorrect definition: ${c.back}`).join('\n\n---\n\n');
-                    const result = await aiJsonOnce(sys, [{ text: payload }]);
-                    const byId = new Map((Array.isArray(result.items) ? result.items : []).map(i => [String(i.id), i]));
-                    const questions = deck.cards.map(c => { const item = byId.get(c.id);
-                        const distractors = (Array.isArray(item?.distractors) ? item.distractors : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3);
-                        while (distractors.length < 3) { const filler = shuffle(deck.cards.filter(o => o.id !== c.id).map(o => o.back)).find(x => x !== c.back && !distractors.includes(x));
-                            if (!filler) break; distractors.push(filler); }
-                        return { id: c.id, front: c.front, back: c.back, choices: shuffle([c.back, ...distractors]), selected: null }; });
+                    const prev = deck.mcqCache, fresh = mcqCacheStale(prev), items = fresh ? {} : { ...prev.items };
+                    const need = deck.cards.filter(c => { const it = items[c.id]; return !it || it.key !== mcqCardKey(c) || !it.ai; });
+                    if (need.length) {
+                        const sys = `Create a hard, exam-style multiple choice quiz from these flashcards. For EACH card, write exactly 3 distractor definitions that could plausibly be mistaken for the real one — the same approximate length and level of detail as the correct definition (never short, vague, or obviously-wrong throwaway options), each testing a genuinely similar or adjacent concept, a common misconception, or one subtly wrong detail (a swapped number, a related-but-different term, a reversed cause/effect, a mixed-up name). A student who only half-knows the topic should have to think carefully — none of the four options should stand out by length or specificity alone. Reply with ONLY compact JSON: {"items": [{"id": "...", "distractors": ["...", "...", "..."]}, ...]}`;
+                        const payload = need.map(c => `ID: ${c.id}\nTerm: ${c.front}\nCorrect definition: ${c.back}`).join('\n\n---\n\n');
+                        const result = await aiJsonOnce(sys, [{ text: payload }]);
+                        const byId = new Map((Array.isArray(result.items) ? result.items : []).map(i => [String(i.id), i]));
+                        need.forEach(c => { const item = byId.get(c.id);
+                            const distractors = (Array.isArray(item?.distractors) ? item.distractors : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3);
+                            const ai = distractors.length >= 3;
+                            while (distractors.length < 3) { const filler = shuffle(deck.cards.filter(o => o.id !== c.id).map(o => o.back)).find(x => x !== c.back && !distractors.includes(x));
+                                if (!filler) break; distractors.push(filler); }
+                            items[c.id] = { key: mcqCardKey(c), distractors, ai }; });
+                    }
+                    Object.keys(items).forEach(id => { if (!deck.cards.some(c => c.id === id)) delete items[id]; });
+                    deck.mcqCache = { items, runs: fresh ? [] : (prev.runs || []), createdAt: fresh ? Date.now() : prev.createdAt }; save();
+                    const questions = shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back, choices: shuffle([c.back, ...items[c.id].distractors]), selected: null })));
                     if (flashcardStudySession !== s) return; // exited mid-generation
                     s.questions = questions; s.phase = 'active'; s.score = 0;
                 } catch (err) { toast(err.message || 'Could not generate the quiz — try again.'); exitFlashcardSession(); return; }
                 render(); }
 
-            function renderFlashcardSession() { const sess = flashcardStudySession;
+                        function renderFlashcardSession() { const sess = flashcardStudySession;
                 if (sess.mode === 'clickthrough') return renderClickThroughSession(sess);
                 if (sess.mode === 'smart-test') return renderSmartTestSession(sess);
                 if (sess.mode === 'mcq-test') return renderMcqTestSession(sess);
@@ -15293,22 +15424,39 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (sess.mode === 'exam-sim') return renderExamSimSession(sess);
                 return ''; }
 
-            function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), card = sess.cards[sess.index];
-                return `<div class="flashcard-stage">
-        ${header('Click Through', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
-        <div class="flashcard-face" data-action="flashcard-flip">${sess.flipped?`<span class="fc-back">${escape(card.back)}</span>`:`<span>${escape(card.front)}<span class="fc-hint">Tap to reveal the answer</span></span>`}</div>
-        <div class="row" style="justify-content:center;gap:8px;margin-top:10px">
-          <button type="button" class="button ghost icon" data-action="flashcard-speak" aria-label="Listen">🔊</button>
-          <button type="button" class="button ghost ${card.known?'primary':''}" data-action="flashcard-toggle-known" data-deck="${deck?deck.id:''}" data-card="${card.id}">${card.known?'⭐ Known':'☆ Mark known'}</button>
-        </div>
-        <div class="flashcard-nav">
-          <button type="button" class="button" data-action="flashcard-prev" ${sess.index===0?'disabled':''}>‹ Prev</button>
-          <span class="flashcard-progress">${sess.index+1} / ${sess.cards.length}</span>
-          <button type="button" class="button" data-action="flashcard-next" ${sess.index===sess.cards.length-1?'disabled':''}>Next ›</button>
-        </div>
+function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type="button" class="button ghost" data-action="flashcard-exit-session" aria-label="Exit">✕</button><div class="fc-title"><strong>${title}</strong><span>${sub}</span></div></div>${pct != null ? `<div class="fc-progressbar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>` : ''}`; }
+
+            function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
+                return `<div class="fc-scene ${dir ? 'fc-enter-' + dir : ''}"><div class="fc-card ${flipped ? 'flipped' : ''}" id="fc-card" data-action="flashcard-flip" role="button" tabindex="0" aria-label="Flip card"><div class="fc-face front"><span class="fc-label">Term</span>${escape(card.front)}<span class="fc-hint">Click or press space to flip</span></div><div class="fc-face back"><span class="fc-label">Definition</span>${escape(card.back)}</div></div></div>`; }
+
+            // Moves one card forward/back with a quick slide-out, then a fresh render that slides the next card in.
+            // (The flip itself never re-renders -- it just toggles a class -- so the 3D turn can animate.)
+            function fcStep(delta) { const s = flashcardStudySession; if (!s || !s.cards || s.busy) return;
+                const n = s.index + delta; if (n < 0) return;
+                if (n >= s.cards.length) { s.done = true; fcSlideDir = 'next'; render(); return; }
+                const go = () => { s.busy = false; s.index = n; s.flipped = false; fcSlideDir = delta > 0 ? 'next' : 'prev'; render(); };
+                const scene = document.querySelector('.fc-scene');
+                if (scene && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) { s.busy = true; scene.classList.add(delta > 0 ? 'fc-exit-next' : 'fc-exit-prev'); setTimeout(go, 130); } else go(); }
+
+            function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), total = sess.cards.length, sub = deck ? escape(deck.topic) : '';
+                if (sess.done) return `<div class="fc-wrap narrow">${fcTopbar('Deck complete', sub, 100)}<div class="fc-done"><div class="fc-done-emoji">🎉</div><h2>You went through all ${total} cards</h2><p class="muted">Lock it in by testing yourself next.</p><div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:18px"><button type="button" class="button" data-action="flashcard-restart-clickthrough">↺ Go again</button><button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${sess.deckId}">🧠 Test yourself</button><button type="button" class="button ghost" data-action="flashcard-exit-session">Back to deck</button></div></div></div>`;
+                const card = sess.cards[sess.index];
+                return `<div class="fc-wrap">${fcTopbar('Flip through', sub, (sess.index + 1) / total * 100)}
+          ${fcFacesHtml(card, sess.flipped)}
+          <div class="fc-controls">
+            <button type="button" class="button round" data-action="flashcard-prev" aria-label="Previous card" ${sess.index === 0 ? 'disabled' : ''}>←</button>
+            <span class="fc-count">${sess.index + 1} / ${total}</span>
+            <button type="button" class="button round primary" data-action="flashcard-next" aria-label="${sess.index === total - 1 ? 'Finish' : 'Next card'}">${sess.index === total - 1 ? '✓' : '→'}</button>
+          </div>
+          <div class="fc-tools">
+            <button type="button" class="button ghost" data-action="flashcard-speak">🔊 Listen</button>
+            <button type="button" class="button ghost ${card.known ? 'primary' : ''}" data-action="flashcard-toggle-known" data-deck="${deck ? deck.id : ''}" data-card="${card.id}">${card.known ? '⭐ Known' : '☆ Mark known'}</button>
+            <button type="button" class="button ghost" data-action="flashcard-reshuffle">🔀 Shuffle</button>
+          </div>
+          <p class="fc-kbd">Space flips · ← → move through the deck</p>
         </div>`; }
 
-            function renderSmartTestSession(sess) { const deck = flashcardDeck(sess.deckId);
+                        function renderSmartTestSession(sess) { const deck = flashcardDeck(sess.deckId);
                 if (sess.phase === 'answering') { const card = sess.queue[sess.index], answer = sess.answers[card.id] || '';
                     return `<div class="flashcard-stage">
         ${header(`Smart Test${sess.round>1?` — Round ${sess.round}`:''}`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
@@ -15585,23 +15733,22 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 const weak = weakCardsForDeck(deck); if (!weak.length) { toast('No weak cards right now — nice work.'); return; }
                 flashcardStudySession = { mode: 'srs-review', deckId, label: 'Practice Weak Cards', queue: shuffle(weak).map(c => ({ id: c.id })), index: 0, flipped: false };
                 render(); }
-            function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId), label = sess.label || 'Review Due Cards';
+function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId), label = sess.label || 'Review Due Cards';
                 while (sess.index < sess.queue.length && !deck.cards.find(c => c.id === sess.queue[sess.index].id)) sess.index++;
-                if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header(`${label} — Done`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<div class="alert success">All done for now.</div><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
+                if (sess.index >= sess.queue.length) return `<div class="fc-wrap narrow">${fcTopbar(`${label} — done`, deck ? escape(deck.topic) : '', 100)}<div class="fc-done"><div class="fc-done-emoji">✅</div><h2>All done for now</h2><p class="muted">Your cards have been rescheduled based on how you rated them.</p><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Back to deck</button></div></div>`;
                 const card = deck.cards.find(c => c.id === sess.queue[sess.index].id);
-                return `<div class="flashcard-stage">
-        ${header(label, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
-        <div class="flashcard-face" data-action="flashcard-flip">${sess.flipped?`<span class="fc-back">${escape(card.back)}</span>`:`<span>${escape(card.front)}<span class="fc-hint">Tap to reveal</span></span>`}</div>
-        ${sess.flipped?`<div style="margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          <button type="button" class="button ghost danger" data-action="flashcard-srs-grade" data-grade="again">Again</button>
-          <button type="button" class="button ghost" data-action="flashcard-srs-grade" data-grade="hard">Hard</button>
-          <button type="button" class="button" data-action="flashcard-srs-grade" data-grade="good">Good</button>
-          <button type="button" class="button primary" data-action="flashcard-srs-grade" data-grade="easy">Easy</button>
-        </div>`:''}
-        <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span></div>
+                return `<div class="fc-wrap">${fcTopbar(label, deck ? escape(deck.topic) : '', sess.index / sess.queue.length * 100)}
+          ${fcFacesHtml(card, sess.flipped)}
+          <div class="fc-grades" ${sess.flipped ? '' : 'hidden'}>
+            <button type="button" class="button ghost danger" data-action="flashcard-srs-grade" data-grade="again">Again <span class="small">1</span></button>
+            <button type="button" class="button ghost" data-action="flashcard-srs-grade" data-grade="hard">Hard <span class="small">2</span></button>
+            <button type="button" class="button" data-action="flashcard-srs-grade" data-grade="good">Good <span class="small">3</span></button>
+            <button type="button" class="button primary" data-action="flashcard-srs-grade" data-grade="easy">Easy <span class="small">4</span></button>
+          </div>
+          <p class="fc-kbd">${sess.index + 1} / ${sess.queue.length} · Space flips, then 1–4 to rate</p>
         </div>`; }
 
-            // ---- Flashcards: Diagram labelling (one image + labelled points, per deck) --------------
+                        // ---- Flashcards: Diagram labelling (one image + labelled points, per deck) --------------
             function openDiagramEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 if (!deck.diagram) deck.diagram = { imageDataUrl: null, points: [] };
                 openModal('flashcard-diagram-editor', { deckId }); }
@@ -15666,7 +15813,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 } catch (err) { toast(err.message || 'Could not create a share code.'); } }
             async function importSharedFlashcardSet() { if (!currentUser) { toast('Sign in with Google to import a shared set.'); return; }
                 const code = prompt('Enter the 6-character share code:'); if (!code || !code.trim()) return;
-                const s = subject(selectedSubjectId); if (!s) { toast('Open a subject first.'); return; }
+                const s = subject(flashcardsFilterSubject !== 'all' ? flashcardsFilterSubject : null) || state.subjects.find(x => x.active !== false); if (!s) { toast('Add a subject first.'); return; }
                 try { const { data, error } = await supabaseClient.rpc('get_shared_flashcard_set', { p_code: code.trim() });
                     if (error) throw error;
                     if (!data) { toast('No shared set found with that code.'); return; }
@@ -17025,7 +17172,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     'dashboard') { renderDashboard(); } else if (view === 'tasks') { document.getElementById('app')
                     .innerHTML = renderTasks(); } else if (view === 'study') { document.getElementById('app')
                     .innerHTML = renderStudy(); } else if (view === 'classes') { document.getElementById('app')
-                    .innerHTML = renderClasses(); } else if (view === 'subject-detail') { document.getElementById(
+                    .innerHTML = renderClasses(); } else if (view === 'flashcards') { document.getElementById('app').innerHTML = renderFlashcardsPage(); } else if (view === 'subject-detail') { document.getElementById(
                     'app').innerHTML = renderSubjectDetail(); } else if (view === 'tests-exams') { document
                     .getElementById('app')
                     .innerHTML = renderTestsExams(); } else if (view === 'closet') { document.getElementById('app')
@@ -21303,13 +21450,17 @@ If the user asks about how to study or study methods generally, answer from your
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
                 const a = b.dataset.action;
                 if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
+                else if (a === 'open-flashcards-for-subject') flashcardsOpenForSubject(b.dataset.subject);
+                else if (a === 'fc-filter-subject') { flashcardsFilterSubject = b.dataset.subject || 'all'; render(); }
+                else if (a === 'flashcard-restart-clickthrough') { const s0 = flashcardStudySession; if (s0) startFlashcardClickThrough(s0.deckId); }
+                else if (a === 'flashcard-reshuffle') { const s0 = flashcardStudySession; if (s0 && s0.cards) { s0.cards = shuffle(s0.cards); s0.index = 0; s0.flipped = false; s0.done = false; fcSlideDir = 'next'; render(); } }
                 else if (a === 'flashcards-back-to-topics') flashcardsBackToTopics();
                 else if (a === 'open-flashcard-create') openFlashcardCreateModal(b.dataset.subject, 'manual');
                 else if (a === 'open-flashcard-create-for-deck') { const deck = flashcardDeck(b.dataset.deck);
                     if (deck) { flashcardCreateDraft = { mode: 'manual', subjectId: deck.subjectId, topic: deck.topic, cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                         openModal('flashcard-create'); } }
                 else if (a === 'flashcard-create-mode') { if (flashcardCreateDraft) { flashcardCreateDraft.mode = b.dataset.mode; renderModal(); } }
-                else if (a === 'flashcard-manual-add-row') { flashcardCreateDraft?.cards.push({ front: '', back: '' }); renderModal(); }
+                else if (a === 'flashcard-manual-add-row') fcManualAddRow();
                 else if (a === 'flashcard-manual-remove') { const d = flashcardCreateDraft; if (d) { d.cards.splice(Number(b.dataset.index), 1);
                         if (!d.cards.length) d.cards.push({ front: '', back: '' }); renderModal(); } }
                 else if (a === 'flashcard-manual-save') saveManualFlashcards();
@@ -21329,9 +21480,9 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcard-start-smart-test') startFlashcardSmartTest(b.dataset.deck);
                 else if (a === 'flashcard-start-mcq-test') startFlashcardMcqTest(b.dataset.deck);
                 else if (a === 'flashcard-exit-session') exitFlashcardSession();
-                else if (a === 'flashcard-flip') { if (flashcardStudySession) { flashcardStudySession.flipped = !flashcardStudySession.flipped; render(); } }
-                else if (a === 'flashcard-prev') { const s = flashcardStudySession; if (s && s.index > 0) { s.index--; s.flipped = false; render(); } }
-                else if (a === 'flashcard-next') { const s = flashcardStudySession; if (s && s.index < s.cards.length - 1) { s.index++; s.flipped = false; render(); } }
+                else if (a === 'flashcard-flip') { const s0 = flashcardStudySession; if (!s0) return; s0.flipped = !s0.flipped; const el = document.getElementById('fc-card'); if (el) { el.classList.toggle('flipped', s0.flipped); document.querySelectorAll('.fc-grades').forEach(g => { g.hidden = !s0.flipped; }); } else render(); }
+                else if (a === 'flashcard-prev') fcStep(-1);
+                else if (a === 'flashcard-next') fcStep(1);
                 else if (a === 'flashcard-smart-next') { const s = flashcardStudySession; if (!s) return;
                     const card = s.queue[s.index]; s.answers[card.id] = document.getElementById('flashcard-smart-answer')?.value || '';
                     if (s.index < s.queue.length - 1) { s.index++; render(); } else runSmartTestGradeRound(); }
@@ -21345,7 +21496,7 @@ If the user asks about how to study or study methods generally, answer from your
                     if (q.selected === q.back) s.score = (s.score || 0) + 1;
                     render(); }
                 else if (a === 'flashcard-mcq-next') { const s = flashcardStudySession; if (!s) return;
-                    if (s.index < s.questions.length - 1) { s.index++; render(); } else { s.phase = 'results'; render(); } }
+                    if (s.index < s.questions.length - 1) { s.index++; render(); } else { recordMcqRun(s); s.phase = 'results'; render(); } }
                 else if (a === 'flashcard-speak') { const s = flashcardStudySession; const card = s?.cards ? s.cards[s.index] : null;
                     if (card) speakText(s.flipped ? card.back : card.front); }
                 else if (a === 'flashcard-toggle-known') toggleCardKnown(b.dataset.deck, b.dataset.card);
@@ -21354,7 +21505,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcard-srs-grade') { const s = flashcardStudySession; if (!s || s.mode !== 'srs-review') return;
                     const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === s.queue[s.index].id);
                     if (card) scheduleCardReview(card, b.dataset.grade);
-                    s.index++; s.flipped = false; save(); render(); }
+                    s.index++; s.flipped = false; fcSlideDir = 'next'; save(); render(); }
                 else if (a === 'flashcard-start-tf') startFlashcardTf(b.dataset.deck);
                 else if (a === 'flashcard-tf-answer') { const s = flashcardStudySession; if (!s || s.mode !== 'tf') return;
                     const q = s.questions[s.index]; if (q.answered != null) return;
@@ -21443,8 +21594,33 @@ If the user asks about how to study or study methods generally, answer from your
                         if (!deck.diagram) deck.diagram = { imageDataUrl: null, points: [] };
                         deck.diagram.imageDataUrl = dataUrl; save(); renderModal(); }).catch(err => toast(err.message || "Couldn't read that image.")); }
                 else if (t.dataset && t.dataset.action === 'flashcard-assign-folder') assignDeckToFolder(t.dataset.deck, t.value || null);
+                else if (t.id === 'flashcard-create-subject') { if (flashcardCreateDraft) { flashcardCreateDraft.subjectId = t.value; renderModal(); } }
                 else if (t.id === 'translate-source-lang') { translateSourceLang = t.value; if (translateInputText.trim()) runTranslate(); }
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
+
+            // ---- Flashcards: keyboard + swipe for the study view, and a quicker keyboard flow in the create modal ----
+            function fcManualAddRow() { if (!flashcardCreateDraft) return; flashcardCreateDraft.cards.push({ front: '', back: '' }); renderModal();
+                const idx = flashcardCreateDraft.cards.length - 1; setTimeout(() => document.querySelector(`[data-action="flashcard-manual-front"][data-index="${idx}"]`)?.focus(), 0); }
+            document.addEventListener('keydown', e => {
+                if (e.metaKey || e.ctrlKey || e.altKey) { if (e.key === 'Enter' && e.target.dataset && /^flashcard-manual-(front|back)$/.test(e.target.dataset.action || '')) { e.preventDefault(); fcManualAddRow(); } return; }
+                if (modal && modal.kind === 'flashcard-create' && e.key === 'Tab' && !e.shiftKey && e.target.dataset && e.target.dataset.action === 'flashcard-manual-back' &&
+                    flashcardCreateDraft && Number(e.target.dataset.index) === flashcardCreateDraft.cards.length - 1) { e.preventDefault(); fcManualAddRow(); return; }
+                const s = flashcardStudySession; if (!s || view !== 'flashcards' || modal) return;
+                const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+                if (tag === 'button' && (e.key === ' ' || e.key === 'Enter')) return;
+                const flip = () => document.getElementById('fc-card')?.click();
+                if (s.mode === 'clickthrough' && !s.done) {
+                    if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); flip(); }
+                    else if (e.key === 'ArrowRight') { e.preventDefault(); fcStep(1); }
+                    else if (e.key === 'ArrowLeft') { e.preventDefault(); fcStep(-1); }
+                } else if (s.mode === 'srs-review') {
+                    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
+                    else if (s.flipped && /^[1-4]$/.test(e.key)) document.querySelector(`[data-action="flashcard-srs-grade"][data-grade="${['again', 'hard', 'good', 'easy'][Number(e.key) - 1]}"]`)?.click();
+                } });
+            let fcTouchX = null;
+            document.addEventListener('touchstart', e => { fcTouchX = e.target.closest && e.target.closest('.fc-scene') ? e.touches[0].clientX : null; }, { passive: true });
+            document.addEventListener('touchend', e => { if (fcTouchX == null) return; const dx = e.changedTouches[0].clientX - fcTouchX; fcTouchX = null;
+                if (Math.abs(dx) > 60 && flashcardStudySession && flashcardStudySession.mode === 'clickthrough' && !flashcardStudySession.done) fcStep(dx < 0 ? 1 : -1); }, { passive: true });
 
             document.addEventListener('keydown', e => { if (e.key !== 'Enter') return;
                 if (e.target.id === 'flashcard-gravity-answer') { e.preventDefault(); submitGravityAnswer(); }
@@ -21454,7 +21630,8 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (e.target.id === 'sparky-set-chat-input') { e.preventDefault(); document.querySelector('[data-action="sparky-set-chat-send"]')?.click(); } });
 
             document.addEventListener('input', e => { const t = e.target;
-                if (t.id === 'flashcard-create-topic') { if (flashcardCreateDraft) flashcardCreateDraft.topic = t.value; }
+                if (t.id === 'fc-search') { flashcardsSearch = t.value; render(); }
+                else if (t.id === 'flashcard-create-topic') { if (flashcardCreateDraft) flashcardCreateDraft.topic = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-front') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].front = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-back') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].back = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-edit-front') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].front = t.value; }
