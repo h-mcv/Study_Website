@@ -9781,6 +9781,43 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     interval = intervalFuzz(ct, baseInterval);
                 return daysSince >= interval; }
 
+            // ---- "My own timetable" planning mode: the weekly study-session editor ---------------------------------
+            // Stored as state.settings.customStudyTimetable = { slots: { "<weekdayIdx>|<eventId>|<slotId>": [ { subjectId, minutes } ] } }.
+            // Keyed by the study block's identity (not a date) so it repeats every week the timetable has that block.
+            let customTtDraft = null;
+            function customBlockKey(date, block) { return `${mondayIndex(date)}|${block.blockEventId}|${block.blockSlotId}`; }
+            function customStudyBlocks() { const out = [];
+                range(weekStart(localDate()), 7).forEach((date, day) => segmentsForDate(date).filter(x => x.event.type === 'study').sort((a, b) => a.start - b.start)
+                    .forEach(seg => out.push({ date, day, key: `${day}|${seg.event.id}|${seg.slot.id}`, start: seg.start, end: seg.end, mins: seg.end - seg.start })));
+                return out; }
+            function openCustomTimetable() { const cur = (state.settings.customStudyTimetable || {}).slots || {}; customTtDraft = { slots: JSON.parse(JSON.stringify(cur)) }; openModal('custom-timetable'); }
+            function customTtUsed(list) { return (list || []).reduce((n, a) => n + (Number(a.minutes) || 0), 0); }
+            function customTimetableModal() { const d = customTtDraft, closeBtn = `<button type="button" class="button" data-action="close-modal">Close</button>`;
+                if (!d) return modalShell('My study timetable', '<p class="empty">Nothing to edit.</p>', closeBtn);
+                const blocks = customStudyBlocks(), subs = state.subjects.filter(s => s.active !== false);
+                if (!blocks.length) return modalShell('My study timetable', `<p class="empty">There are no study sessions on your weekly timetable yet. Add "study" sessions to your timetable (or pick your school in Settings) and they'll appear here for you to fill.</p>`, closeBtn);
+                if (!subs.length) return modalShell('My study timetable', `<p class="empty">Add at least one subject first, then come back to plan your study sessions.</p>`, closeBtn);
+                const FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                const subjectOpts = (sel) => subs.map(s => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${escape(s.name)}</option>`).join('');
+                const blockHtml = (b) => { const list = d.slots[b.key] || [], used = customTtUsed(list), over = used > b.mins;
+                    return `<div class="card section" style="margin-bottom:10px;padding:12px 14px"><div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><strong>${time(b.start)} – ${time(b.end)} <span class="small">· ${fmtMins(b.mins)}</span></strong><span class="pill ${over ? 'bad' : used ? 'good' : 'neutral'}">${used} / ${b.mins} min planned</span></div>
+              ${list.map((a, i) => `<div class="row" style="gap:8px;align-items:center;margin-top:8px"><select data-action="ctt-subject" data-key="${b.key}" data-index="${i}" style="flex:1;min-width:0">${subjectOpts(a.subjectId)}</select><input type="number" min="5" max="${b.mins}" step="5" data-action="ctt-minutes" data-key="${b.key}" data-index="${i}" value="${Number(a.minutes) || 0}" style="width:84px"><span class="small">min</span><button type="button" class="button ghost danger icon" data-action="ctt-remove" data-key="${b.key}" data-index="${i}" aria-label="Remove subject">✕</button></div>`).join('')}
+              <button type="button" class="button ghost" style="margin-top:8px" data-action="ctt-add" data-key="${b.key}">+ Add a subject</button></div>`; };
+                const days = FULL.map((name, day) => { const bs = blocks.filter(b => b.day === day); return bs.length ? `<h3 style="margin:14px 0 8px">${name}</h3>${bs.map(blockHtml).join('')}` : ''; }).join('');
+                return modalShell('My study timetable', `<p class="small">Pick the subject (or several) for each study session and how long to spend on each. This repeats every week. Sessions you leave empty stay empty.</p>${days}`,
+                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button ghost" data-action="ctt-fill-even" title="Spreads your subjects across any empty sessions">Fill empty sessions evenly</button><button type="button" class="button ghost danger" data-action="ctt-clear">Clear all</button><button type="button" class="button primary" data-action="ctt-save">Save timetable</button>`, true); }
+            function customTtAdd(key) { const d = customTtDraft; if (!d) return; const b = customStudyBlocks().find(x => x.key === key); if (!b) return; const list = d.slots[key] = d.slots[key] || [];
+                const subs = state.subjects.filter(s => s.active !== false), usedIds = new Set(list.map(a => a.subjectId)), pick = subs.find(s => !usedIds.has(s.id)) || subs[0]; if (!pick) return;
+                const left = b.mins - customTtUsed(list); list.push({ subjectId: pick.id, minutes: Math.max(5, Math.min(30, left > 0 ? Math.floor(left / 5) * 5 || 5 : 30)) }); renderModal(); }
+            function customTtFillEven() { const d = customTtDraft; if (!d) return; const subs = state.subjects.filter(s => s.active !== false && s.examSubject !== false); const pool = subs.length ? subs : state.subjects.filter(s => s.active !== false); if (!pool.length) return;
+                let cursor = 0, filled = 0; customStudyBlocks().forEach(b => { if ((d.slots[b.key] || []).length) return; const n = Math.max(1, Math.min(pool.length, Math.floor(b.mins / 30))), each = Math.max(5, Math.floor(b.mins / n / 5) * 5);
+                    d.slots[b.key] = Array.from({ length: n }, () => ({ subjectId: pool[cursor++ % pool.length].id, minutes: each })); filled++; });
+                toast(filled ? `Filled ${filled} empty session${filled === 1 ? '' : 's'} — adjust anything you like.` : 'No empty sessions to fill.'); renderModal(); }
+            function saveCustomTimetable() { const d = customTtDraft; if (!d) return; const FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], blocks = customStudyBlocks(), cleaned = {};
+                Object.keys(d.slots).forEach(k => { const list = d.slots[k].filter(a => subject(a.subjectId) && Number(a.minutes) >= 5).map(a => ({ subjectId: a.subjectId, minutes: Math.round(Number(a.minutes)) })); if (list.length) cleaned[k] = list; });
+                for (const b of blocks) { const used = customTtUsed(cleaned[b.key]); if (used > b.mins) { toast(`${FULL[b.day]} ${time(b.start)}: ${used} min planned but the session is only ${b.mins} min.`); return; } }
+                state.settings.customStudyTimetable = { slots: cleaned, updatedAt: Date.now() }; invalidateFutureStudyPlans(); save(); customTtDraft = null; closeModal(); render(); toast('Study timetable saved.'); }
+
             function ensureStudyPlan(date) {
                 const blocks = segmentsForDate(date).filter(x => x.event.type === 'study').sort((a, b) => a.start -
                     b.start); if (!blocks.length) { delete state.studyPlans[date]; return null; }
@@ -9796,6 +9833,16 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 const planningMode = state.settings.studyPlanningMode || (state.settings.studyEngineDisabled ? 'none' : 'topics');
                 if (planningMode === 'none' || state.settings.studyEngineDisabled) { state.studyPlans[date] = plan;
                     return plan; }
+                // "My own timetable": every study block is filled from the weekly template the student built (Study page ->
+                // My timetable). Nothing is suggested or auto-balanced -- the student is in charge in this mode. Already-logged
+                // items are never touched; template entries for subjects not yet logged in a block are (re)added.
+                if (planningMode === 'custom') { const tpl = (state.settings.customStudyTimetable || {}).slots || {};
+                    plan.blocks.forEach(b => { if (b.items.some(i => !i.logged)) return;
+                        const list = tpl[customBlockKey(date, b)] || [], have = new Set(b.items.map(i => i.subjectId)); let remaining = (b.end - b.start) - b.items.reduce((n, i) => n + i.minutes, 0);
+                        list.forEach(a => { const s = subject(a.subjectId); if (!s || have.has(a.subjectId) || remaining < 5) return; const minutes = Math.min(Math.max(5, Number(a.minutes) || 0), remaining);
+                            b.items.push({ id: uid(), subjectId: a.subjectId, label: `Study ${s.name}`, minutes, kind: 'balance', taskId: '', topicId: '', classTopicId: '', logged: false, loggedLabel: '', examName: '' });
+                            have.add(a.subjectId); remaining -= minutes; }); });
+                    state.studyPlans[date] = plan; return plan; }
                 const isFull = (block) => block.items.reduce((n, i) => n + i.minutes, 0) >= (block.end - block
                     .start) - 10;
                 if (plan.blocks.every(isFull)) { state.studyPlans[date] = plan; return plan; } // already fully planned — keep item ids stable across renders
@@ -16608,11 +16655,14 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 const dayNav =
                     `<div class="weekbar"><h2>${isToday?'Today':fmtDate(studyViewDate,{weekday:'long',month:'long',day:'numeric'})}</h2><div class="toolbar"><button class="button" data-action="study-day" data-direction="-1" aria-label="Previous day">← ${DAY_NAMES[mondayIndex(addDays(studyViewDate,-1))]}</button><button class="button" data-action="study-today">Today</button><button class="button" data-action="study-day" data-direction="1" aria-label="Next day">${DAY_NAMES[mondayIndex(addDays(studyViewDate,1))]} →</button></div></div>`;
                 const hasAnyStudyBlocks = state.events.some(e => e.type === 'study');
+                const customMode = (state.settings.studyPlanningMode || '') === 'custom', hasCustomSlots = Object.keys((state.settings.customStudyTimetable || {}).slots || {}).length > 0;
+                const customTtBtn = customMode ? `<button class="button" data-action="open-custom-timetable">🗓 ${hasCustomSlots ? 'Edit my timetable' : 'Build my timetable'}</button> ` : '';
+                const customBanner = customMode && !hasCustomSlots && hasAnyStudyBlocks ? `<div class="alert" style="margin-bottom:12px"><strong>You haven't built your study timetable yet.</strong> Choose which subjects go in each study session — it takes a minute and repeats every week. <button class="button primary" style="margin-left:8px" data-action="open-custom-timetable">Build my timetable</button></div>` : '';
                 const blocksHtml = plan && plan.blocks.length ? plan.blocks.map((b, i) => studyBlockCard(b, i + 1,
                         canLog)).join('') :
                     `<section class="card section"><p class="empty">${hasAnyStudyBlocks?'No supervised study block is scheduled for this day.':'Add a study block to your timetable — e.g. after-school supervised study — and this page will automatically plan what to do in it.'}</p>${hasAnyStudyBlocks?'':`<button class="button primary" style="margin-top:10px" data-action="open-event-form">+ Add a study block</button>`}</section>`;
                 return appFrame(
-                    `<div class="page">${header('Study plan',`What to study in each block, planned for you. ${infoBtn('studyPlan')}`,isToday?`<button class="button primary" data-action="start-study-mode">▶ Start Study Mode</button>`:'')}${dayNav}<div class="study-blocks">${blocksHtml}</div></div>`
+                    `<div class="page">${header('Study plan',`${customMode ? 'The study timetable you built — change it any time.' : 'What to study in each block, planned for you.'} ${infoBtn('studyPlan')}`,customTtBtn+(isToday?`<button class="button primary" data-action="start-study-mode">▶ Start Study Mode</button>`:''))}${dayNav}${customBanner}<div class="study-blocks">${blocksHtml}</div></div>`
                 );
             }
 
@@ -17741,7 +17791,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     modal.kind === 'chat-new-room') return layer.innerHTML = chatNewRoomModal(); if (
                     modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); if (
                     modal.kind === 'chat-new-dm') return layer.innerHTML = chatNewDmModal(); if (
-                    modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (
+                    modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (modal.kind === 'custom-timetable') return layer.innerHTML = customTimetableModal(); if (
                     modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
                     modal.kind === 'flashcard-diagram-editor') return layer.innerHTML = diagramEditorModal(modal.deckId); if (
                     modal.kind === 'flashcard-set-chat') return layer.innerHTML = sparkySetChatModal(modal.deckId); if (
@@ -18280,7 +18330,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Timetable style</strong><span class="small">How your weekly timetable and dashboard schedule are displayed.</span></div><div class="type-picker">${TIMETABLE_STYLES.map(t=>`<button type="button" class="type-option ${((s.timetableStyle||'boxes')===t.id)?'selected':''}" data-action="set-timetable-style" data-style="${t.id}"><strong>${t.label}</strong><span>${t.desc}</span></button>`).join('')}</div>${s.timetableStyle==='monochrome'?`<div class="field" style="max-width:170px"><label for="setting-timetable-accent">Timetable colour</label><input id="setting-timetable-accent" type="color" value="${s.timetableAccentColor||DEFAULT_TIMETABLE_ACCENT}"></div>`:''}</div>
           <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>Sidebar</strong><span class="small">How the sidebar behaves.</span></div><div class="row">${[['hover','Expand on hover'],['expanded','Always expanded'],['collapsed','Always collapsed']].map(([m,l])=>`<button type="button" class="button ${((s.sidebarMode||'hover')===m)?'primary':'ghost'}" data-action="set-sidebar-mode" data-mode="${m}">${l}</button>`).join('')}</div></div>
           <div class="settings-row"><div><strong>Study preferences</strong><span class="small">How much and when you'd like to study.</span></div><button class="button" data-action="open-study-preferences">Edit</button></div>
-          <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>What should study blocks plan?</strong><span class="small">Choose whether each block gets specific topics, only a subject, or no study content. Homework due soon is included when planning is enabled.</span></div><div class="type-picker">${[['topics','Topic by topic','Plan the exact topics and homework to work on.'],['subject','Subject only','Plan the subject; you choose what to do within it.'],['none','Nothing','Leave study content for you to choose.']].map(([id,label,desc])=>`<button type="button" class="type-option ${(s.studyPlanningMode|| (s.studyEngineDisabled?'none':'topics'))===id?'selected':''}" data-action="set-study-planning-mode" data-mode="${id}" style="text-align:left;min-height:50px"><strong>${label}</strong><span>${desc}</span></button>`).join('')}</div></div>
+          <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px"><div><strong>What should study blocks plan?</strong><span class="small">Choose whether each block gets specific topics, only a subject, no study content, or a weekly timetable you build yourself. Homework due soon is included in the automatic modes.</span></div><div class="type-picker">${[['topics','Topic by topic','Plan the exact topics and homework to work on.'],['subject','Subject only','Plan the subject; you choose what to do within it.'],['none','Nothing','Leave study content for you to choose.'],['custom','My own timetable','Build your own weekly study timetable: you choose which subjects go in each study session, and for how long.']].map(([id,label,desc])=>`<button type="button" class="type-option ${(s.studyPlanningMode|| (s.studyEngineDisabled?'none':'topics'))===id?'selected':''}" data-action="set-study-planning-mode" data-mode="${id}" style="text-align:left;min-height:50px"><strong>${label}</strong><span>${desc}</span></button>`).join('')}</div></div>
           ${spotifySettingsRowHtml()}
           ${garminSettingsRowHtml()}
           <div class="settings-row"><div><strong>Notifications</strong><span class="small">Only for genuinely important things — a test tomorrow, a CAO hard deadline in the next couple of days. Nothing more frequent than that.</span></div><label class="switch-row"><input id="setting-notifications" type="checkbox" ${s.notificationsEnabled?'checked':''}> Enable browser notifications</label></div>
@@ -21864,6 +21914,12 @@ If the user asks about how to study or study methods generally, answer from your
                 const a = b.dataset.action;
                 if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
                 else if (a === 'open-flashcards-for-subject') flashcardsOpenForSubject(b.dataset.subject);
+                else if (a === 'open-custom-timetable') openCustomTimetable();
+                else if (a === 'ctt-add') customTtAdd(b.dataset.key);
+                else if (a === 'ctt-remove') { const d0 = customTtDraft; if (d0 && d0.slots[b.dataset.key]) { d0.slots[b.dataset.key].splice(Number(b.dataset.index), 1); renderModal(); } }
+                else if (a === 'ctt-fill-even') customTtFillEven();
+                else if (a === 'ctt-clear') { if (customTtDraft) { customTtDraft.slots = {}; renderModal(); } }
+                else if (a === 'ctt-save') saveCustomTimetable();
                 else if (a === 'flashcard-start-struct-test') startFlashcardStructTest(b.dataset.deck);
                 else if (a === 'flashcard-manual-draw') { const d0 = flashcardCreateDraft, row = d0 && d0.cards[Number(b.dataset.index)]; if (row) openWhiteboard({ title: row.front || 'Model answer', hint: 'Draw the answer a student should produce. Double-click shapes to label them.', board: row.board, onDone: (board) => { row.board = board; renderModal(); } }); }
                 else if (a === 'flashcard-edit-card') openFlashcardEditModal(b.dataset.deck, b.dataset.card);
@@ -22025,6 +22081,8 @@ If the user asks about how to study or study methods generally, answer from your
                         deck.diagram.imageDataUrl = dataUrl; save(); renderModal(); }).catch(err => toast(err.message || "Couldn't read that image.")); }
                 else if (t.dataset && t.dataset.action === 'flashcard-assign-folder') assignDeckToFolder(t.dataset.deck, t.value || null);
                 else if (t.id === 'flashcard-create-subject') { if (flashcardCreateDraft) { flashcardCreateDraft.subjectId = t.value; renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'ctt-subject') { const a0 = customTtDraft && customTtDraft.slots[t.dataset.key]; if (a0 && a0[Number(t.dataset.index)]) { a0[Number(t.dataset.index)].subjectId = t.value; renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'ctt-minutes') { const a0 = customTtDraft && customTtDraft.slots[t.dataset.key]; if (a0 && a0[Number(t.dataset.index)]) { a0[Number(t.dataset.index)].minutes = Math.max(0, Number(t.value) || 0); renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-type') { if (flashcardCreateDraft) { const row = flashcardCreateDraft.cards[Number(t.dataset.index)]; row.type = t.value; renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-ordered') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].ordered = t.checked; }
                 else if (t.dataset && t.dataset.action === 'info-review-toggle') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].include = t.checked; }
@@ -22070,6 +22128,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-front') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].front = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-back') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].back = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-text') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].text = t.value; }
+                else if (t.dataset && t.dataset.action === 'ctt-minutes') { const a0 = customTtDraft && customTtDraft.slots[t.dataset.key]; if (a0 && a0[Number(t.dataset.index)]) a0[Number(t.dataset.index)].minutes = Math.max(0, Number(t.value) || 0); }
                 else if (t.dataset && t.dataset.action === 'info-review-title') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].title = t.value; }
                 else if (t.dataset && t.dataset.action === 'info-review-text') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].text = t.value; }
                 else if (t.dataset && t.dataset.fcBox !== undefined) { if (flashcardStudySession?.mode === 'struct-test') flashcardStudySession.answers['b' + t.dataset.fcBox] = t.value; }
