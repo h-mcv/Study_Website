@@ -2746,6 +2746,20 @@
         .fc-listcard { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
         .fc-listcard .fc-idx { color: var(--muted); font-size: 12px; font-weight: 700; min-width: 20px; padding-top: 2px; }
         .fc-listcard .fc-listtext { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+        .fc-face.back.rich { align-items: flex-start; justify-content: flex-start; text-align: left; white-space: normal; font-weight: 500; font-size: clamp(16px, 1.9vw, 22px); padding-top: 52px; }
+        .fc-face.back.rich ul, .fc-face.back.rich ol { margin: 4px 0 10px; padding-left: 24px; }
+        .fc-face.back.rich li { margin: 3px 0; }
+        .fc-face.back.rich h4 { margin: 10px 0 2px; font-size: 1em; color: var(--primary); }
+        .fc-panel { border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); padding: 28px; }
+        .fc-panel h2 { margin: 0 0 4px; }
+        .fc-box-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .fc-box-n { min-width: 22px; color: var(--muted); font-weight: 700; text-align: right; }
+        .fc-box-row input.ok, .fc-tl-row.ok { border-color: var(--success); background: var(--success-soft); }
+        .fc-box-row input.bad, .fc-tl-row.bad { border-color: var(--danger); background: var(--danger-soft); }
+        .fc-tl-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); }
+        .fc-tl-label { flex: 1; }
+        .fc-answerkey { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); font-size: 14px; }
+        .fc-answerkey ul, .fc-answerkey ol { margin: 4px 0 6px; padding-left: 22px; }
         @media (prefers-reduced-motion: reduce) {
             .fc-card { transition: none; }
             .fc-enter-next, .fc-enter-prev, .fc-exit-next, .fc-exit-prev { animation: none; }
@@ -15038,7 +15052,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 if (!deck) { deck = { id: uid(), subjectId, topic, cards: [], createdAt: Date.now() }; state.flashcardDecks.push(deck); }
                 return deck; }
             function addFlashcardsToDeck(subjectId, topic, cards) { const deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
-                (cards || []).forEach(c => { const front = (c.front || '').trim(), back = (c.back || '').trim(); if (front && back) deck.cards.push({ id: uid(), front, back }); });
+                (cards || []).forEach(c => { const front = (c.front || '').trim(), back = (c.back || '').trim(); if (!front || !back) return;
+                    const card = { id: uid(), front, back }; if (c.type && c.type !== 'term' && FC_TYPES[c.type] && c.data) { card.type = c.type; card.data = c.data; } deck.cards.push(card); });
                 save(); return deck; }
             function deleteFlashcardDeck(deckId) { state.flashcardDecks = state.flashcardDecks.filter(d => d.id !== deckId); save(); }
             function deleteFlashcardCard(deckId, cardId) { const deck = flashcardDeck(deckId); if (!deck) return;
@@ -15084,7 +15099,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const s = subject(deck.subjectId), n = deck.cards.length;
                 const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck), weakCount = weakCardsForDeck(deck).length, knownCount = deck.cards.filter(c => c.known).length;
                 const stat = (label, value) => `<div class="card stat"><span class="label">${label}</span><span class="value">${value}</span></div>`;
-                const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext"><strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${c.id}" aria-label="Toggle known" title="Mark known">${c.known ? '⭐' : '☆'}</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
+                const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext">${c.type && FC_TYPES[c.type] && c.type !== 'term' ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : ''}<strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${c.id}" aria-label="Toggle known" title="Mark known">${c.known ? '⭐' : '☆'}</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
                 const folders = foldersFor(deck.subjectId), current = folders.find(f => f.deckIds.includes(deck.id));
                 return `<div class="fc-wrap">
           <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
@@ -15111,6 +15126,64 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           </section>
           <div class="fc-listgrid">${n ? deck.cards.map(cardRow).join('') : '<p class="empty">No cards yet — add some above.</p>'}</div>
         </div>`; }
+
+            // ---- Flashcards: card types ------------------------------------------------------------------------
+            // Every card keeps plain `front` / `back` text (so Click Through, spaced repetition, search, Sparky and the
+            // classic tests keep working on any card). Non-term cards additionally carry `type` + structured `data`:
+            //   list:     { items: [string], ordered: bool }
+            //   timeline: { events: [{ when, label }] }   -- stored in the CORRECT order
+            //   info:     { sections: [{ heading, points: [{ text, subs: [string] }] }] }
+            const FC_TYPES = {
+                term: { icon: '📝', label: 'Term & definition', short: 'Term' },
+                list: { icon: '📋', label: 'List (fill in the boxes)', short: 'List', titlePh: 'List title, e.g. Factors of production', textPh: 'One item per line&#10;Land&#10;Labour&#10;Capital&#10;Enterprise', hint: 'Tested with one box per item — you type each one from memory.' },
+                timeline: { icon: '⏳', label: 'Timeline / sequence (reorder)', short: 'Timeline', titlePh: 'e.g. Causes of the First World War', textPh: 'One event per line, in the CORRECT order. Add a date before a dash:&#10;1914 - Assassination of Franz Ferdinand&#10;1914 - Britain declares war', hint: 'Tested by putting the shuffled events back in order.' },
+                info: { icon: '📄', label: 'Info card (title + headings)', short: 'Info', titlePh: 'Card title, e.g. Annelida', textPh: '# Heading&#10;- point&#10;  - sub-point&#10;- another point', hint: '# starts a heading, - adds a point, indent two spaces for a sub-point.' }
+            };
+            const FC_LABELS = { term: ['Term', 'Definition'], list: ['List', 'Items'], timeline: ['Timeline', 'In order'], info: ['Info card', 'Contents'] };
+            function fcTermCards(deck) { return deck.cards.filter(c => !c.type || c.type === 'term'); }
+            function fcStructCards(deck) { return deck.cards.filter(c => c.type && c.type !== 'term' && c.data); }
+            function fcLines(t) { return String(t || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
+            function fcParseEvents(text) { return fcLines(text).map(l => { const m = l.match(/^(.{1,40}?)\s+[-–—:]\s+(.+)$/);
+                return m && /\d/.test(m[1]) ? { when: m[1].trim(), label: m[2].trim() } : { when: '', label: l }; }); }
+            function fcParseInfo(text) { const sections = []; let cur = null;
+                String(text || '').split(/\r?\n/).forEach(raw => { if (!raw.trim()) return; const t = raw.trim();
+                    if (t.startsWith('#')) { cur = { heading: t.replace(/^#+\s*/, ''), points: [] }; sections.push(cur); return; }
+                    if (!cur) { cur = { heading: '', points: [] }; sections.push(cur); }
+                    const txt = t.replace(/^[-*•]\s*/, ''), isSub = /^(\s{2,}|\t)/.test(raw) && cur.points.length;
+                    if (isSub) cur.points[cur.points.length - 1].subs.push(txt); else cur.points.push({ text: txt, subs: [] }); });
+                return sections.filter(s => s.points.length || s.heading); }
+            function fcInfoToText(sections) { return (sections || []).map(s => (s.heading ? `# ${s.heading}\n` : '') + (s.points || []).map(p => `- ${p.text}` + (p.subs || []).map(x => `\n  - ${x}`).join('')).join('\n')).join('\n'); }
+            function fcInfoPlain(sections) { return (sections || []).map(s => (s.heading ? `${s.heading}\n` : '') + (s.points || []).map(p => `• ${p.text}` + (p.subs || []).map(x => `\n   – ${x}`).join('')).join('\n')).join('\n\n'); }
+            function fcNormInfoSections(raw) { return (Array.isArray(raw) ? raw : []).map(s => ({ heading: String(s?.heading || '').trim(),
+                points: (Array.isArray(s?.points) ? s.points : []).map(p => typeof p === 'string' ? { text: p.trim(), subs: [] } : { text: String(p?.text || '').trim(), subs: (Array.isArray(p?.subs) ? p.subs : []).map(x => String(x).trim()).filter(Boolean) }).filter(p => p.text) })).filter(s => s.points.length); }
+            // Turns a create-modal row into a saved card, or explains what's missing.
+            function fcBuildCard(row) { const type = FC_TYPES[row.type] ? row.type : 'term', front = String(row.front || '').trim();
+                if (type === 'term') { const back = String(row.back || '').trim(); return front && back ? { card: { type: 'term', front, back } } : null; }
+                const text = String(row.text || ''); if (!front && !text.trim()) return null;
+                if (!front) return { error: 'needs a title' };
+                if (type === 'list') { const items = fcLines(text); if (items.length < 2) return { error: 'needs at least 2 items (one per line)' };
+                    return { card: { type, front, back: items.map((x, i) => row.ordered ? `${i + 1}. ${x}` : `• ${x}`).join('\n'), data: { items, ordered: !!row.ordered } } }; }
+                if (type === 'timeline') { const events = fcParseEvents(text); if (events.length < 2) return { error: 'needs at least 2 events (one per line)' };
+                    return { card: { type, front, back: events.map((e, i) => `${i + 1}. ${e.when ? e.when + ' — ' : ''}${e.label}`).join('\n'), data: { events } } }; }
+                const sections = fcParseInfo(text); if (!sections.some(s => s.points.length)) return { error: 'needs at least one point (start lines with -)' };
+                return { card: { type: 'info', front, back: fcInfoPlain(sections), data: { sections } } }; }
+            function fcBackHtml(card) { const d = card.data;
+                if (card.type === 'list' && d) return `<${d.ordered ? 'ol' : 'ul'}>${d.items.map(x => `<li>${escape(x)}</li>`).join('')}</${d.ordered ? 'ol' : 'ul'}>`;
+                if (card.type === 'timeline' && d) return `<ol>${d.events.map(e => `<li>${e.when ? `<strong>${escape(e.when)}</strong> — ` : ''}${escape(e.label)}</li>`).join('')}</ol>`;
+                if (card.type === 'info' && d) return d.sections.map(s => `${s.heading ? `<h4>${escape(s.heading)}</h4>` : ''}<ul>${s.points.map(p => `<li>${escape(p.text)}${p.subs && p.subs.length ? `<ul>${p.subs.map(x => `<li>${escape(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>`).join('');
+                return escape(card.back); }
+            // Answer matching for typed recall: case/punctuation-insensitive, forgiving of small typos.
+            function fcNorm(s) { return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim(); }
+            function fcLev(a, b) { const m = a.length, n = b.length; let prev = Array.from({ length: n + 1 }, (_, j) => j);
+                for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+                return prev[n]; }
+            function fcClose(a, b) { a = fcNorm(a); b = fcNorm(b); if (!a || !b) return false; if (a === b) return true;
+                if (Math.min(a.length, b.length) >= 6 && (a.includes(b) || b.includes(a))) return true;
+                return b.length >= 4 && fcLev(a, b) <= (b.length >= 9 ? 2 : 1); }
+            function fcCheckList(card, answers) { const items = card.data.items, ans = items.map((_, i) => answers[i] || ''), ok = items.map(() => false), usedAns = ans.map(() => false);
+                if (card.data.ordered) items.forEach((it, i) => { if (fcClose(ans[i], it)) { ok[i] = true; usedAns[i] = true; } });
+                else items.forEach((it, i) => { const j = ans.findIndex((a, k) => !usedAns[k] && fcClose(a, it)); if (j >= 0) { usedAns[j] = true; ok[i] = true; } });
+                return { ok, usedAns }; }
 
             // ---- Flashcards page: page state, library, routing ------------------------------------------
             let flashcardsFilterSubject = 'all'; // 'all' | subject id
@@ -15165,10 +15238,17 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           <button type="button" class="button ${d.mode==='image'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="image">📷 From Photos</button>
           <button type="button" class="button ${d.mode==='paste'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="paste">📋 Paste / Import</button>
           <button type="button" class="button ${d.mode==='magic'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="magic">🪄 Magic Notes (AI)</button>
+          <button type="button" class="button ${d.mode==='infoimage'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="infoimage">📄 Info cards from photo</button>
         </div>`;
                 const subjectOptions = state.subjects.filter(x => x.active !== false || x.id === d.subjectId).map(x => `<option value="${x.id}" ${x.id === d.subjectId ? 'selected' : ''}>${escape(x.name)}</option>`).join('');
                 const topicField = `<div style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1.4fr;gap:10px"><div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div><div class="field"><label>Deck name</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div></div>`;
-                const manualCardRow = (c, i) => `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea></div><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
+                const manualCardRow = (c, i) => { const t = FC_TYPES[c.type] ? c.type : 'term', ty = FC_TYPES[t];
+                    const typeSel = `<select data-action="flashcard-manual-type" data-index="${i}" style="max-width:260px">${Object.entries(FC_TYPES).map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>`;
+                    const head = `<div class="row" style="align-items:center;gap:8px"><span class="small"><strong>#${i + 1}</strong></span>${typeSel}<span style="flex:1"></span><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
+                    const fields = t === 'term'
+                        ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
+                        : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
+                    return `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px">${head}${fields}</div></div>`; };
                 const manualBody = `${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
                 const imgThumb = (img, i) => img.mimeType === 'application/pdf'
                     ? `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:72px;height:72px;margin:0 8px 8px 0;border-radius:8px;border:1px solid var(--line);background:var(--card)"><span style="font-size:22px">📄</span><span class="small" style="max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escape(img.name||'PDF')}</span><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove file">✕</button></div>`
@@ -15185,12 +15265,18 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           <p class="small">Review the flashcards found — untick or edit anything wrong, then confirm.</p>
           <div class="list" style="margin-top:10px">${d.magicResult.cards.length?d.magicResult.cards.map(magicReviewRow).join(''):'<p class="empty">Nothing usable was found in those notes.</p>'}</div>`
                     : `${topicField}<p class="small" style="margin-bottom:8px">Paste your raw class notes — Sparky pulls out a short summary/outline and a set of flashcards in one go.</p><textarea id="flashcard-magic-notes" placeholder="Paste your notes here…" style="min-height:180px">${escape(d.notesText || '')}</textarea>`;
-                const body = d.mode === 'manual' ? manualBody : d.mode === 'paste' ? pasteBody : d.mode === 'magic' ? magicBody : imageBody;
+                const infoReviewRow = (item, i) => `<div class="topic-row" style="align-items:flex-start"><input type="checkbox" data-action="info-review-toggle" data-index="${i}" ${item.include ? 'checked' : ''} style="margin-top:10px"><div style="flex:1;display:grid;gap:6px"><input type="text" data-action="info-review-title" data-index="${i}" value="${escape(item.title)}"><textarea data-action="info-review-text" data-index="${i}" style="min-height:120px">${escape(item.text)}</textarea></div></div>`;
+                const infoBody = d.infoReview
+                    ? `<p class="small">One info card per card/page found. Edit the text if anything was misread (# heading, - point, two-space indent for a sub-point), untick any you don't want, then confirm.</p><div class="list" style="margin-top:10px">${d.infoReview.length ? d.infoReview.map(infoReviewRow).join('') : '<p class="empty">Nothing usable was found in those photos.</p>'}</div>`
+                    : `${topicField}<p class="small" style="margin-bottom:8px">Photograph your handwritten index cards or a page of notes. Each card or page becomes one info card with its title, headings and bullet points — good for things like the phyla cards in your photo.</p><input type="file" id="flashcard-image-file" accept="image/*,application/pdf" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) or a PDF</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>`;
+                const body = d.mode === 'infoimage' ? infoBody : d.mode === 'manual' ? manualBody : d.mode === 'paste' ? pasteBody : d.mode === 'magic' ? magicBody : imageBody;
                 let footer;
                 if (d.mode === 'manual') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-manual-save">Save flashcards</button>`;
                 else if (d.mode === 'paste') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-paste-save" ${pasteCount?'':'disabled'}>Import ${pasteCount||''} card${pasteCount===1?'':'s'}</button>`;
                 else if (d.mode === 'magic' && d.magicResult) footer = `<button type="button" class="button ghost" data-action="magic-review-cancel">Back</button><button type="button" class="button primary" data-action="magic-review-confirm">Add ticked cards</button>`;
                 else if (d.mode === 'magic') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-magic-extract" ${flashcardCreateLoading||!(d.notesText&&d.notesText.trim())?'disabled':''}>${flashcardCreateLoading?'Reading notes…':'✨ Generate with AI'}</button>`;
+                else if (d.mode === 'infoimage' && d.infoReview) footer = `<button type="button" class="button ghost" data-action="info-review-cancel">Back</button><button type="button" class="button primary" data-action="info-review-confirm">Add ticked cards</button>`;
+                else if (d.mode === 'infoimage') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-info-extract" ${flashcardCreateLoading || !d.images.length ? 'disabled' : ''}>${flashcardCreateLoading ? 'Reading cards…' : 'Generate info cards'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
                 else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?(flashcardCreateLoadingStage==='checking'?'Double-checking cards…':'Reading files…'):'Generate flashcards'}</button>`;
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
@@ -15247,12 +15333,33 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             function saveManualFlashcards() { const d = flashcardCreateDraft; if (!d) return;
                 const topic = (d.topic || '').trim();
                 if (!topic) { toast('Enter a topic name.'); return; }
-                const cards = d.cards.filter(c => c.front.trim() && c.back.trim());
-                if (!cards.length) { toast('Add at least one complete card (term + definition).'); return; }
+                const cards = []; let problem = null;
+                d.cards.forEach((row, i) => { const r = fcBuildCard(row); if (!r) return; if (r.error) { if (!problem) problem = `Card #${i + 1} ${r.error}.`; return; } cards.push(r.card); });
+                if (problem) { toast(problem); return; }
+                if (!cards.length) { toast('Add at least one complete card.'); return; }
                 addFlashcardsToDeck(d.subjectId, topic, cards);
-                toast(`Added ${cards.length} flashcard${cards.length===1?'':'s'} to "${topic}".`);
+                toast(`Added ${cards.length} flashcard${cards.length === 1 ? '' : 's'} to "${topic}".`);
                 flashcardCreateDraft = null;
                 closeModal(); render(); }
+
+            async function runInfoCardExtract() { const d = flashcardCreateDraft; if (!d) return;
+                if (!(d.topic || '').trim()) { toast('Enter a deck name first.'); return; }
+                if (!d.images.length) { toast('Add at least one photo or PDF first.'); return; }
+                const s = subject(d.subjectId); flashcardCreateLoading = true; renderModal();
+                try {
+                    const sys = `You read photos (or PDFs) of a student's handwritten or printed index cards and notes for the subject "${s?.name || 'this subject'}". Turn EACH distinct card or note page into one structured info card. For every card return: "title" (the main heading on the card, e.g. a topic name), and "sections": a list of {"heading": "...", "points": [...]}. Use "heading": "" when the card has bullet points directly under the title with no sub-headings. A point is either a plain string, or {"text": "...", "subs": ["...", "..."]} when it has indented sub-points. Transcribe faithfully and keep the student's own wording; fix obvious spelling only. Do not invent facts, and ignore drawings/doodles (don't describe them). If several cards are in one photo, return several cards. Reply with ONLY compact JSON: {"cards": [{"title": "...", "sections": [{"heading": "", "points": ["...", {"text": "...", "subs": ["..."]}]}]}]}`;
+                    const parts = [...d.images.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })), { text: 'Turn these into info cards.' }];
+                    const result = await aiJsonOnce(sys, parts);
+                    const found = (Array.isArray(result.cards) ? result.cards : []).map(c => ({ include: true, title: String(c.title || '').trim(), text: fcInfoToText(fcNormInfoSections(c.sections)) })).filter(c => c.title && c.text);
+                    if (!found.length) toast("Couldn't find anything to turn into an info card — try a clearer photo.");
+                    d.infoReview = found;
+                } catch (err) { toast(err.message || "Couldn't read those photos."); }
+                flashcardCreateLoading = false; renderModal(); }
+            function confirmInfoReview() { const d = flashcardCreateDraft; if (!d || !d.infoReview) return;
+                const cards = []; d.infoReview.filter(x => x.include).forEach(x => { const r = fcBuildCard({ type: 'info', front: x.title, text: x.text }); if (r && r.card) cards.push(r.card); });
+                if (!cards.length) { toast('Nothing ticked (or the text had no points).'); return; }
+                const topic = (d.topic || '').trim(); addFlashcardsToDeck(d.subjectId, topic, cards);
+                toast(`Added ${cards.length} info card${cards.length === 1 ? '' : 's'} to "${topic}".`); flashcardCreateDraft = null; closeModal(); render(); }
 
             async function runFlashcardExtract() { const d = flashcardCreateDraft; if (!d) return;
                 const topic = (d.topic || '').trim();
@@ -15344,14 +15451,14 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 flashcardStudySession = { mode: 'clickthrough', deckId, cards: shuffle(deck.cards), index: 0, flipped: false };
                 render(); }
 
-            function startFlashcardSmartTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+            function startFlashcardSmartTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
                 closeModal();
                 flashcardStudySession = { mode: 'smart-test', deckId, round: 1,
-                    queue: shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back }))),
+                    queue: shuffle(fcTermCards(deck).map(c => ({ id: c.id, front: c.front, back: c.back }))),
                     index: 0, answers: {}, phase: 'answering', results: null };
                 render(); }
 
-            function startFlashcardMcqTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+            function startFlashcardMcqTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
                 closeModal();
                 flashcardStudySession = { mode: 'mcq-test', deckId, phase: 'generating', questions: null, index: 0, score: 0 };
                 render();
@@ -15389,7 +15496,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
             async function runMcqGenerationForSession(deck) { const s = flashcardStudySession; if (!s) return;
                 try {
                     const prev = deck.mcqCache, fresh = mcqCacheStale(prev), items = fresh ? {} : { ...prev.items };
-                    const need = deck.cards.filter(c => { const it = items[c.id]; return !it || it.key !== mcqCardKey(c) || !it.ai; });
+                    const need = fcTermCards(deck).filter(c => { const it = items[c.id]; return !it || it.key !== mcqCardKey(c) || !it.ai; });
                     if (need.length) {
                         const sys = `Create a hard, exam-style multiple choice quiz from these flashcards. For EACH card, write exactly 3 distractor definitions that could plausibly be mistaken for the real one — the same approximate length and level of detail as the correct definition (never short, vague, or obviously-wrong throwaway options), each testing a genuinely similar or adjacent concept, a common misconception, or one subtly wrong detail (a swapped number, a related-but-different term, a reversed cause/effect, a mixed-up name). A student who only half-knows the topic should have to think carefully — none of the four options should stand out by length or specificity alone. Reply with ONLY compact JSON: {"items": [{"id": "...", "distractors": ["...", "...", "..."]}, ...]}`;
                         const payload = need.map(c => `ID: ${c.id}\nTerm: ${c.front}\nCorrect definition: ${c.back}`).join('\n\n---\n\n');
@@ -15398,19 +15505,59 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                         need.forEach(c => { const item = byId.get(c.id);
                             const distractors = (Array.isArray(item?.distractors) ? item.distractors : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3);
                             const ai = distractors.length >= 3;
-                            while (distractors.length < 3) { const filler = shuffle(deck.cards.filter(o => o.id !== c.id).map(o => o.back)).find(x => x !== c.back && !distractors.includes(x));
+                            while (distractors.length < 3) { const filler = shuffle(fcTermCards(deck).filter(o => o.id !== c.id).map(o => o.back)).find(x => x !== c.back && !distractors.includes(x));
                                 if (!filler) break; distractors.push(filler); }
                             items[c.id] = { key: mcqCardKey(c), distractors, ai }; });
                     }
-                    Object.keys(items).forEach(id => { if (!deck.cards.some(c => c.id === id)) delete items[id]; });
+                    Object.keys(items).forEach(id => { if (!fcTermCards(deck).some(c => c.id === id)) delete items[id]; });
                     deck.mcqCache = { items, runs: fresh ? [] : (prev.runs || []), createdAt: fresh ? Date.now() : prev.createdAt }; save();
-                    const questions = shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back, choices: shuffle([c.back, ...items[c.id].distractors]), selected: null })));
+                    const questions = shuffle(fcTermCards(deck).map(c => ({ id: c.id, front: c.front, back: c.back, choices: shuffle([c.back, ...items[c.id].distractors]), selected: null })));
                     if (flashcardStudySession !== s) return; // exited mid-generation
                     s.questions = questions; s.phase = 'active'; s.score = 0;
                 } catch (err) { toast(err.message || 'Could not generate the quiz — try again.'); exitFlashcardSession(); return; }
                 render(); }
 
-                        function renderFlashcardSession() { const sess = flashcardStudySession;
+                        // ---- Flashcards: card-type test (lists -> fill the boxes, timelines -> reorder, info cards -> recall + self-grade) ----
+            function fcStructCard() { const s = flashcardStudySession, deck = s && flashcardDeck(s.deckId); return deck ? deck.cards.find(c => c.id === s.queue[s.index]) : null; }
+            function fcStructPrepare() { const s = flashcardStudySession; if (!s) return;
+                while (s.index < s.queue.length && !fcStructCard()) s.index++;
+                s.answers = {}; s.checked = false; s.revealed = false; s.frac = null; s.detail = null; s.order = null;
+                const card = fcStructCard(); if (card && card.type === 'timeline') { const n = card.data.events.length; let ord = shuffle([...Array(n).keys()]);
+                    if (n > 1 && ord.every((v, i) => v === i)) ord = ord.reverse(); s.order = ord; } }
+            function startFlashcardStructTest(deckId) { const deck = flashcardDeck(deckId); if (!deck) return; const cards = shuffle(fcStructCards(deck));
+                if (!cards.length) { toast('This deck has no list, timeline or info cards yet.'); return; }
+                closeModal(); flashcardStudySession = { mode: 'struct-test', deckId, queue: cards.map(c => c.id), index: 0, results: [] }; fcStructPrepare(); render(); }
+            function fcStructRecord(card, frac) { const s = flashcardStudySession; s.results.push({ id: card.id, front: card.front, type: card.type, frac });
+                scheduleCardReview(card, frac >= 0.9 ? 'good' : frac >= 0.5 ? 'hard' : 'again'); save(); }
+            function fcStructCheck() { const s = flashcardStudySession; if (!s || s.mode !== 'struct-test' || s.checked) return; const card = fcStructCard(); if (!card) return; let frac = 0;
+                if (card.type === 'list') { s.detail = fcCheckList(card, Object.fromEntries(card.data.items.map((_, i) => [i, s.answers['b' + i]]))); frac = s.detail.ok.filter(Boolean).length / s.detail.ok.length; }
+                else if (card.type === 'timeline') { const ok = s.order.map((v, i) => v === i); s.detail = { ok }; frac = ok.filter(Boolean).length / ok.length; }
+                s.checked = true; s.frac = frac; fcStructRecord(card, frac); render(); }
+            function fcStructNext() { const s = flashcardStudySession; if (!s) return; s.index++; fcStructPrepare(); fcSlideDir = 'next'; render(); }
+            function renderStructTestSession(sess) { const deck = flashcardDeck(sess.deckId); if (!deck) return '';
+                const pill = (f) => f >= 0.9 ? '<span class="pill good">Got it</span>' : f >= 0.5 ? '<span class="pill neutral">Partly</span>' : '<span class="pill bad">Missed</span>';
+                if (sess.index >= sess.queue.length) { const res = sess.results, avg = res.length ? Math.round(res.reduce((a, r) => a + r.frac, 0) / res.length * 100) : 0;
+                    return `<div class="fc-wrap narrow">${fcTopbar('Card-type test — results', escape(deck.topic), 100)}<div class="fc-panel"><h2>${avg}% overall</h2><p class="muted">Each card has been rescheduled in your spaced-repetition review based on how you did.</p><div class="list" style="margin-top:14px">${res.map(r => `<div class="flashcard-verdict-row">${pill(r.frac)}<div><strong>${escape(r.front)}</strong><div class="small">${FC_TYPES[r.type] ? FC_TYPES[r.type].short : ''} · ${Math.round(r.frac * 100)}%</div></div></div>`).join('')}</div><div class="row" style="gap:8px;margin-top:18px;flex-wrap:wrap"><button type="button" class="button primary" data-action="flashcard-struct-restart">↺ Test again</button><button type="button" class="button ghost" data-action="flashcard-exit-session">Back to deck</button></div></div></div>`; }
+                const card = fcStructCard(); if (!card) return '';
+                const top = fcTopbar('Card-type test', escape(deck.topic), sess.index / sess.queue.length * 100), last = sess.index === sess.queue.length - 1;
+                const nextBtn = `<button type="button" class="button primary" data-action="fc-struct-next">${last ? 'See results' : 'Next ›'}</button>`;
+                let body = '';
+                if (card.type === 'list') { const items = card.data.items, det = sess.detail;
+                    body = `<h2>${escape(card.front)}</h2><p class="muted">Type all ${items.length} items${card.data.ordered ? ' in the correct order' : ' (any order)'}.</p>
+              ${items.map((_, i) => `<div class="fc-box-row"><span class="fc-box-n">${card.data.ordered ? (i + 1) + '.' : '•'}</span><input type="text" data-fc-box="${i}" autocomplete="off" placeholder="${card.data.ordered ? 'Item ' + (i + 1) : 'Item'}" value="${escape(sess.answers['b' + i] || '')}" class="${det ? (det.usedAns[i] ? 'ok' : (sess.answers['b' + i] ? 'bad' : '')) : ''}" ${sess.checked ? 'disabled' : ''}></div>`).join('')}
+              ${sess.checked ? `<div class="fc-answerkey"><strong>${pill(sess.frac)} ${det.ok.filter(Boolean).length} / ${items.length} correct</strong>${det.ok.every(Boolean) ? '' : `<div style="margin-top:6px">Answer: ${fcBackHtml(card)}</div>`}</div>` : ''}`; }
+                else if (card.type === 'timeline') { const evs = card.data.events, n = evs.length, det = sess.detail;
+                    body = `<h2>${escape(card.front)}</h2><p class="muted">Put these ${n} events in the correct order using the arrows.</p>
+              ${sess.order.map((ei, pos) => `<div class="fc-tl-row ${det ? (det.ok[pos] ? 'ok' : 'bad') : ''}"><span class="fc-box-n">${pos + 1}</span><span class="fc-tl-label">${escape(evs[ei].label)}</span>${sess.checked ? '' : `<button type="button" class="button ghost icon" data-action="fc-tl-move" data-pos="${pos}" data-dir="-1" aria-label="Move up" ${pos === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="fc-tl-move" data-pos="${pos}" data-dir="1" aria-label="Move down" ${pos === n - 1 ? 'disabled' : ''}>↓</button>`}</div>`).join('')}
+              ${sess.checked ? `<div class="fc-answerkey"><strong>${pill(sess.frac)} ${det.ok.filter(Boolean).length} / ${n} in the right place</strong><div style="margin-top:6px">Correct order: ${fcBackHtml(card)}</div></div>` : ''}`; }
+                else { const secs = card.data.sections, single = secs.length === 1 && !secs[0].heading;
+                    body = `<h2>${escape(card.front)}</h2><p class="muted">${single ? 'Write down everything you remember about this card.' : 'Write what you remember under each heading.'}</p>
+              ${secs.map((s, i) => `<div class="field" style="margin-top:12px">${single ? '' : `<label>${escape(s.heading || 'Other points')}</label>`}<textarea data-fc-info="${i}" style="min-height:84px" ${sess.revealed ? 'disabled' : ''} placeholder="From memory…">${escape(sess.answers['s' + i] || '')}</textarea></div>`).join('')}
+              ${sess.revealed ? `<div class="fc-answerkey"><strong>The card says:</strong>${fcBackHtml(card)}</div><p class="small" style="margin-top:12px">How did you do?</p><div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="button primary" data-action="fc-info-grade" data-frac="1">✅ Got it</button><button type="button" class="button" data-action="fc-info-grade" data-frac="0.5">🟡 Partly</button><button type="button" class="button ghost danger" data-action="fc-info-grade" data-frac="0">❌ Missed it</button></div>` : ''}`; }
+                const foot = card.type === 'info' ? (sess.revealed ? '' : `<button type="button" class="button primary" data-action="fc-info-reveal">Reveal answer</button>`) : (sess.checked ? nextBtn : `<button type="button" class="button primary" data-action="fc-struct-check">Check</button>`);
+                return `<div class="fc-wrap narrow">${top}<div class="fc-panel">${body}<div class="row" style="justify-content:space-between;align-items:center;margin-top:18px"><span class="flashcard-progress">${sess.index + 1} / ${sess.queue.length}</span>${foot}</div></div></div>`; }
+
+            function renderFlashcardSession() { const sess = flashcardStudySession;
                 if (sess.mode === 'clickthrough') return renderClickThroughSession(sess);
                 if (sess.mode === 'smart-test') return renderSmartTestSession(sess);
                 if (sess.mode === 'mcq-test') return renderMcqTestSession(sess);
@@ -15420,16 +15567,17 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (sess.mode === 'gravity') return renderGravitySession(sess);
                 if (sess.mode === 'listening') return renderListeningSession(sess);
                 if (sess.mode === 'srs-review') return renderSrsReviewSession(sess);
+                if (sess.mode === 'struct-test') return renderStructTestSession(sess);
                 if (sess.mode === 'diagram') return renderDiagramSession(sess);
                 if (sess.mode === 'exam-sim') return renderExamSimSession(sess);
                 return ''; }
 
 function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type="button" class="button ghost" data-action="flashcard-exit-session" aria-label="Exit">✕</button><div class="fc-title"><strong>${title}</strong><span>${sub}</span></div></div>${pct != null ? `<div class="fc-progressbar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>` : ''}`; }
 
-            function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
-                return `<div class="fc-scene ${dir ? 'fc-enter-' + dir : ''}"><div class="fc-card ${flipped ? 'flipped' : ''}" id="fc-card" data-action="flashcard-flip" role="button" tabindex="0" aria-label="Flip card"><div class="fc-face front"><span class="fc-label">Term</span>${escape(card.front)}<span class="fc-hint">Click or press space to flip</span></div><div class="fc-face back"><span class="fc-label">Definition</span>${escape(card.back)}</div></div></div>`; }
+function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null; const t = FC_LABELS[card.type] ? card.type : 'term', lab = FC_LABELS[t];
+                return `<div class="fc-scene ${dir ? 'fc-enter-' + dir : ''}"><div class="fc-card ${flipped ? 'flipped' : ''}" id="fc-card" data-action="flashcard-flip" role="button" tabindex="0" aria-label="Flip card"><div class="fc-face front"><span class="fc-label">${lab[0]}</span>${escape(card.front)}<span class="fc-hint">Click or press space to flip</span></div><div class="fc-face back ${t !== 'term' ? 'rich' : ''}"><span class="fc-label">${lab[1]}</span>${fcBackHtml(card)}</div></div></div>`; }
 
-            // Moves one card forward/back with a quick slide-out, then a fresh render that slides the next card in.
+                        // Moves one card forward/back with a quick slide-out, then a fresh render that slides the next card in.
             // (The flip itself never re-renders -- it just toggles a class -- so the 3D turn can animate.)
             function fcStep(delta) { const s = flashcardStudySession; if (!s || !s.cards || s.busy) return;
                 const n = s.index + delta; if (n < 0) return;
@@ -15509,10 +15657,13 @@ function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type
 
             function flashcardTestChoiceModal(deckId) { const deck = flashcardDeck(deckId);
                 if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
+                const hasStruct = fcStructCards(deck).length > 0, termOnlyCount = fcTermCards(deck).length;
+                const structOpt = hasStruct ? `<button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-struct-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧱 Card-type test${termOnlyCount ? '' : ' (recommended)'}</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Each list, timeline and info card is tested the way it's built: fill in the boxes, put events in order, or recall the headings.</div></div></button>` : '';
+                if (hasStruct && !termOnlyCount) return modalShell(`Test: ${escape(deck.topic)}`, `<div class="list">${structOpt}</div>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true);
                 const opt = (action, emoji, title, desc) => `<button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="${action}" data-deck="${deck.id}"><div style="text-align:left"><strong>${emoji} ${title}</strong><div class="small" style="margin-top:2px;font-weight:400">${desc}</div></div></button>`;
                 return modalShell(`Test: ${escape(deck.topic)}`,
                     `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test is significantly more effective.</strong> Typing out the answer forces real recall, and it's graded against exam marking-scheme standards — that's what actually commits things to long-term memory. Multiple choice can feel good because recognising an answer is easy, but recognising isn't the same as knowing — it doesn't build the same memory.</div>
-          <div class="list">
+          <div class="list">${structOpt}
             <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧠 Smart Test (recommended)</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Type the definition for each card. Graded green/yellow/red by AI against a marking scheme — repeat the yellow/red ones until you've got them all.</div></div></button>
             <button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-mcq-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🔤 Multiple Choice</strong><div class="small" style="margin-top:2px;font-weight:400">Pick the right definition from 4 close, tricky options. Quicker, but less effective for memory.</div></div></button>
             ${opt('flashcard-start-tf', '✅', 'True / False', 'Quick-fire — is the definition shown actually correct for this term?')}
@@ -15587,10 +15738,10 @@ function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type
                 return { blanked, answer: pick.word }; }
 
             // ---- Flashcards: True/False mode --------------------------------------------------------
-            function startFlashcardTf(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 2) { toast('Add at least 2 cards first.'); return; }
+            function startFlashcardTf(deckId) { const deck = flashcardDeck(deckId); if (!deck || fcTermCards(deck).length < 2) { toast('Add at least 2 cards first.'); return; }
                 closeModal();
-                const questions = shuffle(deck.cards).map(c => { let shownBack = c.back;
-                    if (Math.random() < 0.5) { const alt = shuffle(deck.cards.filter(o => o.id !== c.id))[0]; if (alt) shownBack = alt.back; }
+                const questions = shuffle(fcTermCards(deck)).map(c => { let shownBack = c.back;
+                    if (Math.random() < 0.5) { const alt = shuffle(fcTermCards(deck).filter(o => o.id !== c.id))[0]; if (alt) shownBack = alt.back; }
                     return { id: c.id, front: c.front, shownBack, isTrue: shownBack === c.back, answered: null }; });
                 flashcardStudySession = { mode: 'tf', deckId, questions, index: 0, score: 0 };
                 render(); }
@@ -15610,9 +15761,9 @@ function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type
         </div>`; }
 
             // ---- Flashcards: Fill in the Blank (cloze) mode -----------------------------------------
-            function startFlashcardCloze(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+            function startFlashcardCloze(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
                 closeModal();
-                const queue = shuffle(deck.cards).map(c => { const cz = clozeForCard(c);
+                const queue = shuffle(fcTermCards(deck)).map(c => { const cz = clozeForCard(c);
                     return cz ? { id: c.id, front: c.front, blanked: cz.blanked, answer: cz.answer } : null; }).filter(Boolean);
                 if (!queue.length) { toast('Definitions are too short to blank a word out of — try Smart Test instead.'); return; }
                 flashcardStudySession = { mode: 'cloze', deckId, queue, index: 0, score: 0, revealed: false, lastCorrect: null };
@@ -15633,9 +15784,9 @@ function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type
         </div>`; }
 
             // ---- Flashcards: Match game --------------------------------------------------------------
-            function startFlashcardMatch(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 4) { toast('Add at least 4 cards first.'); return; }
+            function startFlashcardMatch(deckId) { const deck = flashcardDeck(deckId); if (!deck || fcTermCards(deck).length < 4) { toast('Add at least 4 cards first.'); return; }
                 closeModal();
-                const pool = shuffle(deck.cards).slice(0, Math.min(8, deck.cards.length));
+                const pool = shuffle(fcTermCards(deck)).slice(0, Math.min(8, fcTermCards(deck).length));
                 flashcardStudySession = { mode: 'match', deckId,
                     fronts: shuffle(pool.map(c => ({ id: c.id, text: c.front }))),
                     backs: shuffle(pool.map(c => ({ id: c.id, text: c.back }))),
@@ -15679,9 +15830,9 @@ function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type
                 const q = s.queue[s.index], correct = !!val && val === q.front.trim().toLowerCase();
                 if (!correct) toast(`It was "${q.front}"`);
                 endGravityWord(correct); }
-            function startFlashcardGravity(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 4) { toast('Add at least 4 cards first.'); return; }
+            function startFlashcardGravity(deckId) { const deck = flashcardDeck(deckId); if (!deck || fcTermCards(deck).length < 4) { toast('Add at least 4 cards first.'); return; }
                 closeModal();
-                flashcardStudySession = { mode: 'gravity', deckId, queue: shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back }))),
+                flashcardStudySession = { mode: 'gravity', deckId, queue: shuffle(fcTermCards(deck).map(c => ({ id: c.id, front: c.front, back: c.back }))),
                     index: 0, score: 0, lives: 3, timePerWordMs: 12000, phase: 'active' };
                 render(); armGravityTimer(); }
             function renderGravitySession(sess) { const deck = flashcardDeck(sess.deckId);
@@ -15700,9 +15851,9 @@ function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type
         </div>`; }
 
             // ---- Flashcards: Listening mode (TTS speaks the term, self-graded — no AI call) ---------
-            function startFlashcardListening(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
+            function startFlashcardListening(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
                 closeModal();
-                flashcardStudySession = { mode: 'listening', deckId, queue: shuffle(deck.cards.map(c => ({ id: c.id, front: c.front, back: c.back }))), index: 0, revealed: false };
+                flashcardStudySession = { mode: 'listening', deckId, queue: shuffle(fcTermCards(deck).map(c => ({ id: c.id, front: c.front, back: c.back }))), index: 0, revealed: false };
                 render(); setTimeout(() => { const s = flashcardStudySession; if (s?.mode === 'listening') speakText(s.queue[0].front); }, 200); }
             function renderListeningSession(sess) { const deck = flashcardDeck(sess.deckId);
                 if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header('Listening — Done', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<div class="alert success">Session complete.</div><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
@@ -15807,7 +15958,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 try { const code = generateShareCode(), s = subject(deck.subjectId);
                     const { error } = await supabaseClient.from('shared_flashcard_sets').insert({
                         share_code: code, topic: deck.topic, subject_name: s ? s.name : null,
-                        deck_snapshot: { cards: deck.cards.map(c => ({ front: c.front, back: c.back })) } });
+                        deck_snapshot: { cards: deck.cards.map(c => ({ front: c.front, back: c.back, ...(c.type && c.type !== 'term' && c.data ? { type: c.type, data: c.data } : {}) })) } });
                     if (error) throw error;
                     prompt('Share this code with a classmate — they can import it from any subject\'s Flashcards page:', code);
                 } catch (err) { toast(err.message || 'Could not create a share code.'); } }
@@ -15877,14 +16028,14 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
             function finishExamSim() { const s = flashcardStudySession; if (!s || s.mode !== 'exam-sim') return;
                 if (examSimTimeoutId) { clearTimeout(examSimTimeoutId); examSimTimeoutId = null; }
                 s.finished = true; render(); }
-            function startFlashcardExamSim(deckId) { const deck = flashcardDeck(deckId); if (!deck || deck.cards.length < 3) { toast('Add at least 3 cards first.'); return; }
+            function startFlashcardExamSim(deckId) { const deck = flashcardDeck(deckId); if (!deck || fcTermCards(deck).length < 3) { toast('Add at least 3 cards first.'); return; }
                 closeModal();
-                const durationMs = Math.max(120, deck.cards.length * 25) * 1000;
-                const items = shuffle(deck.cards).map(c => { const roll = Math.random();
+                const durationMs = Math.max(120, fcTermCards(deck).length * 25) * 1000;
+                const items = shuffle(fcTermCards(deck)).map(c => { const roll = Math.random();
                     if (roll < 0.34) { const cz = clozeForCard(c); if (cz) return { type: 'cloze', id: c.id, blanked: cz.blanked, answer: cz.answer }; }
                     if (roll < 0.67) return { type: 'recall', id: c.id, back: c.back, answer: c.front };
                     let shownBack = c.back, isTrue = true;
-                    if (Math.random() < 0.5) { const alt = shuffle(deck.cards.filter(o => o.id !== c.id))[0]; if (alt) { shownBack = alt.back; isTrue = false; } }
+                    if (Math.random() < 0.5) { const alt = shuffle(fcTermCards(deck).filter(o => o.id !== c.id))[0]; if (alt) { shownBack = alt.back; isTrue = false; } }
                     return { type: 'tf', id: c.id, front: c.front, shownBack, isTrue }; });
                 flashcardStudySession = { mode: 'exam-sim', deckId, items, index: 0, score: 0, answered: null, revealed: false, lastCorrect: null, finished: false, endAt: Date.now() + durationMs, durationMs };
                 render(); armExamSimTimer(); }
@@ -21451,6 +21602,17 @@ If the user asks about how to study or study methods generally, answer from your
                 const a = b.dataset.action;
                 if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
                 else if (a === 'open-flashcards-for-subject') flashcardsOpenForSubject(b.dataset.subject);
+                else if (a === 'flashcard-start-struct-test') startFlashcardStructTest(b.dataset.deck);
+                else if (a === 'flashcard-struct-restart') { const s0 = flashcardStudySession; if (s0) startFlashcardStructTest(s0.deckId); }
+                else if (a === 'fc-struct-check') fcStructCheck();
+                else if (a === 'fc-struct-next') fcStructNext();
+                else if (a === 'fc-tl-move') { const s0 = flashcardStudySession; if (s0 && s0.order && !s0.checked) { const p = Number(b.dataset.pos), q = p + Number(b.dataset.dir);
+                    if (q >= 0 && q < s0.order.length) { [s0.order[p], s0.order[q]] = [s0.order[q], s0.order[p]]; render(); } } }
+                else if (a === 'fc-info-reveal') { const s0 = flashcardStudySession; if (s0) { s0.revealed = true; render(); } }
+                else if (a === 'fc-info-grade') { const s0 = flashcardStudySession, card = fcStructCard(); if (s0 && card && s0.revealed && !s0.checked) { s0.checked = true; fcStructRecord(card, Number(b.dataset.frac)); fcStructNext(); } }
+                else if (a === 'flashcard-info-extract') runInfoCardExtract();
+                else if (a === 'info-review-confirm') confirmInfoReview();
+                else if (a === 'info-review-cancel') { if (flashcardCreateDraft) { flashcardCreateDraft.infoReview = null; renderModal(); } }
                 else if (a === 'fc-filter-subject') { flashcardsFilterSubject = b.dataset.subject || 'all'; render(); }
                 else if (a === 'flashcard-restart-clickthrough') { const s0 = flashcardStudySession; if (s0) startFlashcardClickThrough(s0.deckId); }
                 else if (a === 'flashcard-reshuffle') { const s0 = flashcardStudySession; if (s0 && s0.cards) { s0.cards = shuffle(s0.cards); s0.index = 0; s0.flipped = false; s0.done = false; fcSlideDir = 'next'; render(); } }
@@ -21595,15 +21757,18 @@ If the user asks about how to study or study methods generally, answer from your
                         deck.diagram.imageDataUrl = dataUrl; save(); renderModal(); }).catch(err => toast(err.message || "Couldn't read that image.")); }
                 else if (t.dataset && t.dataset.action === 'flashcard-assign-folder') assignDeckToFolder(t.dataset.deck, t.value || null);
                 else if (t.id === 'flashcard-create-subject') { if (flashcardCreateDraft) { flashcardCreateDraft.subjectId = t.value; renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'flashcard-manual-type') { if (flashcardCreateDraft) { const row = flashcardCreateDraft.cards[Number(t.dataset.index)]; row.type = t.value; renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'flashcard-manual-ordered') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].ordered = t.checked; }
+                else if (t.dataset && t.dataset.action === 'info-review-toggle') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].include = t.checked; }
                 else if (t.id === 'translate-source-lang') { translateSourceLang = t.value; if (translateInputText.trim()) runTranslate(); }
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
 
             // ---- Flashcards: keyboard + swipe for the study view, and a quicker keyboard flow in the create modal ----
-            function fcManualAddRow() { if (!flashcardCreateDraft) return; flashcardCreateDraft.cards.push({ front: '', back: '' }); renderModal();
+            function fcManualAddRow() { if (!flashcardCreateDraft) return; const rows = flashcardCreateDraft.cards, lastType = rows.length ? (rows[rows.length - 1].type || 'term') : 'term'; rows.push({ type: lastType, front: '', back: '', text: '' }); renderModal();
                 const idx = flashcardCreateDraft.cards.length - 1; setTimeout(() => document.querySelector(`[data-action="flashcard-manual-front"][data-index="${idx}"]`)?.focus(), 0); }
             document.addEventListener('keydown', e => {
-                if (e.metaKey || e.ctrlKey || e.altKey) { if (e.key === 'Enter' && e.target.dataset && /^flashcard-manual-(front|back)$/.test(e.target.dataset.action || '')) { e.preventDefault(); fcManualAddRow(); } return; }
-                if (modal && modal.kind === 'flashcard-create' && e.key === 'Tab' && !e.shiftKey && e.target.dataset && e.target.dataset.action === 'flashcard-manual-back' &&
+                if (e.metaKey || e.ctrlKey || e.altKey) { if (e.key === 'Enter' && e.target.dataset && /^flashcard-manual-(front|back|text)$/.test(e.target.dataset.action || '')) { e.preventDefault(); fcManualAddRow(); } return; }
+                if (modal && modal.kind === 'flashcard-create' && e.key === 'Tab' && !e.shiftKey && e.target.dataset && (e.target.dataset.action === 'flashcard-manual-back' || e.target.dataset.action === 'flashcard-manual-text') &&
                     flashcardCreateDraft && Number(e.target.dataset.index) === flashcardCreateDraft.cards.length - 1) { e.preventDefault(); fcManualAddRow(); return; }
                 const s = flashcardStudySession; if (!s || view !== 'flashcards' || modal) return;
                 const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
@@ -21617,6 +21782,8 @@ If the user asks about how to study or study methods generally, answer from your
                     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
                     else if (s.flipped && /^[1-4]$/.test(e.key)) document.querySelector(`[data-action="flashcard-srs-grade"][data-grade="${['again', 'hard', 'good', 'easy'][Number(e.key) - 1]}"]`)?.click();
                 } });
+            document.addEventListener('keydown', e => { if (e.key !== 'Enter' || !e.target.dataset || e.target.dataset.fcBox === undefined) return; e.preventDefault();
+                const next = document.querySelector(`[data-fc-box="${Number(e.target.dataset.fcBox) + 1}"]`); if (next) next.focus(); else document.querySelector('[data-action="fc-struct-check"]')?.click(); });
             let fcTouchX = null;
             document.addEventListener('touchstart', e => { fcTouchX = e.target.closest && e.target.closest('.fc-scene') ? e.touches[0].clientX : null; }, { passive: true });
             document.addEventListener('touchend', e => { if (fcTouchX == null) return; const dx = e.changedTouches[0].clientX - fcTouchX; fcTouchX = null;
@@ -21634,6 +21801,11 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.id === 'flashcard-create-topic') { if (flashcardCreateDraft) flashcardCreateDraft.topic = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-front') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].front = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-back') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].back = t.value; }
+                else if (t.dataset && t.dataset.action === 'flashcard-manual-text') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].text = t.value; }
+                else if (t.dataset && t.dataset.action === 'info-review-title') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].title = t.value; }
+                else if (t.dataset && t.dataset.action === 'info-review-text') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].text = t.value; }
+                else if (t.dataset && t.dataset.fcBox !== undefined) { if (flashcardStudySession?.mode === 'struct-test') flashcardStudySession.answers['b' + t.dataset.fcBox] = t.value; }
+                else if (t.dataset && t.dataset.fcInfo !== undefined) { if (flashcardStudySession?.mode === 'struct-test') flashcardStudySession.answers['s' + t.dataset.fcInfo] = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-edit-front') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].front = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-review-edit-back') { if (flashcardCreateDraft?.reviewCards) flashcardCreateDraft.reviewCards[Number(t.dataset.index)].back = t.value; }
                 else if (t.dataset && t.dataset.action === 'magic-review-edit-front') { if (flashcardCreateDraft?.magicResult) flashcardCreateDraft.magicResult.cards[Number(t.dataset.index)].front = t.value; }
