@@ -2760,6 +2760,30 @@
         .fc-tl-label { flex: 1; }
         .fc-answerkey { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); font-size: 14px; }
         .fc-answerkey ul, .fc-answerkey ol { margin: 4px 0 6px; padding-left: 22px; }
+        /* ---- Whiteboard (graph cards) ---- */
+        .fc-wb svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+        .fc-face.back.rich .fc-wb { width: 100%; }
+        .wb-overlay { position: fixed; inset: 0; z-index: 5000; background: var(--bg, #f6f7fb); display: flex; flex-direction: column; color: var(--text); }
+        .wb-top { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+        .wb-top strong { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .wb-hint { color: var(--muted); font-size: 12px; }
+        .wb-spacer { flex: 1; }
+        .wb-main { flex: 1; display: flex; min-height: 0; }
+        .wb-tools { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; border-right: 1px solid var(--line); background: var(--surface); overflow-y: auto; }
+        .wb-tool { width: 40px; height: 40px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: var(--text); font-size: 18px; cursor: pointer; }
+        .wb-tool:hover { background: var(--surface-2); }
+        .wb-tool.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+        .wb-stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; padding: 12px; min-width: 0; overflow: hidden; }
+        .wb-svg { aspect-ratio: 1000 / 640; width: min(100%, calc((100vh - 230px) * 1.5625)); max-height: 100%; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); touch-action: none; user-select: none; display: block; }
+        .wb-text { position: absolute; display: none; z-index: 2; border: 2px solid var(--primary); border-radius: 6px; padding: 2px 6px; background: #fff; color: #111; resize: none; font-family: system-ui, sans-serif; line-height: 1.3; outline: none; }
+        .wb-style { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+        .wb-style .group { display: flex; align-items: center; gap: 4px; padding-right: 10px; border-right: 1px solid var(--line); }
+        .wb-style .group:last-child { border-right: 0; }
+        .wb-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
+        .wb-swatch.active { box-shadow: 0 0 0 2px var(--primary); }
+        .wb-mini { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .wb-mini.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+        @media (max-width: 700px) { .wb-hint { display: none; } .wb-tools { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; } .wb-main { flex-direction: column; } .wb-svg { width: 100%; } }
         @media (prefers-reduced-motion: reduce) {
             .fc-card { transition: none; }
             .fc-enter-next, .fc-enter-prev, .fc-exit-next, .fc-exit-prev { animation: none; }
@@ -15099,7 +15123,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const s = subject(deck.subjectId), n = deck.cards.length;
                 const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck), weakCount = weakCardsForDeck(deck).length, knownCount = deck.cards.filter(c => c.known).length;
                 const stat = (label, value) => `<div class="card stat"><span class="label">${label}</span><span class="value">${value}</span></div>`;
-                const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext">${c.type && FC_TYPES[c.type] && c.type !== 'term' ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : ''}<strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${c.id}" aria-label="Toggle known" title="Mark known">${c.known ? '⭐' : '☆'}</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
+                const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext">${c.type && FC_TYPES[c.type] && c.type !== 'term' ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : ''}<strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${c.id}" aria-label="Toggle known" title="Mark known">${c.known ? '⭐' : '☆'}</button><button type="button" class="button ghost icon" data-action="flashcard-edit-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Edit card" title="Edit">✏️</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
                 const folders = foldersFor(deck.subjectId), current = folders.find(f => f.deckIds.includes(deck.id));
                 return `<div class="fc-wrap">
           <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
@@ -15127,6 +15151,213 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           <div class="fc-listgrid">${n ? deck.cards.map(cardRow).join('') : '<p class="empty">No cards yet — add some above.</p>'}</div>
         </div>`; }
 
+            // ---- Whiteboard: a small Miro-style drawing board used by Graph cards ----------------------------------
+            // A board is { shapes: [...] } on a fixed 1000 x 640 canvas. wbBoardSvg() is the single renderer: it draws the
+            // editor, the read-only card faces, and the PNG that is sent to the AI for marking.
+            const WB_W = 1000, WB_H = 640;
+            const WB_COLORS = ['#1f2937', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#6b7280'];
+            const WB_BOX = ['rect', 'oval', 'rhombus', 'triangle', 'blockarrow'], WB_LINE = ['line', 'elbow', 'curve'];
+            const WB_FONT = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+            let wbActive = null;
+            function wbClone(o) { return JSON.parse(JSON.stringify(o)); }
+            function wbId() { return 'w' + Math.random().toString(36).slice(2, 9); }
+            function wbLabels(board) { return ((board && board.shapes) || []).filter(s => s.text && String(s.text).trim()).map(s => String(s.text).replace(/\n/g, ' ')); }
+            function wbTextSize(s) { const fs = s.fs || 20, ls = String(s.text || '').split('\n'); return { w: Math.max(30, Math.max(...ls.map(l => l.length)) * fs * 0.58 + 14), h: ls.length * fs * 1.3 + 8 }; }
+            function wbCurveCtl(s) { return { x: s.cx != null ? s.cx : (s.x1 + s.x2) / 2 - (s.y2 - s.y1) * 0.25, y: s.cy != null ? s.cy : (s.y1 + s.y2) / 2 + (s.x2 - s.x1) * 0.25 }; }
+            function wbBBox(s) { if (WB_BOX.includes(s.t)) return { x: s.x, y: s.y, w: s.w, h: s.h };
+                if (s.t === 'text') { const z = wbTextSize(s); return { x: s.x, y: s.y, w: z.w, h: z.h }; }
+                const xs = s.t === 'pen' ? s.pts.map(p => p[0]) : [s.x1, s.x2], ys = s.t === 'pen' ? s.pts.map(p => p[1]) : [s.y1, s.y2];
+                const x = Math.min(...xs), y = Math.min(...ys); return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }; }
+            function wbDescribe(board) { return JSON.stringify(((board && board.shapes) || []).map(s => { const o = { type: s.t === 'line' && s.h2 ? 'arrow' : s.t };
+                if (s.text) o.text = String(s.text).replace(/\n/g, ' ');
+                if (WB_BOX.includes(s.t)) Object.assign(o, { x: Math.round(s.x), y: Math.round(s.y), w: Math.round(s.w), h: Math.round(s.h) });
+                else if (s.t === 'text') Object.assign(o, { x: Math.round(s.x), y: Math.round(s.y) });
+                else if (WB_LINE.includes(s.t)) Object.assign(o, { from: [Math.round(s.x1), Math.round(s.y1)], to: [Math.round(s.x2), Math.round(s.y2)], dashed: s.dash && s.dash !== 'solid' ? s.dash : undefined });
+                else if (s.t === 'pen') { const b = wbBBox(s); Object.assign(o, { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h), start: s.pts[0], end: s.pts[s.pts.length - 1] }); }
+                return o; })).slice(0, 6000); }
+            function wbLineGeom(s) { const { x1, y1, x2, y2 } = s; let d, a1, a2;
+                if (s.t === 'elbow') { const m = s.v ? [x1, y2] : [x2, y1]; d = `M${x1} ${y1} L${m[0]} ${m[1]} L${x2} ${y2}`;
+                    a2 = Math.atan2(y2 - m[1], x2 - m[0]); a1 = Math.atan2(y1 - m[1], x1 - m[0]); if (m[0] === x2 && m[1] === y2) { a2 = Math.atan2(y2 - y1, x2 - x1); } if (m[0] === x1 && m[1] === y1) { a1 = Math.atan2(y1 - y2, x1 - x2); } }
+                else if (s.t === 'curve') { const c = wbCurveCtl(s); d = `M${x1} ${y1} Q${c.x} ${c.y} ${x2} ${y2}`; a2 = Math.atan2(y2 - c.y, x2 - c.x); a1 = Math.atan2(y1 - c.y, x1 - c.x); }
+                else { d = `M${x1} ${y1} L${x2} ${y2}`; a2 = Math.atan2(y2 - y1, x2 - x1); a1 = Math.atan2(y1 - y2, x1 - x2); }
+                return { d, a1, a2 }; }
+            function wbHead(x, y, ang, sw, col) { const L = 10 + sw * 2.6, p = (da) => `${(x - L * Math.cos(ang + da)).toFixed(1)},${(y - L * Math.sin(ang + da)).toFixed(1)}`;
+                return `<polygon points="${x},${y} ${p(0.42)} ${p(-0.42)}" fill="${col}"/>`; }
+            function wbTextSvg(s, x, y, anchor) { const fs = s.fs || 20, ls = String(s.text || '').split('\n'), y0 = y - (ls.length - 1) * fs * 0.65;
+                return `<text x="${x}" y="${y0}" font-size="${fs}" text-anchor="${anchor}" dominant-baseline="central" font-family="${WB_FONT}" fill="${s.color || '#1f2937'}" pointer-events="none">${ls.map((l, i) => `<tspan x="${x}" dy="${i ? fs * 1.3 : 0}">${escape(l)}</tspan>`).join('')}</text>`; }
+            function wbShapeSvg(s) { const col = s.color || '#1f2937', sw = s.sw || 3, id = `data-wb-id="${s.id}" pointer-events="all"`;
+                const dash = s.dash === 'dashed' ? `stroke-dasharray="${sw * 3.5} ${sw * 2.5}"` : s.dash === 'dotted' ? `stroke-dasharray="0.1 ${sw * 2.4}" stroke-linecap="round"` : '';
+                const stroke = `stroke="${col}" stroke-width="${sw}" stroke-linejoin="round" ${dash}`;
+                if (WB_BOX.includes(s.t)) { const { x, y, w, h } = s, fill = s.fill === 2 ? `fill="${col}"` : s.fill === 1 ? `fill="${col}" fill-opacity="0.2"` : 'fill="#ffffff" fill-opacity="0.01"';
+                    const shape = s.t === 'rect' ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" ${fill} ${stroke}/>`
+                        : s.t === 'oval' ? `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" ${fill} ${stroke}/>`
+                        : s.t === 'rhombus' ? `<polygon points="${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}" ${fill} ${stroke}/>`
+                        : s.t === 'triangle' ? `<polygon points="${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}" ${fill} ${stroke}/>`
+                        : `<polygon points="${x},${y + h * .25} ${x + w * .6},${y + h * .25} ${x + w * .6},${y} ${x + w},${y + h / 2} ${x + w * .6},${y + h} ${x + w * .6},${y + h * .75} ${x},${y + h * .75}" ${fill} ${stroke}/>`;
+                    return `<g ${id}>${shape}${s.text ? wbTextSvg(Object.assign({}, s, { color: s.fill === 2 ? '#ffffff' : col }), x + w / 2, y + h / 2, 'middle') : ''}</g>`; }
+                if (s.t === 'text') { const z = wbTextSize(s); return `<g ${id}><rect x="${s.x}" y="${s.y}" width="${z.w}" height="${z.h}" fill="#ffffff" fill-opacity="0.01"/>${wbTextSvg(s, s.x + 7, s.y + z.h / 2, 'start')}</g>`; }
+                if (s.t === 'pen') { const d = 'M' + s.pts.map(p => p.join(' ')).join(' L'); return `<g ${id}><path d="${d}" fill="none" stroke="transparent" stroke-width="16"/><path d="${d}" fill="none" ${stroke} stroke-linecap="round"/></g>`; }
+                const g = wbLineGeom(s);
+                return `<g ${id}><path d="${g.d}" fill="none" stroke="transparent" stroke-width="18"/><path d="${g.d}" fill="none" ${stroke} ${dash ? '' : 'stroke-linecap="round"'}/>${s.h2 ? wbHead(s.x2, s.y2, g.a2, sw, col) : ''}${s.h1 ? wbHead(s.x1, s.y1, g.a1, sw, col) : ''}</g>`; }
+            function wbBoardSvg(board, o) { o = o || {}; const shapes = (board && board.shapes) || [];
+                return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WB_W} ${WB_H}" ${o.attrs || ''}><rect width="${WB_W}" height="${WB_H}" fill="#ffffff"/>${shapes.map(wbShapeSvg).join('')}</svg>`; }
+            function wbToPng(board) { return new Promise((resolve, reject) => {
+                const svg = wbBoardSvg(board, { attrs: `width="${WB_W}" height="${WB_H}"` }), url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })), img = new Image();
+                img.onload = () => { try { const c = document.createElement('canvas'); c.width = WB_W; c.height = WB_H; c.getContext('2d').drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(c.toDataURL('image/png').split(',')[1]); } catch (e) { reject(e); } };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not render the drawing.')); }; img.src = url; }); }
+            function closeWhiteboard() { if (!wbActive) return; document.removeEventListener('keydown', wbActive.onKey); wbActive.root.remove(); wbActive = null; }
+
+            // opts: { title, hint, board, onDone(board) }
+            function openWhiteboard(opts) { closeWhiteboard();
+                const st = { board: wbClone(opts.board && Array.isArray(opts.board.shapes) ? opts.board : { shapes: [] }), tool: 'select', sel: null, undo: [], redo: [], drag: null, editing: null, snap: true, lastClick: null, swPending: false,
+                    style: { color: WB_COLORS[0], fill: 0, sw: 3, dash: 'solid', fs: 20 } };
+                const root = document.createElement('div'); root.className = 'wb-overlay'; root.id = 'wb-overlay';
+                const tools = [['select', '↖', 'Select / move (V)'], ['rect', '▭', 'Rectangle (R)'], ['oval', '◯', 'Oval (O)'], ['rhombus', '◇', 'Rhombus (D)'], ['triangle', '△', 'Triangle (G)'], ['blockarrow', '⇨', 'Block arrow (B)'],
+                    ['line', '╱', 'Line (L)'], ['arrow', '↗', 'Arrow (A)'], ['elbow', '↱', 'Elbow arrow (E)'], ['curve', '⌒', 'Curved line (C)'], ['pen', '✎', 'Freehand (P)'], ['text', 'T', 'Text box (T)']];
+                root.innerHTML = `<div class="wb-top"><strong>${escape(opts.title || 'Whiteboard')}</strong><span class="wb-hint">${escape(opts.hint || 'Double-click a shape to type in it · Delete removes · Ctrl+Z undoes')}</span><span class="wb-spacer"></span>
+                    <button type="button" class="wb-mini" data-wb="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button type="button" class="wb-mini" data-wb="redo" title="Redo">↷ Redo</button><button type="button" class="wb-mini" data-wb="clear">Clear</button>
+                    <button type="button" class="button ghost" data-wb="cancel">Cancel</button><button type="button" class="button primary" data-wb="done">Done</button></div>
+                  <div class="wb-main"><div class="wb-tools">${tools.map(t => `<button type="button" class="wb-tool" data-wb-tool="${t[0]}" title="${t[2]}" aria-label="${t[2]}">${t[1]}</button>`).join('')}</div>
+                    <div class="wb-stage"><svg class="wb-svg" viewBox="0 0 ${WB_W} ${WB_H}" xmlns="http://www.w3.org/2000/svg"></svg><textarea class="wb-text" rows="1"></textarea></div></div>
+                  <div class="wb-style">
+                    <div class="group" title="Colour">${WB_COLORS.map(c => `<button type="button" class="wb-swatch" data-wb-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
+                    <div class="group"><button type="button" class="wb-mini" data-wb="fill" title="Cycle outline / tint / solid">Fill: none</button></div>
+                    <div class="group"><span class="small">Width</span><input type="range" min="1" max="10" value="3" data-wb-sw style="width:80px"></div>
+                    <div class="group"><button type="button" class="wb-mini" data-wb-dash="solid">Solid</button><button type="button" class="wb-mini" data-wb-dash="dashed">Dashed</button><button type="button" class="wb-mini" data-wb-dash="dotted">Dotted</button></div>
+                    <div class="group"><button type="button" class="wb-mini" data-wb="h1" title="Arrowhead at the start">◀ start</button><button type="button" class="wb-mini" data-wb="h2" title="Arrowhead at the end">end ▶</button><button type="button" class="wb-mini" data-wb="bend" title="Flip which way the elbow bends">⤾ bend</button></div>
+                    <div class="group"><span class="small">Text</span>${[['S', 14], ['M', 20], ['L', 30], ['XL', 44]].map(f => `<button type="button" class="wb-mini" data-wb-fs="${f[1]}">${f[0]}</button>`).join('')}</div>
+                    <div class="group"><button type="button" class="wb-mini" data-wb="axes" title="Add x and y axes">＋ Axes</button><button type="button" class="wb-mini" data-wb="snap" title="Snap to grid">Snap: on</button></div>
+                    <div class="group"><button type="button" class="wb-mini" data-wb="dup">Duplicate</button><button type="button" class="wb-mini" data-wb="front">To front</button><button type="button" class="wb-mini" data-wb="back">To back</button><button type="button" class="wb-mini" data-wb="del">🗑 Delete</button></div>
+                  </div>`;
+                document.body.appendChild(root);
+                const svg = root.querySelector('.wb-svg'), ta = root.querySelector('.wb-text');
+                const cur = () => st.board.shapes.find(s => s.id === st.sel) || null;
+                const snapV = (v) => st.snap ? Math.round(v / 10) * 10 : v, snapP = (p) => ({ x: snapV(p.x), y: snapV(p.y) });
+                const pt = (e) => { const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) / (r.width || WB_W) * WB_W, y: (e.clientY - r.top) / (r.height || WB_H) * WB_H }; };
+                const pushUndo = () => { st.undo.push(JSON.stringify(st.board.shapes)); if (st.undo.length > 60) st.undo.shift(); st.redo = []; };
+                const selUi = () => { const s = cur(); if (!s) return '';
+                    const hdl = (k, x, y) => `<circle data-wb-h="${k}" cx="${x}" cy="${y}" r="8" fill="#fff" stroke="#2563eb" stroke-width="2.5" style="cursor:pointer"/>`;
+                    if (WB_BOX.includes(s.t)) return `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="none" stroke="#2563eb" stroke-dasharray="6 4" pointer-events="none"/>${hdl('nw', s.x, s.y)}${hdl('ne', s.x + s.w, s.y)}${hdl('sw', s.x, s.y + s.h)}${hdl('se', s.x + s.w, s.y + s.h)}`;
+                    if (WB_LINE.includes(s.t)) { let h = hdl('p1', s.x1, s.y1) + hdl('p2', s.x2, s.y2); if (s.t === 'curve') { const c = wbCurveCtl(s); h += hdl('c', c.x, c.y); } return h; }
+                    const b = wbBBox(s); return `<rect x="${b.x - 4}" y="${b.y - 4}" width="${b.w + 8}" height="${b.h + 8}" fill="none" stroke="#2563eb" stroke-dasharray="6 4" pointer-events="none"/>`; };
+                const sync = () => { const s = cur(), st0 = st.style;
+                    root.querySelectorAll('[data-wb-tool]').forEach(b => b.classList.toggle('active', b.dataset.wbTool === st.tool));
+                    root.querySelectorAll('[data-wb-color]').forEach(b => b.classList.toggle('active', b.dataset.wbColor === (s ? s.color : st0.color)));
+                    root.querySelectorAll('[data-wb-dash]').forEach(b => b.classList.toggle('active', b.dataset.wbDash === ((s && s.dash) || st0.dash)));
+                    root.querySelectorAll('[data-wb-fs]').forEach(b => b.classList.toggle('active', Number(b.dataset.wbFs) === ((s && s.fs) || st0.fs)));
+                    const fillV = s && WB_BOX.includes(s.t) ? s.fill : st0.fill; root.querySelector('[data-wb="fill"]').textContent = 'Fill: ' + ['none', 'tint', 'solid'][fillV || 0];
+                    root.querySelector('[data-wb="snap"]').textContent = 'Snap: ' + (st.snap ? 'on' : 'off');
+                    const sw = root.querySelector('[data-wb-sw]'); sw.value = (s && s.sw) || st0.sw;
+                    root.querySelector('[data-wb="h1"]').classList.toggle('active', !!(s && s.h1)); root.querySelector('[data-wb="h2"]').classList.toggle('active', !!(s && s.h2)); };
+                const draw = () => { const grid = st.snap ? `<defs><pattern id="wbg" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#d1d5db"/></pattern></defs><rect width="${WB_W}" height="${WB_H}" fill="url(#wbg)" pointer-events="none"/>` : '';
+                    svg.innerHTML = `<rect width="${WB_W}" height="${WB_H}" fill="#ffffff"/>${grid}${st.board.shapes.map(wbShapeSvg).join('')}${selUi()}`; sync(); };
+                const startTextEdit = (id) => { const s = st.board.shapes.find(x => x.id === id); if (!s || !(WB_BOX.includes(s.t) || s.t === 'text')) return;
+                    st.editing = id; const r = svg.getBoundingClientRect(), k = (r.width || WB_W) / WB_W, stageR = svg.parentElement.getBoundingClientRect(); let x, y, w;
+                    if (s.t === 'text') { const z = wbTextSize(s); x = s.x; y = s.y; w = Math.max(180, z.w); } else { w = Math.max(s.w, 180); x = s.x + s.w / 2 - w / 2; y = s.y + s.h / 2 - 18; }
+                    ta.value = s.text || ''; ta.style.display = 'block'; ta.style.left = (r.left - stageR.left + x * k) + 'px'; ta.style.top = (r.top - stageR.top + y * k) + 'px'; ta.style.width = (w * k) + 'px';
+                    ta.style.fontSize = Math.max(13, (s.fs || 20) * k) + 'px'; ta.rows = Math.max(1, ta.value.split('\n').length); ta.focus(); ta.select(); };
+                const commitText = (cancel) => { if (!st.editing) return; const s = st.board.shapes.find(x => x.id === st.editing); st.editing = null; const v = cancel ? (s ? s.text || '' : '') : ta.value; ta.style.display = 'none';
+                    if (s) { if (s.t === 'text' && !v.trim()) { st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); if (st.sel === s.id) st.sel = null; }
+                        else if ((s.text || '') !== v) { pushUndo(); s.text = v; } }
+                    draw(); };
+                ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); } else if (e.key === 'Escape') { e.preventDefault(); commitText(true); } e.stopPropagation(); });
+                ta.addEventListener('input', () => { ta.rows = Math.max(1, ta.value.split('\n').length); });
+                ta.addEventListener('blur', () => commitText());
+                const applyMove = (s, o, dx, dy) => { if (WB_BOX.includes(s.t) || s.t === 'text') { s.x = o.x + dx; s.y = o.y + dy; }
+                    else if (WB_LINE.includes(s.t)) { s.x1 = o.x1 + dx; s.y1 = o.y1 + dy; s.x2 = o.x2 + dx; s.y2 = o.y2 + dy; if (o.cx != null) { s.cx = o.cx + dx; s.cy = o.cy + dy; } }
+                    else if (s.t === 'pen') s.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]); };
+                svg.addEventListener('pointerdown', e => { if (e.button > 0) return; if (st.editing) commitText();
+                    const p = pt(e), hnd = e.target.closest && e.target.closest('[data-wb-h]'), hit = e.target.closest && e.target.closest('[data-wb-id]');
+                    try { svg.setPointerCapture && svg.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events have no active pointer */ }
+                    if (hnd && cur()) { pushUndo(); st.drag = { kind: 'handle', h: hnd.dataset.wbH, orig: wbClone(cur()), start: p }; return; }
+                    if (st.tool === 'select') {
+                        if (hit) { const id = hit.dataset.wbId, now = Date.now();
+                            if (st.lastClick && st.lastClick.id === id && now - st.lastClick.t < 380) { st.lastClick = null; st.sel = id; draw(); startTextEdit(id); return; }
+                            st.lastClick = { id, t: now }; st.sel = id; st.drag = { kind: 'move', orig: wbClone(cur()), start: p, moved: false }; draw();
+                        } else { st.sel = null; draw(); }
+                        return; }
+                    pushUndo(); const sty = st.style, id = wbId(), sp = snapP(p), base = { id, color: sty.color, sw: sty.sw, dash: sty.dash }; let s;
+                    if (st.tool === 'text') { s = { id, t: 'text', x: sp.x, y: sp.y, text: '', color: sty.color, fs: sty.fs }; st.board.shapes.push(s); st.sel = id; st.tool = 'select'; draw(); startTextEdit(id); return; }
+                    if (WB_BOX.includes(st.tool)) s = Object.assign(base, { t: st.tool, x: sp.x, y: sp.y, w: 0, h: 0, fill: sty.fill, text: '', fs: sty.fs });
+                    else if (st.tool === 'pen') s = Object.assign(base, { t: 'pen', pts: [[Math.round(p.x), Math.round(p.y)]] });
+                    else s = Object.assign(base, { t: st.tool === 'arrow' ? 'line' : st.tool, x1: sp.x, y1: sp.y, x2: sp.x, y2: sp.y, h1: false, h2: st.tool === 'arrow' || st.tool === 'elbow' });
+                    st.board.shapes.push(s); st.sel = id; st.drag = { kind: 'create', id, start: sp }; draw(); });
+                svg.addEventListener('pointermove', e => { const d = st.drag; if (!d) return; const p = pt(e), s = cur(); if (!s) return;
+                    if (d.kind === 'create') { const q = snapP(p);
+                        if (WB_BOX.includes(s.t)) { s.x = Math.min(d.start.x, q.x); s.y = Math.min(d.start.y, q.y); s.w = Math.abs(q.x - d.start.x); s.h = Math.abs(q.y - d.start.y); }
+                        else if (s.t === 'pen') { const l = s.pts[s.pts.length - 1]; if (Math.hypot(p.x - l[0], p.y - l[1]) > 3) s.pts.push([Math.round(p.x), Math.round(p.y)]); }
+                        else { s.x2 = q.x; s.y2 = q.y; } }
+                    else if (d.kind === 'move') { let dx = p.x - d.start.x, dy = p.y - d.start.y; if (!d.moved && Math.hypot(dx, dy) < 3) return; if (!d.moved) { d.moved = true; pushUndo(); }
+                        applyMove(s, d.orig, snapV(dx), snapV(dy)); }
+                    else if (d.kind === 'handle') { const q = snapP(p), o = d.orig;
+                        if (WB_BOX.includes(s.t)) { const fx = d.h.includes('w') ? o.x + o.w : o.x, fy = d.h.includes('n') ? o.y + o.h : o.y; s.x = Math.min(q.x, fx); s.y = Math.min(q.y, fy); s.w = Math.max(8, Math.abs(q.x - fx)); s.h = Math.max(8, Math.abs(q.y - fy)); }
+                        else if (d.h === 'p1') { s.x1 = q.x; s.y1 = q.y; } else if (d.h === 'p2') { s.x2 = q.x; s.y2 = q.y; } else if (d.h === 'c') { s.cx = p.x; s.cy = p.y; } }
+                    draw(); });
+                const endDrag = () => { const d = st.drag; st.drag = null; if (!d) return; const s = cur();
+                    if (d.kind === 'create' && s) {
+                        if (WB_BOX.includes(s.t) && s.w < 6 && s.h < 6) { s.w = 150; s.h = 100; }
+                        else if (WB_LINE.includes(s.t) && Math.hypot(s.x2 - s.x1, s.y2 - s.y1) < 6) { s.x2 = s.x1 + (s.t === 'elbow' ? 140 : 170); s.y2 = s.y1 + (s.t === 'elbow' ? 90 : 0); }
+                        else if (s.t === 'pen' && s.pts.length < 2) { st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); st.sel = null; st.undo.pop(); }
+                        if (st.tool !== 'pen') st.tool = 'select'; }
+                    draw(); };
+                svg.addEventListener('pointerup', endDrag); svg.addEventListener('pointercancel', endDrag);
+                // ---- toolbar actions
+                const style = (patch) => { Object.assign(st.style, patch); const s = cur(); if (s) { pushUndo(); Object.assign(s, patch); } draw(); };
+                const del = () => { const s = cur(); if (!s) return; pushUndo(); st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); st.sel = null; draw(); };
+                const dup = () => { const s = cur(); if (!s) return; pushUndo(); const c = wbClone(s); c.id = wbId(); applyMove(c, s, 20, 20); st.board.shapes.push(c); st.sel = c.id; draw(); };
+                const undo = () => { if (!st.undo.length) return; st.redo.push(JSON.stringify(st.board.shapes)); st.board.shapes = JSON.parse(st.undo.pop()); if (!cur()) st.sel = null; draw(); };
+                const redo = () => { if (!st.redo.length) return; st.undo.push(JSON.stringify(st.board.shapes)); st.board.shapes = JSON.parse(st.redo.pop()); if (!cur()) st.sel = null; draw(); };
+                const finish = (save) => { if (st.editing) commitText(); if (save && opts.onDone) opts.onDone(wbClone(st.board)); closeWhiteboard(); };
+                root.addEventListener('click', e => { const b = e.target.closest('[data-wb],[data-wb-tool],[data-wb-color],[data-wb-dash],[data-wb-fs]'); if (!b) return;
+                    if (b.dataset.wbTool) { st.tool = b.dataset.wbTool; if (st.tool !== 'select') st.sel = null; draw(); return; }
+                    if (b.dataset.wbColor) { style({ color: b.dataset.wbColor }); return; }
+                    if (b.dataset.wbDash) { style({ dash: b.dataset.wbDash }); return; }
+                    if (b.dataset.wbFs) { style({ fs: Number(b.dataset.wbFs) }); return; }
+                    const a = b.dataset.wb, s = cur();
+                    if (a === 'undo') undo(); else if (a === 'redo') redo();
+                    else if (a === 'clear') { if (st.board.shapes.length && (typeof confirm !== 'function' || confirm('Clear the whole board?'))) { pushUndo(); st.board.shapes = []; st.sel = null; draw(); } }
+                    else if (a === 'cancel') { if (st.undo.length && typeof confirm === 'function' && !confirm('Discard your changes to this drawing?')) return; finish(false); }
+                    else if (a === 'done') finish(true);
+                    else if (a === 'fill') { const next = (((s && WB_BOX.includes(s.t)) ? s.fill : st.style.fill) + 1) % 3; st.style.fill = next; if (s && WB_BOX.includes(s.t)) { pushUndo(); s.fill = next; } draw(); }
+                    else if (a === 'h1' || a === 'h2') { if (s && WB_LINE.includes(s.t)) { pushUndo(); s[a] = !s[a]; draw(); } }
+                    else if (a === 'bend') { if (s && s.t === 'elbow') { pushUndo(); s.v = !s.v; draw(); } }
+                    else if (a === 'snap') { st.snap = !st.snap; draw(); }
+                    else if (a === 'dup') dup(); else if (a === 'del') del();
+                    else if (a === 'front' && s) { pushUndo(); st.board.shapes = st.board.shapes.filter(x => x.id !== s.id).concat(s); draw(); }
+                    else if (a === 'back' && s) { pushUndo(); st.board.shapes = [s].concat(st.board.shapes.filter(x => x.id !== s.id)); draw(); }
+                    else if (a === 'axes') { pushUndo(); const base = { color: st.style.color, sw: Math.max(3, st.style.sw), dash: 'solid', h1: false, h2: true };
+                        st.board.shapes.push(Object.assign({ id: wbId(), t: 'line', x1: 140, y1: 540, x2: 140, y2: 70 }, base), Object.assign({ id: wbId(), t: 'line', x1: 140, y1: 540, x2: 900, y2: 540 }, base)); draw(); } });
+                root.addEventListener('input', e => { const r = e.target.closest('[data-wb-sw]'); if (!r) return; const v = Number(r.value); st.style.sw = v; const s = cur();
+                    if (s) { if (!st.swPending) { pushUndo(); st.swPending = true; } s.sw = v; } draw(); });
+                root.addEventListener('change', e => { if (e.target.closest('[data-wb-sw]')) st.swPending = false; });
+                const onKey = (e) => { if (!wbActive || wbActive.root !== root || st.editing) return; const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'textarea' || tag === 'input') return; const k = e.key.toLowerCase();
+                    if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+                    if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
+                    if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault(); dup(); return; }
+                    if (e.ctrlKey || e.metaKey || e.altKey) return;
+                    if (k === 'delete' || k === 'backspace') { e.preventDefault(); del(); return; }
+                    if (k === 'escape') { e.preventDefault(); st.tool = 'select'; st.sel = null; draw(); return; }
+                    if (k.startsWith('arrow') && cur()) { e.preventDefault(); pushUndo(); const n = e.shiftKey ? 10 : 1, s = cur(); applyMove(s, wbClone(s), k === 'arrowleft' ? -n : k === 'arrowright' ? n : 0, k === 'arrowup' ? -n : k === 'arrowdown' ? n : 0); draw(); return; }
+                    const map = { v: 'select', r: 'rect', o: 'oval', d: 'rhombus', g: 'triangle', b: 'blockarrow', l: 'line', a: 'arrow', e: 'elbow', c: 'curve', p: 'pen', t: 'text' };
+                    if (map[k]) { st.tool = map[k]; if (st.tool !== 'select') st.sel = null; draw(); } };
+                document.addEventListener('keydown', onKey);
+                wbActive = { root, st, onKey, api: { draw, finish, startTextEdit, undo, redo, del, dup } };
+                draw(); return wbActive; }
+
+            function openFlashcardEditModal(deckId, cardId) { const deck = flashcardDeck(deckId), card = deck && deck.cards.find(c => c.id === cardId); if (!card) return;
+                const row = { type: card.type && FC_TYPES[card.type] ? card.type : 'term', front: card.front, back: card.back, text: '', ordered: false, board: null }, d = card.data;
+                if (row.type === 'list' && d) { row.text = d.items.join('\n'); row.ordered = !!d.ordered; }
+                else if (row.type === 'timeline' && d) row.text = d.events.map(e => (e.when ? e.when + ' - ' : '') + e.label).join('\n');
+                else if (row.type === 'info' && d) row.text = fcInfoToText(d.sections);
+                else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; }
+                flashcardCreateDraft = { mode: 'edit', editing: { deckId, cardId }, subjectId: deck.subjectId, topic: deck.topic, cards: [row], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                openModal('flashcard-create'); }
+            function saveEditedFlashcard() { const d = flashcardCreateDraft; if (!d || !d.editing) return; const deck = flashcardDeck(d.editing.deckId), card = deck && deck.cards.find(c => c.id === d.editing.cardId); if (!card) { closeModal(); return; }
+                const r = fcBuildCard(d.cards[0]); if (!r) { toast('Fill in the card first.'); return; } if (r.error) { toast(`This card ${r.error}.`); return; }
+                card.front = r.card.front; card.back = r.card.back;
+                if (r.card.type === 'term') { delete card.type; delete card.data; } else { card.type = r.card.type; card.data = r.card.data; }
+                save(); toast('Card updated.'); flashcardCreateDraft = null; closeModal(); render(); }
+
             // ---- Flashcards: card types ------------------------------------------------------------------------
             // Every card keeps plain `front` / `back` text (so Click Through, spaced repetition, search, Sparky and the
             // classic tests keep working on any card). Non-term cards additionally carry `type` + structured `data`:
@@ -15137,9 +15368,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 term: { icon: '📝', label: 'Term & definition', short: 'Term' },
                 list: { icon: '📋', label: 'List (fill in the boxes)', short: 'List', titlePh: 'List title, e.g. Factors of production', textPh: 'One item per line&#10;Land&#10;Labour&#10;Capital&#10;Enterprise', hint: 'Tested with one box per item — you type each one from memory.' },
                 timeline: { icon: '⏳', label: 'Timeline / sequence (reorder)', short: 'Timeline', titlePh: 'e.g. Causes of the First World War', textPh: 'One event per line, in the CORRECT order. Add a date before a dash:&#10;1914 - Assassination of Franz Ferdinand&#10;1914 - Britain declares war', hint: 'Tested by putting the shuffled events back in order.' },
-                info: { icon: '📄', label: 'Info card (title + headings)', short: 'Info', titlePh: 'Card title, e.g. Annelida', textPh: '# Heading&#10;- point&#10;  - sub-point&#10;- another point', hint: '# starts a heading, - adds a point, indent two spaces for a sub-point.' }
+                info: { icon: '📄', label: 'Info card (title + headings)', short: 'Info', titlePh: 'Card title, e.g. Annelida', textPh: '# Heading&#10;- point&#10;  - sub-point&#10;- another point', hint: '# starts a heading, - adds a point, indent two spaces for a sub-point.' },
+                graph: { icon: '📈', label: 'Graph / diagram (whiteboard)', short: 'Graph', titlePh: 'e.g. Draw a supply and demand graph showing a price floor', hint: 'You draw the model answer on a whiteboard. In the test the student draws theirs and the AI compares the two.' }
             };
-            const FC_LABELS = { term: ['Term', 'Definition'], list: ['List', 'Items'], timeline: ['Timeline', 'In order'], info: ['Info card', 'Contents'] };
+            const FC_LABELS = { term: ['Term', 'Definition'], list: ['List', 'Items'], timeline: ['Timeline', 'In order'], info: ['Info card', 'Contents'], graph: ['Graph', 'Model answer'] };
             function fcTermCards(deck) { return deck.cards.filter(c => !c.type || c.type === 'term'); }
             function fcStructCards(deck) { return deck.cards.filter(c => c.type && c.type !== 'term' && c.data); }
             function fcLines(t) { return String(t || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
@@ -15159,6 +15391,11 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             // Turns a create-modal row into a saved card, or explains what's missing.
             function fcBuildCard(row) { const type = FC_TYPES[row.type] ? row.type : 'term', front = String(row.front || '').trim();
                 if (type === 'term') { const back = String(row.back || '').trim(); return front && back ? { card: { type: 'term', front, back } } : null; }
+                if (type === 'graph') { const board = row.board, has = board && Array.isArray(board.shapes) && board.shapes.length; if (!front && !has) return null;
+                    if (!front) return { error: 'needs a prompt (what should the student draw?)' };
+                    if (!has) return { error: 'needs a model drawing — use "Draw the model answer"' };
+                    const notes = String(row.text || '').trim(), labels = wbLabels(board);
+                    return { card: { type: 'graph', front, back: notes || ('Diagram' + (labels.length ? ': ' + labels.slice(0, 10).join(', ') : '')), data: { board: wbClone(board), notes } } }; }
                 const text = String(row.text || ''); if (!front && !text.trim()) return null;
                 if (!front) return { error: 'needs a title' };
                 if (type === 'list') { const items = fcLines(text); if (items.length < 2) return { error: 'needs at least 2 items (one per line)' };
@@ -15168,6 +15405,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const sections = fcParseInfo(text); if (!sections.some(s => s.points.length)) return { error: 'needs at least one point (start lines with -)' };
                 return { card: { type: 'info', front, back: fcInfoPlain(sections), data: { sections } } }; }
             function fcBackHtml(card) { const d = card.data;
+                if (card.type === 'graph' && d && d.board) return `<div class="fc-wb">${wbBoardSvg(d.board)}</div>${d.notes ? `<p class="small" style="margin-top:8px;white-space:pre-wrap">${escape(d.notes)}</p>` : ''}`;
                 if (card.type === 'list' && d) return `<${d.ordered ? 'ol' : 'ul'}>${d.items.map(x => `<li>${escape(x)}</li>`).join('')}</${d.ordered ? 'ol' : 'ul'}>`;
                 if (card.type === 'timeline' && d) return `<ol>${d.events.map(e => `<li>${e.when ? `<strong>${escape(e.when)}</strong> — ` : ''}${escape(e.label)}</li>`).join('')}</ol>`;
                 if (card.type === 'info' && d) return d.sections.map(s => `${s.heading ? `<h4>${escape(s.heading)}</h4>` : ''}<ul>${s.points.map(p => `<li>${escape(p.text)}${p.subs && p.subs.length ? `<ul>${p.subs.map(x => `<li>${escape(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>`).join('');
@@ -15245,7 +15483,8 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const manualCardRow = (c, i) => { const t = FC_TYPES[c.type] ? c.type : 'term', ty = FC_TYPES[t];
                     const typeSel = `<select data-action="flashcard-manual-type" data-index="${i}" style="max-width:260px">${Object.entries(FC_TYPES).map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>`;
                     const head = `<div class="row" style="align-items:center;gap:8px"><span class="small"><strong>#${i + 1}</strong></span>${typeSel}<span style="flex:1"></span><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
-                    const fields = t === 'term'
+                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Optional marking notes — what a full-marks answer must include (axes labelled, curve shapes, key points…)" style="min-height:64px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>`;
+                    const fields = t === 'graph' ? graphFields : t === 'term'
                         ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
                         : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
                     return `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px">${head}${fields}</div></div>`; };
@@ -15279,6 +15518,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 else if (d.mode === 'infoimage') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-info-extract" ${flashcardCreateLoading || !d.images.length ? 'disabled' : ''}>${flashcardCreateLoading ? 'Reading cards…' : 'Generate info cards'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
                 else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?(flashcardCreateLoadingStage==='checking'?'Double-checking cards…':'Reading files…'):'Generate flashcards'}</button>`;
+                if (d.mode === 'edit') return modalShell('Edit card', `<div class="list">${manualCardRow(d.cards[0], 0)}</div>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-edit-save">Save changes</button>`, true);
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
 
             async function runMagicNotesExtract() { const d = flashcardCreateDraft; if (!d) return;
@@ -15534,6 +15774,20 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 else if (card.type === 'timeline') { const ok = s.order.map((v, i) => v === i); s.detail = { ok }; frac = ok.filter(Boolean).length / ok.length; }
                 s.checked = true; s.frac = frac; fcStructRecord(card, frac); render(); }
             function fcStructNext() { const s = flashcardStudySession; if (!s) return; s.index++; fcStructPrepare(); fcSlideDir = 'next'; render(); }
+            async function fcGraphAiCheck() { const s = flashcardStudySession, card = fcStructCard(); if (!s || s.mode !== 'struct-test' || !card || card.type !== 'graph' || s.aiBusy || s.checked) return;
+                const mine = s.answers.board; if (!mine || !mine.shapes || !mine.shapes.length) { toast('Draw your answer first.'); return; }
+                s.aiBusy = true; render();
+                try {
+                    const [modelPng, mePng] = await Promise.all([wbToPng(card.data.board), wbToPng(mine)]);
+                    const sys = `You are marking a student's hand-drawn graph or diagram, the way an exam marker would. You get the question, a MODEL ANSWER image (the FIRST image) and the STUDENT's drawing (the SECOND image), plus the text labels and a JSON shape description for each (use the JSON for exact positions and which way lines slope or arrows point). Judge whether the student's drawing shows the same essential content as the model: the right axes and labels, the right curves/lines with the right shapes and directions, the key points, intersections and annotations. Do NOT penalise different positions, sizes, colours, neatness, a differently-worded but equivalent label, or extra harmless detail. DO penalise missing or wrong key content. Reply with ONLY compact JSON: {"score": number from 0 to 1, "got": ["short phrase for what they got right"], "missing": ["short phrase for what is missing or wrong"], "feedback": "one or two encouraging, specific sentences"}`;
+                    const parts = [{ inlineData: { mimeType: 'image/png', data: modelPng } }, { inlineData: { mimeType: 'image/png', data: mePng } },
+                        { text: `Question: ${card.front}\nMarking notes: ${card.data.notes || '(none)'}\n\nMODEL labels: ${JSON.stringify(wbLabels(card.data.board))}\nMODEL shapes: ${wbDescribe(card.data.board)}\n\nSTUDENT labels: ${JSON.stringify(wbLabels(mine))}\nSTUDENT shapes: ${wbDescribe(mine)}` }];
+                    const r = await aiJsonOnce(sys, parts); if (flashcardStudySession !== s || fcStructCard() !== card) return;
+                    const frac = Math.max(0, Math.min(1, Number(r.score) || 0)), arr = (x) => (Array.isArray(x) ? x : []).map(String).filter(Boolean).slice(0, 8);
+                    s.aiResult = { frac, got: arr(r.got), missing: arr(r.missing), feedback: String(r.feedback || '') }; s.revealed = true; s.checked = true; s.frac = frac; fcStructRecord(card, frac);
+                } catch (err) { toast(err.message || 'The AI check failed — you can grade yourself instead.'); }
+                s.aiBusy = false; render(); }
+
             function renderStructTestSession(sess) { const deck = flashcardDeck(sess.deckId); if (!deck) return '';
                 const pill = (f) => f >= 0.9 ? '<span class="pill good">Got it</span>' : f >= 0.5 ? '<span class="pill neutral">Partly</span>' : '<span class="pill bad">Missed</span>';
                 if (sess.index >= sess.queue.length) { const res = sess.results, avg = res.length ? Math.round(res.reduce((a, r) => a + r.frac, 0) / res.length * 100) : 0;
@@ -15541,7 +15795,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 const card = fcStructCard(); if (!card) return '';
                 const top = fcTopbar('Card-type test', escape(deck.topic), sess.index / sess.queue.length * 100), last = sess.index === sess.queue.length - 1;
                 const nextBtn = `<button type="button" class="button primary" data-action="fc-struct-next">${last ? 'See results' : 'Next ›'}</button>`;
-                let body = '';
+                let body = '', graphFoot = '';
                 if (card.type === 'list') { const items = card.data.items, det = sess.detail;
                     body = `<h2>${escape(card.front)}</h2><p class="muted">Type all ${items.length} items${card.data.ordered ? ' in the correct order' : ' (any order)'}.</p>
               ${items.map((_, i) => `<div class="fc-box-row"><span class="fc-box-n">${card.data.ordered ? (i + 1) + '.' : '•'}</span><input type="text" data-fc-box="${i}" autocomplete="off" placeholder="${card.data.ordered ? 'Item ' + (i + 1) : 'Item'}" value="${escape(sess.answers['b' + i] || '')}" class="${det ? (det.usedAns[i] ? 'ok' : (sess.answers['b' + i] ? 'bad' : '')) : ''}" ${sess.checked ? 'disabled' : ''}></div>`).join('')}
@@ -15550,11 +15804,19 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     body = `<h2>${escape(card.front)}</h2><p class="muted">Put these ${n} events in the correct order using the arrows.</p>
               ${sess.order.map((ei, pos) => `<div class="fc-tl-row ${det ? (det.ok[pos] ? 'ok' : 'bad') : ''}"><span class="fc-box-n">${pos + 1}</span><span class="fc-tl-label">${escape(evs[ei].label)}</span>${sess.checked ? '' : `<button type="button" class="button ghost icon" data-action="fc-tl-move" data-pos="${pos}" data-dir="-1" aria-label="Move up" ${pos === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="fc-tl-move" data-pos="${pos}" data-dir="1" aria-label="Move down" ${pos === n - 1 ? 'disabled' : ''}>↓</button>`}</div>`).join('')}
               ${sess.checked ? `<div class="fc-answerkey"><strong>${pill(sess.frac)} ${det.ok.filter(Boolean).length} / ${n} in the right place</strong><div style="margin-top:6px">Correct order: ${fcBackHtml(card)}</div></div>` : ''}`; }
+                else if (card.type === 'graph') { const mine = sess.answers.board, has = !!(mine && mine.shapes && mine.shapes.length), ai = sess.aiResult;
+                    const gradeBtns = `<p class="small" style="margin-top:12px">Compare with the model, then grade yourself — or let the AI check it.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="button primary" data-action="fc-info-grade" data-frac="1">✅ Got it</button><button type="button" class="button" data-action="fc-info-grade" data-frac="0.5">🟡 Partly</button><button type="button" class="button ghost danger" data-action="fc-info-grade" data-frac="0">❌ Missed it</button><button type="button" class="button" data-action="fc-graph-ai" ${sess.aiBusy ? 'disabled' : ''}>${sess.aiBusy ? 'Checking…' : '🤖 Check with AI'}</button></div>`;
+                    body = `<h2>${escape(card.front)}</h2><p class="muted">Draw your answer on the whiteboard, then submit to compare it with the model.</p>
+              ${has ? `<div class="fc-wb">${wbBoardSvg(mine)}</div>` : '<div class="fc-empty" style="padding:28px"><p class="muted" style="margin:0">Nothing drawn yet.</p></div>'}
+              ${sess.revealed ? `<div class="fc-answerkey"><strong>Model answer</strong><div class="fc-wb" style="margin-top:8px">${wbBoardSvg(card.data.board)}</div>${card.data.notes ? `<p class="small" style="margin-top:8px;white-space:pre-wrap">${escape(card.data.notes)}</p>` : ''}</div>` : ''}
+              ${ai ? `<div class="fc-answerkey"><strong>${pill(ai.frac)} ${Math.round(ai.frac * 100)}% — AI check</strong>${ai.feedback ? `<p style="margin:6px 0">${escape(ai.feedback)}</p>` : ''}${ai.got.length ? `<div class="small">✅ ${ai.got.map(escape).join(' · ')}</div>` : ''}${ai.missing.length ? `<div class="small" style="margin-top:4px">⚠️ ${ai.missing.map(escape).join(' · ')}</div>` : ''}</div>` : ''}
+              ${sess.revealed && !sess.checked ? gradeBtns : ''}`;
+                    graphFoot = sess.checked ? nextBtn : (sess.revealed ? '' : `<span class="row" style="gap:8px"><button type="button" class="button" data-action="fc-graph-open">✏️ ${has ? 'Edit drawing' : 'Open whiteboard'}</button><button type="button" class="button primary" data-action="fc-graph-submit">Submit &amp; compare</button></span>`); }
                 else { const secs = card.data.sections, single = secs.length === 1 && !secs[0].heading;
                     body = `<h2>${escape(card.front)}</h2><p class="muted">${single ? 'Write down everything you remember about this card.' : 'Write what you remember under each heading.'}</p>
               ${secs.map((s, i) => `<div class="field" style="margin-top:12px">${single ? '' : `<label>${escape(s.heading || 'Other points')}</label>`}<textarea data-fc-info="${i}" style="min-height:84px" ${sess.revealed ? 'disabled' : ''} placeholder="From memory…">${escape(sess.answers['s' + i] || '')}</textarea></div>`).join('')}
               ${sess.revealed ? `<div class="fc-answerkey"><strong>The card says:</strong>${fcBackHtml(card)}</div><p class="small" style="margin-top:12px">How did you do?</p><div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="button primary" data-action="fc-info-grade" data-frac="1">✅ Got it</button><button type="button" class="button" data-action="fc-info-grade" data-frac="0.5">🟡 Partly</button><button type="button" class="button ghost danger" data-action="fc-info-grade" data-frac="0">❌ Missed it</button></div>` : ''}`; }
-                const foot = card.type === 'info' ? (sess.revealed ? '' : `<button type="button" class="button primary" data-action="fc-info-reveal">Reveal answer</button>`) : (sess.checked ? nextBtn : `<button type="button" class="button primary" data-action="fc-struct-check">Check</button>`);
+                const foot = card.type === 'graph' ? graphFoot : card.type === 'info' ? (sess.revealed ? '' : `<button type="button" class="button primary" data-action="fc-info-reveal">Reveal answer</button>`) : (sess.checked ? nextBtn : `<button type="button" class="button primary" data-action="fc-struct-check">Check</button>`);
                 return `<div class="fc-wrap narrow">${top}<div class="fc-panel">${body}<div class="row" style="justify-content:space-between;align-items:center;margin-top:18px"><span class="flashcard-progress">${sess.index + 1} / ${sess.queue.length}</span>${foot}</div></div></div>`; }
 
             function renderFlashcardSession() { const sess = flashcardStudySession;
@@ -21603,6 +21865,12 @@ If the user asks about how to study or study methods generally, answer from your
                 if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
                 else if (a === 'open-flashcards-for-subject') flashcardsOpenForSubject(b.dataset.subject);
                 else if (a === 'flashcard-start-struct-test') startFlashcardStructTest(b.dataset.deck);
+                else if (a === 'flashcard-manual-draw') { const d0 = flashcardCreateDraft, row = d0 && d0.cards[Number(b.dataset.index)]; if (row) openWhiteboard({ title: row.front || 'Model answer', hint: 'Draw the answer a student should produce. Double-click shapes to label them.', board: row.board, onDone: (board) => { row.board = board; renderModal(); } }); }
+                else if (a === 'flashcard-edit-card') openFlashcardEditModal(b.dataset.deck, b.dataset.card);
+                else if (a === 'flashcard-edit-save') saveEditedFlashcard();
+                else if (a === 'fc-graph-open') { const s0 = flashcardStudySession, card = fcStructCard(); if (s0 && card && !s0.revealed) openWhiteboard({ title: card.front, hint: 'Draw your answer, then press Done.', board: s0.answers.board, onDone: (board) => { s0.answers.board = board; render(); } }); }
+                else if (a === 'fc-graph-submit') { const s0 = flashcardStudySession, bd = s0 && s0.answers.board; if (!bd || !bd.shapes || !bd.shapes.length) toast('Draw something on the whiteboard first.'); else { s0.revealed = true; render(); } }
+                else if (a === 'fc-graph-ai') fcGraphAiCheck();
                 else if (a === 'flashcard-struct-restart') { const s0 = flashcardStudySession; if (s0) startFlashcardStructTest(s0.deckId); }
                 else if (a === 'fc-struct-check') fcStructCheck();
                 else if (a === 'fc-struct-next') fcStructNext();
