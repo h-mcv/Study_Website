@@ -2784,6 +2784,25 @@
         .wb-mini { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 600; cursor: pointer; }
         .wb-mini.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
         @media (max-width: 700px) { .wb-hint { display: none; } .wb-tools { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; } .wb-main { flex-direction: column; } .wb-svg { width: 100%; } }
+        .fc-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 4px; }
+        .fc-sec-h { margin: 22px 0 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .fc-sec-h h3 { margin: 0; font-size: 17px; }
+        .fc-sec-h.sub { margin: 14px 0 4px 14px; }
+        .fc-sec-h.sub h3 { font-size: 15px; color: var(--muted); }
+        .fc-sec-block.sub { margin-left: 14px; border-left: 3px solid var(--line); padding-left: 12px; }
+        .fc-secbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+        .fc-listcard select.fc-mini-select { font-size: 11px; max-width: 120px; padding: 2px 4px; }
+        .wb-shelf { margin-top: 30px; }
+        .wb-shelf h2 { margin: 0 0 4px; }
+        .wb-subject { margin-bottom: 14px; }
+        .wb-subject-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .wb-subject-head i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .wb-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+        .wb-tile { border: 1px solid var(--line); border-top: 5px solid var(--subject, var(--primary)); border-radius: 16px; background: var(--surface); padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow); }
+        .wb-tile strong { font-size: 15px; }
+        .wb-tile .row { gap: 6px; flex-wrap: wrap; }
+        .fc-face.back.rich .conj-grid { font-size: 13px; }
+        .fc-face.back.rich .conj-grid-wrap { width: 100%; }
         @media (prefers-reduced-motion: reduce) {
             .fc-card { transition: none; }
             .fc-enter-next, .fc-enter-prev, .fc-exit-next, .fc-exit-prev { animation: none; }
@@ -8346,6 +8365,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 wordbankVocab: [], // { id, subjectId, phrase, english, addedDate, source: 'manual'|'photo'|'suggested' } — language subjects' vocab/phrase bank
                 wordbankVerbs: [], // { id, subjectId, infinitive, english, addedDate, source, conjugations: { [tenseId]: { irregular, note, forms: [{pronoun, form}] } } }
                 wordbankLearnedTenses: {}, // { [subjectId]: [tenseId, ...] } — which tenses the student has said they've learnt so far
+                wordbankSynonyms: [], // { id, subjectId, word, synonyms: [string], addedDate } — language subjects' synonym bank
                 essayMarks: [], // { id, subjectId, topicIds: [], date, inputMode, text, overallComment, rating: 'good'|'ok'|'bad', spelling: [], grammar: [], suggestions: [] }
                 flashcardDecks: [], // { id, subjectId, topic, cards: [{id, front, back}], createdAt } — one deck per subject+topic
                 gameHighScores: {}, // { [gameId]: number } — best score so far for score-based games in the Games section
@@ -8581,6 +8601,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     wordbankVocab: Array.isArray(saved.wordbankVocab) ? saved.wordbankVocab : [],
                     wordbankVerbs: Array.isArray(saved.wordbankVerbs) ? saved.wordbankVerbs : [],
                     wordbankLearnedTenses: saved.wordbankLearnedTenses && typeof saved.wordbankLearnedTenses === 'object' ? saved.wordbankLearnedTenses : {},
+                    wordbankSynonyms: Array.isArray(saved.wordbankSynonyms) ? saved.wordbankSynonyms : [],
                     essayMarks: Array.isArray(saved.essayMarks) ? saved.essayMarks : [],
                     flashcardDecks: Array.isArray(saved.flashcardDecks) ? saved.flashcardDecks : [],
                     gameHighScores: saved.gameHighScores && typeof saved.gameHighScores === 'object' ? saved.gameHighScores : {},
@@ -15124,13 +15145,13 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 return deck; }
             function addFlashcardsToDeck(subjectId, topic, cards) { const deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
                 (cards || []).forEach(c => { const front = (c.front || '').trim(), back = (c.back || '').trim(); if (!front || !back) return;
-                    const card = { id: uid(), front, back }; if (c.type && c.type !== 'term' && FC_TYPES[c.type] && c.data) { card.type = c.type; card.data = c.data; } deck.cards.push(card); });
+                    const card = { id: uid(), front, back }; if (c.secId) fcApplyPlace(deck, card, fcCardKey(c)); if (c.type && c.type !== 'term' && FC_TYPES[c.type] && c.data) { card.type = c.type; card.data = c.data; } deck.cards.push(card); });
                 save(); return deck; }
             function deleteFlashcardDeck(deckId) { state.flashcardDecks = state.flashcardDecks.filter(d => d.id !== deckId); save(); }
             function deleteFlashcardCard(deckId, cardId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 deck.cards = deck.cards.filter(c => c.id !== cardId); save(); }
 
-            function openFlashcardDeck(deckId) { flashcardsSelectedDeckId = deckId; view = 'flashcards'; render(); }
+            function openFlashcardDeck(deckId) { if (fcScope && fcScope.deckId !== deckId) fcScope = null; flashcardsSelectedDeckId = deckId; view = 'flashcards'; render(); }
             function flashcardsBackToTopics() { flashcardsSelectedDeckId = null; render(); }
 
             function openFlashcardCreateModal(subjectId, mode) {
@@ -15172,6 +15193,19 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const stat = (label, value) => `<div class="card stat"><span class="label">${label}</span><span class="value">${value}</span></div>`;
                 const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext">${c.type && FC_TYPES[c.type] && c.type !== 'term' ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : ''}<strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${c.id}" aria-label="Toggle known" title="Mark known">${c.known ? '⭐' : '☆'}</button><button type="button" class="button ghost icon" data-action="flashcard-edit-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Edit card" title="Edit">✏️</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
                 const folders = foldersFor(deck.subjectId), current = folders.find(f => f.deckIds.includes(deck.id));
+                const secs = fcSecs(deck), scoped = fcScopeCards(deck), scopeLabel = fcScopeLabel(deck);
+                const secSelect = (c) => secs.length ? `<select class="fc-mini-select" data-action="fc-card-section" data-deck="${deck.id}" data-card="${c.id}" aria-label="Section">${fcSecOptions(deck).map(o => `<option value="${o.key}" ${o.key === fcCardKey(c) ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
+                let rowNo = 0; const rows = (cs) => cs.length ? `<div class="fc-listgrid">${cs.map(c => cardRow(c, rowNo++).replace('<button type="button" class="button ghost icon" data-action="flashcard-edit-card"', secSelect(c) + '<button type="button" class="button ghost icon" data-action="flashcard-edit-card"')).join('')}</div>` : '';
+                const secTools = (s, u) => `<span class="fc-secbar" style="margin:0"><button type="button" class="button ghost" data-action="fc-sec-study" data-deck="${deck.id}" data-sec="${s.id}" data-sub="${u ? u.id : ''}">Study this</button><button type="button" class="button ghost icon" title="Rename" data-action="fc-sec-rename" data-deck="${deck.id}" data-sec="${s.id}" data-sub="${u ? u.id : ''}">✎</button>${u ? '' : `<button type="button" class="button ghost" data-action="fc-sub-add" data-deck="${deck.id}" data-sec="${s.id}">+ Sub-section</button>`}<button type="button" class="button ghost danger icon" title="Delete" data-action="fc-sec-delete" data-deck="${deck.id}" data-sec="${s.id}" data-sub="${u ? u.id : ''}">🗑</button></span>`;
+                let cardsHtml;
+                if (!n) cardsHtml = '<p class="empty">No cards yet — add some above.</p>';
+                else if (!secs.length) cardsHtml = rows(deck.cards);
+                else { const loose = deck.cards.filter(c => !fcCardPlace(deck, c).sec);
+                    cardsHtml = (loose.length ? `<div class="fc-sec-h"><h3>Unsorted</h3><span class="small">${loose.length}</span></div>${rows(loose)}` : '') + secs.map(s => {
+                        const own = deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && !p.sub; }), total = deck.cards.filter(c => c.secId === s.id).length;
+                        return `<div class="fc-sec-block"><div class="fc-sec-h"><h3>📂 ${escape(s.name)}</h3><span class="small">${total} card${total === 1 ? '' : 's'}</span>${secTools(s, null)}</div>${rows(own)}${(s.subs || []).map(u => { const uc = deck.cards.filter(c => c.secId === s.id && c.subId === u.id);
+                            return `<div class="fc-sec-block sub"><div class="fc-sec-h sub"><h3>${escape(u.name)}</h3><span class="small">${uc.length}</span>${secTools(s, u)}</div>${uc.length ? rows(uc) : '<p class="small" style="margin:4px 0 8px">No cards here yet.</p>'}</div>`; }).join('')}</div>`; }).join(''); }
+                const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep cards in order (don't shuffle)</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
                 return `<div class="fc-wrap">
           <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
           <div style="border-top:5px solid ${s ? s.color : 'var(--primary)'};padding-top:12px;margin-bottom:16px">
@@ -15186,7 +15220,9 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
               ${dueCount && n ? `<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>` : ''}
               ${weakCount ? `<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>` : ''}
             </div>
+            ${scopeBar}
             <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
+              <button type="button" class="button ghost" data-action="flashcard-edit-deck" data-deck="${deck.id}">✏️ Edit deck</button>
               <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add cards</button>
               <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram && deck.diagram.points.length ? '🖼 Edit diagram' : '🖼 Add diagram'}</button>
               <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
@@ -15195,7 +15231,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             </div>
             ${folders.length ? `<div class="row" style="margin-top:12px;align-items:center;gap:8px"><span class="small">Folder:</span><select data-action="flashcard-assign-folder" data-deck="${deck.id}" style="max-width:220px"><option value="">No folder</option>${folders.map(f => `<option value="${f.id}" ${current && current.id === f.id ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select></div>` : ''}
           </section>
-          <div class="fc-listgrid">${n ? deck.cards.map(cardRow).join('') : '<p class="empty">No cards yet — add some above.</p>'}</div>
+          ${cardsHtml}
         </div>`; }
 
             // ---- Whiteboard: a small Miro-style drawing board used by Graph cards ----------------------------------
@@ -15391,18 +15427,39 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 wbActive = { root, st, onKey, api: { draw, finish, startTextEdit, undo, redo, del, dup } };
                 draw(); return wbActive; }
 
-            function openFlashcardEditModal(deckId, cardId) { const deck = flashcardDeck(deckId), card = deck && deck.cards.find(c => c.id === cardId); if (!card) return;
-                const row = { type: card.type && FC_TYPES[card.type] ? card.type : 'term', front: card.front, back: card.back, text: '', ordered: false, board: null }, d = card.data;
+            function fcRowFromCard(card) { const row = { id: card.id, type: card.type && FC_TYPES[card.type] ? card.type : 'term', front: card.front, back: card.back, text: '', ordered: false, board: null, secKey: fcCardKey(card) }, d = card.data;
                 if (row.type === 'list' && d) { row.text = d.items.join('\n'); row.ordered = !!d.ordered; }
                 else if (row.type === 'timeline' && d) row.text = d.events.map(e => (e.when ? e.when + ' - ' : '') + e.label).join('\n');
                 else if (row.type === 'info' && d) row.text = fcInfoToText(d.sections);
                 else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; }
-                flashcardCreateDraft = { mode: 'edit', editing: { deckId, cardId }, subjectId: deck.subjectId, topic: deck.topic, cards: [row], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                return row; }
+            function openFlashcardDeckEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
+                flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                if (!flashcardCreateDraft.cards.length) flashcardCreateDraft.cards.push({ type: 'term', front: '', back: '', text: '', secKey: '' });
                 openModal('flashcard-create'); }
-            function saveEditedFlashcard() { const d = flashcardCreateDraft; if (!d || !d.editing) return; const deck = flashcardDeck(d.editing.deckId), card = deck && deck.cards.find(c => c.id === d.editing.cardId); if (!card) { closeModal(); return; }
+            function saveDeckEdits() { const d = flashcardCreateDraft; if (!d || d.mode !== 'deck-edit') return; const deck = flashcardDeck(d.editing.deckId); if (!deck) { closeModal(); return; }
+                const topic = (d.topic || '').trim(); if (!topic) { toast('Give the deck a name.'); return; }
+                if (state.flashcardDecks.some(x => x.id !== deck.id && x.subjectId === d.subjectId && x.topic.trim().toLowerCase() === topic.toLowerCase())) { toast(`"${topic}" already exists in that subject — pick a different name.`); return; }
+                const out = []; let problem = null;
+                d.cards.forEach((row, i) => { const r = fcBuildCard(row); if (!r) return; if (r.error) { if (!problem) problem = `Card #${i + 1} ${r.error}.`; return; }
+                    const card = (row.id && deck.cards.find(c => c.id === row.id)) || { id: uid() };
+                    card.front = r.card.front; card.back = r.card.back;
+                    if (r.card.type === 'term') { delete card.type; delete card.data; } else { card.type = r.card.type; card.data = r.card.data; }
+                    fcApplyPlace(deck, card, row.secKey); out.push(card); });
+                if (problem) { toast(problem); return; }
+                deck.cards = out; deck.topic = topic;
+                if (deck.subjectId !== d.subjectId) { deck.subjectId = d.subjectId; (state.flashcardFolders || []).forEach(f => { f.deckIds = f.deckIds.filter(id => id !== deck.id); }); if (flashcardsFilterSubject !== 'all') flashcardsFilterSubject = d.subjectId; }
+                if (fcScope && fcScope.deckId === deck.id && !fcScopeCards(deck).length) fcScope = null;
+                save(); toast('Deck updated.'); flashcardCreateDraft = null; closeModal(); render(); }
+
+            function openFlashcardEditModal(deckId, cardId) { const deck = flashcardDeck(deckId), card = deck && deck.cards.find(c => c.id === cardId); if (!card) return;
+                flashcardCreateDraft = { mode: 'edit', editing: { deckId, cardId }, subjectId: deck.subjectId, topic: deck.topic, cards: [fcRowFromCard(card)], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                openModal('flashcard-create'); }
+                        function saveEditedFlashcard() { const d = flashcardCreateDraft; if (!d || !d.editing) return; const deck = flashcardDeck(d.editing.deckId), card = deck && deck.cards.find(c => c.id === d.editing.cardId); if (!card) { closeModal(); return; }
                 const r = fcBuildCard(d.cards[0]); if (!r) { toast('Fill in the card first.'); return; } if (r.error) { toast(`This card ${r.error}.`); return; }
                 card.front = r.card.front; card.back = r.card.back;
                 if (r.card.type === 'term') { delete card.type; delete card.data; } else { card.type = r.card.type; card.data = r.card.data; }
+                fcApplyPlace(deck, card, d.cards[0].secKey);
                 save(); toast('Card updated.'); flashcardCreateDraft = null; closeModal(); render(); }
 
             // ---- Flashcards: card types ------------------------------------------------------------------------
@@ -15419,8 +15476,8 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 graph: { icon: '📈', label: 'Graph / diagram (whiteboard)', short: 'Graph', titlePh: 'e.g. Draw a supply and demand graph showing a price floor', hint: 'You draw the model answer on a whiteboard. In the test the student draws theirs and the AI compares the two.' }
             };
             const FC_LABELS = { term: ['Term', 'Definition'], list: ['List', 'Items'], timeline: ['Timeline', 'In order'], info: ['Info card', 'Contents'], graph: ['Graph', 'Model answer'] };
-            function fcTermCards(deck) { return deck.cards.filter(c => !c.type || c.type === 'term'); }
-            function fcStructCards(deck) { return deck.cards.filter(c => c.type && c.type !== 'term' && c.data); }
+            function fcTermCards(deck) { return fcScopeCards(deck).filter(c => !c.type || c.type === 'term'); }
+            function fcStructCards(deck) { return fcScopeCards(deck).filter(c => c.type && c.type !== 'term' && c.data); }
             function fcLines(t) { return String(t || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
             function fcParseEvents(text) { return fcLines(text).map(l => { const m = l.match(/^(.{1,40}?)\s+[-–—:]\s+(.+)$/);
                 return m && /\d/.test(m[1]) ? { when: m[1].trim(), label: m[2].trim() } : { when: '', label: l }; }); }
@@ -15451,7 +15508,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     return { card: { type, front, back: events.map((e, i) => `${i + 1}. ${e.when ? e.when + ' — ' : ''}${e.label}`).join('\n'), data: { events } } }; }
                 const sections = fcParseInfo(text); if (!sections.some(s => s.points.length)) return { error: 'needs at least one point (start lines with -)' };
                 return { card: { type: 'info', front, back: fcInfoPlain(sections), data: { sections } } }; }
-            function fcBackHtml(card) { const d = card.data;
+            function fcBackHtml(card) { const d = card.data; if (card.backHtml) return card.backHtml;
                 if (card.type === 'graph' && d && d.board) return `<div class="fc-wb">${wbBoardSvg(d.board)}</div>${d.notes ? `<p class="small" style="margin-top:8px;white-space:pre-wrap">${escape(d.notes)}</p>` : ''}`;
                 if (card.type === 'list' && d) return `<${d.ordered ? 'ol' : 'ul'}>${d.items.map(x => `<li>${escape(x)}</li>`).join('')}</${d.ordered ? 'ol' : 'ul'}>`;
                 if (card.type === 'timeline' && d) return `<ol>${d.events.map(e => `<li>${e.when ? `<strong>${escape(e.when)}</strong> — ` : ''}${escape(e.label)}</li>`).join('')}</ol>`;
@@ -15470,6 +15527,151 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 else items.forEach((it, i) => { const j = ans.findIndex((a, k) => !usedAns[k] && fcClose(a, it)); if (j >= 0) { usedAns[j] = true; ok[i] = true; } });
                 return { ok, usedAns }; }
 
+            // ---- Flashcards: keep-order + sections + study scope ----------------------------------------------------
+            // deck.keepOrder  -> flip-through and every test use the deck's own order instead of shuffling.
+            // deck.sections   -> [{ id, name, subs: [{ id, name }] }]; card.secId / card.subId place a card in it.
+            // fcScope         -> narrows flip-through / tests / reviews of the OPEN deck to one section or sub-section.
+            let fcScope = null; // { deckId, secId, subId }
+            function fcSecs(deck) { return Array.isArray(deck && deck.sections) ? deck.sections : []; }
+            function fcCardPlace(deck, c) { const sec = fcSecs(deck).find(s => s.id === c.secId); if (!sec) return { sec: null, sub: null };
+                return { sec, sub: (sec.subs || []).find(u => u.id === c.subId) || null }; }
+            // Display / study order: unsectioned cards, then each section's own cards, then each of its sub-sections' cards.
+            function fcOrderedCards(deck) { const secs = fcSecs(deck), out = [];
+                out.push(...deck.cards.filter(c => !fcCardPlace(deck, c).sec));
+                secs.forEach(s => { out.push(...deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && !p.sub; }));
+                    (s.subs || []).forEach(u => out.push(...deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && p.sub === u; }))); });
+                return out; }
+            function fcOrd(deck, arr) { if (!deck || !deck.keepOrder) return shuffle(arr); const idx = new Map(fcOrderedCards(deck).map((c, i) => [c.id, i]));
+                return arr.slice().sort((a, b) => (idx.has(a.id) ? idx.get(a.id) : 1e9) - (idx.has(b.id) ? idx.get(b.id) : 1e9)); }
+            function fcScopeCards(deck) { if (!fcScope || fcScope.deckId !== deck.id || !fcScope.secId) return deck.cards;
+                return deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec && p.sec.id === fcScope.secId && (!fcScope.subId || (p.sub && p.sub.id === fcScope.subId)); }); }
+            function fcScopeLabel(deck) { if (!fcScope || fcScope.deckId !== deck.id || !fcScope.secId) return ''; const s = fcSecs(deck).find(x => x.id === fcScope.secId); if (!s) return '';
+                const u = (s.subs || []).find(x => x.id === fcScope.subId); return u ? `${s.name} › ${u.name}` : s.name; }
+            function fcSecOptions(deck) { const out = [{ key: '', label: 'No section' }];
+                fcSecs(deck).forEach(s => { out.push({ key: s.id, label: s.name }); (s.subs || []).forEach(u => out.push({ key: `${s.id}|${u.id}`, label: `${s.name} › ${u.name}` })); }); return out; }
+            function fcCardKey(c) { return c.secId ? (c.subId ? `${c.secId}|${c.subId}` : c.secId) : ''; }
+            function fcSecFields(key) { const [secId, subId] = String(key || '').split('|'); return secId ? (subId ? { secId, subId } : { secId }) : {}; }
+            function fcApplyPlace(deck, card, key) { delete card.secId; delete card.subId; const f = fcSecFields(key); const sec = fcSecs(deck).find(s => s.id === f.secId); if (!sec) return;
+                card.secId = sec.id; if (f.subId && (sec.subs || []).some(u => u.id === f.subId)) card.subId = f.subId; }
+            function fcFindDeck(subjectId, topic) { const t = String(topic || '').trim().toLowerCase(); return t ? state.flashcardDecks.find(d => d.subjectId === subjectId && d.topic.trim().toLowerCase() === t) : null; }
+            function fcSectionAction(a, ds) { const deck = flashcardDeck(ds.deck); if (!deck) return; deck.sections = fcSecs(deck);
+                const ask = (msg, def) => { const v = typeof prompt === 'function' ? prompt(msg, def || '') : null; return v == null ? null : String(v).trim(); };
+                if (a === 'fc-sec-add') { const name = ask('Section name (e.g. Monopolies)'); if (!name) return; deck.sections.push({ id: uid(), name, subs: [] }); }
+                else if (a === 'fc-sub-add') { const sec = deck.sections.find(s => s.id === ds.sec); if (!sec) return; const name = ask(`New sub-section in "${sec.name}" (e.g. Definitions)`); if (!name) return; (sec.subs = sec.subs || []).push({ id: uid(), name }); }
+                else if (a === 'fc-sec-rename') { const sec = deck.sections.find(s => s.id === ds.sec); if (!sec) return; const sub = ds.sub ? (sec.subs || []).find(u => u.id === ds.sub) : null; const name = ask('Rename to', (sub || sec).name); if (!name) return; (sub || sec).name = name; }
+                else if (a === 'fc-sec-delete') { const sec = deck.sections.find(s => s.id === ds.sec); if (!sec) return; const sub = ds.sub ? (sec.subs || []).find(u => u.id === ds.sub) : null;
+                    const n = deck.cards.filter(c => c.secId === sec.id && (!sub || c.subId === sub.id)).length;
+                    if (typeof confirm === 'function' && !confirm(`Delete ${sub ? 'sub-section' : 'section'} "${(sub || sec).name}"? Its ${n} card${n === 1 ? '' : 's'} won't be deleted — they'll just become unsorted${sub ? ' within the section' : ''}.`)) return;
+                    if (sub) { sec.subs = sec.subs.filter(u => u.id !== sub.id); deck.cards.forEach(c => { if (c.secId === sec.id && c.subId === sub.id) delete c.subId; }); }
+                    else { deck.sections = deck.sections.filter(s => s.id !== sec.id); deck.cards.forEach(c => { if (c.secId === sec.id) { delete c.secId; delete c.subId; } }); }
+                    if (fcScope && fcScope.deckId === deck.id && fcScope.secId === sec.id && (!sub || fcScope.subId === sub.id)) fcScope = null; }
+                else if (a === 'fc-sec-study') { fcScope = ds.sec ? { deckId: deck.id, secId: ds.sec, subId: ds.sub || '' } : null; }
+                save(); render(); }
+
+            // ---- Word banks on the Flashcards page: flip-through + typed tests ---------------------------------------
+            // Vocab / verbs / synonyms are studied as VIRTUAL cards (never stored as decks). Flip-through reuses the normal
+            // flip-card screen (mode 'clickthrough' + wb:{...}); tests have their own 'wb-test' session.
+            const WB_KINDS = { vocab: { icon: '🗣', label: 'Vocab & phrases' }, verbs: { icon: '🔤', label: 'Verbs' }, synonyms: { icon: '🔁', label: 'Synonyms' } };
+            let wbOpts = null;
+            function wbNorm(s) { return String(s || '').toLowerCase().replace(/[.!?¡¿"“”]/g, '').replace(/\s+/g, ' ').trim(); }
+            function wbStripAcc(s) { return s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+            // "to go / to leave" or "big, large" -> separate acceptable answers; (bracketed bits) are optional.
+            function wbAlts(str) { const base = String(str || ''), out = [];
+                base.split(/\s*(?:\/|;|,|\bor\b)\s*/i).forEach(x => { x = x.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim(); if (x && !out.includes(x)) out.push(x); });
+                const whole = base.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim(); if (whole && !out.includes(whole)) out.push(whole); return out; }
+            // -> { ok, accent?: expected, typo?: expected }. Accent-only differences count unless strict; English tolerates a 1-letter typo.
+            function wbMatch(given, expectedList, o) { o = o || {}; let g = wbNorm(given); if (!g) return { ok: false }; if (o.english) g = g.replace(/^to\s+/, '');
+                for (const e of expectedList) { let n = wbNorm(e); if (o.english) n = n.replace(/^to\s+/, '');
+                    if (g === n) return { ok: true };
+                    if (!o.strict && wbStripAcc(g) === wbStripAcc(n)) return { ok: true, accent: e };
+                    if (o.english && n.length >= 5 && fcLev(g, n) <= 1) return { ok: true, typo: e }; }
+                return { ok: false }; }
+            function wbOrder(arr, keep) { return keep ? arr.slice() : shuffle(arr); }
+            function wbVerbForms(v, s, tid) { const d = v.conjugations && v.conjugations[tid]; if (d && Array.isArray(d.forms) && d.forms.length) return d; return localConjugate(s.taxonomyId, v.infinitive, tid) || null; }
+            function wbPronouns(s, sample) { const P = { spanish: ES_PRONOUNS, french: FR_PRONOUNS, german: DE_PRONOUNS, irish: IR_PRONOUNS }[s.taxonomyId]; return P || (sample ? sample.forms.map(f => f.pronoun) : ['1st sg', '2nd sg', '3rd sg', '1st pl', '2nd pl', '3rd pl']); }
+            function wbConjTableHtml(v, s, tids) { const catalog = tensesForSubject(s), tenses = (tids || []).map(id => catalog.find(t => t.id === id)).filter(Boolean);
+                if (!tenses.length) return '<p class="small">Tick the tenses you\'ve learnt on the Verbs page and their conjugation tables will show here.</p>';
+                const data = tenses.map(t => wbVerbForms(v, s, t.id)), pron = wbPronouns(s, data.find(Boolean));
+                return `<div class="conj-grid-wrap"><table class="conj-grid"><thead><tr><th></th>${tenses.map((t, i) => `<th class="${data[i] && data[i].irregular ? 'irregular-col' : ''}">${escape(t.label)}</th>`).join('')}</tr></thead><tbody>${pron.map((p, i) => `<tr><th>${escape(p)}</th>${data.map(d => `<td class="${d && d.irregular ? 'irregular-col' : ''}">${escape(d ? ((d.forms[i] && d.forms[i].form) || '') : '—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
+            function wbDefaults(subjectId, kind, act) { const s = subject(subjectId), learned = learnedTensesFor(subjectId).filter(id => tensesForSubject(s).some(t => t.id === id)); let keep = false; try { keep = localStorage.getItem('wb-keep-order') === '1'; } catch (e) {}
+                return { subjectId, kind, act, frontSide: kind === 'verbs' ? 'english' : 'target', testSide: 'target', verbMode: 'infinitive', tenses: learned.slice(), count: 'all', keepOrder: keep, strict: false, aiSyn: true }; }
+            function wbStartModal() { const o = wbOpts, close = '<button type="button" class="button" data-action="close-modal">Close</button>'; if (!o) return modalShell('Word bank', '<p class="empty">Nothing to start.</p>', close);
+                const s = subject(o.subjectId); if (!s) return modalShell('Word bank', '<p class="empty">That subject no longer exists.</p>', close);
+                const meta = WB_KINDS[o.kind], seg = (key, opts) => `<div class="row" style="gap:6px;flex-wrap:wrap">${opts.map(([v, l]) => `<button type="button" class="button ${String(o[key]) === String(v) ? 'primary' : 'ghost'}" data-action="wb-set" data-key="${key}" data-val="${v}">${l}</button>`).join('')}</div>`;
+                const field = (label, inner) => `<div class="field" style="margin-bottom:14px"><label>${label}</label>${inner}</div>`, chk = (key, label) => `<label class="fc-check" style="display:flex"><input type="checkbox" data-action="wb-toggle" data-key="${key}" ${o[key] ? 'checked' : ''}> ${label}</label>`;
+                const learned = learnedTensesFor(s.id), tenses = tensesForSubject(s).filter(t => learned.includes(t.id));
+                const tensePick = () => tenses.length ? field('Which tenses?', `<div class="list">${tenses.map(t => `<label class="fc-check" style="display:flex"><input type="checkbox" data-action="wb-tense" data-tense="${t.id}" ${o.tenses.includes(t.id) ? 'checked' : ''}> ${escape(t.label)}</label>`).join('')}</div>`) : `<p class="empty">You haven't ticked any tenses as learnt yet — do that on the Verbs page of this subject's Word Bank first.</p>`;
+                const n = o.kind === 'vocab' ? vocabFor(s.id).length : o.kind === 'verbs' ? verbsFor(s.id).length : synonymsFor(s.id).length; let body = '';
+                if (o.act === 'flip') {
+                    if (o.kind === 'vocab') body = field('Show on the front', seg('frontSide', [['target', s.name], ['english', 'English']])) + chk('keepOrder', 'Keep in order (don\'t shuffle)');
+                    else if (o.kind === 'verbs') body = field('Show on the front', seg('frontSide', [['english', 'English'], ['target', `${s.name} infinitive`]])) + `<p class="small" style="margin:-6px 0 12px">The back shows a table of conjugations for the tenses you pick.</p>` + tensePick() + chk('keepOrder', 'Keep in order (don\'t shuffle)');
+                    else body = `<p class="small" style="margin-bottom:12px">The front shows the word and the back lists its synonyms.</p>` + chk('keepOrder', 'Keep in order (don\'t shuffle)');
+                } else {
+                    if (o.kind === 'vocab') body = field('You answer in', seg('testSide', [['target', `${s.name} (see English)`], ['english', `English (see ${s.name})`]]));
+                    else if (o.kind === 'verbs') body = field('Test me on', seg('verbMode', [['infinitive', 'Infinitives'], ['conj', 'Conjugations']])) + (o.verbMode === 'infinitive' ? field('You answer in', seg('testSide', [['target', `${s.name} infinitive (see English)`], ['english', `English (see infinitive)`]])) : tensePick());
+                    else body = `<p class="small" style="margin-bottom:12px">You'll be asked for other ways of saying a word. Type one per box.</p>` + chk('aiSyn', 'Also accept valid synonyms that aren\'t in my list (checked by AI)');
+                    body += field('How many questions?', seg('count', [['all', 'All'], [10, '10'], [20, '20']])) + chk('keepOrder', 'Keep in order (don\'t shuffle)') + (o.kind !== 'synonyms' ? chk('strict', 'Accents (á, é, ñ…) must be exact') : '');
+                }
+                return modalShell(`${meta.icon} ${escape(s.name)} — ${meta.label}: ${o.act === 'flip' ? 'flip through' : 'test'}`, `${n ? '' : '<p class="empty">Nothing in this bank yet.</p>'}${body}`,
+                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="wb-go" ${n ? '' : 'disabled'}>${o.act === 'flip' ? 'Start flipping' : 'Start test'}</button>`); }
+            function wbFlipCards(o) { const s = subject(o.subjectId), keep = !!o.keepOrder; let cards = [];
+                if (o.kind === 'vocab') cards = wbOrder(vocabFor(s.id), keep).map(v => o.frontSide === 'english' ? { id: v.id, front: v.english, back: v.phrase, labels: ['English', s.name] } : { id: v.id, front: v.phrase, back: v.english, labels: [s.name, 'English'] });
+                else if (o.kind === 'verbs') cards = wbOrder(verbsFor(s.id), keep).map(v => { const head = `<p style="margin:0 0 8px"><strong>${escape(v.infinitive)}</strong> — ${escape(v.english)}</p>`, table = wbConjTableHtml(v, s, o.tenses);
+                    return o.frontSide === 'target' ? { id: v.id, front: v.infinitive, back: v.english, backHtml: head + table, labels: [`${s.name} infinitive`, 'English & conjugations'] } : { id: v.id, front: v.english, back: v.infinitive, backHtml: head + table, labels: ['English', 'Infinitive & conjugations'] }; });
+                else cards = wbOrder(synonymsFor(s.id), keep).map(x => ({ id: x.id, front: x.word, back: x.synonyms.join(', '), backHtml: `<ul>${x.synonyms.map(y => `<li>${escape(y)}</li>`).join('')}</ul>`, labels: [`${s.name} word`, 'Other ways of saying it'] }));
+                return cards; }
+            function wbBuildQuestions(o) { const s = subject(o.subjectId), keep = !!o.keepOrder, lim = (a) => o.count === 'all' ? a : a.slice(0, Number(o.count)); let qs = [], skipped = 0;
+                const wordQ = (id, tgt, eng, kindLabel) => o.testSide === 'target' ? { kind: 'word', id, prompt: eng, expected: wbAlts(tgt), show: tgt, english: false, hint: `Type it in ${s.name}` }
+                    : { kind: 'word', id, prompt: tgt, expected: wbAlts(eng), show: eng, english: true, hint: 'Type the English' };
+                if (o.kind === 'vocab') qs = lim(wbOrder(vocabFor(s.id), keep)).map(v => wordQ(v.id, v.phrase, v.english));
+                else if (o.kind === 'verbs' && o.verbMode === 'infinitive') qs = lim(wbOrder(verbsFor(s.id), keep)).map(v => wordQ(v.id, v.infinitive, v.english));
+                else if (o.kind === 'verbs') { const combos = []; wbOrder(verbsFor(s.id), keep).forEach(v => o.tenses.forEach(tid => { const d = wbVerbForms(v, s, tid), t = tensesForSubject(s).find(x => x.id === tid);
+                        if (!d || !t) { skipped++; return; } const pron = wbPronouns(s, d);
+                        combos.push({ kind: 'conj', id: v.id + ':' + tid, verbId: v.id, tenseId: tid, tenseLabel: t.label, infinitive: v.infinitive, english: v.english, pronouns: pron, forms: pron.map((p, i) => (d.forms[i] && d.forms[i].form) || '') }); }));
+                    qs = lim(keep ? combos : shuffle(combos)); }
+                else qs = lim(wbOrder(synonymsFor(s.id).filter(x => x.synonyms.length), keep)).map(x => ({ kind: 'syn', id: x.id, word: x.word, synonyms: x.synonyms, need: Math.min(3, x.synonyms.length) }));
+                return { qs, skipped }; }
+            function wbStart() { const o = wbOpts; if (!o) return; const s = subject(o.subjectId); if (!s) return; try { localStorage.setItem('wb-keep-order', o.keepOrder ? '1' : '0'); } catch (e) {}
+                const wb = { subjectId: o.subjectId, kind: o.kind, title: `${s.name} — ${WB_KINDS[o.kind].label}`, keepOrder: !!o.keepOrder };
+                if (o.act === 'flip') { if (o.kind === 'verbs' && !o.tenses.length) { /* fine: back just shows the hint */ }
+                    const cards = wbFlipCards(o); if (!cards.length) { toast('Nothing to flip through yet.'); return; } closeModal(); flashcardStudySession = { mode: 'clickthrough', deckId: null, wb, wbOpts: wbClone(o), cards, index: 0, flipped: false }; view = 'flashcards'; render(); return; }
+                if (o.kind === 'verbs' && o.verbMode === 'conj' && !o.tenses.length) { toast('Pick at least one tense.'); return; }
+                const { qs, skipped } = wbBuildQuestions(o); if (!qs.length) { toast(o.verbMode === 'conj' && o.kind === 'verbs' ? 'No conjugation data for those verbs/tenses yet — open a verb in the Word Bank to generate it.' : 'Nothing to test yet.'); return; }
+                closeModal(); flashcardStudySession = { mode: 'wb-test', deckId: null, wb, opts: wbClone(o), queue: qs, index: 0, answers: {}, checked: false, busy: false, results: [], skipped }; view = 'flashcards'; render(); }
+            function wbNext() { const s = flashcardStudySession; if (!s || s.mode !== 'wb-test') return; s.index++; s.answers = {}; s.checked = false; s.detail = null; s.busy = false; fcSlideDir = 'next'; render(); setTimeout(() => document.querySelector('[data-wb-box="0"]')?.focus(), 30); }
+            async function wbCheck() { const s = flashcardStudySession; if (!s || s.mode !== 'wb-test' || s.checked || s.busy) return; const q = s.queue[s.index]; if (!q) return; const strict = !!s.opts.strict; let frac = 0, detail;
+                if (q.kind === 'word') { const m = wbMatch(s.answers.b0 || '', q.expected, { english: q.english, strict }); detail = { boxes: [m] }; frac = m.ok ? 1 : 0; }
+                else if (q.kind === 'conj') { const boxes = q.pronouns.map((p, i) => wbMatch(s.answers['b' + i] || '', wbAlts(q.forms[i]), { strict })); detail = { boxes }; frac = boxes.filter(b => b.ok).length / boxes.length; }
+                else { const given = []; for (let i = 0; i < q.need; i++) given.push((s.answers['b' + i] || '').trim()); const used = new Set(), boxes = given.map(g => { if (!g) return { ok: false, empty: true };
+                        const idx = q.synonyms.findIndex((x, j) => !used.has(j) && wbMatch(g, [x], { strict: false }).ok); if (idx >= 0) { used.add(idx); return { ok: true, src: 'list' }; } return { ok: false, unmatched: g }; });
+                    const pending = boxes.map((b, i) => b.unmatched ? i : -1).filter(i => i >= 0);
+                    if (pending.length && s.opts.aiSyn) { s.busy = true; render(); try { const sub = subject(s.wb.subjectId);
+                            const sys = `You mark a vocabulary exercise for an Irish secondary school student learning ${sub ? sub.name : 'a language'}. The student was asked for another way of saying the word given. For each of their answers decide if it is a genuine synonym or near-synonym (same meaning, usable in the same way) of that word, in ${sub ? sub.name : 'that language'}. Ignore accents and small typos. Do not accept the original word itself. Reply with ONLY compact JSON: {"valid": [true, false, ...]} in the same order as the answers.`;
+                            const r = await aiJsonOnce(sys, [{ text: `Word: "${q.word}"\nKnown synonyms: ${JSON.stringify(q.synonyms)}\nStudent answers: ${JSON.stringify(pending.map(i => boxes[i].unmatched))}` }], preferredProviderFor(sub));
+                            (Array.isArray(r.valid) ? r.valid : []).forEach((v, k) => { if (v === true && pending[k] !== undefined && wbNorm(boxes[pending[k]].unmatched) !== wbNorm(q.word)) { boxes[pending[k]].ok = true; boxes[pending[k]].src = 'ai'; } });
+                        } catch (err) { toast('Couldn\'t ask the AI — only your saved synonyms were counted.'); } s.busy = false; if (flashcardStudySession !== s || s.queue[s.index] !== q) return; }
+                    detail = { boxes }; frac = boxes.length ? boxes.filter(b => b.ok).length / q.need : 0; }
+                s.detail = detail; s.checked = true; s.results.push({ q, frac, detail }); render(); }
+            function renderWbTestSession(sess) { const sub = escape(sess.wb.title), pill = (f) => f >= 0.999 ? '<span class="pill good">Correct</span>' : f > 0 ? '<span class="pill neutral">Partly</span>' : '<span class="pill bad">Missed</span>';
+                const answerOf = (q) => q.kind === 'word' ? q.expected.slice(0, 2).join(' / ') : q.kind === 'conj' ? q.forms.join(' · ') : q.synonyms.join(', ');
+                const titleOf = (q) => q.kind === 'word' ? q.prompt : q.kind === 'conj' ? `${q.infinitive} — ${q.tenseLabel}` : q.word;
+                if (sess.index >= sess.queue.length) { const res = sess.results, avg = res.length ? Math.round(res.reduce((a, r) => a + r.frac, 0) / res.length * 100) : 0, missed = res.filter(r => r.frac < 0.999);
+                    return `<div class="fc-wrap narrow">${fcTopbar('Test results', sub, 100)}<div class="fc-panel"><h2>${avg}%</h2><p class="muted">${res.filter(r => r.frac >= 0.999).length} of ${res.length} fully correct.${sess.skipped ? ` ${sess.skipped} verb/tense combination${sess.skipped === 1 ? ' was' : 's were'} skipped (no conjugation data).` : ''}</p>
+              <div class="list" style="margin-top:14px">${res.map(r => `<div class="flashcard-verdict-row">${pill(r.frac)}<div><strong>${escape(titleOf(r.q))}</strong><div class="small">${escape(answerOf(r.q))}</div></div></div>`).join('')}</div>
+              <div class="row" style="gap:8px;margin-top:18px;flex-wrap:wrap"><button type="button" class="button primary" data-action="wb-restart">↺ Test again</button>${missed.length ? '<button type="button" class="button" data-action="wb-retry">Practice the ' + missed.length + ' I missed</button>' : ''}<button type="button" class="button ghost" data-action="flashcard-exit-session">Back to flashcards</button></div></div></div>`; }
+                const q = sess.queue[sess.index], det = sess.detail, last = sess.index === sess.queue.length - 1; let body = '';
+                const box = (i, label, ph) => { const b = det && det.boxes[i]; return `<div class="fc-box-row">${label !== null ? `<span class="fc-box-n" style="min-width:150px;text-align:right">${escape(label)}</span>` : ''}<input type="text" data-wb-box="${i}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${ph || ''}" value="${escape(sess.answers['b' + i] || '')}" class="${b ? (b.ok ? 'ok' : (b.empty ? '' : 'bad')) : ''}" ${sess.checked || sess.busy ? 'disabled' : ''}></div>`; };
+                if (q.kind === 'word') { const b = det && det.boxes[0];
+                    body = `<p class="muted" style="margin:0">${q.english ? 'What does this mean?' : 'How do you say this?'}</p><h2 style="margin:4px 0 12px">${escape(q.prompt)}</h2>${box(0, null, q.hint)}${det ? `<div class="fc-answerkey"><strong>${b.ok ? '✓ Correct' : '✗ Not quite'}</strong>${b.accent ? ` — watch the accent: <strong>${escape(b.accent)}</strong>` : ''}${b.typo ? ` — small typo, it's <strong>${escape(b.typo)}</strong>` : ''}${b.ok ? '' : `<div style="margin-top:6px">Answer: <strong>${escape(q.expected.join(' / '))}</strong></div>`}</div>` : ''}`; }
+                else if (q.kind === 'conj') body = `<p class="muted" style="margin:0">${escape(q.tenseLabel)}</p><h2 style="margin:4px 0 4px">${escape(q.infinitive)}</h2><p class="small" style="margin:0 0 8px">${escape(q.english)}</p>${q.pronouns.map((p, i) => box(i, p, '')).join('')}${det ? `<div class="fc-answerkey"><strong>${pill(sess.results[sess.results.length - 1].frac)} ${det.boxes.filter(b => b.ok).length} / ${q.pronouns.length} correct</strong>${det.boxes.every(b => b.ok) ? '' : `<div style="margin-top:6px">${q.pronouns.map((p, i) => `<div class="small">${escape(p)}: <strong>${escape(q.forms[i])}</strong></div>`).join('')}</div>`}${det.boxes.some(b => b.accent) ? '<div class="small" style="margin-top:6px">Some answers were missing accents — they still counted, but check them.</div>' : ''}</div>` : ''}`;
+                else body = `<p class="muted" style="margin:0">Give ${q.need === 1 ? 'another way' : q.need + ' other ways'} of saying</p><h2 style="margin:4px 0 12px">${escape(q.word)}</h2>${Array.from({ length: q.need }, (_, i) => box(i, null, 'A synonym')).join('')}${sess.busy ? '<p class="small">Checking your answers…</p>' : ''}${det ? `<div class="fc-answerkey"><strong>${pill(sess.results[sess.results.length - 1].frac)} ${det.boxes.filter(b => b.ok).length} / ${q.need}</strong>${det.boxes.some(b => b.src === 'ai') ? '<div class="small" style="margin-top:4px">✓ Some of your answers weren\'t in your list but are valid (AI-checked).</div>' : ''}<div style="margin-top:6px">Your bank has: <strong>${escape(q.synonyms.join(', '))}</strong></div></div>` : ''}`;
+                const foot = sess.checked ? `<button type="button" class="button primary" data-action="wb-next">${last ? 'See results' : 'Next ›'}</button>` : `<button type="button" class="button primary" data-action="wb-check" ${sess.busy ? 'disabled' : ''}>${sess.busy ? 'Checking…' : 'Check'}</button>`;
+                return `<div class="fc-wrap narrow">${fcTopbar(`${WB_KINDS[sess.wb.kind].icon} ${WB_KINDS[sess.wb.kind].label} test`, sub, sess.index / sess.queue.length * 100)}<div class="fc-panel">${body}<div class="row" style="justify-content:space-between;align-items:center;margin-top:18px"><span class="flashcard-progress">${sess.index + 1} / ${sess.queue.length}</span>${foot}</div></div></div>`; }
+            function renderWordBankShelf(filterId) { const subs = state.subjects.filter(s => s.active !== false && isLanguageSubject(s) && (filterId === 'all' || filterId === s.id)); if (!subs.length) return '';
+                const tile = (s, kind) => { const n = kind === 'vocab' ? vocabFor(s.id).length : kind === 'verbs' ? verbsFor(s.id).length : synonymsFor(s.id).length, m = WB_KINDS[kind];
+                    return `<div class="wb-tile" style="--subject:${s.color}"><strong>${m.icon} ${m.label}</strong><span class="small">${n} ${n === 1 ? 'entry' : 'entries'}</span>${n ? `<div class="row"><button type="button" class="button primary" data-action="wb-open" data-subject="${s.id}" data-kind="${kind}" data-act="flip">Flip through</button><button type="button" class="button" data-action="wb-open" data-subject="${s.id}" data-kind="${kind}" data-act="test">Test me</button></div>` : `<button type="button" class="button ghost" data-action="wb-manage" data-subject="${s.id}" data-kind="${kind}">+ Add some in Word Bank</button>`}${n ? `<button type="button" class="button ghost" data-action="wb-manage" data-subject="${s.id}" data-kind="${kind}">Manage</button>` : ''}</div>`; };
+                return `<section class="wb-shelf"><h2>📚 Language word banks</h2><p class="muted" style="margin:0 0 14px">Flip through or be tested on the vocab, verbs and synonyms in your Word Bank.</p>${subs.map(s => `<div class="wb-subject"><div class="wb-subject-head"><i style="background:${s.color}"></i><strong>${escape(s.name)}</strong></div><div class="wb-tiles">${['vocab', 'verbs', 'synonyms'].map(k => tile(s, k)).join('')}</div></div>`).join('')}</section>`; }
+
             // ---- Flashcards page: page state, library, routing ------------------------------------------
             let flashcardsFilterSubject = 'all'; // 'all' | subject id
             let flashcardsSearch = '';
@@ -15481,7 +15683,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             function renderFlashcardsPage() { return appFrame(`<div class="page">${renderFlashcardsBody()}</div>`); }
 
             function renderFlashcardsBody() {
-                if (flashcardStudySession) { if (flashcardDeck(flashcardStudySession.deckId)) return renderFlashcardSession(); flashcardStudySession = null; }
+                if (flashcardStudySession) { if (flashcardStudySession.wb || flashcardDeck(flashcardStudySession.deckId)) return renderFlashcardSession(); flashcardStudySession = null; }
                 if (flashcardsSelectedDeckId) { if (flashcardDeck(flashcardsSelectedDeckId)) return renderFlashcardDeckDetail(); flashcardsSelectedDeckId = null; }
                 return renderFlashcardLibrary(); }
 
@@ -15509,7 +15711,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           ${shownFolders.map(folderSection).join('')}
           ${shownFolders.length && ungrouped.length ? '<p class="small" style="margin:10px 0">Ungrouped</p>' : ''}
           ${ungrouped.length ? `<div class="fc-deck-grid">${ungrouped.map(tile).join('')}</div>` : (decks.length ? '' : `<p class="empty">${q ? 'No decks or cards match that search.' : 'No decks for this subject yet — create one above.'}</p>`)}`;
-                return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${body}</div>`; }
+                return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${body}${renderWordBankShelf(filterId)}</div>`; }
 
             
             // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
@@ -15529,7 +15731,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const topicField = `<div style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1.4fr;gap:10px"><div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div><div class="field"><label>Deck name</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div></div>`;
                 const manualCardRow = (c, i) => { const t = FC_TYPES[c.type] ? c.type : 'term', ty = FC_TYPES[t];
                     const typeSel = `<select data-action="flashcard-manual-type" data-index="${i}" style="max-width:260px">${Object.entries(FC_TYPES).map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>`;
-                    const head = `<div class="row" style="align-items:center;gap:8px"><span class="small"><strong>#${i + 1}</strong></span>${typeSel}<span style="flex:1"></span><button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
+                    const secDeck = d.mode === 'deck-edit' || d.mode === 'edit' ? flashcardDeck(d.editing.deckId) : (d.mode === 'manual' ? fcFindDeck(d.subjectId, d.topic) : null);
+                    const secSel = secDeck && fcSecs(secDeck).length ? `<select data-action="flashcard-manual-section" data-index="${i}" style="max-width:220px" aria-label="Section">${fcSecOptions(secDeck).map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
+                    const moveBtns = d.mode === 'deck-edit' ? `<button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button>` : '';
+                    const head = `<div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><span class="small"><strong>#${i + 1}</strong></span>${typeSel}${secSel}<span style="flex:1"></span>${moveBtns}<button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
                     const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Optional marking notes — what a full-marks answer must include (axes labelled, curve shapes, key points…)" style="min-height:64px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>`;
                     const fields = t === 'graph' ? graphFields : t === 'term'
                         ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
@@ -15565,6 +15770,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 else if (d.mode === 'infoimage') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-info-extract" ${flashcardCreateLoading || !d.images.length ? 'disabled' : ''}>${flashcardCreateLoading ? 'Reading cards…' : 'Generate info cards'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
                 else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?(flashcardCreateLoadingStage==='checking'?'Double-checking cards…':'Reading files…'):'Generate flashcards'}</button>`;
+                if (d.mode === 'deck-edit') return modalShell('Edit deck', `<p class="small" style="margin-bottom:10px">Change the subject, deck name and every card in one place. Cards you clear are removed; their review history is kept for the ones you keep.</p>${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-deck-save">Save deck</button>`, true);
                 if (d.mode === 'edit') return modalShell('Edit card', `<div class="list">${manualCardRow(d.cards[0], 0)}</div>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-edit-save">Save changes</button>`, true);
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
 
@@ -15621,7 +15827,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const topic = (d.topic || '').trim();
                 if (!topic) { toast('Enter a topic name.'); return; }
                 const cards = []; let problem = null;
-                d.cards.forEach((row, i) => { const r = fcBuildCard(row); if (!r) return; if (r.error) { if (!problem) problem = `Card #${i + 1} ${r.error}.`; return; } cards.push(r.card); });
+                d.cards.forEach((row, i) => { const r = fcBuildCard(row); if (!r) return; if (r.error) { if (!problem) problem = `Card #${i + 1} ${r.error}.`; return; } Object.assign(r.card, fcSecFields(row.secKey)); cards.push(r.card); });
                 if (problem) { toast(problem); return; }
                 if (!cards.length) { toast('Add at least one complete card.'); return; }
                 addFlashcardsToDeck(d.subjectId, topic, cards);
@@ -15735,13 +15941,14 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 flashcardStudySession = null; render(); }
 
             function startFlashcardClickThrough(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
-                flashcardStudySession = { mode: 'clickthrough', deckId, cards: shuffle(deck.cards), index: 0, flipped: false };
+                if (!fcScopeCards(deck).length) { toast('That section has no cards yet.'); return; }
+                flashcardStudySession = { mode: 'clickthrough', deckId, cards: fcOrd(deck, fcScopeCards(deck)), index: 0, flipped: false };
                 render(); }
 
             function startFlashcardSmartTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
                 closeModal();
                 flashcardStudySession = { mode: 'smart-test', deckId, round: 1,
-                    queue: shuffle(fcTermCards(deck).map(c => ({ id: c.id, front: c.front, back: c.back }))),
+                    queue: fcOrd(deck, fcTermCards(deck)).map(c => ({ id: c.id, front: c.front, back: c.back })),
                     index: 0, answers: {}, phase: 'answering', results: null };
                 render(); }
 
@@ -15798,7 +16005,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     }
                     Object.keys(items).forEach(id => { if (!fcTermCards(deck).some(c => c.id === id)) delete items[id]; });
                     deck.mcqCache = { items, runs: fresh ? [] : (prev.runs || []), createdAt: fresh ? Date.now() : prev.createdAt }; save();
-                    const questions = shuffle(fcTermCards(deck).map(c => ({ id: c.id, front: c.front, back: c.back, choices: shuffle([c.back, ...items[c.id].distractors]), selected: null })));
+                    const questions = fcOrd(deck, fcTermCards(deck)).map(c => ({ id: c.id, front: c.front, back: c.back, choices: shuffle([c.back, ...items[c.id].distractors]), selected: null }));
                     if (flashcardStudySession !== s) return; // exited mid-generation
                     s.questions = questions; s.phase = 'active'; s.score = 0;
                 } catch (err) { toast(err.message || 'Could not generate the quiz — try again.'); exitFlashcardSession(); return; }
@@ -15811,7 +16018,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 s.answers = {}; s.checked = false; s.revealed = false; s.frac = null; s.detail = null; s.order = null;
                 const card = fcStructCard(); if (card && card.type === 'timeline') { const n = card.data.events.length; let ord = shuffle([...Array(n).keys()]);
                     if (n > 1 && ord.every((v, i) => v === i)) ord = ord.reverse(); s.order = ord; } }
-            function startFlashcardStructTest(deckId) { const deck = flashcardDeck(deckId); if (!deck) return; const cards = shuffle(fcStructCards(deck));
+            function startFlashcardStructTest(deckId) { const deck = flashcardDeck(deckId); if (!deck) return; const cards = fcOrd(deck, fcStructCards(deck));
                 if (!cards.length) { toast('This deck has no list, timeline or info cards yet.'); return; }
                 closeModal(); flashcardStudySession = { mode: 'struct-test', deckId, queue: cards.map(c => c.id), index: 0, results: [] }; fcStructPrepare(); render(); }
             function fcStructRecord(card, frac) { const s = flashcardStudySession; s.results.push({ id: card.id, front: card.front, type: card.type, frac });
@@ -15877,14 +16084,15 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                 if (sess.mode === 'listening') return renderListeningSession(sess);
                 if (sess.mode === 'srs-review') return renderSrsReviewSession(sess);
                 if (sess.mode === 'struct-test') return renderStructTestSession(sess);
+                if (sess.mode === 'wb-test') return renderWbTestSession(sess);
                 if (sess.mode === 'diagram') return renderDiagramSession(sess);
                 if (sess.mode === 'exam-sim') return renderExamSimSession(sess);
                 return ''; }
 
 function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type="button" class="button ghost" data-action="flashcard-exit-session" aria-label="Exit">✕</button><div class="fc-title"><strong>${title}</strong><span>${sub}</span></div></div>${pct != null ? `<div class="fc-progressbar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>` : ''}`; }
 
-function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null; const t = FC_LABELS[card.type] ? card.type : 'term', lab = FC_LABELS[t];
-                return `<div class="fc-scene ${dir ? 'fc-enter-' + dir : ''}"><div class="fc-card ${flipped ? 'flipped' : ''}" id="fc-card" data-action="flashcard-flip" role="button" tabindex="0" aria-label="Flip card"><div class="fc-face front"><span class="fc-label">${lab[0]}</span>${escape(card.front)}<span class="fc-hint">Click or press space to flip</span></div><div class="fc-face back ${t !== 'term' ? 'rich' : ''}"><span class="fc-label">${lab[1]}</span>${fcBackHtml(card)}</div></div></div>`; }
+function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null; const t = FC_LABELS[card.type] ? card.type : 'term', lab = card.labels || FC_LABELS[t];
+                return `<div class="fc-scene ${dir ? 'fc-enter-' + dir : ''}"><div class="fc-card ${flipped ? 'flipped' : ''}" id="fc-card" data-action="flashcard-flip" role="button" tabindex="0" aria-label="Flip card"><div class="fc-face front"><span class="fc-label">${lab[0]}</span>${escape(card.front)}<span class="fc-hint">Click or press space to flip</span></div><div class="fc-face back ${t !== 'term' || card.backHtml ? 'rich' : ''}"><span class="fc-label">${lab[1]}</span>${fcBackHtml(card)}</div></div></div>`; }
 
                         // Moves one card forward/back with a quick slide-out, then a fresh render that slides the next card in.
             // (The flip itself never re-renders -- it just toggles a class -- so the 3D turn can animate.)
@@ -15895,8 +16103,8 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                 const scene = document.querySelector('.fc-scene');
                 if (scene && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) { s.busy = true; scene.classList.add(delta > 0 ? 'fc-exit-next' : 'fc-exit-prev'); setTimeout(go, 130); } else go(); }
 
-            function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), total = sess.cards.length, sub = deck ? escape(deck.topic) : '';
-                if (sess.done) return `<div class="fc-wrap narrow">${fcTopbar('Deck complete', sub, 100)}<div class="fc-done"><div class="fc-done-emoji">🎉</div><h2>You went through all ${total} cards</h2><p class="muted">Lock it in by testing yourself next.</p><div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:18px"><button type="button" class="button" data-action="flashcard-restart-clickthrough">↺ Go again</button><button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${sess.deckId}">🧠 Test yourself</button><button type="button" class="button ghost" data-action="flashcard-exit-session">Back to deck</button></div></div></div>`;
+            function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), total = sess.cards.length, sub = deck ? escape(deck.topic) : (sess.wb ? escape(sess.wb.title) : '');
+                if (sess.done) return `<div class="fc-wrap narrow">${fcTopbar('Deck complete', sub, 100)}<div class="fc-done"><div class="fc-done-emoji">🎉</div><h2>You went through all ${total} cards</h2><p class="muted">Lock it in by testing yourself next.</p><div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:18px"><button type="button" class="button" data-action="flashcard-restart-clickthrough">↺ Go again</button>${sess.wb ? `<button type="button" class="button primary" data-action="wb-open" data-subject="${sess.wb.subjectId}" data-kind="${sess.wb.kind}" data-act="test">🧠 Test me</button>` : `<button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${sess.deckId}">🧠 Test yourself</button>`}<button type="button" class="button ghost" data-action="flashcard-exit-session">Back to deck</button></div></div></div>`;
                 const card = sess.cards[sess.index];
                 return `<div class="fc-wrap">${fcTopbar('Flip through', sub, (sess.index + 1) / total * 100)}
           ${fcFacesHtml(card, sess.flipped)}
@@ -15907,8 +16115,8 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
           </div>
           <div class="fc-tools">
             <button type="button" class="button ghost" data-action="flashcard-speak">🔊 Listen</button>
-            <button type="button" class="button ghost ${card.known ? 'primary' : ''}" data-action="flashcard-toggle-known" data-deck="${deck ? deck.id : ''}" data-card="${card.id}">${card.known ? '⭐ Known' : '☆ Mark known'}</button>
-            <button type="button" class="button ghost" data-action="flashcard-reshuffle">🔀 Shuffle</button>
+            ${deck ? `<button type="button" class="button ghost ${card.known ? 'primary' : ''}" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${card.id}">${card.known ? '⭐ Known' : '☆ Mark known'}</button>` : ''}
+            ${(deck ? deck.keepOrder : (sess.wb && sess.wb.keepOrder)) ? '' : '<button type="button" class="button ghost" data-action="flashcard-reshuffle">🔀 Shuffle</button>'}
           </div>
           <p class="fc-kbd">Space flips · ← → move through the deck</p>
         </div>`; }
@@ -15993,7 +16201,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             function srsDefaultForCard() { return { dueDate: null, interval: 0, ease: 2.5, reps: 0, lastReviewed: null }; }
             function ensureCardSrs(card) { if (!card.srs) card.srs = srsDefaultForCard(); return card.srs; }
             function isCardDue(card) { return !card.srs || !card.srs.dueDate || Date.now() >= card.srs.dueDate; }
-            function dueCardsForDeck(deck) { return deck.cards.filter(isCardDue); }
+            function dueCardsForDeck(deck) { return fcScopeCards(deck).filter(isCardDue); }
             function scheduleCardReview(card, grade) { const srs = ensureCardSrs(card);
                 if (grade === 'again') { srs.reps = 0; srs.interval = 0; srs.ease = Math.max(1.3, srs.ease - 0.2);
                     srs.lapses = (srs.lapses || 0) + 1; // survives the reps reset above, so weakCardsForDeck can still tell "keeps failing" from "just started"
@@ -16049,7 +16257,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             // ---- Flashcards: True/False mode --------------------------------------------------------
             function startFlashcardTf(deckId) { const deck = flashcardDeck(deckId); if (!deck || fcTermCards(deck).length < 2) { toast('Add at least 2 cards first.'); return; }
                 closeModal();
-                const questions = shuffle(fcTermCards(deck)).map(c => { let shownBack = c.back;
+                const questions = fcOrd(deck, fcTermCards(deck)).map(c => { let shownBack = c.back;
                     if (Math.random() < 0.5) { const alt = shuffle(fcTermCards(deck).filter(o => o.id !== c.id))[0]; if (alt) shownBack = alt.back; }
                     return { id: c.id, front: c.front, shownBack, isTrue: shownBack === c.back, answered: null }; });
                 flashcardStudySession = { mode: 'tf', deckId, questions, index: 0, score: 0 };
@@ -16072,7 +16280,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             // ---- Flashcards: Fill in the Blank (cloze) mode -----------------------------------------
             function startFlashcardCloze(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
                 closeModal();
-                const queue = shuffle(fcTermCards(deck)).map(c => { const cz = clozeForCard(c);
+                const queue = fcOrd(deck, fcTermCards(deck)).map(c => { const cz = clozeForCard(c);
                     return cz ? { id: c.id, front: c.front, blanked: cz.blanked, answer: cz.answer } : null; }).filter(Boolean);
                 if (!queue.length) { toast('Definitions are too short to blank a word out of — try Smart Test instead.'); return; }
                 flashcardStudySession = { mode: 'cloze', deckId, queue, index: 0, score: 0, revealed: false, lastCorrect: null };
@@ -16095,9 +16303,9 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             // ---- Flashcards: Match game --------------------------------------------------------------
             function startFlashcardMatch(deckId) { const deck = flashcardDeck(deckId); if (!deck || fcTermCards(deck).length < 4) { toast('Add at least 4 cards first.'); return; }
                 closeModal();
-                const pool = shuffle(fcTermCards(deck)).slice(0, Math.min(8, fcTermCards(deck).length));
+                const pool = fcOrd(deck, fcTermCards(deck)).slice(0, Math.min(8, fcTermCards(deck).length));
                 flashcardStudySession = { mode: 'match', deckId,
-                    fronts: shuffle(pool.map(c => ({ id: c.id, text: c.front }))),
+                    fronts: deck.keepOrder ? pool.map(c => ({ id: c.id, text: c.front })) : shuffle(pool.map(c => ({ id: c.id, text: c.front }))),
                     backs: shuffle(pool.map(c => ({ id: c.id, text: c.back }))),
                     matched: [], selectedFront: null, selectedBack: null, mistakes: 0, startedAt: Date.now(), finishedAt: null };
                 render(); }
@@ -16141,7 +16349,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                 endGravityWord(correct); }
             function startFlashcardGravity(deckId) { const deck = flashcardDeck(deckId); if (!deck || fcTermCards(deck).length < 4) { toast('Add at least 4 cards first.'); return; }
                 closeModal();
-                flashcardStudySession = { mode: 'gravity', deckId, queue: shuffle(fcTermCards(deck).map(c => ({ id: c.id, front: c.front, back: c.back }))),
+                flashcardStudySession = { mode: 'gravity', deckId, queue: fcOrd(deck, fcTermCards(deck)).map(c => ({ id: c.id, front: c.front, back: c.back })),
                     index: 0, score: 0, lives: 3, timePerWordMs: 12000, phase: 'active' };
                 render(); armGravityTimer(); }
             function renderGravitySession(sess) { const deck = flashcardDeck(sess.deckId);
@@ -16162,7 +16370,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             // ---- Flashcards: Listening mode (TTS speaks the term, self-graded — no AI call) ---------
             function startFlashcardListening(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
                 closeModal();
-                flashcardStudySession = { mode: 'listening', deckId, queue: shuffle(fcTermCards(deck).map(c => ({ id: c.id, front: c.front, back: c.back }))), index: 0, revealed: false };
+                flashcardStudySession = { mode: 'listening', deckId, queue: fcOrd(deck, fcTermCards(deck)).map(c => ({ id: c.id, front: c.front, back: c.back })), index: 0, revealed: false };
                 render(); setTimeout(() => { const s = flashcardStudySession; if (s?.mode === 'listening') speakText(s.queue[0].front); }, 200); }
             function renderListeningSession(sess) { const deck = flashcardDeck(sess.deckId);
                 if (sess.index >= sess.queue.length) return `<div class="flashcard-stage">${header('Listening — Done', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<div class="alert success">Session complete.</div><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Done</button></div>`;
@@ -16179,7 +16387,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             // ---- Flashcards: per-card SRS review session (Review due cards) -------------------------
             function startFlashcardSrsReview(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 const due = dueCardsForDeck(deck); if (!due.length) { toast('No cards due for review right now — nice work.'); return; }
-                flashcardStudySession = { mode: 'srs-review', deckId, label: 'Review Due Cards', queue: shuffle(due).map(c => ({ id: c.id })), index: 0, flipped: false };
+                flashcardStudySession = { mode: 'srs-review', deckId, label: 'Review Due Cards', queue: fcOrd(deck, due).map(c => ({ id: c.id })), index: 0, flipped: false };
                 render(); }
 
             // ---- Flashcards: weak-topic detector — entirely derived from existing per-card SRS data
@@ -16188,10 +16396,10 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             // and a single correct review always starts at interval 1 regardless of how easy it was), so
             // this costs zero AI calls. Reuses the srs-review session/UI verbatim — "weak cards" is just a
             // different queue (and label) into the same review flow.
-            function weakCardsForDeck(deck) { return deck.cards.filter(c => c.srs && ((c.srs.lapses || 0) >= 2 || (c.srs.reps > 0 && c.srs.ease <= 1.5))); }
+            function weakCardsForDeck(deck) { return fcScopeCards(deck).filter(c => c.srs && ((c.srs.lapses || 0) >= 2 || (c.srs.reps > 0 && c.srs.ease <= 1.5))); }
             function startFlashcardWeakReview(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 const weak = weakCardsForDeck(deck); if (!weak.length) { toast('No weak cards right now — nice work.'); return; }
-                flashcardStudySession = { mode: 'srs-review', deckId, label: 'Practice Weak Cards', queue: shuffle(weak).map(c => ({ id: c.id })), index: 0, flipped: false };
+                flashcardStudySession = { mode: 'srs-review', deckId, label: 'Practice Weak Cards', queue: fcOrd(deck, weak).map(c => ({ id: c.id })), index: 0, flipped: false };
                 render(); }
 function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId), label = sess.label || 'Review Due Cards';
                 while (sess.index < sess.queue.length && !deck.cards.find(c => c.id === sess.queue[sess.index].id)) sess.index++;
@@ -16340,7 +16548,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
             function startFlashcardExamSim(deckId) { const deck = flashcardDeck(deckId); if (!deck || fcTermCards(deck).length < 3) { toast('Add at least 3 cards first.'); return; }
                 closeModal();
                 const durationMs = Math.max(120, fcTermCards(deck).length * 25) * 1000;
-                const items = shuffle(fcTermCards(deck)).map(c => { const roll = Math.random();
+                const items = fcOrd(deck, fcTermCards(deck)).map(c => { const roll = Math.random();
                     if (roll < 0.34) { const cz = clozeForCard(c); if (cz) return { type: 'cloze', id: c.id, blanked: cz.blanked, answer: cz.answer }; }
                     if (roll < 0.67) return { type: 'recall', id: c.id, back: c.back, answer: c.front };
                     let shownBack = c.back, isTrue = true;
@@ -16448,9 +16656,35 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
             function translateCopy() { navigator.clipboard?.writeText(translateOutputText).then(() => toast('Copied!')).catch(() => toast('Could not copy — select and copy manually.')); }
 
             // ---- Rendering: Word Bank page ------------------------------------------------------------
+            // ---- Synonyms word bank ----------------------------------------------------------------------------
+            // { id, subjectId, word, synonyms: [string], addedDate } -- "other ways of saying" a word in the subject's language.
+            let synDraft = null; // { id|null, subjectId, word, text, loading }
+            function synonymsFor(subjectId) { return (state.wordbankSynonyms || []).filter(x => x.subjectId === subjectId); }
+            function synParse(text) { const out = []; String(text || '').split(/[\n,;]+/).forEach(x => { x = x.trim(); if (x && !out.some(y => y.toLowerCase() === x.toLowerCase())) out.push(x); }); return out; }
+            function renderSynonymBank(s) { const bank = synonymsFor(s.id).slice().sort((a, b) => a.word.localeCompare(b.word));
+                const row = (x) => `<div class="topic-row" data-action="open-edit-synonym" data-id="${x.id}" style="cursor:pointer"><div><strong>${escape(x.word)}</strong><div class="small">${escape(x.synonyms.join(' · '))}</div></div><button type="button" class="button ghost danger" data-action="delete-synonym" data-id="${x.id}" aria-label="Delete">🗑</button></div>`;
+                return `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><button type="button" class="button primary" data-action="open-add-synonym" data-subject="${s.id}">+ Add a word</button>${bank.length ? `<button type="button" class="button ghost" data-action="wb-open" data-subject="${s.id}" data-kind="synonyms" data-act="flip">🗂 Flip through</button><button type="button" class="button ghost" data-action="wb-open" data-subject="${s.id}" data-kind="synonyms" data-act="test">🧠 Test me</button>` : ''}</div>
+          <p class="small" style="margin-top:10px">Add a ${escape(s.name)} word and the other ways of saying it. You can flip through them or be tested on them from the Flashcards page.</p>
+          <div class="list" style="margin-top:12px">${bank.length ? bank.map(row).join('') : '<p class="empty">No words yet — add one to get started.</p>'}</div>`; }
+            function synonymModal() { const d = synDraft; if (!d) return modalShell('Synonyms', '<p class="empty">Nothing to edit.</p>', '<button class="button" data-action="close-modal">Close</button>'); const s = subject(d.subjectId);
+                return modalShell(d.id ? 'Edit synonyms' : 'Add a word with synonyms', `<div class="form-grid"><input type="text" id="syn-word-input" class="field" placeholder="${escape(s ? s.name : '')} word, e.g. bonito" value="${escape(d.word)}"><textarea id="syn-text-input" class="field" placeholder="Other ways of saying it — one per line or separated by commas" style="min-height:120px">${escape(d.text)}</textarea></div>
+          <div style="margin-top:10px"><button type="button" class="button" data-action="syn-suggest" ${d.loading ? 'disabled' : ''}>${d.loading ? 'Thinking…' : '✨ Suggest synonyms'}</button> <span class="small">Fills in ideas you can edit before saving.</span></div>`,
+                    `${d.id ? '<button type="button" class="button ghost danger" data-action="delete-synonym" data-id="' + d.id + '">Delete</button>' : ''}<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="syn-save">Save</button>`); }
+            async function runSynSuggest() { const d = synDraft; if (!d) return; const word = (d.word || '').trim(); if (!word) { toast('Type the word first.'); return; } const s = subject(d.subjectId); d.loading = true; renderModal();
+                try { const sys = `You help an Irish secondary school student learning ${s ? s.name : 'a language'}. Given a word in ${s ? s.name : 'that language'}, list up to 6 genuine synonyms or near-synonyms IN ${s ? s.name : 'that language'} that a student at school level could use instead (not translations into English). Reply with ONLY compact JSON: {"synonyms": ["...", "..."]}`;
+                    const r = await aiJsonOnce(sys, [{ text: `Word: "${word}"` }], preferredProviderFor(s)); const list = (Array.isArray(r.synonyms) ? r.synonyms : []).map(x => String(x).trim()).filter(Boolean);
+                    if (!list.length) toast('No suggestions came back — try again.'); else d.text = synParse([d.text, ...list].join('\n')).join('\n');
+                } catch (err) { toast(err.message || 'Could not get suggestions.'); }
+                d.loading = false; renderModal(); }
+            function saveSynonym() { const d = synDraft; if (!d) return; const word = (d.word || '').trim(), synonyms = synParse(d.text);
+                if (!word) { toast('Type the word first.'); return; } if (!synonyms.length) { toast('Add at least one synonym.'); return; }
+                state.wordbankSynonyms = state.wordbankSynonyms || []; const existing = d.id && state.wordbankSynonyms.find(x => x.id === d.id);
+                if (existing) { existing.word = word; existing.synonyms = synonyms; } else state.wordbankSynonyms.push({ id: uid(), subjectId: d.subjectId, word, synonyms, addedDate: localDate() });
+                save(); synDraft = null; closeModal(); render(); toast('Saved.'); }
+
             function renderWordBank(s) {
                 const tabBtn = (id, label) => `<button type="button" class="button ${wordBankTab===id?'primary':'ghost'}" data-action="wordbank-tab" data-tab="${id}">${label}</button>`;
-                return `<div class="row" style="margin-bottom:14px;gap:8px">${tabBtn('vocab','Vocab & Phrases')}${tabBtn('verbs','Verbs')}</div>${wordBankTab==='verbs'?renderVerbBank(s):renderVocabBank(s)}`;
+                return `<div class="row" style="margin-bottom:14px;gap:8px">${tabBtn('vocab','Vocab & Phrases')}${tabBtn('verbs','Verbs')}${tabBtn('synonyms','Synonyms')}</div>${wordBankTab==='verbs'?renderVerbBank(s):wordBankTab==='synonyms'?renderSynonymBank(s):renderVocabBank(s)}`;
             }
 
             function renderVocabBank(s) {
@@ -17791,7 +18025,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     modal.kind === 'chat-new-room') return layer.innerHTML = chatNewRoomModal(); if (
                     modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); if (
                     modal.kind === 'chat-new-dm') return layer.innerHTML = chatNewDmModal(); if (
-                    modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (modal.kind === 'custom-timetable') return layer.innerHTML = customTimetableModal(); if (
+                    modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (modal.kind === 'wb-start') return layer.innerHTML = wbStartModal(); if (modal.kind === 'synonym-edit') return layer.innerHTML = synonymModal(); if (modal.kind === 'custom-timetable') return layer.innerHTML = customTimetableModal(); if (
                     modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
                     modal.kind === 'flashcard-diagram-editor') return layer.innerHTML = diagramEditorModal(modal.deckId); if (
                     modal.kind === 'flashcard-set-chat') return layer.innerHTML = sparkySetChatModal(modal.deckId); if (
@@ -19160,6 +19394,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                         wordbankVocab: state.wordbankVocab,
                         wordbankVerbs: state.wordbankVerbs,
                         wordbankLearnedTenses: state.wordbankLearnedTenses,
+                        wordbankSynonyms: state.wordbankSynonyms,
                         essayMarks: state.essayMarks,
                         flashcardDecks: state.flashcardDecks,
                         flashcardFolders: state.flashcardFolders,
@@ -21914,6 +22149,23 @@ If the user asks about how to study or study methods generally, answer from your
                 const a = b.dataset.action;
                 if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
                 else if (a === 'open-flashcards-for-subject') flashcardsOpenForSubject(b.dataset.subject);
+                else if (a === 'wb-open') { wbOpts = wbDefaults(b.dataset.subject, b.dataset.kind, b.dataset.act); openModal('wb-start'); }
+                else if (a === 'wb-set') { if (wbOpts) { const k = b.dataset.key, v = b.dataset.val; wbOpts[k] = (k === 'count' && v !== 'all') ? Number(v) : v; renderModal(); } }
+                else if (a === 'wb-go') wbStart();
+                else if (a === 'wb-check') wbCheck();
+                else if (a === 'wb-next') wbNext();
+                else if (a === 'wb-restart') { const s0 = flashcardStudySession; if (s0 && s0.opts) { wbOpts = wbClone(s0.opts); wbStart(); } }
+                else if (a === 'wb-retry') { const s0 = flashcardStudySession; if (s0 && s0.mode === 'wb-test') { const miss = s0.results.filter(r => r.frac < 0.999).map(r => r.q); if (miss.length) { flashcardStudySession = Object.assign({}, s0, { queue: miss, index: 0, answers: {}, checked: false, busy: false, results: [], detail: null }); render(); } } }
+                else if (a === 'wb-manage') { wordBankTab = b.dataset.kind; vocabSearchResults = null; verbSearchResults = null; openSubjectDetail(b.dataset.subject, 'wordbank'); }
+                else if (a === 'open-add-synonym') { synDraft = { id: null, subjectId: b.dataset.subject, word: '', text: '', loading: false }; openModal('synonym-edit'); }
+                else if (a === 'open-edit-synonym') { const x = (state.wordbankSynonyms || []).find(y => y.id === b.dataset.id); if (x) { synDraft = { id: x.id, subjectId: x.subjectId, word: x.word, text: x.synonyms.join('\n'), loading: false }; openModal('synonym-edit'); } }
+                else if (a === 'syn-suggest') runSynSuggest();
+                else if (a === 'syn-save') saveSynonym();
+                else if (a === 'delete-synonym') { state.wordbankSynonyms = (state.wordbankSynonyms || []).filter(x => x.id !== b.dataset.id); save(); synDraft = null; if (modal && modal.kind === 'synonym-edit') closeModal(); render(); }
+                else if (/^fc-(sec|sub)-/.test(a)) fcSectionAction(a, b.dataset);
+                else if (a === 'flashcard-edit-deck') openFlashcardDeckEditor(b.dataset.deck);
+                else if (a === 'flashcard-deck-save') saveDeckEdits();
+                else if (a === 'flashcard-manual-move') { const d0 = flashcardCreateDraft; if (d0) { const i = Number(b.dataset.index), j = i + Number(b.dataset.dir); if (j >= 0 && j < d0.cards.length) { [d0.cards[i], d0.cards[j]] = [d0.cards[j], d0.cards[i]]; renderModal(); } } }
                 else if (a === 'open-custom-timetable') openCustomTimetable();
                 else if (a === 'ctt-add') customTtAdd(b.dataset.key);
                 else if (a === 'ctt-remove') { const d0 = customTtDraft; if (d0 && d0.slots[b.dataset.key]) { d0.slots[b.dataset.key].splice(Number(b.dataset.index), 1); renderModal(); } }
@@ -21974,7 +22226,7 @@ If the user asks about how to study or study methods generally, answer from your
                     if (s.index < s.queue.length - 1) { s.index++; render(); } else runSmartTestGradeRound(); }
                 else if (a === 'flashcard-smart-retry') { const s = flashcardStudySession; if (!s) return;
                     const remaining = s.results.filter(r => r.verdict !== 'green').map(r => ({ id: r.id, front: r.front, back: r.back }));
-                    flashcardStudySession = { mode: 'smart-test', deckId: s.deckId, round: s.round + 1, queue: shuffle(remaining), index: 0, answers: {}, phase: 'answering', results: null };
+                    flashcardStudySession = { mode: 'smart-test', deckId: s.deckId, round: s.round + 1, queue: fcOrd(flashcardDeck(s.deckId), remaining), index: 0, answers: {}, phase: 'answering', results: null };
                     render(); }
                 else if (a === 'flashcard-mcq-answer') { const s = flashcardStudySession; if (!s || s.phase !== 'active') return;
                     const q = s.questions[s.index]; if (q.selected != null) return;
@@ -22081,6 +22333,12 @@ If the user asks about how to study or study methods generally, answer from your
                         deck.diagram.imageDataUrl = dataUrl; save(); renderModal(); }).catch(err => toast(err.message || "Couldn't read that image.")); }
                 else if (t.dataset && t.dataset.action === 'flashcard-assign-folder') assignDeckToFolder(t.dataset.deck, t.value || null);
                 else if (t.id === 'flashcard-create-subject') { if (flashcardCreateDraft) { flashcardCreateDraft.subjectId = t.value; renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'wb-toggle') { if (wbOpts) { wbOpts[t.dataset.key] = t.checked; renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'wb-tense') { if (wbOpts) { const set = new Set(wbOpts.tenses); if (t.checked) set.add(t.dataset.tense); else set.delete(t.dataset.tense); wbOpts.tenses = Array.from(set); renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'fc-keep-order') { const dk = flashcardDeck(t.dataset.deck); if (dk) { dk.keepOrder = t.checked; save(); render(); } }
+                else if (t.dataset && t.dataset.action === 'fc-scope') { const dk = flashcardDeck(t.dataset.deck); if (dk) { const f = fcSecFields(t.value); fcScope = f.secId ? { deckId: dk.id, secId: f.secId, subId: f.subId || '' } : null; render(); } }
+                else if (t.dataset && t.dataset.action === 'fc-card-section') { const dk = flashcardDeck(t.dataset.deck), cd = dk && dk.cards.find(c => c.id === t.dataset.card); if (cd) { fcApplyPlace(dk, cd, t.value); save(); render(); } }
+                else if (t.dataset && t.dataset.action === 'flashcard-manual-section') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].secKey = t.value; }
                 else if (t.dataset && t.dataset.action === 'ctt-subject') { const a0 = customTtDraft && customTtDraft.slots[t.dataset.key]; if (a0 && a0[Number(t.dataset.index)]) { a0[Number(t.dataset.index)].subjectId = t.value; renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'ctt-minutes') { const a0 = customTtDraft && customTtDraft.slots[t.dataset.key]; if (a0 && a0[Number(t.dataset.index)]) { a0[Number(t.dataset.index)].minutes = Math.max(0, Number(t.value) || 0); renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-type') { if (flashcardCreateDraft) { const row = flashcardCreateDraft.cards[Number(t.dataset.index)]; row.type = t.value; renderModal(); } }
@@ -22090,7 +22348,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
 
             // ---- Flashcards: keyboard + swipe for the study view, and a quicker keyboard flow in the create modal ----
-            function fcManualAddRow() { if (!flashcardCreateDraft) return; const rows = flashcardCreateDraft.cards, lastType = rows.length ? (rows[rows.length - 1].type || 'term') : 'term'; rows.push({ type: lastType, front: '', back: '', text: '' }); renderModal();
+            function fcManualAddRow() { if (!flashcardCreateDraft) return; const rows = flashcardCreateDraft.cards, lastType = rows.length ? (rows[rows.length - 1].type || 'term') : 'term'; rows.push({ type: lastType, front: '', back: '', text: '', secKey: rows.length ? (rows[rows.length - 1].secKey || '') : '' }); renderModal();
                 const idx = flashcardCreateDraft.cards.length - 1; setTimeout(() => document.querySelector(`[data-action="flashcard-manual-front"][data-index="${idx}"]`)?.focus(), 0); }
             document.addEventListener('keydown', e => {
                 if (e.metaKey || e.ctrlKey || e.altKey) { if (e.key === 'Enter' && e.target.dataset && /^flashcard-manual-(front|back|text)$/.test(e.target.dataset.action || '')) { e.preventDefault(); fcManualAddRow(); } return; }
@@ -22110,6 +22368,9 @@ If the user asks about how to study or study methods generally, answer from your
                 } });
             document.addEventListener('keydown', e => { if (e.key !== 'Enter' || !e.target.dataset || e.target.dataset.fcBox === undefined) return; e.preventDefault();
                 const next = document.querySelector(`[data-fc-box="${Number(e.target.dataset.fcBox) + 1}"]`); if (next) next.focus(); else document.querySelector('[data-action="fc-struct-check"]')?.click(); });
+            document.addEventListener('keydown', e => { if (e.key !== 'Enter' || !e.target.dataset || e.target.dataset.wbBox === undefined) return; e.preventDefault(); const s = flashcardStudySession; if (!s || s.mode !== 'wb-test') return;
+                if (s.checked) { document.querySelector('[data-action="wb-next"]')?.click(); return; }
+                const next = document.querySelector(`[data-wb-box="${Number(e.target.dataset.wbBox) + 1}"]`); if (next) next.focus(); else document.querySelector('[data-action="wb-check"]')?.click(); });
             let fcTouchX = null;
             document.addEventListener('touchstart', e => { fcTouchX = e.target.closest && e.target.closest('.fc-scene') ? e.touches[0].clientX : null; }, { passive: true });
             document.addEventListener('touchend', e => { if (fcTouchX == null) return; const dx = e.changedTouches[0].clientX - fcTouchX; fcTouchX = null;
@@ -22128,6 +22389,9 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-front') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].front = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-back') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].back = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-text') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].text = t.value; }
+                else if (t.dataset && t.dataset.wbBox !== undefined) { if (flashcardStudySession && flashcardStudySession.mode === 'wb-test') flashcardStudySession.answers['b' + t.dataset.wbBox] = t.value; }
+                else if (t.id === 'syn-word-input') { if (synDraft) synDraft.word = t.value; }
+                else if (t.id === 'syn-text-input') { if (synDraft) synDraft.text = t.value; }
                 else if (t.dataset && t.dataset.action === 'ctt-minutes') { const a0 = customTtDraft && customTtDraft.slots[t.dataset.key]; if (a0 && a0[Number(t.dataset.index)]) a0[Number(t.dataset.index)].minutes = Math.max(0, Number(t.value) || 0); }
                 else if (t.dataset && t.dataset.action === 'info-review-title') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].title = t.value; }
                 else if (t.dataset && t.dataset.action === 'info-review-text') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].text = t.value; }
