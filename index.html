@@ -12,7 +12,7 @@
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com https://rlwfxvnwekkyfslxltus.supabase.co;
         font-src 'self' data:;
         connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://translate.googleapis.com https://api.mymemory.translated.net https://cdn.jsdelivr.net;
-        frame-src 'self' https://sdk.scdn.co;
+        frame-src 'self' https://sdk.scdn.co https://openkrillion.com;
         object-src 'none';
         base-uri 'self';
         form-action 'self';
@@ -14218,6 +14218,19 @@ ${pointsSvg}
                 return () => { running = false; if (rafId) cancelAnimationFrame(rafId); document.removeEventListener('keydown', keydown); container.innerHTML = ''; ctx = null; };
             }
 
+            // ---- OpenKrillion (embedded) ----------------------------------------------------------------
+            // Daily rare-answer trivia, MIT: github.com/VulcanEon/openkrillion.com-service. It needs its own backend
+            // (Cloudflare Worker + D1), so it can't be inlined here; we frame the hosted copy instead. If you deploy
+            // your own copy, change OPENKRILLION_URL AND the matching origin in this page's CSP frame-src (top of file).
+            const OPENKRILLION_URL = 'https://openkrillion.com';
+            function mountOpenKrillion(container) {
+                container.innerHTML = `<div style="width:100%;max-width:1100px">
+                    <iframe id="openkrillion-frame" title="OpenKrillion" src="${OPENKRILLION_URL}" loading="lazy"
+                        allow="autoplay" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                        style="width:100%;height:min(78vh,820px);min-height:520px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)"></iframe>
+                    <p class="small" style="margin:8px 0 0">Not loading? <a href="${OPENKRILLION_URL}" target="_blank" rel="noopener noreferrer">Open OpenKrillion in a new tab</a>.</p></div>`;
+                return () => { const f = container.querySelector('#openkrillion-frame'); if (f) f.src = 'about:blank'; container.innerHTML = ''; }; // stops its audio on exit
+            }
             const GAMES = {
                 solitaire: { title: 'Solitaire', icon: '🃏', desc: 'Classic Klondike — click a card to pick it up, then click where it should go.', hasScore: false, mount: mountSolitaire },
                 blackjack: { title: 'Blackjack', icon: '♠️', desc: 'Get closer to 21 than the dealer without going over.', hasScore: false, mount: mountBlackjack },
@@ -14237,11 +14250,13 @@ ${pointsSvg}
                 ultimatettt: { title: 'Ultimate Tic-Tac-Toe', icon: '🎯', desc: 'Challenge someone by name or email — play over a day, or in real time if you\'re both online.', hasScore: false, mount: mountUltimateTTT },
                 wordassoc: { title: 'Word Solitaire', icon: '🗂️', desc: 'Sort word cards into the right category, solitaire-style — classic categories or Leaving Cert subjects.', hasScore: false, mount: mountWordAssociations },
                 jellybusters: { title: 'Jelly Busters', icon: '🍮', desc: "Send jellies from the queue onto the conveyor belt — each shoots straight into the picture and clears the first pixel it lines up with, if it's a colour match. Jellies that finish a lap wait on the bar (same colours combine); if the bar's full and nothing matches, it's game over.", hasScore: true, mount: mountJellyBusters },
+                openkrillion: { title: 'OpenKrillion', icon: '🦐', desc: 'Daily rare-answer trivia — seven prompts, 25 seconds each. The rarer your answer, the deeper you dive.', hasScore: false, mount: mountOpenKrillion },
                 crossyroad: { title: 'Crossy Road', icon: '🐔', desc: "Hop across roads, rail lines, and rivers without getting flattened, hit, or swept away — and don't dawdle, or a hawk will get you.", hasScore: true, mount: mountCrossyRoad },
             };
             GAME_ORDER.push('flappybird', 'blockblast', 'wordle', 'crossword', 'connections', 'ultimatettt');
             GAME_ORDER.push('wordassoc', 'jellybusters');
             GAME_ORDER.push('crossyroad');
+            GAME_ORDER.push('openkrillion');
 
             function caoCourseFormModal(courseId) { const c = courseId ? state.caoCourses.find(x => x.id ===
                     courseId) : null;
