@@ -2803,6 +2803,26 @@
         .wb-tile .row { gap: 6px; flex-wrap: wrap; }
         .fc-face.back.rich .conj-grid { font-size: 13px; }
         .fc-face.back.rich .conj-grid-wrap { width: 100%; }
+        .game-layout { display: flex; gap: 22px; align-items: flex-start; justify-content: center; flex-wrap: wrap; width: 100%; }
+        .game-layout .game-holder { flex: 1 1 560px; width: auto; margin: 0; min-width: 0; }
+        .game-lb { flex: 0 1 290px; width: 290px; position: sticky; top: 16px; }
+        .lb-card { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); padding: 14px 16px; text-align: left; }
+        .lb-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+        .lb-list { list-style: none; margin: 0; padding: 0; }
+        .lb-list li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 14px; }
+        .lb-list li.me { background: var(--primary-soft); font-weight: 700; }
+        .lb-rank { min-width: 26px; text-align: center; }
+        .lb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lb-score { font-variant-numeric: tabular-nums; font-weight: 700; }
+        .lb-you { margin-top: 8px; padding: 6px 8px; border-top: 1px dashed var(--line); font-size: 13px; }
+        .lb-opt { margin-top: 10px; font-size: 12px; font-weight: 500; color: var(--muted); }
+        @media (max-width: 1100px) { .game-lb { flex-basis: 100%; width: 100%; max-width: 560px; position: static; } }
+        .admin-secret { user-select: none; -webkit-user-select: none; cursor: default; }
+        .comm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+        .comm-card { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow); }
+        .comm-card strong { font-size: 16px; }
+        .comm-card .row { gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+        .comm-switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-bottom: 14px; }
         @media (prefers-reduced-motion: reduce) {
             .fc-card { transition: none; }
             .fc-enter-next, .fc-enter-prev, .fc-exit-next, .fc-exit-prev { animation: none; }
@@ -5327,7 +5347,7 @@
                 loadAdminUsers();
             }
 
-            function exitAdminMode() { view = adminReturnView || 'dashboard'; render(); }
+            function exitAdminMode() { adminShowResults = false; view = adminReturnView || 'dashboard'; render(); }
 
             async function loadAdminUsers() {
                 adminBusy = true; adminError = ''; render();
@@ -5508,7 +5528,7 @@
             async function adminExportCsv() {
                 try {
                     const { csv } = await adminFetch('export-csv');
-                    const blob = new Blob([csv], { type: 'text/csv' }),
+                    const blob = new Blob([adminStripCsvColumns(csv, /result/i)], { type: 'text/csv' }),
                         url = URL.createObjectURL(blob), link = document.createElement('a');
                     link.href = url; link.download = 'admin-user-metrics.csv'; link.click();
                     URL.revokeObjectURL(url);
@@ -5544,7 +5564,9 @@
                 if (!message) { toast('Enter a message first.'); return; }
                 adminBusy = true; render();
                 try {
-                    await adminFetch('create-announcement', { kind: adminNewAnnouncementKind, message, targetEmails });
+                    let payload; if (adminNewAnnouncementKind === 'action') { try { payload = adminActionPayload(); } catch (e) { toast(e.message); adminBusy = false; render(); return; } }
+                    await adminFetch('create-announcement', { kind: adminNewAnnouncementKind, message, targetEmails, ...(payload ? { payload } : {}) });
+                    adminActionButtons = []; adminActionPrompt = ''; adminActionError = '';
                     toast(targetEmails.length ? `Announcement published to ${targetEmails.length} user${targetEmails.length===1?'':'s'}.` : 'Announcement published to everyone.');
                     adminAnnouncementTargets = []; adminAnnouncementSearchQuery = '';
                     // Refresh the public copy too, in case this admin session keeps browsing the app afterward.
@@ -8369,6 +8391,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 essayMarks: [], // { id, subjectId, topicIds: [], date, inputMode, text, overallComment, rating: 'good'|'ok'|'bad', spelling: [], grammar: [], suggestions: [] }
                 flashcardDecks: [], // { id, subjectId, topic, cards: [{id, front, back}], createdAt } — one deck per subject+topic
                 gameHighScores: {}, // { [gameId]: number } — best score so far for score-based games in the Games section
+                gameWins: {}, // { [gameId]: number } — running win / completion count for the games with no score (what their leaderboard ranks)
                 gameSettings: {}, // { [gameId]: {...} } — per-game user preferences (e.g. Snake's speed/board size/walls)
                 week: weekStart(localDate())
             });
@@ -8605,6 +8628,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     essayMarks: Array.isArray(saved.essayMarks) ? saved.essayMarks : [],
                     flashcardDecks: Array.isArray(saved.flashcardDecks) ? saved.flashcardDecks : [],
                     gameHighScores: saved.gameHighScores && typeof saved.gameHighScores === 'object' ? saved.gameHighScores : {},
+                    gameWins: saved.gameWins && typeof saved.gameWins === 'object' ? saved.gameWins : {},
                     gameSettings: saved.gameSettings && typeof saved.gameSettings === 'object' ? saved.gameSettings : {} };
             }
 
@@ -8618,7 +8642,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             // While a demo/preview tour has temporarily swapped in sample data (see startDemoTour), nothing
             // gets persisted — not to localStorage, not to the cloud — no matter what triggers a save, so a
             // crash or stray click mid-tour can never leave demo content in place of someone's real data.
-            function save(immediateCloud = false) { if (demoModeActive) return; localStorage.setItem(STORE, JSON.stringify(state));
+            function save(immediateCloud = false) { if (demoModeActive) return; communityQueue(); localStorage.setItem(STORE, JSON.stringify(state));
                 localStorage.setItem(STORE_UPDATED_AT, String(Date.now()));
                 if (currentUser) localStorage.setItem(STORE_USER_ID, currentUser.id);
                 pushStateToCloud(immediateCloud); }
@@ -10866,12 +10890,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     .join('\n');
                 const prompt =
                     `A student is searching the Irish State Examinations "Formulae and Tables" booklet for a formula or table. Their search was: "${query}"\n\nHere is the full list of entries in the booklet (id: name):\n${listing}\n\nReply with ONLY the single best-matching id from the list above, and nothing else — no explanation, no punctuation. If genuinely nothing in the list is a reasonable match, reply with exactly: NONE`;
-                try { const { data, error } = await supabaseClient.functions.invoke('ai-chat', { body: { contents: [
-                                { role: 'user', parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text:
-                                        'You are a precise lookup assistant for a fixed list of ids. Reply with only an id from the list, nothing else.' }] } } });
-                    if (error) { let detail = error.message || 'AI search failed.';
-                        try { detail = (await error.context.json())?.error || detail; } catch {}
-                        throw new Error(detail); }
+                try { const data = await aiInvoke({ contents: [{ role: 'user', parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: 'You are a precise lookup assistant for a fixed list of ids. Reply with only an id from the list, nothing else.' }] } });
                     const text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text).filter(Boolean).join(
                             '').trim();
                     const id = (text.split(/\s+/)[0] || '').replace(/[^a-z0-9-]/gi, '').toLowerCase(); if (!id ||
@@ -12029,9 +12048,47 @@ ${pointsSvg}
             function mountGameInto(container, id) { unmountCurrentGame();
                 const g = GAMES[id]; if (!g || !container) return;
                 currentGameCleanup = g.mount(container) || null; }
+            // ---- Game leaderboards ---------------------------------------------------------------------------------
+            // One row per (user, game) in the Supabase table `game_scores` (see supabase-setup.sql). Games with a score rank by
+            // best score; the rest rank by wins (Word Solitaire: levels cleared). Shows people's NAMES, never emails.
+            // The panel lives outside render() (a mounted game is never re-rendered), so it updates its own DOM directly.
+            let gameLbTimers = {}, gameLbDisabled = false, gameLbSynced = {};
+            function gameLbMetric(id) { return GAMES[id] && GAMES[id].hasScore ? 'score' : 'wins'; }
+            function gameLbLabel(id) { return gameLbMetric(id) === 'score' ? 'Best score' : id === 'wordassoc' ? 'Levels cleared' : id === 'blackjack' ? 'Hands won' : 'Wins'; }
+            function gameLbValue(id) { return gameLbMetric(id) === 'score' ? (state.gameHighScores[id] || 0) : ((state.gameWins || {})[id] || 0); }
+            function gameLbName() { return (`${state.settings.firstName || ''} ${state.settings.lastName || ''}`.trim() || 'Student').slice(0, 40); }
+            function gameLbQueueSubmit(id) { if (!currentUser || demoModeActive || gameLbDisabled || state.settings.gameLbHidden) return; clearTimeout(gameLbTimers[id]); gameLbTimers[id] = setTimeout(() => gameLbSubmit(id), 1200); }
+            async function gameLbSubmit(id) { const v = gameLbValue(id); if (!currentUser || !(v > 0) || gameLbDisabled || state.settings.gameLbHidden || v <= (gameLbSynced[id] || 0)) return;
+                try { const { error } = await supabaseClient.from('game_scores').upsert({ user_id: currentUser.id, game_id: id, score: v, display_name: gameLbName(), updated_at: new Date().toISOString() }, { onConflict: 'user_id,game_id' });
+                    if (error) throw error; gameLbSynced[id] = v; if (gamesActiveGame === id) gameLbRefresh(id); }
+                catch (e) { if (/does not exist|42P01|schema cache|PGRST205/i.test(String((e && (e.message || e.code)) || ''))) gameLbDisabled = true; console.warn('leaderboard submit failed', e); } }
+            function gameLbShell(id, inner) { const hidden = !!state.settings.gameLbHidden;
+                return `<div class="lb-card"><div class="lb-head"><strong>🏆 Leaderboard</strong><span class="small">${gameLbLabel(id)}</span></div>${inner}${currentUser ? `<label class="fc-check lb-opt"><input type="checkbox" data-action="game-lb-toggle" ${hidden ? '' : 'checked'}> Show me on leaderboards</label>` : ''}</div>`; }
+            async function gameLbRefresh(id) { const el = document.getElementById('game-lb'); if (!el || gamesActiveGame !== id) return;
+                if (!currentUser) { el.innerHTML = gameLbShell(id, '<p class="small" style="margin:8px 0 0">Sign in to see the leaderboard and add your own score.</p>'); return; }
+                if (gameLbDisabled) { el.innerHTML = gameLbShell(id, '<p class="small" style="margin:8px 0 0">Leaderboards aren\'t switched on yet.</p>'); return; }
+                if (!state.settings.gameLbHidden && gameLbValue(id) > (gameLbSynced[id] || 0)) { gameLbSubmit(id); }
+                if (!el.firstChild) el.innerHTML = gameLbShell(id, '<p class="small" style="margin:8px 0 0">Loading…</p>');
+                try { const top = await supabaseClient.from('game_scores').select('user_id, display_name, score').eq('game_id', id).order('score', { ascending: false }).limit(10);
+                    if (top.error) throw top.error; const rows = top.data || [], mine = rows.find(r => r.user_id === currentUser.id); let meRank = null, meScore = null;
+                    if (!mine && !state.settings.gameLbHidden && gameLbValue(id) > 0) { const c = await supabaseClient.from('game_scores').select('user_id', { count: 'exact', head: true }).eq('game_id', id).gt('score', gameLbValue(id));
+                        if (!c.error && typeof c.count === 'number') { meRank = c.count + 1; meScore = gameLbValue(id); } }
+                    if (gamesActiveGame !== id || !document.getElementById('game-lb')) return;
+                    const medal = (i) => ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+                    const list = rows.length ? `<ol class="lb-list">${rows.map((r, i) => `<li class="${r.user_id === currentUser.id ? 'me' : ''}"><span class="lb-rank">${medal(i)}</span><span class="lb-name">${escape(r.display_name || 'Student')}</span><span class="lb-score">${Number(r.score).toLocaleString()}</span></li>`).join('')}</ol>` : '<p class="small" style="margin:8px 0 0">No scores yet — be the first!</p>';
+                    const you = meRank ? `<div class="lb-you">You: <strong>#${meRank}</strong> · ${Number(meScore).toLocaleString()}</div>` : '';
+                    el.innerHTML = gameLbShell(id, list + you);
+                } catch (e) { if (/does not exist|42P01|schema cache|PGRST205/i.test(String((e && (e.message || e.code)) || ''))) gameLbDisabled = true; el.innerHTML = gameLbShell(id, `<p class="small" style="margin:8px 0 0">${gameLbDisabled ? 'Leaderboards aren\'t switched on yet.' : 'Couldn\'t load the leaderboard.'}</p>`); } }
+            async function gameLbSetVisible(show) { state.settings.gameLbHidden = !show; gameLbSynced = {}; save();
+                if (!currentUser) return; try { if (!show) await supabaseClient.from('game_scores').delete().eq('user_id', currentUser.id); else Object.keys(GAMES).forEach(gameLbQueueSubmit); } catch (e) { console.warn(e); }
+                if (gamesActiveGame) gameLbRefresh(gamesActiveGame); }
+
             function gameBestScore(id) { return state.gameHighScores[id] || 0; }
             function gameReportScore(id, score) { if (score > (state.gameHighScores[id] || 0)) {
-                    state.gameHighScores[id] = score; save(); return true; } return false; }
+                    state.gameHighScores[id] = score; save(); gameLbQueueSubmit(id); return true; } return false; }
+            // Games with no score count wins / completions instead, and that running total is what their leaderboard ranks.
+            function gameReportWin(id) { state.gameWins = state.gameWins || {}; state.gameWins[id] = (state.gameWins[id] || 0) + 1; save(); gameLbQueueSubmit(id); }
+            function gameReportTotal(id, total) { state.gameWins = state.gameWins || {}; if (total > (state.gameWins[id] || 0)) { state.gameWins[id] = total; save(); gameLbQueueSubmit(id); } }
             function gameSettingsFor(id, defaults) { return { ...defaults, ...(state.gameSettings[id] || {}) }; }
             function saveGameSettingsFor(id, patch) { state.gameSettings[id] = { ...(state.gameSettings[id] || {}), ...patch }; save(); }
 
@@ -12052,7 +12109,7 @@ ${pointsSvg}
                     best = g.hasScore ? `<span class="small">Best score: ${gameBestScore(gamesActiveGame)}</span>` : '';
                 return appFrame(`<div class="page">${back}
         ${header(`${g.icon} ${g.title}`, g.desc, best)}
-        <div id="game-holder" class="game-holder"></div>
+        <div class="game-layout"><div id="game-holder" class="game-holder"></div><aside id="game-lb" class="game-lb" aria-label="Leaderboard"></aside></div>
         </div>`);
             }
 
@@ -12068,7 +12125,7 @@ ${pointsSvg}
                     const prefer = [4,0,2,6,8,1,3,5,7].filter(i => empties.includes(i));
                     board[prefer[0]] = 'O'; }
                 function render() { const w = winner(board);
-                    if (w === 'X') { gameOver = true; message = '🎉 You win!'; }
+                    if (w === 'X') { if (!gameOver) gameReportWin('tictactoe'); gameOver = true; message = '🎉 You win!'; }
                     else if (w === 'O') { gameOver = true; message = 'The computer won this one — try again?'; }
                     else if (w === 'draw') { gameOver = true; message = "It's a draw."; }
                     container.innerHTML = `<div class="game-stat-line">${message}</div>
@@ -12434,7 +12491,7 @@ ${pointsSvg}
                     cells[i].revealed = true; revealedCount++;
                     if (cells[i].mine) { gameOver = true; cells.forEach(c => { if (c.mine) c.revealed = true; }); render(); return; }
                     if (cells[i].count === 0) neighbors(i).forEach(n => { if (!cells[n].revealed) reveal(n); });
-                    if (revealedCount === cells.length - MINES) { won = true; gameOver = true; }
+                    if (revealedCount === cells.length - MINES && !won) { gameReportWin('minesweeper'); won = true; gameOver = true; }
                     render(); }
                 function onCellClick(i) { if (gameOver) return; if (firstClick) { placeMines(i); firstClick = false; } reveal(i); }
                 function onCellRightClick(e, i) { e.preventDefault(); if (gameOver || cells[i].revealed) return;
@@ -12468,9 +12525,9 @@ ${pointsSvg}
                 function resolveDealer() { while (handValue(dealer) < 17) dealer.push(draw());
                     const p = handValue(player), d = handValue(dealer);
                     if (p > 21) { message = 'Bust — dealer wins.'; losses++; }
-                    else if (d > 21) { message = 'Dealer busts — you win!'; wins++; }
+                    else if (d > 21) { message = 'Dealer busts — you win!'; wins++; gameReportWin('blackjack'); }
                     else if (p === d) { message = `Push — both at ${p}.`; pushes++; }
-                    else if (p > d) { message = `You win, ${p} to ${d}!`; wins++; }
+                    else if (p > d) { message = `You win, ${p} to ${d}!`; wins++; gameReportWin('blackjack'); }
                     else { message = `Dealer wins, ${d} to ${p}.`; losses++; }
                     phase = 'over'; render(); }
                 function newHand() { player = [draw(), draw()]; dealer = [draw(), draw()]; phase = 'playing'; message = '';
@@ -12511,7 +12568,7 @@ ${pointsSvg}
                 function selectFrom(zone, colIndex) { const pile = zone === 'waste' ? waste : tableau[colIndex], card = topCard(pile);
                     if (!card || !card.faceUp) return; selected = { zone, colIndex, card }; }
                 function flipNewTop(colIndex) { const c = topCard(tableau[colIndex]); if (c && !c.faceUp) c.faceUp = true; }
-                function checkWin() { won = Object.values(foundations).every(p => p.length === 13); }
+                function checkWin() { const was = won; won = Object.values(foundations).every(p => p.length === 13); if (won && !was) gameReportWin('solitaire'); }
                 function tryAutoFoundation(zone, colIndex) { const pile = zone === 'waste' ? waste : tableau[colIndex], card = topCard(pile);
                     if (!card || !canStackFoundation(card, card.suit)) return false;
                     pile.pop(); foundations[card.suit].push(card); if (zone === 'tableau') flipNewTop(colIndex); checkWin(); return true; }
@@ -12747,7 +12804,7 @@ ${pointsSvg}
                     const code = res.reduce((acc,r,i) => acc + WB_RES_CODE[r]*WB_POW[i], 0);
                     botCandidates = botCandidates.filter(idx => wbPatternCode(currentCoded, WORDLE_ANSWERS_CODED[idx]) === code);
                     botSuggestions = null;
-                    if (current === answer) { won = true; gameOver = true; } else if (guesses.length >= 6) gameOver = true;
+                    if (current === answer) { won = true; gameOver = true; gameReportWin('wordle'); } else if (guesses.length >= 6) gameOver = true;
                     current = ''; render(); }
                 function keyPress(k) { if (gameOver) return;
                     if (k === 'ENTER') { submitGuess(); return; }
@@ -13000,6 +13057,7 @@ ${pointsSvg}
                         gridHtml += `<div class="cw-cell ${activeCells.includes(k)?'active':''}">${num?`<span class="cw-num">${num}</span>`:''}<input class="cw-input ${correctness}" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" data-r="${r}" data-c="${c}" value="${val}"></div>`; }
                     const clueList = dir => puzzle.words.filter(w=>w.dir===dir).sort((a,b)=>a.number-b.number)
                         .map(w => `<li class="${activeWord===w?'active':''}" data-num="${w.number}" data-dir="${dir}">${w.number}. ${escape(w.clue)}</li>`).join('');
+                    if (isSolved() && !puzzle.reported) { puzzle.reported = true; gameReportWin('crossword'); }
                     container.innerHTML = `<div class="game-stat-line">${isSolved() ? '🎉 Solved!' : `${puzzle.words.length} words — fill in the grid.`}</div>
         <div class="cw-grid" style="grid-template-columns:repeat(${puzzle.width}, 34px)">${gridHtml}</div>
         <div class="cw-clues"><div><h4>Across</h4><ul>${clueList('across')}</ul></div><div><h4>Down</h4><ul>${clueList('down')}</ul></div></div>
@@ -13081,7 +13139,7 @@ ${pointsSvg}
                 function submit() { if (selected.length !== 4 || gameOver || shake) return;
                     const idxs = selected.map(w => tiles.find(t=>t.word===w).groupIdx);
                     if (idxs.every(i => i === idxs[0])) { solvedGroups.push(idxs[0]); tiles = tiles.filter(t => !selected.includes(t.word)); selected = [];
-                        if (solvedGroups.length === 4) { won = true; gameOver = true; } render(); }
+                        if (solvedGroups.length === 4) { won = true; gameOver = true; gameReportWin('connections'); } render(); }
                     else { mistakes++; shake = true; render();
                         setTimeout(() => { shake = false; selected = [];
                             if (mistakes >= 4) { gameOver = true; puzzle.groups.forEach((g,i) => { if (!solvedGroups.includes(i)) solvedGroups.push(i); }); tiles = []; }
@@ -13164,6 +13222,7 @@ ${pointsSvg}
                         board: { cells: applied.cells, nextBig: applied.nextBig }, turn: myColor === 'x' ? 'o' : 'x',
                         status: newStatus, updated_at: new Date().toISOString() }).eq('id', m.id);
                     if (error) { toast('Could not save that move — try again.'); return; }
+                    if ((newStatus === 'x_won' && myColor === 'x') || (newStatus === 'o_won' && myColor === 'o')) gameReportWin('ultimatettt');
                     await loadMatch(); }
                 function renderList() {
                     const myInvites = (gameInvites||[]).filter(i => i.invitee_id === currentUser.id);
@@ -13508,7 +13567,7 @@ ${pointsSvg}
                     cardElsById.clear(); mountPlayView(); }
 
                 function checkWin() { const done = game.categories.every(c => c.done.length === c.total);
-                    if (done) { game.won = true; markComplete(game.level.id);
+                    if (done && !game.won) { game.won = true; markComplete(game.level.id); gameReportTotal('wordassoc', progress().completed.length);
                         setTimeout(() => { boardEls.winOverlay.classList.remove('hidden');
                             boardEls.winOverlay.querySelector('.assoc-win-moves').textContent = game.moves; }, 500); } }
 
@@ -14452,15 +14511,35 @@ ${pointsSvg}
             const GROQ_ELIGIBLE_TAXONOMY_IDS = new Set(['spanish', 'french', 'german', 'italian']);
             function preferredProviderFor(s) { return GROQ_ELIGIBLE_TAXONOMY_IDS.has(s?.taxonomyId) ? 'groq' : undefined; }
 
-            async function aiTextOnce(systemPrompt, parts, preferProvider) {
+            // ---- AI requests: retry + backup providers --------------------------------------------------------------
+            // Every AI feature goes through the `ai-chat` Edge Function. When the main model reports it is overloaded
+            // ("experiencing high demand", 503, 429, quota...) we retry once, then ask the function to use a backup provider
+            // (preferProvider: 'groq', then 'openrouter'). Requests that contain images skip the backups, which can't read them.
+            // A backup that rejects the request for a non-transient reason (not configured, unsupported) is skipped quietly.
+            const AI_TRANSIENT_RE = /high demand|overload|unavailable|temporar|try again|rate.?limit|quota|exhaust|too many|capacity|\bbusy\b|timed? ?out|deadline|resource.?exhausted|\b(408|425|429|500|502|503|504)\b/i;
+            async function aiInvokeOnce(body) { const { data, error } = await supabaseClient.functions.invoke('ai-chat', { body });
+                if (error) { let detail = error.message || 'AI request failed.', json = null; try { json = await error.context.json(); detail = json?.error || detail; } catch {}
+                    const e = new Error(typeof detail === 'string' ? detail : (detail && detail.message) || 'AI request failed.'); e.status = (error.context && error.context.status) || (json && json.status); e.exhausted = !!(json && json.tried); throw e; }
+                if (data && data.error) { const e = new Error(typeof data.error === 'string' ? data.error : (data.error.message || 'AI request failed.')); e.status = data.status || data.code; e.exhausted = !!data.tried; throw e; }
+                return data; }
+            function aiIsTransient(e) { return [408, 425, 429, 500, 502, 503, 504].includes(Number(e && e.status)) || AI_TRANSIENT_RE.test((e && e.message) || ''); }
+            async function aiInvoke(body) { const hasImage = JSON.stringify(body.contents || []).includes('"inlineData"'), chain = [];
+                [body.preferProvider, undefined].concat(hasImage ? [] : ['groq']).forEach(p => { if (!chain.includes(p)) chain.push(p); });
+                const busy = () => { const err = new Error(`The AI is very busy right now — every model is at capacity. Please try again in a minute.`); err.original = first; return err; }; let first = null, told = false;
+                for (let i = 0; i < chain.length; i++) {
+                    if (i > 0 && !told) { told = true; try { toast('The main AI is busy — trying a backup…'); } catch (e) {} }
+                    for (let attempt = 0; attempt < (i === 0 ? 2 : 1); attempt++) {
+                        try { const b = Object.assign({}, body); if (chain[i]) b.preferProvider = chain[i]; else delete b.preferProvider; return await aiInvokeOnce(b); }
+                        catch (e) { if (!first) first = e;
+                            if (!aiIsTransient(e)) { if (i === 0) throw e; break; }
+                            // The server (ai-chat) already tried every model and provider it has -- don't pile on more hops, just one patient retry.
+                            if (e.exhausted) { if (i === 0 && attempt === 0) { await new Promise(r => setTimeout(r, 3000)); continue; } throw busy(); }
+                            if (i === 0 && attempt === 0) await new Promise(r => setTimeout(r, 1200)); } } }
+                throw busy(); }
+
+                        async function aiTextOnce(systemPrompt, parts, preferProvider) {
                 if (!currentUser) throw new Error('Sign in with Google to use this AI feature.');
-                const { data, error } = await supabaseClient.functions.invoke('ai-chat', {
-                    body: { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: systemPrompt }] }, preferProvider }
-                });
-                if (error) { let detail = error.message || 'AI request failed.';
-                    try { detail = (await error.context.json())?.error || detail; } catch {}
-                    throw new Error(detail); }
-                if (data?.error) throw new Error(data.error);
+                const data = await aiInvoke({ contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: systemPrompt }] }, preferProvider });
                 const candidate = data?.candidates?.[0];
                 const text = candidate?.content?.parts?.map(p => p.text || '').join('') || '';
                 if (!text.trim()) throw new Error("The AI didn't return a usable response — try again.");
@@ -15143,7 +15222,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 let deck = state.flashcardDecks.find(d => d.subjectId === subjectId && d.topic.toLowerCase() === topic.toLowerCase());
                 if (!deck) { deck = { id: uid(), subjectId, topic, cards: [], createdAt: Date.now() }; state.flashcardDecks.push(deck); }
                 return deck; }
-            function addFlashcardsToDeck(subjectId, topic, cards) { const deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
+            function addFlashcardsToDeck(subjectId, topic, cards) { const existed = !!fcFindDeck(subjectId, topic), deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
+                if (!existed && flashcardCreateDraft && flashcardCreateDraft.isPrivate) deck.isPrivate = true;
                 (cards || []).forEach(c => { const front = (c.front || '').trim(), back = (c.back || '').trim(); if (!front || !back) return;
                     const card = { id: uid(), front, back }; if (c.secId) fcApplyPlace(deck, card, fcCardKey(c)); if (c.type && c.type !== 'term' && FC_TYPES[c.type] && c.data) { card.type = c.type; card.data = c.data; } deck.cards.push(card); });
                 save(); return deck; }
@@ -15205,7 +15285,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                         const own = deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && !p.sub; }), total = deck.cards.filter(c => c.secId === s.id).length;
                         return `<div class="fc-sec-block"><div class="fc-sec-h"><h3>📂 ${escape(s.name)}</h3><span class="small">${total} card${total === 1 ? '' : 's'}</span>${secTools(s, null)}</div>${rows(own)}${(s.subs || []).map(u => { const uc = deck.cards.filter(c => c.secId === s.id && c.subId === u.id);
                             return `<div class="fc-sec-block sub"><div class="fc-sec-h sub"><h3>${escape(u.name)}</h3><span class="small">${uc.length}</span>${secTools(s, u)}</div>${uc.length ? rows(uc) : '<p class="small" style="margin:4px 0 8px">No cards here yet.</p>'}</div>`; }).join('')}</div>`; }).join(''); }
-                const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep cards in order (don't shuffle)</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
+                const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep cards in order (don't shuffle)</label><label class="fc-check" title="Private decks are never shown in the Community"><input type="checkbox" data-action="fc-deck-private" data-deck="${deck.id}" ${deck.isPrivate ? 'checked' : ''}> 🔒 Private ${deck.isPrivate ? '' : '<span class="small">(shared in the Community)</span>'}</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
                 return `<div class="fc-wrap">
           <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
           <div style="border-top:5px solid ${s ? s.color : 'var(--primary)'};padding-top:12px;margin-bottom:16px">
@@ -15672,6 +15752,121 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     return `<div class="wb-tile" style="--subject:${s.color}"><strong>${m.icon} ${m.label}</strong><span class="small">${n} ${n === 1 ? 'entry' : 'entries'}</span>${n ? `<div class="row"><button type="button" class="button primary" data-action="wb-open" data-subject="${s.id}" data-kind="${kind}" data-act="flip">Flip through</button><button type="button" class="button" data-action="wb-open" data-subject="${s.id}" data-kind="${kind}" data-act="test">Test me</button></div>` : `<button type="button" class="button ghost" data-action="wb-manage" data-subject="${s.id}" data-kind="${kind}">+ Add some in Word Bank</button>`}${n ? `<button type="button" class="button ghost" data-action="wb-manage" data-subject="${s.id}" data-kind="${kind}">Manage</button>` : ''}</div>`; };
                 return `<section class="wb-shelf"><h2>📚 Language word banks</h2><p class="muted" style="margin:0 0 14px">Flip through or be tested on the vocab, verbs and synonyms in your Word Bank.</p>${subs.map(s => `<div class="wb-subject"><div class="wb-subject-head"><i style="background:${s.color}"></i><strong>${escape(s.name)}</strong></div><div class="wb-tiles">${['vocab', 'verbs', 'synonyms'].map(k => tile(s, k)).join('')}</div></div>`).join('')}</section>`; }
 
+            // ---- Quizlet import ----------------------------------------------------------------------------------------
+            // 1) Paste: Quizlet's own Export text, with the same "between term and definition" / "between rows" choices.
+            // 2) PDF:   a Quizlet set printed with layout "table" (Print -> Save as PDF). The table has fixed columns -- row
+            //           number | term | definition -- so pdf.js text positions give term vs definition exactly; no AI needed.
+            // Both finish in the normal review list so every card can be checked/edited before it is added.
+            function qzUnescape(s) { return String(s || '').replace(/\\n/g, '\n').replace(/\\t/g, '\t'); }
+            function fcParseQuizletPaste(text, o) { o = o || {}; const t = String(text || '').replace(/\r\n?/g, '\n');
+                const rowSep = o.rowSep === 'semicolon' ? ';' : o.rowSep === 'custom' ? (qzUnescape(o.rowCustom) || '\n') : '\n';
+                let seps; if (o.termSep === 'tab') seps = ['\t']; else if (o.termSep === 'comma') seps = [',']; else if (o.termSep === 'custom') seps = [qzUnescape(o.termCustom) || '-'];
+                else seps = t.includes('\t') ? ['\t'] : [' - ', ' – ', ' — ', ' : ', ':', ','];
+                const rows = t.split(rowSep).map(r => r.trim()).filter(Boolean), cards = []; let bad = 0;
+                rows.forEach(row => { let at = -1, len = 0;
+                    for (const sp of seps) { if (o.termSep === 'custom' && sp.trim() === sp) { const j = row.indexOf(' ' + sp + ' '); if (j >= 0) { at = j + 1; len = sp.length; break; } }
+                        const i = row.indexOf(sp); if (i >= 0) { at = i; len = sp.length; break; } }
+                    if (at < 0) { if (o.joinOrphans !== false && cards.length) cards[cards.length - 1].back += '\n' + row; else bad++; return; } // a definition that wrapped onto its own line
+                    const front = row.slice(0, at).trim(), back = row.slice(at + len).trim(); if (front && back) cards.push({ front, back }); else bad++; });
+                return { cards, bad }; }
+            // pages: [{ items: [{ str, x, y, size }] }]  (pdf.js text items; y grows upwards)
+            function fcQuizletFromItems(pages) { const rows = []; let title = '', url = '', skipped = 0;
+                (pages || []).forEach((pg, pi) => {
+                    const items = (pg.items || []).map(it => ({ s: String(it.str || '').replace(/\u00A0/g, ' '), x: it.x, y: it.y, size: it.size })).filter(it => it.s.trim() !== '' && !/^\d+\s*\/\s*\d+$/.test(it.s.trim()));
+                    if (!items.length) return;
+                    const leftX = Math.min(...items.map(i => i.x)), anchors = items.filter(i => /^\d{1,4}$/.test(i.s.trim()) && i.x <= leftX + 6).sort((a, b) => b.y - a.y);
+                    if (!anchors.length) return;
+                    const TOL = 4, firstY = anchors[0].y, anchorX = anchors[0].x;
+                    if (pi === 0) { const head = items.filter(i => i.y > firstY + TOL);
+                        const u = head.find(i => /quizlet\.com\/\S+/i.test(i.s)); if (u) url = (u.s.match(/https?:\/\/\S+/) || [''])[0];
+                        const big = head.filter(i => !/quizlet\.com/i.test(i.s)).sort((a, b) => b.size - a.size || b.y - a.y)[0]; if (big) title = big.s.trim(); }
+                    const body = items.filter(i => i.y <= firstY + TOL && !anchors.includes(i) && !(i.s.trim() === '.' && i.x < anchorX + 18));
+                    if (!body.length) return;
+                    const termX = Math.min(...body.map(i => i.x)), far = body.filter(i => i.x > termX + 60), freq = new Map(); far.forEach(i => { const k = Math.round(i.x); freq.set(k, (freq.get(k) || 0) + 1); });
+                    let defX = null, best = 0; freq.forEach((n, k) => { if (n > best || (n === best && k < defX)) { best = n; defX = k; } });
+                    const rowOf = (y) => { let idx = -1; anchors.forEach((a, k) => { if (a.y + TOL >= y) idx = k; }); return idx; };
+                    const cols = anchors.map(() => ({ term: [], def: [] }));
+                    body.forEach(i => { const r = rowOf(i.y); if (r < 0) return; (defX != null && i.x >= defX - 4 ? cols[r].def : cols[r].term).push(i); });
+                    const toLines = (arr) => { const sorted = arr.slice().sort((a, b) => (Math.abs(b.y - a.y) > 3 ? b.y - a.y : a.x - b.x)), lines = [];
+                        sorted.forEach(i => { const last = lines[lines.length - 1]; if (last && Math.abs(last.y - i.y) <= 3) last.s += (/\s$/.test(last.s) || /^\s/.test(i.s) ? '' : ' ') + i.s; else lines.push({ y: i.y, s: i.s }); }); return lines.map(l => l.s); };
+                    const join = (lines) => { let out = ''; lines.forEach(ln => { ln = ln.trim(); if (!ln) return; if (!out) { out = ln; return; }
+                            if (/\u00AD$/.test(out) || (/[A-Za-z]-$/.test(out) && /^[a-z]/.test(ln))) out = out.slice(0, -1) + ln; else out += ' ' + ln; }); return out.replace(/\u00AD/g, '').replace(/\s+/g, ' ').trim(); };
+                    cols.forEach(c => rows.push({ front: join(toLines(c.term)), back: join(toLines(c.def)) })); });
+                const cards = rows.filter(r => { if (r.front && r.back) return true; if (r.front || r.back) skipped++; return false; });
+                return { title, url, cards, skipped, rows: rows.length }; }
+            async function qzReadPdf(file) { if (!window.pdfjsLib) throw new Error('The PDF reader didn\'t load — check your connection and try again.');
+                const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise, pages = [];
+                for (let p = 1; p <= doc.numPages; p++) { const page = await doc.getPage(p), tc = await page.getTextContent(); pages.push({ items: tc.items.map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5], size: Math.abs(it.transform[0]) })) }); }
+                return fcQuizletFromItems(pages); }
+            function qzOpts(d) { return { termSep: d.qzTermSep || 'tab', termCustom: d.qzTermCustom == null ? '-' : d.qzTermCustom, rowSep: d.qzRowSep || 'newline', rowCustom: d.qzRowCustom == null ? '\\n\\n' : d.qzRowCustom, joinOrphans: d.qzJoin !== false }; }
+            function qzToReview(d, cards) { d.reviewCards = cards.map(c => d.qzSwap ? { include: true, front: c.back, back: c.front } : { include: true, front: c.front, back: c.back }); }
+            async function qzHandlePdf(file) { const d = flashcardCreateDraft; if (!d || !file) return; d.qzBusy = true; d.qzError = ''; renderModal();
+                try { const r = await qzReadPdf(file); if (!flashcardCreateDraft || flashcardCreateDraft !== d) return;
+                    if (!r.cards.length) d.qzError = r.rows ? 'Found the table, but none of its rows had both a term and a definition.' : 'Couldn\'t find a Quizlet table in that PDF. Make sure you printed it with the layout set to "table" (see the steps above).';
+                    else { qzToReview(d, r.cards); d.qzInfo = { title: r.title, url: r.url, skipped: r.skipped, n: r.cards.length }; if (!(d.topic || '').trim() && r.title) d.topic = r.title; }
+                } catch (err) { d.qzError = err.message || 'Couldn\'t read that PDF.'; }
+                d.qzBusy = false; renderModal(); }
+
+            // ---- Community decks -------------------------------------------------------------------------------------------
+            // Every deck is PUBLIC by default (deck.isPrivate = true opts out) and is mirrored to the Supabase table `community_decks`
+            // (see supabase/migrations/0020_community_decks.sql), shown under the owner's NAME, never their email. A background
+            // reconcile (debounced after any save) publishes new/changed public decks, and removes rows for decks that became private
+            // or were deleted. Copies you take from other people start PRIVATE so nothing you didn't write is re-published by you.
+            let flashcardsTab = 'mine', communityRows = null, communityLoading = false, communityError = '', communityQuery = '', communitySort = 'new', communityDisabled = false;
+            let communityTimer = null, communityBusy = false, communityPreview = null, communitySearchTimer = null, communityTooBigWarned = {};
+            function fcHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+            function fcDeckSnapshot(d) { return { cards: d.cards.map(c => Object.assign({ front: c.front, back: c.back }, c.type && c.type !== 'term' && c.data ? { type: c.type, data: c.data } : {}, c.secId ? { secId: c.secId } : {}, c.subId ? { subId: c.subId } : {})), sections: d.sections || [] }; }
+            function fcDeckSig(d) { const s = JSON.stringify([d.topic, d.subjectId, fcDeckSnapshot(d)]); return fcHash(s) + ':' + s.length; }
+            function communityQueue() { if (communityDisabled || !currentUser || demoModeActive) return; clearTimeout(communityTimer); communityTimer = setTimeout(communityReconcile, 6000); }
+            function communityIsMissingTable(e) { return /does not exist|42P01|schema cache|PGRST205/i.test(String((e && (e.message || e.code)) || '')); }
+            async function communityReconcile() { if (!currentUser || communityDisabled || communityBusy || demoModeActive) return; communityBusy = true; let changed = false, more = false;
+                try { const pub = new Set((state.settings.communityPublishedIds || [])), hidden = !!state.settings.communityHidden, del = (id) => supabaseClient.from('community_decks').delete().eq('owner_id', currentUser.id).eq('deck_id', id);
+                    let budget = 3;
+                    for (const d of state.flashcardDecks) { const want = !hidden && !d.isPrivate && d.cards.length > 0;
+                        if (want) { const sig = fcDeckSig(d); if (d.communitySig === sig) continue; if (budget <= 0) { more = true; continue; } const snap = fcDeckSnapshot(d);
+                            if (JSON.stringify(snap).length > 1400000) { if (!communityTooBigWarned[d.id]) { communityTooBigWarned[d.id] = 1; toast(`"${d.topic}" is too large to share in the Community, so it stays private.`); } continue; }
+                            budget--; const s = subject(d.subjectId);
+                            const { error } = await supabaseClient.from('community_decks').upsert({ owner_id: currentUser.id, deck_id: d.id, owner_name: gameLbName(), subject_name: s ? s.name : 'General', topic: String(d.topic).slice(0, 120), card_count: d.cards.length, snapshot: snap, updated_at: new Date().toISOString() }, { onConflict: 'owner_id,deck_id' });
+                            if (error) throw error; d.communitySig = sig; pub.add(d.id); changed = true; }
+                        else if (pub.has(d.id) || d.communitySig) { const { error } = await del(d.id); if (error) throw error; pub.delete(d.id); delete d.communitySig; changed = true; } }
+                    const live = new Set(state.flashcardDecks.map(d => d.id)); for (const id of Array.from(pub)) if (!live.has(id)) { const { error } = await del(id); if (error) throw error; pub.delete(id); changed = true; }
+                    if (changed) { state.settings.communityPublishedIds = Array.from(pub); if (!state.settings.communityNoticeShown && pub.size) { state.settings.communityNoticeShown = true; toast('Your decks are shared in the Community under your name. Tick “Private” on any deck to hide it.'); } save(); }
+                } catch (e) { if (communityIsMissingTable(e)) communityDisabled = true; console.warn('community sync failed', e); }
+                communityBusy = false; if (more) communityQueue(); }
+            async function communityLoad() { if (!currentUser) { communityError = 'Sign in to browse the Community.'; communityRows = []; render(); return; } if (communityDisabled) { communityError = 'The Community isn\'t switched on yet.'; communityRows = []; render(); return; }
+                communityLoading = true; communityError = ''; render();
+                try { let q = supabaseClient.from('community_decks').select('id, owner_id, owner_name, subject_name, topic, card_count, copies, updated_at').neq('owner_id', currentUser.id).limit(60);
+                    const t = communityQuery.trim().replace(/[%,()*]/g, ' ').trim(); if (t) q = q.or(`topic.ilike.%${t}%,subject_name.ilike.%${t}%,owner_name.ilike.%${t}%`);
+                    q = communitySort === 'popular' ? q.order('copies', { ascending: false }).order('updated_at', { ascending: false }) : q.order('updated_at', { ascending: false });
+                    const { data, error } = await q; if (error) throw error; communityRows = data || [];
+                } catch (e) { if (communityIsMissingTable(e)) { communityDisabled = true; communityError = 'The Community isn\'t switched on yet.'; } else communityError = 'Couldn\'t load the Community — try again.'; communityRows = []; }
+                communityLoading = false; render(); }
+            function renderCommunityBody() { const hidden = !!state.settings.communityHidden, rows = communityRows || [];
+                const sw = `<div class="comm-switch"><label class="fc-check" style="margin:0"><input type="checkbox" data-action="comm-share-toggle" ${hidden ? '' : 'checked'}> Share my decks in the Community <span class="small">(under my name — you can still make any single deck private)</span></label></div>`;
+                const bar = `<div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap"><input type="search" id="fc-comm-search" placeholder="Search by topic, subject or name…" value="${escape(communityQuery)}" autocomplete="off" style="flex:1;min-width:200px"><button type="button" class="fc-chip ${communitySort === 'new' ? 'active' : ''}" data-action="comm-sort" data-sort="new">Newest</button><button type="button" class="fc-chip ${communitySort === 'popular' ? 'active' : ''}" data-action="comm-sort" data-sort="popular">Most copied</button></div>`;
+                const card = (r) => `<div class="comm-card"><strong>${escape(r.topic)}</strong><span class="small">${escape(r.subject_name)} · ${r.card_count} card${r.card_count === 1 ? '' : 's'}</span><span class="small">by ${escape(r.owner_name)}${r.copies ? ` · added ${r.copies}×` : ''}</span><div class="row"><button type="button" class="button ghost" data-action="comm-preview" data-id="${r.id}">👀 Preview</button><button type="button" class="button primary" data-action="comm-preview" data-id="${r.id}" data-add="1">➕ Add to my decks</button></div></div>`;
+                const body = communityLoading && communityRows == null ? '<p class="empty">Loading…</p>' : communityError ? `<p class="empty">${escape(communityError)}</p>` : rows.length ? `<div class="comm-grid">${rows.map(card).join('')}</div>` : `<p class="empty">${communityQuery.trim() ? 'No decks match that search.' : 'No one else has shared a deck yet — be the first!'}</p>`;
+                return sw + bar + body; }
+            async function communityOpenPreview(id, wantAdd) { const row = (communityRows || []).find(r => r.id === id); if (!row) return; communityPreview = { row, snapshot: null, loading: true, error: '', subjectId: '', title: row.topic };
+                const mine = state.subjects.filter(s => s.active !== false), match = mine.find(s => s.name.trim().toLowerCase() === String(row.subject_name).trim().toLowerCase()) || subject(flashcardsFilterSubject !== 'all' ? flashcardsFilterSubject : null) || mine[0];
+                communityPreview.subjectId = match ? match.id : ''; openModal('community-preview');
+                try { const { data, error } = await supabaseClient.from('community_decks').select('snapshot').eq('id', id).single(); if (error) throw error; if (communityPreview && communityPreview.row.id === id) communityPreview.snapshot = data.snapshot; }
+                catch (e) { if (communityPreview) communityPreview.error = 'Couldn\'t load that deck — it may have been removed.'; }
+                if (communityPreview) { communityPreview.loading = false; renderModal(); } }
+            function communityPreviewModal() { const p = communityPreview, close = '<button type="button" class="button ghost" data-action="close-modal">Close</button>'; if (!p) return modalShell('Community deck', '<p class="empty">Nothing to show.</p>', close);
+                const subs = state.subjects.filter(s => s.active !== false), cards = p.snapshot && p.snapshot.cards || [], badge = (c) => c.type && FC_TYPES[c.type] ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : '';
+                const body = `<p class="small" style="margin-top:0">${escape(p.row.subject_name)} · ${p.row.card_count} cards · by <strong>${escape(p.row.owner_name)}</strong></p>${p.loading ? '<p class="empty">Loading cards…</p>' : p.error ? `<p class="empty">${escape(p.error)}</p>` : `<div class="list" style="max-height:340px;overflow:auto">${cards.slice(0, 30).map(c => `<div class="fc-listcard"><div class="fc-listtext">${badge(c)}<strong>${escape(c.front)}</strong><div class="small">${escape(String(c.back).slice(0, 160))}</div></div></div>`).join('')}${cards.length > 30 ? `<p class="small">…and ${cards.length - 30} more.</p>` : ''}</div>`}
+          ${subs.length ? `<div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:14px"><div class="field"><label>Add to subject</label><select id="comm-add-subject">${subs.map(s => `<option value="${s.id}" ${s.id === p.subjectId ? 'selected' : ''}>${escape(s.name)}</option>`).join('')}</select></div><div class="field"><label>Deck name</label><input type="text" id="comm-add-title" value="${escape(p.title)}"></div></div><p class="small">Your copy is private to you, and you can edit it freely.</p>` : '<p class="empty">Add a subject first to copy decks.</p>'}`;
+                return modalShell(escape(p.row.topic), body, `<button type="button" class="button ghost danger" data-action="comm-report" data-id="${p.row.id}">🚩 Report</button><span style="flex:1"></span>${close}<button type="button" class="button primary" data-action="comm-add" ${p.loading || p.error || !subs.length ? 'disabled' : ''}>➕ Add to my decks</button>`, true); }
+            async function communityAddCopy() { const p = communityPreview; if (!p || !p.snapshot) return; const sid = (document.getElementById('comm-add-subject') || {}).value || p.subjectId, subj = subject(sid); if (!subj) { toast('Pick a subject first.'); return; }
+                let title = ((document.getElementById('comm-add-title') || {}).value || p.title).trim() || p.row.topic; if (fcFindDeck(sid, title)) title = `${title} (from ${p.row.owner_name})`; let n = 2, base = title; while (fcFindDeck(sid, title)) title = `${base} ${n++}`;
+                const deck = findOrCreateFlashcardDeck(sid, title); if (!deck) return; const idMap = {}; deck.sections = (p.snapshot.sections || []).map(s => { const id = uid(); idMap[s.id] = id; return { id, name: s.name, subs: (s.subs || []).map(u => { const uid2 = uid(); idMap[s.id + '|' + u.id] = uid2; return { id: uid2, name: u.name }; }) }; });
+                (p.snapshot.cards || []).forEach(c => { const front = String(c.front || '').trim(), back = String(c.back || '').trim(); if (!front || !back) return; const card = { id: uid(), front, back };
+                    if (c.type && c.type !== 'term' && FC_TYPES[c.type] && c.data) { card.type = c.type; card.data = c.data; } if (c.secId && idMap[c.secId]) { card.secId = idMap[c.secId]; if (c.subId && idMap[c.secId + '|' + c.subId]) card.subId = idMap[c.secId + '|' + c.subId]; } deck.cards.push(card); });
+                deck.isPrivate = true; save(); try { supabaseClient.rpc('increment_community_copies', { p_id: p.row.id }); } catch (e) {}
+                toast(`Added "${title}" (${deck.cards.length} card${deck.cards.length === 1 ? '' : 's'}) to ${subj.name}.`); communityPreview = null; closeModal(); flashcardsTab = 'mine'; flashcardsFilterSubject = sid; flashcardsSelectedDeckId = deck.id; view = 'flashcards'; render(); }
+            async function communityReport(id) { if (!currentUser) return; try { const { error } = await supabaseClient.from('community_reports').insert({ reporter_id: currentUser.id, deck_row_id: id }); if (error) throw error; toast('Thanks — we\'ll take a look.'); } catch (e) { toast('Couldn\'t send that report right now.'); } }
+
             // ---- Flashcards page: page state, library, routing ------------------------------------------
             let flashcardsFilterSubject = 'all'; // 'all' | subject id
             let flashcardsSearch = '';
@@ -15704,14 +15899,15 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     return `<div class="card section" style="margin-bottom:14px"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px"><strong>📁 ${escape(f.name)}${fs && filterId === 'all' ? ` <span class="small">· ${escape(fs.name)}</span>` : ''}</strong><button type="button" class="button ghost danger" data-action="delete-flashcard-folder" data-folder="${f.id}">Delete folder</button></div><div class="fc-deck-grid">${fDecks.length ? fDecks.map(tile).join('') : '<p class="empty">No decks in this folder yet — assign one from its deck page.</p>'}</div></div>`; };
                 const ungrouped = decks.filter(d => !grouped.has(d.id));
                 const hasAny = state.flashcardDecks.length > 0;
-                const tools = `${filterId !== 'all' ? `<button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${filterId}">📁 New folder</button>` : ''}<button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${filterId === 'all' ? '' : filterId}">+ Create deck</button>`;
+                const tools = `${filterId !== 'all' ? `<button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${filterId}">📁 New folder</button>` : ''}<button type="button" class="button ghost" data-action="open-quizlet-import" data-subject="${filterId === 'all' ? '' : filterId}">🟣 Import from Quizlet</button><button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${filterId === 'all' ? '' : filterId}">+ Create deck</button>`;
                 const body = !hasAny
                     ? `<div class="fc-empty"><div class="fc-empty-emoji">🗂️</div><h2>No flashcards yet</h2><p class="muted" style="max-width:420px;margin:6px auto 18px">Make your first deck by hand, from a photo of your notes, by pasting from Quizlet, or let Sparky turn your class notes into cards.</p><button type="button" class="button primary" style="padding:12px 22px" data-action="open-flashcard-create" data-subject="">+ Create your first deck</button></div>`
                     : `<div class="field" style="margin-bottom:14px"><input type="search" id="fc-search" placeholder="Search decks and cards…" value="${escape(flashcardsSearch)}" autocomplete="off"></div>${chips}
           ${shownFolders.map(folderSection).join('')}
           ${shownFolders.length && ungrouped.length ? '<p class="small" style="margin:10px 0">Ungrouped</p>' : ''}
           ${ungrouped.length ? `<div class="fc-deck-grid">${ungrouped.map(tile).join('')}</div>` : (decks.length ? '' : `<p class="empty">${q ? 'No decks or cards match that search.' : 'No decks for this subject yet — create one above.'}</p>`)}`;
-                return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${body}${renderWordBankShelf(filterId)}</div>`; }
+                const tabs = `<div class="fc-chips" style="margin-bottom:14px"><button type="button" class="fc-chip ${flashcardsTab === 'mine' ? 'active' : ''}" data-action="fc-tab" data-tab="mine">My decks</button><button type="button" class="fc-chip ${flashcardsTab === 'community' ? 'active' : ''}" data-action="fc-tab" data-tab="community">🌐 Community</button></div>`;
+                return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${tabs}${flashcardsTab === 'community' ? renderCommunityBody() : body + renderWordBankShelf(filterId)}</div>`; }
 
             
             // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
@@ -15726,9 +15922,11 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           <button type="button" class="button ${d.mode==='paste'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="paste">📋 Paste / Import</button>
           <button type="button" class="button ${d.mode==='magic'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="magic">🪄 Magic Notes (AI)</button>
           <button type="button" class="button ${d.mode==='infoimage'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="infoimage">📄 Info cards from photo</button>
+          <button type="button" class="button ${d.mode==='quizlet'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="quizlet">🟣 Import from Quizlet</button>
         </div>`;
                 const subjectOptions = state.subjects.filter(x => x.active !== false || x.id === d.subjectId).map(x => `<option value="${x.id}" ${x.id === d.subjectId ? 'selected' : ''}>${escape(x.name)}</option>`).join('');
-                const topicField = `<div style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1.4fr;gap:10px"><div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div><div class="field"><label>Deck name</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div></div>`;
+                const privacyRow = (d.mode !== 'edit' && d.mode !== 'deck-edit' && !fcFindDeck(d.subjectId, d.topic)) ? `<label class="fc-check" style="display:flex;margin:-4px 0 12px"><input type="checkbox" data-action="fc-draft-private" ${d.isPrivate ? 'checked' : ''}> 🔒 Keep this deck private <span class="small">(otherwise it's shared in the Community under your name)</span></label>` : '';
+                const topicField = `<div style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1.4fr;gap:10px"><div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div><div class="field"><label>Deck name</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div></div>${privacyRow}`;
                 const manualCardRow = (c, i) => { const t = FC_TYPES[c.type] ? c.type : 'term', ty = FC_TYPES[t];
                     const typeSel = `<select data-action="flashcard-manual-type" data-index="${i}" style="max-width:260px">${Object.entries(FC_TYPES).map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>`;
                     const secDeck = d.mode === 'deck-edit' || d.mode === 'edit' ? flashcardDeck(d.editing.deckId) : (d.mode === 'manual' ? fcFindDeck(d.subjectId, d.topic) : null);
@@ -15760,12 +15958,31 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const infoBody = d.infoReview
                     ? `<p class="small">One info card per card/page found. Edit the text if anything was misread (# heading, - point, two-space indent for a sub-point), untick any you don't want, then confirm.</p><div class="list" style="margin-top:10px">${d.infoReview.length ? d.infoReview.map(infoReviewRow).join('') : '<p class="empty">Nothing usable was found in those photos.</p>'}</div>`
                     : `${topicField}<p class="small" style="margin-bottom:8px">Photograph your handwritten index cards or a page of notes. Each card or page becomes one info card with its title, headings and bullet points — good for things like the phyla cards in your photo.</p><input type="file" id="flashcard-image-file" accept="image/*,application/pdf" multiple class="hidden"><button type="button" class="button ghost" data-action="flashcard-pick-photos">📷 Add photo(s) or a PDF</button><div style="margin-top:10px">${d.images.map(imgThumb).join('')}</div>`;
-                const body = d.mode === 'infoimage' ? infoBody : d.mode === 'manual' ? manualBody : d.mode === 'paste' ? pasteBody : d.mode === 'magic' ? magicBody : imageBody;
+                const qzOpt = (key, opts) => `<div class="row" style="gap:6px;flex-wrap:wrap">${opts.map(([v, l]) => `<button type="button" class="button ${(d[key] || opts[0][0]) === v ? 'primary' : 'ghost'}" data-action="qz-set" data-key="${key}" data-val="${v}">${l}</button>`).join('')}</div>`;
+                const qzTab = d.qzTab || 'paste', qzO = qzOpts(d), qzParsed = qzTab === 'paste' ? fcParseQuizletPaste(d.qzText || '', qzO) : null;
+                const qzBody = d.reviewCards
+                    ? `${d.qzInfo ? `<div class="alert" style="margin-bottom:10px">Found <strong>${d.qzInfo.n}</strong> card${d.qzInfo.n === 1 ? '' : 's'}${d.qzInfo.title ? ` in “${escape(d.qzInfo.title)}”` : ''}.${d.qzInfo.skipped ? ` ${d.qzInfo.skipped} row${d.qzInfo.skipped === 1 ? ' was' : 's were'} skipped because they had no definition (usually image-only cards).` : ''}</div>` : ''}<div class="row" style="justify-content:space-between;align-items:center;gap:8px"><p class="small" style="margin:0">Untick or edit anything that's wrong, then add them.</p><button type="button" class="button ghost" data-action="qz-swap-now" title="If the terms and definitions are the wrong way round">⇄ Swap terms and definitions</button></div><div class="list" style="margin-top:10px">${d.reviewCards.map(reviewRow).join('')}</div>`
+                    : `${topicField}<div class="row" style="gap:6px;margin-bottom:12px"><button type="button" class="button ${qzTab === 'paste' ? 'primary' : 'ghost'}" data-action="qz-tab" data-tab="paste">📋 Paste text</button><button type="button" class="button ${qzTab === 'pdf' ? 'primary' : 'ghost'}" data-action="qz-tab" data-tab="pdf">📄 Upload a PDF</button></div>`
+                    + (qzTab === 'paste'
+                        ? `<p class="small" style="margin-bottom:10px">On Quizlet, open <em>your own</em> set → <strong>⋯ → Export</strong>, copy the text, and paste it below. Pick the same separators you chose on Quizlet (the defaults match Quizlet's).</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                  <div class="field"><label>Between term and definition</label>${qzOpt('qzTermSep', [['tab', 'Tab'], ['comma', 'Comma'], ['custom', 'Custom'], ['auto', 'Auto-detect']])}${d.qzTermSep === 'custom' ? `<input type="text" id="qz-term-custom" value="${escape(d.qzTermCustom == null ? '-' : d.qzTermCustom)}" style="margin-top:6px" placeholder="e.g. -">` : ''}</div>
+                  <div class="field"><label>Between rows</label>${qzOpt('qzRowSep', [['newline', 'New line'], ['semicolon', 'Semicolon'], ['custom', 'Custom']])}${d.qzRowSep === 'custom' ? `<input type="text" id="qz-row-custom" value="${escape(d.qzRowCustom == null ? '\\n\\n' : d.qzRowCustom)}" style="margin-top:6px" placeholder="e.g. \\n\\n">` : ''}</div>
+                </div>
+                <label class="fc-check"><input type="checkbox" data-action="qz-join" ${d.qzJoin === false ? '' : 'checked'}> Join lines that have no separator onto the card above (for definitions that run over several lines)</label>
+                <textarea id="qz-text" placeholder="Mitochondria&#9;The powerhouse of the cell&#10;Nucleus&#9;Control centre of the cell" style="min-height:170px;margin-top:8px">${escape(d.qzText || '')}</textarea>
+                <p class="small" style="margin-top:6px">${qzParsed.cards.length ? `Found <strong>${qzParsed.cards.length}</strong> card${qzParsed.cards.length === 1 ? '' : 's'}${qzParsed.bad ? ` · ${qzParsed.bad} line${qzParsed.bad === 1 ? '' : 's'} couldn't be split` : ''}. First: <em>${escape(qzParsed.cards[0].front)}</em> → ${escape(qzParsed.cards[0].back.slice(0, 60))}` : (d.qzText ? 'No cards found yet — check the separators above.' : 'Paste your cards above.')}</p>`
+                        : `<div class="alert" style="text-align:left;margin-bottom:12px"><strong>Importing someone else's set?</strong> Quizlet only gives the text export to the set's owner, so use Quizlet's print option instead:<ol style="margin:6px 0 0 18px;padding:0"><li>Open the set on Quizlet → <strong>⋯ (More) → Print</strong>.</li><li><strong>Choose a layout:</strong> <strong>table</strong>.</li><li><strong>Customise your options:</strong> leave <strong>Flip terms and definitions</strong> and <strong>Print images</strong> <strong>un-ticked</strong>.</li><li>Click the printer icon and choose <strong>Save as PDF</strong>, then upload that PDF here.</li></ol></div>
+                <input type="file" id="qz-pdf-file" accept="application/pdf" class="hidden"><button type="button" class="button primary" data-action="qz-pick-pdf" ${d.qzBusy ? 'disabled' : ''}>${d.qzBusy ? 'Reading PDF…' : '📄 Choose the PDF'}</button>
+                <label class="fc-check" style="display:flex;margin-top:8px"><input type="checkbox" data-action="qz-swap" ${d.qzSwap ? 'checked' : ''}> I ticked "Flip terms and definitions" (swap them back)</label>
+                ${d.qzError ? `<p class="small" style="color:var(--danger);margin-top:8px">${escape(d.qzError)}</p>` : ''}<p class="small" style="margin-top:8px">It's read straight from the PDF's text, so no AI is used and nothing is invented. If your PDF is a scan or photo, use the photo option instead.</p>`);
+                const body = d.mode === 'quizlet' ? qzBody : d.mode === 'infoimage' ? infoBody : d.mode === 'manual' ? manualBody : d.mode === 'paste' ? pasteBody : d.mode === 'magic' ? magicBody : imageBody;
                 let footer;
                 if (d.mode === 'manual') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-manual-save">Save flashcards</button>`;
                 else if (d.mode === 'paste') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-paste-save" ${pasteCount?'':'disabled'}>Import ${pasteCount||''} card${pasteCount===1?'':'s'}</button>`;
                 else if (d.mode === 'magic' && d.magicResult) footer = `<button type="button" class="button ghost" data-action="magic-review-cancel">Back</button><button type="button" class="button primary" data-action="magic-review-confirm">Add ticked cards</button>`;
                 else if (d.mode === 'magic') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-magic-extract" ${flashcardCreateLoading||!(d.notesText&&d.notesText.trim())?'disabled':''}>${flashcardCreateLoading?'Reading notes…':'✨ Generate with AI'}</button>`;
+                else if (d.mode === 'quizlet' && !d.reviewCards) footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>${(d.qzTab || 'paste') === 'paste' ? `<button type="button" class="button primary" data-action="qz-review" ${qzParsed && qzParsed.cards.length ? '' : 'disabled'}>Review ${qzParsed && qzParsed.cards.length ? qzParsed.cards.length + ' ' : ''}card${qzParsed && qzParsed.cards.length === 1 ? '' : 's'}</button>` : ''}`;
                 else if (d.mode === 'infoimage' && d.infoReview) footer = `<button type="button" class="button ghost" data-action="info-review-cancel">Back</button><button type="button" class="button primary" data-action="info-review-confirm">Add ticked cards</button>`;
                 else if (d.mode === 'infoimage') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-info-extract" ${flashcardCreateLoading || !d.images.length ? 'disabled' : ''}>${flashcardCreateLoading ? 'Reading cards…' : 'Generate info cards'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
@@ -16487,7 +16704,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     if (!data) { toast('No shared set found with that code.'); return; }
                     const cards = (data.deck_snapshot?.cards || []).filter(c => c && c.front && c.back);
                     if (!cards.length) { toast('That shared set has no cards.'); return; }
-                    addFlashcardsToDeck(s.id, data.topic, cards);
+                    const imported = addFlashcardsToDeck(s.id, data.topic, cards); if (imported && !imported.communitySig) { imported.isPrivate = true; save(); }
                     toast(`Imported "${data.topic}" (${cards.length} card${cards.length===1?'':'s'}) from ${data.owner_name || 'a classmate'}.`);
                     render();
                 } catch (err) { toast(err.message || 'Could not import that set.'); } }
@@ -17886,7 +18103,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     // every tick. Same reasoning as renderStudyModeOverlay's `!s.activeGame` guard.
                     const gameAlreadyMounted = gamesActiveGame && currentGameCleanup && document.getElementById('game-holder');
                     if (!gameAlreadyMounted) { document.getElementById('app').innerHTML = renderGames();
-                        requestAnimationFrame(() => { const holder = document.getElementById('game-holder'); if (holder && gamesActiveGame) mountGameInto(holder, gamesActiveGame); }); }
+                        requestAnimationFrame(() => { const holder = document.getElementById('game-holder'); if (holder && gamesActiveGame) { mountGameInto(holder, gamesActiveGame); gameLbRefresh(gamesActiveGame); } }); }
                 } else if (view === 'chatrooms') { document.getElementById('app')
                     .innerHTML = renderChatRoomsPage(); } else if (view === 'admin') { document.getElementById('app')
                     .innerHTML = renderAdminPage(); } else if (view === 'period-builder') { document.getElementById(
@@ -17921,8 +18138,8 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 else if (state.settings.onboarded && !modal && isSophiaMode() && !sophiaWelcomeShown) {
                     sophiaWelcomeShown = true;
                     openModal('sophia-welcome'); }
-                else if (!modal) { const pop = activeAnnouncements.find(x => x.kind === 'popup' && !announcementSeen(x.id));
-                    if (pop) openModal('announcement-popup', { announcement: pop }); }
+                else if (!modal) { const pop = activeAnnouncements.find(x => (x.kind === 'popup' || x.kind === 'action') && !announcementSeen(x.id));
+                    if (pop) openModal(pop.kind === 'action' ? 'announcement-action' : 'announcement-popup', { announcement: pop }); }
                 maybeScheduleCabbageScreen();
                 maybeShowSparkyRecall();
                 maybeRunPendingScheduleSync(); }
@@ -17969,7 +18186,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
             function openModal(kind, data = {}) { modal = { kind, ...data };
                 renderModal(); if (mascotTour) positionMascotWidget(currentMascotStep()); }
 
-            function closeModal() { modal = null;
+            function closeModal() { if (modal && modal.kind === 'admin-report') adminShowResults = false; modal = null;
                 selected = null;
                 editingTopicId = null;
                 const layer = document.getElementById('modal-layer');
@@ -18005,7 +18222,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     modal.kind === 'admin-unlock') return layer.innerHTML = adminUnlockModal(); if (
                     modal.kind === 'admin-create-user') return layer.innerHTML = adminCreateUserModal(); if (
                     modal.kind === 'admin-ai') return layer.innerHTML = adminAiModal(); if (
-                    modal.kind === 'announcement-popup') return layer.innerHTML = announcementPopupModal(modal.announcement); if (
+                    modal.kind === 'announcement-popup') return layer.innerHTML = announcementPopupModal(modal.announcement); if (modal.kind === 'announcement-action') return layer.innerHTML = announcementActionModal(modal.announcement); if (modal.kind === 'admin-report') return layer.innerHTML = adminReportModal(); if (
                     modal.kind === 'print-choice') return layer.innerHTML = printChoiceModal(); if (
                     modal.kind === 'self-study-plan') return layer.innerHTML = selfStudyPlanSummaryModal(modal
                     .summary); if (
@@ -18025,7 +18242,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     modal.kind === 'chat-new-room') return layer.innerHTML = chatNewRoomModal(); if (
                     modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); if (
                     modal.kind === 'chat-new-dm') return layer.innerHTML = chatNewDmModal(); if (
-                    modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (modal.kind === 'wb-start') return layer.innerHTML = wbStartModal(); if (modal.kind === 'synonym-edit') return layer.innerHTML = synonymModal(); if (modal.kind === 'custom-timetable') return layer.innerHTML = customTimetableModal(); if (
+                    modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (modal.kind === 'community-preview') return layer.innerHTML = communityPreviewModal(); if (modal.kind === 'wb-start') return layer.innerHTML = wbStartModal(); if (modal.kind === 'synonym-edit') return layer.innerHTML = synonymModal(); if (modal.kind === 'custom-timetable') return layer.innerHTML = customTimetableModal(); if (
                     modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
                     modal.kind === 'flashcard-diagram-editor') return layer.innerHTML = diagramEditorModal(modal.deckId); if (
                     modal.kind === 'flashcard-set-chat') return layer.innerHTML = sparkySetChatModal(modal.deckId); if (
@@ -18315,12 +18532,120 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                         .slice(-1)[0];
                     return `<div class="topic-row" style="cursor:pointer" data-action="admin-open-user" data-id="${u.id}">
                         <span><strong>${escape(u.email)}</strong>${u.bannedUntil?' <span class="pill bad">Suspended</span>':''}<br><span class="small">Joined ${adminFmtDate(u.createdAt)} · ${escape(u.provider)}</span></span>
-                        <span class="small" style="text-align:right">${m.sessionCount||0} session${(m.sessionCount||0)===1?'':'s'} · ${((m.totalMinutes||0)/60).toFixed(1)}h logged<br>${typeof m.avgResultPct==='number'?`avg ${Math.round(m.avgResultPct)}%`:'no results yet'} · ${m.eventTotal||0} actions${lastActive?` · active ${adminFmtDate(lastActive)}`:''}</span>
+                        <span class="small" style="text-align:right">${m.sessionCount||0} session${(m.sessionCount||0)===1?'':'s'} · ${((m.totalMinutes||0)/60).toFixed(1)}h logged<br>${m.eventTotal||0} actions${lastActive?` · active ${adminFmtDate(lastActive)}`:''}</span>
                     </div>`; };
                 return `<div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" id="admin-user-filter" value="${escape(adminUserFilter)}" placeholder="Search by email…" style="flex:1"><button class="button primary" data-action="admin-new-user">+ New user</button></div>
                     <div class="list">${rows.length?rows.map(row).join(''):'<p class="empty">No users match.</p>'}</div>
                     <p class="small" style="margin-top:10px">${rows.length} of ${adminUsers.length} user${adminUsers.length===1?'':'s'}.</p>`;
             }
+
+            // ---- Admin: detailed per-user report ------------------------------------------------------------------------
+            // Built entirely from the get-user payload (their saved state + up to 1000 recent feature events).
+            // Results / exam marks are NOT shown anywhere else in admin mode: they appear only after double-clicking this
+            // modal's heading (no visible cue). That reveal lives in this one variable -- never saved, never synced -- so it is
+            // gone on reload, when the report closes, or when leaving admin mode.
+            let adminShowResults = false;
+            function adminCsvRows(text) { const rows = []; let row = [], cell = '', q = false; const t = String(text || '');
+                for (let i = 0; i < t.length; i++) { const c = t[i];
+                    if (q) { if (c === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+                    else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; } else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; } else if (c !== '\r') cell += c; }
+                if (cell !== '' || row.length) { row.push(cell); rows.push(row); } return rows; }
+            function adminStripCsvColumns(csv, re) { const rows = adminCsvRows(csv); if (!rows.length) return csv; const drop = new Set(rows[0].map((h, i) => re.test(h) ? i : -1).filter(i => i >= 0)); if (!drop.size) return csv;
+                const esc = (v) => /[",\n]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : v; return rows.map(r => r.filter((_, i) => !drop.has(i)).map(esc).join(',')).join('\n') + '\n'; }
+            function adminYmd(t) { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+            function adminWeekKey(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return adminYmd(d); }
+            function adminBuildReport(s, events, nowMs) { s = s || {}; events = (events || []).filter(e => e && e.created_at && !isNaN(new Date(e.created_at))); const today = adminYmd(nowMs), R = {};
+                const subs = (s.subjects || []).filter(x => x.active !== false), subName = (id) => ((s.subjects || []).find(x => x.id === id) || {}).name || 'Unknown';
+                // --- tasks (tasks carry no created-at, so "created over time" comes from the activity log's save-task events)
+                const tasks = s.tasks || [], byType = {}; tasks.forEach(t => { byType[t.type || 'other'] = (byType[t.type || 'other'] || 0) + 1; });
+                const saveEv = events.filter(e => e.event === 'save-task'), perWeek = {}; saveEv.forEach(e => { const k = adminWeekKey(e.created_at); perWeek[k] = (perWeek[k] || 0) + 1; });
+                R.tasks = { total: tasks.length, done: tasks.filter(t => t.done).length, open: tasks.filter(t => !t.done).length, overdue: tasks.filter(t => !t.done && t.due && t.due < today).length, byType, saves: saveEv.length,
+                    savesPerWeek: Object.keys(perWeek).sort().slice(-8).map(k => ({ week: k, n: perWeek[k] })), examTasks: (s.examTasks || []).length };
+                // --- study sessions
+                const log = s.studySessionLog || [], mins = log.reduce((n, x) => n + (Number(x.durationMinutes) || 0), 0), dayMap = {}; log.forEach(x => { if (x.date) { const o = dayMap[x.date] || (dayMap[x.date] = { n: 0, m: 0 }); o.n++; o.m += Number(x.durationMinutes) || 0; } });
+                const last30 = []; for (let i = 29; i >= 0; i--) { const d = adminYmd(nowMs - i * 86400000); last30.push({ date: d, n: (dayMap[d] || { n: 0 }).n, m: (dayMap[d] || { m: 0 }).m }); }
+                const weekday = [0, 0, 0, 0, 0, 0, 0]; log.forEach(x => { if (x.date) weekday[(new Date(x.date + 'T12:00:00').getDay() + 6) % 7]++; });
+                const dates = log.map(x => x.date).filter(Boolean).sort(), weeksSpan = dates.length ? Math.max(1, Math.ceil((new Date(today) - new Date(dates[0])) / 604800000)) : 0;
+                R.sessions = { count: log.length, minutes: mins, last30, last30Count: last30.reduce((n, d) => n + d.n, 0), weekday, first: dates[0] || '', last: dates[dates.length - 1] || '', perWeek: weeksSpan ? +(log.length / weeksSpan).toFixed(1) : 0, withItems: log.filter(x => x.itemCount).length };
+                // --- logged plan items by subject (the per-subject study record)
+                const logged = {}; let loggedTotal = 0; Object.values(s.studyPlans || {}).forEach(p => (p.blocks || []).forEach(b => (b.items || []).forEach(i => { if (i.logged) { const o = logged[i.subjectId] || (logged[i.subjectId] = { m: 0, n: 0 }); o.m += Number(i.minutes) || 0; o.n++; loggedTotal += Number(i.minutes) || 0; } })));
+                R.logged = { total: loggedTotal, bySubject: logged };
+                // --- subjects
+                const topics = s.topics || [], decks = s.flashcardDecks || [];
+                R.subjects = subs.map(x => ({ id: x.id, name: x.name, category: x.category || '', minutes: (logged[x.id] || { m: 0 }).m, items: (logged[x.id] || { n: 0 }).n,
+                    learning: topics.filter(t => t.subjectId === x.id && t.status === 'learning').length, done: topics.filter(t => t.subjectId === x.id && t.status === 'done').length,
+                    tasks: tasks.filter(t => t.subjectId === x.id).length, decks: decks.filter(d => d.subjectId === x.id).length, cards: decks.filter(d => d.subjectId === x.id).reduce((n, d) => n + d.cards.length, 0) }));
+                R.flash = { decks: decks.length, cards: decks.reduce((n, d) => n + d.cards.length, 0), typed: decks.reduce((n, d) => n + d.cards.filter(c => c.type && c.type !== 'term').length, 0), sections: decks.reduce((n, d) => n + (d.sections || []).length, 0) };
+                // --- usage: a "visit" = a burst of activity with no gap over 30 minutes
+                const times = events.map(e => new Date(e.created_at).getTime()).sort((a, b) => a - b), visits = []; times.forEach(t => { const v = visits[visits.length - 1]; if (v && t - v.end <= 30 * 60000) { v.end = t; v.n++; } else visits.push({ start: t, end: t, n: 1 }); });
+                const vByDay = {}, eByDay = {}, hours = new Array(24).fill(0); visits.forEach(v => { const d = adminYmd(v.start); vByDay[d] = (vByDay[d] || 0) + 1; hours[new Date(v.start).getHours()]++; }); times.forEach(t => { const d = adminYmd(t); eByDay[d] = (eByDay[d] || 0) + 1; });
+                const activeDays = Object.keys(vByDay), last14 = []; for (let i = 13; i >= 0; i--) { const d = adminYmd(nowMs - i * 86400000); last14.push({ date: d, visits: vByDay[d] || 0, events: eByDay[d] || 0 }); }
+                R.usage = { events: times.length, visits: visits.length, activeDays: activeDays.length, avgVisitsPerActiveDay: activeDays.length ? +(visits.length / activeDays.length).toFixed(1) : 0, busiestDay: activeDays.sort((a, b) => vByDay[b] - vByDay[a])[0] ? { date: activeDays.sort((a, b) => vByDay[b] - vByDay[a])[0], visits: vByDay[activeDays.sort((a, b) => vByDay[b] - vByDay[a])[0]] } : null,
+                    hours, last14, first: times.length ? adminYmd(times[0]) : '', last: times.length ? adminYmd(times[times.length - 1]) : '', capped: (events.length >= 1000) };
+                // --- results (shown only after the hidden reveal)
+                const rows = []; (s.exams || []).forEach(ex => (ex.sittings || []).forEach(st => { if (st.result && st.result.percent != null) rows.push({ label: ex.name || ex.title || 'Exam', subject: subName(ex.subjectId), date: st.result.recordedDate || ex.end || '', pct: Number(st.result.percent) }); }));
+                (s.pastPapers || []).forEach(p => { if (p.result && p.result.percent != null) rows.push({ label: `${p.year} past paper`, subject: subName(p.subjectId), date: p.result.recordedDate || `${p.year}-06-30`, pct: Number(p.result.percent) }); });
+                rows.sort((a, b) => String(b.date).localeCompare(String(a.date))); const pcts = rows.map(r => r.pct).filter(Number.isFinite), subj = {}; rows.forEach(r => { (subj[r.subject] = subj[r.subject] || []).push(r.pct); });
+                R.results = { rows, count: pcts.length, avg: pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null, best: pcts.length ? Math.max(...pcts) : null, lowest: pcts.length ? Math.min(...pcts) : null,
+                    bySubject: Object.keys(subj).map(k => ({ name: k, n: subj[k].length, avg: Math.round(subj[k].reduce((a, b) => a + b, 0) / subj[k].length) })).sort((a, b) => b.avg - a.avg) };
+                return R; }
+            function adminBars(rows, max) { const m = max || Math.max(1, ...rows.map(r => r.value)); return `<div class="admin-bars">${rows.map(r => `<div class="admin-bar-row"><span class="admin-bar-label">${escape(r.label)}</span><span class="admin-bar-track"><span class="admin-bar-fill" style="width:${Math.round(r.value / m * 100)}%"></span></span><span class="admin-bar-count">${r.text != null ? r.text : r.value}</span></div>`).join('')}</div>`; }
+            function adminReportModal() { const det = adminUserDetail; if (!det || !det.authUser) return `<div class="modal large" role="dialog"><div class="modal-head"><h2>Detailed report</h2><button class="button icon" data-action="close-modal" aria-label="Close">×</button></div><div class="modal-body"><p class="empty">No user loaded.</p></div></div>`;
+                const R = adminBuildReport(det.state, det.recentEvents, Date.now()), s = det.state || {}, st = (label, v) => `<div class="card stat"><span class="label">${escape(label)}</span><span class="value">${v}</span></div>`, h = (min) => (min / 60).toFixed(1) + 'h';
+                const sec = (title, inner) => `<div class="card section"><h2>${title}</h2>${inner}</div>`, DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                const name = `${s.settings && s.settings.firstName || ''} ${s.settings && s.settings.lastName || ''}`.trim();
+                const overview = `<div class="stats">${st('Subjects', R.subjects.length)}${st('Tasks saved', R.tasks.total)}${st('Study sessions', R.sessions.count)}${st('Hours in sessions', h(R.sessions.minutes))}${st('Visits / active day', R.usage.avgVisitsPerActiveDay)}${st('Flashcards', R.flash.cards)}</div>`;
+                const subjects = R.subjects.length ? `<div style="overflow-x:auto"><table class="conj-grid" style="width:100%"><thead><tr><th>Subject</th><th>Logged study</th><th>Topics learning / done</th><th>Tasks</th><th>Decks / cards</th></tr></thead><tbody>${R.subjects.map(x => `<tr><th>${escape(x.name)}</th><td>${h(x.minutes)} · ${x.items} item${x.items === 1 ? '' : 's'}</td><td>${x.learning} / ${x.done}</td><td>${x.tasks}</td><td>${x.decks} / ${x.cards}</td></tr>`).join('')}</tbody></table></div>` : '<p class="empty">No subjects set up.</p>';
+                const types = Object.keys(R.tasks.byType).sort((a, b) => R.tasks.byType[b] - R.tasks.byType[a]).map(k => ({ label: k, value: R.tasks.byType[k] }));
+                const tasks = `<div class="stats">${st('On the list', R.tasks.total)}${st('Done', R.tasks.done)}${st('Open', R.tasks.open)}${st('Overdue', R.tasks.overdue)}${st('Exam / project tasks', R.tasks.examTasks)}</div>${types.length ? '<p class="small" style="margin:10px 0 4px">By type</p>' + adminBars(types) : ''}<p class="small" style="margin:12px 0 4px">Tasks saved per week (new or edited — from the activity log, last 8 weeks with activity)</p>${R.tasks.savesPerWeek.length ? adminBars(R.tasks.savesPerWeek.map(w => ({ label: 'Week of ' + w.week, value: w.n }))) : '<p class="empty">No task saves in the activity log.</p>'}`;
+                const sessions = `<div class="stats">${st('Sessions', R.sessions.count)}${st('Hours', h(R.sessions.minutes))}${st('Last 30 days', R.sessions.last30Count)}${st('Per week (avg)', R.sessions.perWeek)}</div><p class="small" style="margin:10px 0 4px">By weekday</p>${adminBars(R.sessions.weekday.map((n, i) => ({ label: DAYS[i], value: n })))}<p class="small" style="margin:12px 0 4px">Last 14 days (sessions logged)</p>${adminBars(R.sessions.last30.slice(-14).map(d => ({ label: d.date.slice(5), value: d.n, text: d.n ? `${d.n} · ${d.m}m` : '0' })), Math.max(1, ...R.sessions.last30.slice(-14).map(d => d.n)))}<p class="small" style="margin-top:8px">Study time logged against plan items: <strong>${h(R.logged.total)}</strong>.</p>`;
+                const peak = R.usage.hours.map((n, i) => ({ label: `${String(i).padStart(2, '0')}:00`, value: n })).filter(x => x.value);
+                const usage = R.usage.events ? `<div class="stats">${st('Active days', R.usage.activeDays)}${st('Visits', R.usage.visits)}${st('Visits per active day', R.usage.avgVisitsPerActiveDay)}${st('Busiest day', R.usage.busiestDay ? `${R.usage.busiestDay.visits} <span class="small">(${R.usage.busiestDay.date})</span>` : '—')}</div><p class="small" style="margin:10px 0 4px">Visits per day — last 14 days (a visit is a burst of activity with under 30 min between clicks)</p>${adminBars(R.usage.last14.map(d => ({ label: d.date.slice(5), value: d.visits, text: `${d.visits} · ${d.events} actions` })), Math.max(1, ...R.usage.last14.map(d => d.visits)))}${peak.length ? '<p class="small" style="margin:12px 0 4px">When they start visits (hour of day)</p>' + adminBars(peak) : ''}<p class="small" style="margin-top:8px">Based on ${R.usage.events} logged actions, ${R.usage.first} → ${R.usage.last}${R.usage.capped ? ' (the most recent 1000)' : ''}.</p>` : '<p class="empty">No activity logged yet.</p>';
+                const flash = `<div class="stats">${st('Decks', R.flash.decks)}${st('Cards', R.flash.cards)}${st('Non-term cards', R.flash.typed)}${st('Sections', R.flash.sections)}</div>`;
+                const revealed = adminShowResults ? sec('Results', `<div class="stats" style="margin-bottom:10px">${st('Average', R.results.avg != null ? R.results.avg + '%' : '—')}${st('Results recorded', R.results.count)}${st('Best', R.results.best != null ? R.results.best + '%' : '—')}${st('Lowest', R.results.lowest != null ? R.results.lowest + '%' : '—')}</div>${R.results.bySubject.length ? '<p class="small" style="margin:0 0 4px">Average by subject</p>' + adminBars(R.results.bySubject.map(x => ({ label: x.name, value: x.avg, text: `${x.avg}% (${x.n})` })), 100) : ''}${R.results.rows.length ? `<div class="list" style="margin-top:10px">${R.results.rows.map(r => `<div class="topic-row"><span>${escape(r.label)} <span class="small">· ${escape(r.subject)}</span></span><span class="small">${escape(String(r.date || ''))} · ${r.pct}%</span></div>`).join('')}</div>` : '<p class="empty">No recorded results.</p>'}`)
+                    + sec('Raw saved data', `<p class="small">Edit directly only if you know what you're doing — saving this overwrites everything for this account.</p><textarea id="admin-raw-state" rows="10" style="width:100%;font-family:monospace;font-size:12px">${escape(JSON.stringify(s || {}, null, 2))}</textarea><div class="row" style="margin-top:8px"><button class="button danger" data-action="admin-save-state" data-id="${det.authUser.id}">Save raw data</button><button class="button" data-action="admin-open-ai" data-id="${det.authUser.id}">Ask AI assistant</button></div>`) : '';
+                return `<div class="modal large" role="dialog" aria-modal="true" aria-label="Detailed report"><div class="modal-head"><h2 data-admin-secret="1" class="admin-secret">Detailed report</h2><button class="button icon" data-action="close-modal" aria-label="Close">×</button></div><div class="modal-body"><p class="small" style="margin-top:0"><strong>${escape(det.authUser.email)}</strong>${name ? ' · ' + escape(name) : ''}${s.settings && s.settings.yearGroup ? ' · ' + escape(s.settings.yearGroup) : ''}</p>${overview}${sec('Subjects', subjects)}${sec('Tasks', tasks)}${sec('Study sessions', sessions)}${sec('Website usage', usage)}${sec('Flashcards', flash)}${revealed}</div></div>`; }
+            document.addEventListener('dblclick', e => { if (!modal || modal.kind !== 'admin-report' || !e.target.closest || !e.target.closest('[data-admin-secret]')) return; adminShowResults = !adminShowResults; renderModal(); });
+
+            // ---- Admin: action popups -- a popup whose buttons change the student's settings -----------------------------
+            // payload = { buttons: [{ label, settings: { key: value } }] }. The admin describes the buttons in plain English, the AI
+            // turns that into settings JSON, and the admin can edit it before publishing. Every button is validated here against the
+            // app's own default settings (whitelisted keys, matching types, known option values) both when composing and again on the
+            // student's device just before applying -- so a bad payload can never touch anything else.
+            const ADMIN_ACTION_KEYS = ['theme', 'themeAccentColor', 'sidebarMode', 'studyPlanningMode', 'notificationsEnabled', 'chatNotificationsEnabled', 'dyslexiaMode', 'timetableStyle', 'timetableAccentColor', 'flashcardTtsEnabled', 'flashcardFocusMode'];
+            function adminActionEnums() { return { theme: ['light', 'dark', 'color'], sidebarMode: ['hover', 'expanded', 'collapsed'], studyPlanningMode: ['topics', 'subject', 'none', 'custom'], timetableStyle: (typeof TIMETABLE_STYLES !== 'undefined' ? TIMETABLE_STYLES.map(t => t.id) : null) }; }
+            function adminValidateSettingsPatch(settings) { const errors = [], clean = {}, defaults = blankState().settings, enums = adminActionEnums();
+                if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return { ok: false, errors: ['settings must be an object'], clean };
+                const keys = Object.keys(settings); if (!keys.length) errors.push('no settings to change'); if (keys.length > 12) errors.push('too many settings');
+                keys.forEach(k => { if (!ADMIN_ACTION_KEYS.includes(k)) { errors.push(`"${k}" can't be changed by a popup`); return; } const v = settings[k], want = typeof defaults[k];
+                    if (typeof v !== want) { errors.push(`"${k}" must be a ${want}`); return; } if (enums[k] && !enums[k].includes(v)) { errors.push(`"${k}" must be one of ${enums[k].join(' / ')}`); return; }
+                    if (/Color$/.test(k) && !/^#[0-9a-fA-F]{6}$/.test(v)) { errors.push(`"${k}" must be a #rrggbb colour`); return; } clean[k] = v; });
+                return { ok: !errors.length, errors, clean }; }
+            function applyActionPatch(settings) { const v = adminValidateSettingsPatch(settings); if (!v.ok) { toast('Couldn\'t apply that change.'); return false; }
+                Object.keys(v.clean).forEach(k => { state.settings[k] = v.clean[k]; if (k === 'studyPlanningMode') { state.settings.studyEngineDisabled = v.clean[k] === 'none'; invalidateFutureStudyPlans(); } });
+                save(true); return true; }
+            let adminActionPrompt = '', adminActionButtons = [], adminActionBusy = false, adminActionError = '';
+            function adminActionBuilderHtml() { const rows = adminActionButtons.map((b, i) => { let note = '', ok = false; try { const v = adminValidateSettingsPatch(JSON.parse(b.json || '{}').settings); ok = v.ok && !!(b.label || '').trim(); note = v.ok ? ((b.label || '').trim() ? '✓ valid' : 'needs a label') : v.errors.join('; '); } catch (e) { note = 'not valid JSON'; }
+                    return `<div class="card section" style="padding:10px 12px;margin-top:8px"><div class="row" style="gap:8px;align-items:center"><input type="text" data-admin-btn-label="${i}" value="${escape(b.label)}" placeholder="Button text" style="flex:1"><button type="button" class="button ghost danger" data-action="admin-action-remove" data-index="${i}">✕</button></div><textarea data-admin-btn-json="${i}" rows="3" style="width:100%;font-family:monospace;font-size:12px;margin-top:6px">${escape(b.json)}</textarea><div class="small" style="margin-top:4px;color:${ok ? 'var(--success)' : 'var(--danger)'}">${escape(note)}</div></div>`; }).join('');
+                return `<div style="margin-top:12px"><label style="display:block">Describe the buttons <span class="small">(e.g. “Button 1 ‘Build my own timetable’ switches study planning to My own timetable. Button 2 ‘Dark mode’ sets the theme to dark.”)</span></label><textarea id="admin-action-prompt" rows="3" style="width:100%">${escape(adminActionPrompt)}</textarea>
+                    <div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><button type="button" class="button" data-action="admin-action-generate" ${adminActionBusy ? 'disabled' : ''}>${adminActionBusy ? 'Thinking…' : '✨ Generate buttons'}</button><button type="button" class="button ghost" data-action="admin-action-add">+ Add a button by hand</button></div>${adminActionError ? `<p class="small" style="color:var(--danger)">${escape(adminActionError)}</p>` : ''}
+                    ${rows || '<p class="small" style="margin-top:8px">No buttons yet. (“Not now” is always added for them.)</p>'}<p class="small" style="margin-top:6px">Settings a button can change: ${ADMIN_ACTION_KEYS.join(', ')}.</p></div>`; }
+            async function adminGenerateActionButtons() { const prompt = (document.getElementById('admin-action-prompt')?.value || adminActionPrompt || '').trim(); adminActionPrompt = prompt; if (!prompt) { toast('Describe the buttons first.'); return; }
+                adminActionBusy = true; adminActionError = ''; render();
+                try { const defaults = blankState().settings, enums = adminActionEnums();
+                    const ref = ADMIN_ACTION_KEYS.map(k => `- ${k} (${typeof defaults[k]}, default ${JSON.stringify(defaults[k])})${enums[k] ? ': one of ' + enums[k].map(x => JSON.stringify(x)).join(' | ') : ''}`).join('\n');
+                    const sys = `You turn an admin's plain-English description of popup buttons into JSON for a study app. Each button changes some of the student's SETTINGS when pressed. Only these settings exist (key, type, default, allowed values):\n${ref}\nNotes: studyPlanningMode "topics" = plan specific topics, "subject" = plan only a subject, "none" = no study content, "custom" = the student builds their own weekly timetable. Colours are "#rrggbb" strings. A "Not now" button is added automatically, so never create a do-nothing button. Use at most 5 buttons and keep labels short. Use ONLY the keys above and only legal values; if the admin asks for something that is not a setting here, leave that button out. Reply with ONLY compact JSON: {"buttons":[{"label":"...","settings":{"key":value}}]}`;
+                    const r = await aiJsonOnce(sys, [{ text: prompt }]); const list = (Array.isArray(r.buttons) ? r.buttons : []).slice(0, 5);
+                    adminActionButtons = list.map(b => ({ label: String(b.label || '').slice(0, 60), json: JSON.stringify({ settings: b.settings || {} }, null, 1) }));
+                    if (!adminActionButtons.length) adminActionError = 'The AI couldn\'t turn that into buttons — try describing which setting each button changes.';
+                } catch (err) { adminActionError = err.message || 'Couldn\'t generate buttons.'; }
+                adminActionBusy = false; render(); }
+            function adminActionPayload() { if (!adminActionButtons.length) throw new Error('Add at least one button first.');
+                const buttons = adminActionButtons.map((b, i) => { const label = (b.label || '').trim(); if (!label) throw new Error(`Button ${i + 1} needs a label.`); let parsed; try { parsed = JSON.parse(b.json || '{}'); } catch (e) { throw new Error(`Button "${label}": the settings aren't valid JSON.`); }
+                    const v = adminValidateSettingsPatch(parsed.settings); if (!v.ok) throw new Error(`Button "${label}": ${v.errors.join('; ')}.`); return { label, settings: v.clean }; });
+                return { buttons }; }
+            function announcementActionModal(a) { const buttons = (a.payload && Array.isArray(a.payload.buttons) ? a.payload.buttons : []).map((b, i) => ({ b, i })).filter(x => x.b && x.b.label && adminValidateSettingsPatch(x.b.settings).ok);
+                return modalShell('Announcement', `<p style="white-space:pre-wrap">${escape(a.message)}</p>`, `${buttons.map(x => `<button type="button" class="button primary" data-action="announcement-action-apply" data-id="${a.id}" data-index="${x.i}">${escape(x.b.label)}</button>`).join('')}<button type="button" class="button ghost" data-action="dismiss-announcement-popup" data-id="${a.id}">Not now</button>`, false, true); }
 
             function renderAdminUserDetail() {
                 const id = adminSelectedUserId;
@@ -18335,7 +18660,6 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 const stats = `<div class="stats">${[
                     statCard('Sessions logged', m.sessionCount || 0),
                     statCard('Hours logged', ((m.totalMinutes||0)/60).toFixed(1)),
-                    statCard('Avg result', typeof m.avgResultPct==='number'?Math.round(m.avgResultPct)+'%':'—'),
                     statCard('Subjects', m.subjectCount || 0),
                     statCard('Feature actions', m.eventTotal || 0),
                 ].join('')}</div>`;
@@ -18364,6 +18688,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 <div class="card section">
                     <h2>${escape(authUser.email)} ${authUser.bannedUntil?'<span class="pill bad">Suspended</span>':''}</h2>
                     <p class="small">Joined ${adminFmtDateTime(authUser.createdAt)} · Last sign-in ${adminFmtDateTime(authUser.lastSignInAt)} · ${escape(authUser.provider)} · id ${escape(authUser.id)}</p>
+                    <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="button primary" data-action="admin-open-report" data-id="${id}">📊 Detailed report</button><button class="button" data-action="admin-announce-user" data-email="${escape(authUser.email)}">📣 Announce to this person</button></div>
                 </div>
                 ${stats}
                 <div class="card section">
@@ -18372,7 +18697,6 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     <div class="type-picker">${SCHOOLS.map(sc=>`<button type="button" class="type-option ${s?.settings?.schoolId===sc.id?'selected':''}" data-action="admin-set-school" data-id="${id}" data-school="${sc.id}" ${adminBusy?'disabled':''}>${escape(sc.name)}</button>`).join('')}<button type="button" class="type-option ${s?.settings?.schoolId==='other'?'selected':''}" data-action="admin-set-school" data-id="${id}" data-school="other" ${adminBusy?'disabled':''}>Other / not listed</button></div>
                 </div>
                 <div class="card section"><h2>Subjects</h2><div>${subjectsHtml}</div></div>
-                <div class="card section"><h2>Recent results</h2>${resultsHtml}</div>
                 <div class="card section"><h2>Recent feature activity</h2>${eventsHtml}</div>
                 <div class="card section" style="border:1px solid var(--danger)">
                     <h2 style="color:var(--danger)">Account controls</h2>
@@ -18383,12 +18707,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     <div class="settings-row"><div><strong>${authUser.bannedUntil?'Unsuspend':'Suspend'} account</strong><span class="small">${authUser.bannedUntil?'Lets them sign in again.':'Blocks sign-in without deleting anything.'}</span></div><button class="button ${authUser.bannedUntil?'':'danger'}" data-action="${authUser.bannedUntil?'admin-unban':'admin-ban'}" data-id="${id}">${authUser.bannedUntil?'Unsuspend':'Suspend'}</button></div>
                     <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px"><div><strong style="color:var(--danger)">Delete account</strong><span class="small">Permanently deletes their account and all saved data. Cannot be undone.</span></div><div style="display:flex;gap:8px"><input type="text" id="admin-delete-confirm" placeholder="Type ${escape(authUser.email)} to confirm" style="flex:1"><button class="button danger" data-action="admin-delete-user" data-id="${id}" data-email="${escape(authUser.email)}">Delete</button></div></div>
                 </div>
-                <div class="card section">
-                    <h2>Raw saved data</h2>
-                    <p class="small">Edit directly only if you know what you're doing — saving this overwrites everything for this account.</p>
-                    <textarea id="admin-raw-state" rows="10" style="width:100%;font-family:monospace;font-size:12px">${escape(JSON.stringify(s || {}, null, 2))}</textarea>
-                    <div class="row" style="margin-top:8px"><button class="button danger" data-action="admin-save-state" data-id="${id}">Save raw data</button><button class="button" data-action="admin-open-ai" data-id="${id}">Ask AI assistant</button></div>
-                </div>`;
+`;
             }
 
             function renderAdminAnalytics() {
@@ -18419,15 +18738,11 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 return `${stats}
                 <div class="card section"><h2>Feature usage</h2><div class="admin-bars">${featureBars}</div></div>
                 <div class="card section"><h2>Sparky (AI) usage breakdown</h2><p class="small">What people actually ask Sparky to do, broken down by the action it took — "General question" means it just replied, no change made.</p><div class="admin-bars">${aiBars}</div></div>
-                ${corr('Sessions logged vs. average result', a.correlations.sessionsVsResult, 'admin-corr-sessions')}
-                ${corr('Minutes logged vs. average result', a.correlations.minutesVsResult, 'admin-corr-minutes')}
                 <button class="button" data-action="admin-export-csv">⬇ Export per-user CSV</button>`;
             }
 
             function drawAdminAnalyticsCharts() {
                 if (!adminAnalytics) return;
-                drawScatterChart('admin-corr-sessions', adminAnalytics.correlations.sessionsVsResult.points, 'Sessions logged');
-                drawScatterChart('admin-corr-minutes', adminAnalytics.correlations.minutesVsResult.points, 'Minutes logged');
             }
 
             // A search-and-pick "invite people" style widget: type part of an email,
@@ -18458,12 +18773,14 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     <div class="sm-actions" style="gap:8px;margin-bottom:10px">
                         <button class="button ${adminNewAnnouncementKind==='banner'?'primary':'ghost'}" data-action="admin-announcement-kind" data-kind="banner">Banner</button>
                         <button class="button ${adminNewAnnouncementKind==='popup'?'primary':'ghost'}" data-action="admin-announcement-kind" data-kind="popup">Popup</button>
+                         <button class="button ${adminNewAnnouncementKind==='action'?'primary':'ghost'}" data-action="admin-announcement-kind" data-kind="action">Action popup</button>
                     </div>
                     <p class="small">${adminNewAnnouncementKind==='banner' ?
                         'A dismissible strip at the top of the app. Stays until someone dismisses it.' :
-                        'A modal shown once, on their next visit, that they must acknowledge to close.'}</p>
+                        (adminNewAnnouncementKind==='action' ? 'A popup with your message and buttons that change their settings when pressed (e.g. “There are new study planning modes — want to switch?”). They can also choose “Not now”.' : 'A modal shown once, on their next visit, that they must acknowledge to close.')}</p>
                     <textarea id="admin-announcement-message" rows="3" style="width:100%" placeholder="What do you want people to see?"></textarea>
-                    <label style="display:block;margin-top:10px">Only show to (optional — leave empty for everyone)</label>
+                    ${adminNewAnnouncementKind==='action' ? adminActionBuilderHtml() : ''}
+                     <label style="display:block;margin-top:10px">Only show to (optional — leave empty for everyone)</label>
                     ${adminAnnouncementPickerHtml()}
                     <button class="button primary" style="margin-top:8px" data-action="admin-publish-announcement" ${adminBusy?'disabled':''}>${adminBusy?'Publishing…':'Publish'}</button>
                 </div>`;
@@ -18472,7 +18789,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 if (!adminAnnouncements) return composer + '<p class="empty">Could not load announcements.</p>';
 
                 const row = (a) => `<div class="topic-row">
-                    <span><span class="pill ${a.kind==='popup'?'neutral':'good'}">${a.kind}</span> ${escape(a.message)}<br><span class="small">${adminFmtDateTime(a.created_at)}${a.active?'':' · inactive'} · ${a.target_emails&&a.target_emails.length?'Only: '+escape(a.target_emails.join(', ')):'Everyone'}</span></span>
+                    <span><span class="pill ${a.kind==='popup'?'neutral':'good'}">${a.kind}</span> ${escape(a.message)}${a.kind==='action' && a.payload && a.payload.buttons ? `<br><span class="small">Buttons: ${a.payload.buttons.map(b => escape(b.label)).join(' · ')}</span>` : ''}<br><span class="small">${adminFmtDateTime(a.created_at)}${a.active?'':' · inactive'} · ${a.target_emails&&a.target_emails.length?'Only: '+escape(a.target_emails.join(', ')):'Everyone'}</span></span>
                     <span class="row" style="gap:6px">
                         <button class="button ghost" data-action="admin-toggle-announcement" data-id="${a.id}" data-active="${a.active?'0':'1'}">${a.active?'Deactivate':'Reactivate'}</button>
                         <button class="button ghost danger" data-action="admin-delete-announcement" data-id="${a.id}">Delete</button>
@@ -19406,7 +19723,8 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                         equippedColor: state.equippedColor,
                         unlockedColors: state.unlockedColors,
                         unlockedExpressions: state.unlockedExpressions,
-                        gameHighScores: state.gameHighScores
+                        gameHighScores: state.gameHighScores,
+                        gameWins: state.gameWins
                     })
                 },
 
@@ -20257,19 +20575,11 @@ If the user asks about how to study or study methods generally, answer from your
                 if (!currentUser) {
                     throw new Error("Sign in with Google to use the AI Study Assistant.");
                 }
-                const { data, error } = await supabaseClient.functions.invoke("ai-chat", {
-                    body: {
-                        contents: aiConversation.map(({ role, parts }) => ({ role, parts })), // strip local-only fields like _toolResult
-                        systemInstruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
-                        tools: [{ functionDeclarations: AI_FUNCTION_DECLARATIONS }]
-                    }
+                return await aiInvoke({
+                    contents: aiConversation.map(({ role, parts }) => ({ role, parts })), // strip local-only fields like _toolResult
+                    systemInstruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
+                    tools: [{ functionDeclarations: AI_FUNCTION_DECLARATIONS }]
                 });
-                if (error) {
-                    let detail = error.message || "AI request failed.";
-                    try { detail = (await error.context.json())?.error || detail; } catch {}
-                    throw new Error(detail);
-                }
-                return data;
             }
 
             async function processUserPrompt(userInput, loadingElement, image) {
@@ -22065,6 +22375,13 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'admin-create-user-submit') adminCreateUser();
                 else if (a === 'admin-tab-chatrooms') loadAdminChatrooms();
                 else if (a === 'admin-open-user') loadAdminUserDetail(b.dataset.id);
+                else if (a === 'admin-open-report') { adminShowResults = false; openModal('admin-report'); }
+                else if (a === 'admin-announce-user') { adminAnnouncementTargets = [b.dataset.email]; adminAnnouncementSearchQuery = ''; adminNewAnnouncementKind = 'popup'; loadAdminAnnouncements(); toast(`Writing an announcement for ${b.dataset.email} only.`); }
+                else if (a === 'admin-action-generate') adminGenerateActionButtons();
+                else if (a === 'admin-action-add') { adminActionButtons.push({ label: '', json: JSON.stringify({ settings: { studyPlanningMode: 'custom' } }, null, 1) }); render(); }
+                else if (a === 'admin-action-remove') { adminActionButtons.splice(Number(b.dataset.index), 1); render(); }
+                else if (a === 'announcement-action-apply') { const ann = activeAnnouncements.find(x => x.id === Number(b.dataset.id)), btn = ann && ann.payload && ann.payload.buttons && ann.payload.buttons[Number(b.dataset.index)];
+                    if (btn && applyActionPatch(btn.settings)) { dismissAnnouncement(ann.id); closeModal(); render(); toast(`Done — ${btn.label}.`); } }
                 else if (a === 'admin-set-password') adminSetPassword(b.dataset.id);
                 else if (a === 'admin-send-reset') adminSendReset(b.dataset.id, b.dataset.email);
                 else if (a === 'admin-magic-link') adminMagicLink(b.dataset.id, b.dataset.email);
@@ -22149,6 +22466,17 @@ If the user asks about how to study or study methods generally, answer from your
                 const a = b.dataset.action;
                 if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
                 else if (a === 'open-flashcards-for-subject') flashcardsOpenForSubject(b.dataset.subject);
+                else if (a === 'fc-tab') { flashcardsTab = b.dataset.tab === 'community' ? 'community' : 'mine'; if (flashcardsTab === 'community' && communityRows == null) communityLoad(); else render(); }
+                else if (a === 'comm-sort') { communitySort = b.dataset.sort; communityLoad(); }
+                else if (a === 'comm-preview') communityOpenPreview(b.dataset.id, !!b.dataset.add);
+                else if (a === 'comm-add') communityAddCopy();
+                else if (a === 'comm-report') communityReport(b.dataset.id);
+                else if (a === 'open-quizlet-import') openFlashcardCreateModal(b.dataset.subject, 'quizlet');
+                else if (a === 'qz-tab') { if (flashcardCreateDraft) { flashcardCreateDraft.qzTab = b.dataset.tab; flashcardCreateDraft.qzError = ''; renderModal(); } }
+                else if (a === 'qz-set') { if (flashcardCreateDraft) { flashcardCreateDraft[b.dataset.key] = b.dataset.val; renderModal(); } }
+                else if (a === 'qz-pick-pdf') document.getElementById('qz-pdf-file')?.click();
+                else if (a === 'qz-swap-now') { const d0 = flashcardCreateDraft; if (d0 && d0.reviewCards) { d0.reviewCards.forEach(c => { const x = c.front; c.front = c.back; c.back = x; }); d0.qzSwap = !d0.qzSwap; renderModal(); } }
+                else if (a === 'qz-review') { const d0 = flashcardCreateDraft; if (d0) { const r = fcParseQuizletPaste(d0.qzText || '', qzOpts(d0)); if (!r.cards.length) { toast('No cards found — check the separators.'); return; } qzToReview(d0, r.cards); d0.qzInfo = { title: '', url: '', skipped: r.bad, n: r.cards.length }; renderModal(); } }
                 else if (a === 'wb-open') { wbOpts = wbDefaults(b.dataset.subject, b.dataset.kind, b.dataset.act); openModal('wb-start'); }
                 else if (a === 'wb-set') { if (wbOpts) { const k = b.dataset.key, v = b.dataset.val; wbOpts[k] = (k === 'count' && v !== 'all') ? Number(v) : v; renderModal(); } }
                 else if (a === 'wb-go') wbStart();
@@ -22333,6 +22661,13 @@ If the user asks about how to study or study methods generally, answer from your
                         deck.diagram.imageDataUrl = dataUrl; save(); renderModal(); }).catch(err => toast(err.message || "Couldn't read that image.")); }
                 else if (t.dataset && t.dataset.action === 'flashcard-assign-folder') assignDeckToFolder(t.dataset.deck, t.value || null);
                 else if (t.id === 'flashcard-create-subject') { if (flashcardCreateDraft) { flashcardCreateDraft.subjectId = t.value; renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'fc-draft-private') { if (flashcardCreateDraft) flashcardCreateDraft.isPrivate = t.checked; }
+                else if (t.dataset && t.dataset.action === 'fc-deck-private') { const dk = flashcardDeck(t.dataset.deck); if (dk) { dk.isPrivate = t.checked; save(); render(); toast(t.checked ? 'This deck is now private.' : 'This deck is shared in the Community.'); } }
+                else if (t.dataset && t.dataset.action === 'comm-share-toggle') { state.settings.communityHidden = !t.checked; save(); communityQueue(); render(); }
+                else if (t.id === 'qz-pdf-file') { const f = t.files && t.files[0]; t.value = ''; if (f) qzHandlePdf(f); }
+                else if (t.dataset && t.dataset.action === 'qz-swap') { if (flashcardCreateDraft) { flashcardCreateDraft.qzSwap = t.checked; if (flashcardCreateDraft.reviewCards) flashcardCreateDraft.reviewCards.forEach(c => { const x = c.front; c.front = c.back; c.back = x; }); renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'qz-join') { if (flashcardCreateDraft) { flashcardCreateDraft.qzJoin = t.checked; renderModal(); } }
+                else if (t.dataset && t.dataset.action === 'game-lb-toggle') gameLbSetVisible(t.checked);
                 else if (t.dataset && t.dataset.action === 'wb-toggle') { if (wbOpts) { wbOpts[t.dataset.key] = t.checked; renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'wb-tense') { if (wbOpts) { const set = new Set(wbOpts.tenses); if (t.checked) set.add(t.dataset.tense); else set.delete(t.dataset.tense); wbOpts.tenses = Array.from(set); renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'fc-keep-order') { const dk = flashcardDeck(t.dataset.deck); if (dk) { dk.keepOrder = t.checked; save(); render(); } }
@@ -22389,8 +22724,15 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-front') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].front = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-back') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].back = t.value; }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-text') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].text = t.value; }
+                else if (t.dataset && t.dataset.adminBtnLabel !== undefined) { const b0 = adminActionButtons[Number(t.dataset.adminBtnLabel)]; if (b0) b0.label = t.value; }
+                else if (t.dataset && t.dataset.adminBtnJson !== undefined) { const b0 = adminActionButtons[Number(t.dataset.adminBtnJson)]; if (b0) b0.json = t.value; }
+                else if (t.id === 'admin-action-prompt') adminActionPrompt = t.value;
+                else if (t.id === 'qz-text' || t.id === 'qz-term-custom' || t.id === 'qz-row-custom') { const d0 = flashcardCreateDraft; if (!d0) return; const pos = t.selectionStart, id = t.id;
+                    if (id === 'qz-text') d0.qzText = t.value; else if (id === 'qz-term-custom') d0.qzTermCustom = t.value; else d0.qzRowCustom = t.value;
+                    renderModal(); const el = document.getElementById(id); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } }
                 else if (t.dataset && t.dataset.wbBox !== undefined) { if (flashcardStudySession && flashcardStudySession.mode === 'wb-test') flashcardStudySession.answers['b' + t.dataset.wbBox] = t.value; }
                 else if (t.id === 'syn-word-input') { if (synDraft) synDraft.word = t.value; }
+                else if (t.id === 'fc-comm-search') { communityQuery = t.value; clearTimeout(communitySearchTimer); communitySearchTimer = setTimeout(communityLoad, 450); }
                 else if (t.id === 'syn-text-input') { if (synDraft) synDraft.text = t.value; }
                 else if (t.dataset && t.dataset.action === 'ctt-minutes') { const a0 = customTtDraft && customTtDraft.slots[t.dataset.key]; if (a0 && a0[Number(t.dataset.index)]) a0[Number(t.dataset.index)].minutes = Math.max(0, Number(t.value) || 0); }
                 else if (t.dataset && t.dataset.action === 'info-review-title') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].title = t.value; }
