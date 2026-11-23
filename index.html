@@ -1,4 +1,4 @@
-<!doctype html>
+ <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -2763,6 +2763,10 @@
         /* ---- Whiteboard (graph cards) ---- */
         .fc-wb svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
         .fc-face.back.rich .fc-wb { width: 100%; }
+        .fc-graph-answer { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(180px, 1fr); align-items: center; gap: clamp(14px, 2.5vw, 28px); width: 100%; max-width: 100%; text-align: left; }
+        .fc-graph-answer .fc-wb { min-width: 0; width: 100%; }
+        .fc-graph-description { min-width: 0; font-size: 15px; line-height: 1.55; font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
+        @media (max-width: 620px) { .fc-graph-answer { grid-template-columns: minmax(0, 1fr); gap: 12px; } .fc-graph-description { font-size: 14px; } }
         .wb-overlay { position: fixed; inset: 0; z-index: 5000; background: var(--bg, #f6f7fb); display: flex; flex-direction: column; color: var(--text); }
         .wb-top { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
         .wb-top strong { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -15607,7 +15611,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const sections = fcParseInfo(text); if (!sections.some(s => s.points.length)) return { error: 'needs at least one point (start lines with -)' };
                 return { card: { type: 'info', front, back: fcInfoPlain(sections), data: { sections } } }; }
             function fcBackHtml(card) { const d = card.data; if (card.backHtml) return card.backHtml;
-                if (card.type === 'graph' && d && d.board) return `<div class="fc-wb">${wbBoardSvg(d.board)}</div>${d.notes ? `<p class="small" style="margin-top:8px;white-space:pre-wrap">${escape(d.notes)}</p>` : ''}`;
+                if (card.type === 'graph' && d && d.board) return `<div class="fc-graph-answer"><div class="fc-wb">${wbBoardSvg(d.board)}</div>${d.notes ? `<div class="fc-graph-description">${escape(d.notes)}</div>` : ''}</div>`;
                 if (card.type === 'list' && d) return `<${d.ordered ? 'ol' : 'ul'}>${d.items.map(x => `<li>${escape(x)}</li>`).join('')}</${d.ordered ? 'ol' : 'ul'}>`;
                 if (card.type === 'timeline' && d) return `<ol>${d.events.map(e => `<li>${e.when ? `<strong>${escape(e.when)}</strong> — ` : ''}${escape(e.label)}</li>`).join('')}</ol>`;
                 if (card.type === 'info' && d) return d.sections.map(s => `${s.heading ? `<h4>${escape(s.heading)}</h4>` : ''}<ul>${s.points.map(p => `<li>${escape(p.text)}${p.subs && p.subs.length ? `<ul>${p.subs.map(x => `<li>${escape(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>`).join('');
