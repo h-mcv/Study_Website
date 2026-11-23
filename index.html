@@ -1,4 +1,4 @@
- <!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -2788,6 +2788,50 @@
         .wb-mini { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 600; cursor: pointer; }
         .wb-mini.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
         @media (max-width: 700px) { .wb-hint { display: none; } .wb-tools { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; } .wb-main { flex-direction: column; } .wb-svg { width: 100%; } }
+
+        /* Consistent compact checkbox controls across the app */
+        input[type="checkbox"] {
+            appearance: none; -webkit-appearance: none; flex: 0 0 16px;
+            width: 16px; height: 16px; min-width: 16px; min-height: 16px;
+            margin: 0 2px 0 0; border: 1.5px solid var(--line-strong, #aab2c0);
+            border-radius: 5px; background: var(--surface); display: inline-grid;
+            place-content: center; vertical-align: middle; cursor: pointer;
+            transition: background .14s ease, border-color .14s ease, box-shadow .14s ease;
+        }
+        input[type="checkbox"]::before { content: ""; width: 8px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) scale(0); transform-origin: center; transition: transform .12s ease; margin-top: -2px; }
+        input[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
+        input[type="checkbox"]:checked::before { transform: rotate(-45deg) scale(1); }
+        input[type="checkbox"]:focus-visible { outline: 3px solid var(--primary-soft); outline-offset: 2px; }
+        input[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
+        .fc-check { gap: 6px; padding: 4px 2px; font-size: 12px; font-weight: 600; }
+        .fc-scene { height: clamp(340px, 56vh, 560px); min-height: 340px; }
+        .fc-face { padding: clamp(24px, 4vw, 44px); }
+        .fc-face.back { font-size: clamp(17px, 2vw, 24px); }
+
+        .fc-more-actions { margin-top:12px; border-top:1px solid var(--line); padding-top:9px; }
+        .fc-more-actions summary { width:max-content; cursor:pointer; color:var(--muted); font-size:12px; font-weight:700; padding:4px 2px; }
+        .fc-more-actions-inner { display:flex; gap:7px; flex-wrap:wrap; padding-top:9px; }
+        .fc-more-actions-inner .button { padding:7px 10px; font-size:12px; }
+        .fc-wrap > .fc-topbar { flex-wrap:wrap; }
+        .fc-deck { min-height:116px; padding:14px 15px; }
+        .fc-listcard { min-width:0; }
+        .fc-listtext { min-width:0; overflow-wrap:anywhere; }
+        .fc-listcard .button.icon { flex:0 0 32px; width:32px; height:32px; }
+
+        .fc-editor-list { display: grid; gap: 12px; }
+        .fc-editor-list > .topic-row { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+        .fc-editor-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:4px; }
+        .fc-editor-head select { max-width: 190px !important; font-size:12px; padding:6px 8px; }
+        .fc-editor-number { display:grid; place-items:center; width:24px; height:24px; border-radius:7px; background:var(--primary-soft); color:var(--primary); font-size:11px; font-weight:800; }
+        .fc-editor-spacer { flex:1; }
+        .fc-section-manager { display:grid; gap:8px; padding:12px 14px; margin:0 0 14px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); }
+        .fc-section-manager > div:first-child { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+        .fc-section-chips { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+        .fc-section-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:12px; font-weight:600; }
+        .fc-section-chip button { border:0; background:transparent; color:var(--muted); cursor:pointer; padding:0 1px; font-size:16px; line-height:1; }
+        .fc-section-select { min-width: 112px; }
+        @media (max-width:640px) { .fc-scene { height: min(58vh, 460px); min-height: 300px; } .fc-editor-head select { max-width: 150px !important; } }
+
         .fc-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 4px; }
         .fc-sec-h { margin: 22px 0 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .fc-sec-h h3 { margin: 0; font-size: 17px; }
@@ -15241,7 +15285,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 let deck = state.flashcardDecks.find(d => d.subjectId === subjectId && d.topic.toLowerCase() === topic.toLowerCase());
                 if (!deck) { deck = { id: uid(), subjectId, topic, cards: [], createdAt: Date.now() }; state.flashcardDecks.push(deck); }
                 return deck; }
-            function addFlashcardsToDeck(subjectId, topic, cards) { const existed = !!fcFindDeck(subjectId, topic), deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
+            function addFlashcardsToDeck(subjectId, topic, cards, sections) { const existed = !!fcFindDeck(subjectId, topic), deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null; if (Array.isArray(sections) && sections.length) { deck.sections = fcSecs(deck).slice(); sections.forEach(x => { if (x.name && !deck.sections.some(y => y.id === x.id)) deck.sections.push({ id: x.id || uid(), name: String(x.name).trim(), subs: [] }); }); }
                 if (!existed && flashcardCreateDraft && flashcardCreateDraft.isPrivate) deck.isPrivate = true;
                 (cards || []).forEach(c => { const front = (c.front || '').trim(), back = (c.back || '').trim(); if (!front || !back) return;
                     const card = { id: uid(), front, back }; if (c.secId) fcApplyPlace(deck, card, fcCardKey(c)); if (c.type && c.type !== 'term' && FC_TYPES[c.type] && c.data) { card.type = c.type; card.data = c.data; } deck.cards.push(card); });
@@ -15256,7 +15300,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function openFlashcardCreateModal(subjectId, mode) {
                 if (!subjectId || !subject(subjectId)) subjectId = (state.subjects.find(x => x.active !== false) || {}).id;
                 flashcardCreateDraft = { mode: mode || 'manual',
-                    subjectId, topic: '', cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                    subjectId, topic: '', sections: [], cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                 openModal('flashcard-create'); }
 
             // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
@@ -15304,7 +15348,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                         const own = deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && !p.sub; }), total = deck.cards.filter(c => c.secId === s.id).length;
                         return `<div class="fc-sec-block"><div class="fc-sec-h"><h3>📂 ${escape(s.name)}</h3><span class="small">${total} card${total === 1 ? '' : 's'}</span>${secTools(s, null)}</div>${rows(own)}${(s.subs || []).map(u => { const uc = deck.cards.filter(c => c.secId === s.id && c.subId === u.id);
                             return `<div class="fc-sec-block sub"><div class="fc-sec-h sub"><h3>${escape(u.name)}</h3><span class="small">${uc.length}</span>${secTools(s, u)}</div>${uc.length ? rows(uc) : '<p class="small" style="margin:4px 0 8px">No cards here yet.</p>'}</div>`; }).join('')}</div>`; }).join(''); }
-                const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep cards in order (don't shuffle)</label><label class="fc-check" title="Private decks are never shown in the Community"><input type="checkbox" data-action="fc-deck-private" data-deck="${deck.id}" ${deck.isPrivate ? 'checked' : ''}> 🔒 Private ${deck.isPrivate ? '' : '<span class="small">(shared in the Community)</span>'}</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
+                const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep order</label><label class="fc-check" title="Private decks are never shown in the Community"><input type="checkbox" data-action="fc-deck-private" data-deck="${deck.id}" ${deck.isPrivate ? 'checked' : ''}> 🔒 Private</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
                 return `<div class="fc-wrap">
           <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
           <div style="border-top:5px solid ${s ? s.color : 'var(--primary)'};padding-top:12px;margin-bottom:16px">
@@ -15320,14 +15364,14 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
               ${weakCount ? `<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>` : ''}
             </div>
             ${scopeBar}
-            <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
-              <button type="button" class="button ghost" data-action="flashcard-edit-deck" data-deck="${deck.id}">✏️ Edit deck</button>
-              <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add cards</button>
-              <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram && deck.diagram.points.length ? '🖼 Edit diagram' : '🖼 Add diagram'}</button>
-              <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
-              <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">💬 Ask Sparky</button>
+            <details class="fc-more-actions"><summary>Deck options</summary><div class="fc-more-actions-inner">
+              <button type="button" class="button ghost" data-action="flashcard-edit-deck" data-deck="${deck.id}">Edit deck</button>
+              <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">Add cards</button>
+              <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram && deck.diagram.points.length ? 'Edit diagram' : 'Add diagram'}</button>
+              <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">Share</button>
+              <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">Ask Sparky</button>
               <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete deck</button>
-            </div>
+            </div></details>
             ${folders.length ? `<div class="row" style="margin-top:12px;align-items:center;gap:8px"><span class="small">Folder:</span><select data-action="flashcard-assign-folder" data-deck="${deck.id}" style="max-width:220px"><option value="">No folder</option>${folders.map(f => `<option value="${f.id}" ${current && current.id === f.id ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select></div>` : ''}
           </section>
           ${cardsHtml}
@@ -15536,7 +15580,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; row.descriptionEnabled = !!(d.notes && String(d.notes).trim()); }
                 return row; }
             function openFlashcardDeckEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
-                flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, sections: fcSecs(deck).map(x => ({ id: x.id, name: x.name, subs: (x.subs || []).map(u => ({ id: u.id, name: u.name })) })), cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                 if (!flashcardCreateDraft.cards.length) flashcardCreateDraft.cards.push({ type: 'term', front: '', back: '', text: '', secKey: '' });
                 openModal('flashcard-create'); }
             function saveDeckEdits() { const d = flashcardCreateDraft; if (!d || d.mode !== 'deck-edit') return; const deck = flashcardDeck(d.editing.deckId); if (!deck) { closeModal(); return; }
@@ -15547,9 +15591,11 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     const card = (row.id && deck.cards.find(c => c.id === row.id)) || { id: uid() };
                     card.front = r.card.front; card.back = r.card.back;
                     if (r.card.type === 'term') { delete card.type; delete card.data; } else { card.type = r.card.type; card.data = r.card.data; }
-                    fcApplyPlace(deck, card, row.secKey); out.push(card); });
+                    card._pendingSecKey = row.secKey || ''; out.push(card); });
                 if (problem) { toast(problem); return; }
-                deck.cards = out; deck.topic = topic;
+                if (Array.isArray(d.sections)) deck.sections = d.sections.map(x => ({ id: x.id || uid(), name: String(x.name || '').trim(), subs: Array.isArray(x.subs) ? x.subs : [] })).filter(x => x.name);
+                out.forEach(c => { const key = c._pendingSecKey; delete c._pendingSecKey; fcApplyPlace(deck, c, key); });
+                deck.cards = out; deck.topic = topic; if (Array.isArray(d.sections)) deck.cards.forEach(c => { if (c.secId && !deck.sections.some(x => x.id === c.secId)) { delete c.secId; delete c.subId; } });
                 if (deck.subjectId !== d.subjectId) { deck.subjectId = d.subjectId; (state.flashcardFolders || []).forEach(f => { f.deckIds = f.deckIds.filter(id => id !== deck.id); }); if (flashcardsFilterSubject !== 'all') flashcardsFilterSubject = d.subjectId; }
                 if (fcScope && fcScope.deckId === deck.id && !fcScopeCards(deck).length) fcScope = null;
                 save(); toast('Deck updated.'); flashcardCreateDraft = null; closeModal(); render(); }
@@ -15947,20 +15993,23 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           <button type="button" class="button ${d.mode==='quizlet'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="quizlet">🟣 Import from Quizlet</button>
         </div>`;
                 const subjectOptions = state.subjects.filter(x => x.active !== false || x.id === d.subjectId).map(x => `<option value="${x.id}" ${x.id === d.subjectId ? 'selected' : ''}>${escape(x.name)}</option>`).join('');
-                const privacyRow = (d.mode !== 'edit' && d.mode !== 'deck-edit' && !fcFindDeck(d.subjectId, d.topic)) ? `<label class="fc-check" style="display:flex;margin:-4px 0 12px"><input type="checkbox" data-action="fc-draft-private" ${d.isPrivate ? 'checked' : ''}> 🔒 Keep this deck private <span class="small">(otherwise it's shared in the Community under your name)</span></label>` : '';
+                const privacyRow = (d.mode !== 'edit' && d.mode !== 'deck-edit' && !fcFindDeck(d.subjectId, d.topic)) ? `<label class="fc-check" style="display:flex;margin:-4px 0 12px"><input type="checkbox" data-action="fc-draft-private" ${d.isPrivate ? 'checked' : ''}> 🔒 Private deck <span class="small">(not listed in Community)</span></label>` : '';
                 const topicField = `<div style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1.4fr;gap:10px"><div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div><div class="field"><label>Deck name</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div></div>${privacyRow}`;
                 const manualCardRow = (c, i) => { const t = FC_TYPES[c.type] ? c.type : 'term', ty = FC_TYPES[t];
                     const typeSel = `<select data-action="flashcard-manual-type" data-index="${i}" style="max-width:260px">${Object.entries(FC_TYPES).map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>`;
                     const secDeck = d.mode === 'deck-edit' || d.mode === 'edit' ? flashcardDeck(d.editing.deckId) : (d.mode === 'manual' ? fcFindDeck(d.subjectId, d.topic) : null);
-                    const secSel = secDeck && fcSecs(secDeck).length ? `<select data-action="flashcard-manual-section" data-index="${i}" style="max-width:220px" aria-label="Section">${fcSecOptions(secDeck).map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
+                    const availableSections = secDeck ? fcSecs(secDeck) : (d.sections || []);
+                    const sectionOptions = [{ key: '', label: 'No section' }, ...availableSections.map(x => ({ key: x.id, label: x.name }))];
+                    const secSel = availableSections.length ? `<select data-action="flashcard-manual-section" data-index="${i}" class="fc-section-select" aria-label="Section">${sectionOptions.map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
                     const moveBtns = d.mode === 'deck-edit' ? `<button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button>` : '';
-                    const head = `<div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><span class="small"><strong>#${i + 1}</strong></span>${typeSel}${secSel}<span style="flex:1"></span>${moveBtns}<button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
-                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><label class="fc-check"><input type="checkbox" data-action="flashcard-manual-description" data-index="${i}" ${c.descriptionEnabled ? 'checked' : ''}> Include accompanying description</label>${c.descriptionEnabled ? `<textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Describe the diagram and explain the key points (e.g. what the curves show, why they shift, and the effect on equilibrium…)" style="min-height:80px">${escape(c.text || '')}</textarea>` : ''}<div class="small">${ty.hint}</div>`;
+                    const head = `<div class="fc-editor-head"><span class="fc-editor-number">${i + 1}</span>${typeSel}${secSel}<span class="fc-editor-spacer"></span>${moveBtns}<button type="button" class="button ghost danger icon" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove" title="Remove card">✕</button></div>`;
+                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><label class="fc-check"><input type="checkbox" data-action="flashcard-manual-description" data-index="${i}" ${c.descriptionEnabled ? 'checked' : ''}> Add explanation</label>${c.descriptionEnabled ? `<textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Describe the diagram and explain the key points (e.g. what the curves show, why they shift, and the effect on equilibrium…)" style="min-height:80px">${escape(c.text || '')}</textarea>` : ''}<div class="small">${ty.hint}</div>`;
                     const fields = t === 'graph' ? graphFields : t === 'term'
                         ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
-                        : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
+                        : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Keep order</label>` : ''}`;
                     return `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px">${head}${fields}</div></div>`; };
-                const manualBody = `${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
+                const sectionManager = `<div class="fc-section-manager"><div><strong>Sections</strong><span class="small">Optional groups for organising this deck</span></div><div class="fc-section-chips">${(d.sections || []).map(x => `<span class="fc-section-chip">${escape(x.name)}<button type="button" data-action="fc-draft-section-remove" data-section="${x.id}" aria-label="Remove ${escape(x.name)}">×</button></span>`).join('') || '<span class="small">No sections yet</span>'}<button type="button" class="button ghost" data-action="fc-draft-section-add">+ Add section</button></div></div>`;
+                const manualBody = `${topicField}${d.mode === 'manual' ? sectionManager : ''}<div class="fc-editor-list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:12px" data-action="flashcard-manual-add-row">+ Add card</button>`;
                 const imgThumb = (img, i) => img.mimeType === 'application/pdf'
                     ? `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:72px;height:72px;margin:0 8px 8px 0;border-radius:8px;border:1px solid var(--line);background:var(--card)"><span style="font-size:22px">📄</span><span class="small" style="max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escape(img.name||'PDF')}</span><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove file">✕</button></div>`
                     : `<div style="position:relative;display:inline-block;margin:0 8px 8px 0"><img src="${img.dataUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="${escape(img.name||'photo')}"><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove photo">✕</button></div>`;
@@ -16009,7 +16058,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 else if (d.mode === 'infoimage') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-info-extract" ${flashcardCreateLoading || !d.images.length ? 'disabled' : ''}>${flashcardCreateLoading ? 'Reading cards…' : 'Generate info cards'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
                 else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?(flashcardCreateLoadingStage==='checking'?'Double-checking cards…':'Reading files…'):'Generate flashcards'}</button>`;
-                if (d.mode === 'deck-edit') return modalShell('Edit deck', `<p class="small" style="margin-bottom:10px">Change the subject, deck name and every card in one place. Cards you clear are removed; their review history is kept for the ones you keep.</p>${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-deck-save">Save deck</button>`, true);
+                if (d.mode === 'deck-edit') return modalShell('Edit deck', `<p class="small" style="margin-bottom:10px">Edit the deck and organise its cards in one place.</p>${topicField}${sectionManager}<div class="fc-editor-list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:12px" data-action="flashcard-manual-add-row">+ Add card</button>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-deck-save">Save deck</button>`, true);
                 if (d.mode === 'edit') return modalShell('Edit card', `<div class="list">${manualCardRow(d.cards[0], 0)}</div>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-edit-save">Save changes</button>`, true);
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
 
@@ -16069,7 +16118,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 d.cards.forEach((row, i) => { const r = fcBuildCard(row); if (!r) return; if (r.error) { if (!problem) problem = `Card #${i + 1} ${r.error}.`; return; } Object.assign(r.card, fcSecFields(row.secKey)); cards.push(r.card); });
                 if (problem) { toast(problem); return; }
                 if (!cards.length) { toast('Add at least one complete card.'); return; }
-                addFlashcardsToDeck(d.subjectId, topic, cards);
+                addFlashcardsToDeck(d.subjectId, topic, cards, d.sections || []);
                 toast(`Added ${cards.length} flashcard${cards.length === 1 ? '' : 's'} to "${topic}".`);
                 flashcardCreateDraft = null;
                 closeModal(); render(); }
@@ -22658,6 +22707,8 @@ If the user asks about how to study or study methods generally, answer from your
                     if (s.index >= s.items.length - 1) { finishExamSim(); return; }
                     s.index++; s.answered = null; s.revealed = false; render(); }
                 else if (a === 'create-flashcard-folder') createFlashcardFolder(b.dataset.subject);
+                else if (a === 'fc-draft-section-add') { const d = flashcardCreateDraft; if (d && (d.mode === 'manual' || d.mode === 'deck-edit')) { const name = prompt('Section name (e.g. Monopolies):'); if (name && name.trim()) { d.sections = d.sections || []; d.sections.push({ id: uid(), name: name.trim(), subs: [] }); renderModal(); } } }
+                else if (a === 'fc-draft-section-remove') { const d = flashcardCreateDraft; if (d) { d.sections = (d.sections || []).filter(x => x.id !== b.dataset.section); d.cards.forEach(c => { if (c.secKey === b.dataset.section) c.secKey = ''; }); renderModal(); } }
                 else if (a === 'delete-flashcard-folder') { if (confirm('Delete this folder? Decks inside it are not deleted.')) deleteFlashcardFolder(b.dataset.folder); }
                 else if (a === 'share-flashcard-deck') shareFlashcardDeck(b.dataset.deck);
                 else if (a === 'import-shared-set') importSharedFlashcardSet();
