@@ -7177,24 +7177,99 @@
                 return /marking[\s-]?scheme/i.test(item.label || '') || /marking[\s-]?scheme/i.test(item.file || '');
             }
             function examArchiveSchemeForPaper(paper, schemes) {
-                const candidates = schemes.filter(s => s.level === paper.level && s.subjectId === paper.subjectId && Number(s.year) === Number(paper.year));
+                const normaliseLanguage = item => {
+                    const value = String(item.language || '').toLowerCase();
+                    if (value.includes('irish') || value === 'iv') return 'irish';
+                    if (value.includes('english') || value === 'ev') return 'english';
+                    if (value.includes('bilingual') || value === 'bv') return 'bilingual';
+
+                    const filename = String(item.file || '').toLowerCase();
+                    if (/(?:-|\.)(?:iv)\.pdf$/.test(filename)) return 'irish';
+                    if (/(?:-|\.)(?:ev)\.pdf$/.test(filename)) return 'english';
+                    if (/(?:-|\.)(?:bv)\.pdf$/.test(filename)) return 'bilingual';
+                    return null;
+                };
+
+                const getSecCode = item => {
+                    const match = String(item.file || '').match(/LP(\d{3})(?:EV|IV|BV)\.pdf$/i);
+                    return match ? match[1] : null;
+                };
+
+                const getExamLevel = item => {
+                    const label = String(item.label || '').toLowerCase();
+                    return ['higher', 'ordinary', 'foundation', 'common']
+                        .find(level => label.includes(level)) || null;
+                };
+
+                const getPart = item => {
+                    const label = String(item.label || '').toLowerCase();
+                    return label.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                };
+
+                const candidates = schemes.filter(s =>
+                    s.level === paper.level &&
+                    s.subjectId === paper.subjectId &&
+                    Number(s.year) === Number(paper.year)
+                );
+
                 if (!candidates.length) return null;
-                const paperLabel = String(paper.label || '').toLowerCase();
-                const paperLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => paperLabel.includes(level));
-                const paperPart = paperLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
-                const levelCandidates = candidates.filter(s => {
-                    const schemeLabel = String(s.label || '').toLowerCase();
-                    const schemeLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => schemeLabel.includes(level));
-                    return !paperLevel || !schemeLevel || paperLevel === schemeLevel;
-                });
-                if (!levelCandidates.length) return null;
-                return levelCandidates.find(s => {
-                    const schemeLabel = String(s.label || '').toLowerCase();
-                    const schemePart = schemeLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
-                    return !paperPart || !schemePart || paperPart === schemePart;
-                }) || levelCandidates[0];
+
+                const paperLanguage = normaliseLanguage(paper);
+                const paperLevel = getExamLevel(paper);
+                const paperPart = getPart(paper);
+                const paperCode = getSecCode(paper);
+
+                const ranked = candidates
+                    .filter(s => {
+                        const schemeLevel = getExamLevel(s);
+                        if (paperLevel && schemeLevel && paperLevel !== schemeLevel) return false;
+
+                        const schemeLanguage = normaliseLanguage(s);
+                        if (paperLanguage && schemeLanguage &&
+                            schemeLanguage !== paperLanguage &&
+                            schemeLanguage !== 'bilingual') return false;
+
+                        const schemeCode = getSecCode(s);
+                        if (paperCode && schemeCode && schemeCode !== paperCode) return false;
+
+                        const schemePart = getPart(s);
+                        if (paperPart && schemePart && paperPart !== schemePart) return false;
+
+                        return true;
+                    })
+                    .sort((a, b) => {
+                        const score = scheme => {
+                            const language = normaliseLanguage(scheme);
+                            const code = getSecCode(scheme);
+                            const part = getPart(scheme);
+
+                            return [
+                                paperLanguage
+                                    ? (language === paperLanguage ? 0 : language === 'bilingual' ? 1 : 2)
+                                    : 0,
+                                paperCode
+                                    ? (code === paperCode ? 0 : code === '000' ? 1 : 2)
+                                    : (code === '000' ? 0 : code === null ? 1 : 2),
+                                paperPart
+                                    ? (part === paperPart ? 0 : part === '' ? 1 : 2)
+                                    : 0,
+                                getExamLevel(scheme) === paperLevel ? 0 : 1
+                            ];
+                        };
+
+                        const sa = score(a);
+                        const sb = score(b);
+
+                        for (let i = 0; i < sa.length; i++) {
+                            if (sa[i] !== sb[i]) return sa[i] - sb[i];
+                        }
+                        return 0;
+                    });
+
+                return ranked[0] || null;
             }
-            async function examArchiveLoadManifest() {
+
+async function examArchiveLoadManifest() {
                 examArchiveManifestStatus = 'loading';
                 try {
                     const response = await fetch(EXAM_ARCHIVE_MANIFEST_URL, { cache: 'no-cache' });
