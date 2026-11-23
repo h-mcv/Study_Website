@@ -12,7 +12,7 @@
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com https://rlwfxvnwekkyfslxltus.supabase.co;
         font-src 'self' data:;
         connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://translate.googleapis.com https://api.mymemory.translated.net https://cdn.jsdelivr.net;
-        frame-src 'self' https://sdk.scdn.co https://openkrillion.com;
+        frame-src 'self' https://sdk.scdn.co;
         object-src 'none';
         base-uri 'self';
         form-action 'self';
@@ -14219,15 +14219,15 @@ ${pointsSvg}
             }
 
             // ---- OpenKrillion (embedded) ----------------------------------------------------------------
-            // Daily rare-answer trivia, MIT: github.com/VulcanEon/openkrillion.com-service. It needs its own backend
-            // (Cloudflare Worker + D1), so it can't be inlined here; we frame the hosted copy instead. If you deploy
-            // your own copy, change OPENKRILLION_URL AND the matching origin in this page's CSP frame-src (top of file).
-            const OPENKRILLION_URL = 'https://openkrillion.com';
+            // Daily rare-answer trivia, MIT: github.com/VulcanEon/openkrillion.com-service. The hosted site refuses to be framed
+            // (X-Frame-Options), so the real game client is bundled in ./openkrillion/ (same origin) with a localStorage
+            // backend replacing its Cloudflare Worker. Prompts live in openkrillion/bank.js.
+            const OPENKRILLION_URL = 'openkrillion/index.html';
             function mountOpenKrillion(container) {
                 container.innerHTML = `<div style="width:100%;max-width:1100px">
                     <iframe id="openkrillion-frame" title="OpenKrillion" src="${OPENKRILLION_URL}" loading="lazy"
-                        allow="autoplay" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                        style="width:100%;height:min(78vh,820px);min-height:520px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)"></iframe>
+                        allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                        style="width:100%;height:min(86vh,900px);min-height:560px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)"></iframe>
                     <p class="small" style="margin:8px 0 0">Not loading? <a href="${OPENKRILLION_URL}" target="_blank" rel="noopener noreferrer">Open OpenKrillion in a new tab</a>.</p></div>`;
                 return () => { const f = container.querySelector('#openkrillion-frame'); if (f) f.src = 'about:blank'; container.innerHTML = ''; }; // stops its audio on exit
             }
