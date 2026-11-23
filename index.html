@@ -2775,7 +2775,7 @@
         .wb-tool.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
         .wb-stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; padding: 12px; min-width: 0; overflow: hidden; }
         .wb-svg { aspect-ratio: 1000 / 640; width: min(100%, calc((100vh - 230px) * 1.5625)); max-height: 100%; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); touch-action: none; user-select: none; display: block; }
-        .wb-text { position: absolute; display: none; z-index: 2; border: 2px solid var(--primary); border-radius: 6px; padding: 2px 6px; background: #fff; color: #111; resize: none; font-family: system-ui, sans-serif; line-height: 1.3; outline: none; }
+        .wb-text { position: absolute; display: none; z-index: 10; pointer-events: auto; border: 2px solid var(--primary); border-radius: 6px; padding: 2px 6px; background: #fff; color: #111; resize: none; font-family: system-ui, sans-serif; line-height: 1.3; outline: none; }
         .wb-style { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
         .wb-style .group { display: flex; align-items: center; gap: 4px; padding-right: 10px; border-right: 1px solid var(--line); }
         .wb-style .group:last-child { border-right: 0; }
@@ -15433,7 +15433,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     st.editing = id; const r = svg.getBoundingClientRect(), k = (r.width || WB_W) / WB_W, stageR = svg.parentElement.getBoundingClientRect(); let x, y, w;
                     if (s.t === 'text') { const z = wbTextSize(s); x = s.x; y = s.y; w = Math.max(180, z.w); } else { w = Math.max(s.w, 180); x = s.x + s.w / 2 - w / 2; y = s.y + s.h / 2 - 18; }
                     ta.value = s.text || ''; ta.style.display = 'block'; ta.style.left = (r.left - stageR.left + x * k) + 'px'; ta.style.top = (r.top - stageR.top + y * k) + 'px'; ta.style.width = (w * k) + 'px';
-                    ta.style.fontSize = Math.max(13, (s.fs || 20) * k) + 'px'; ta.rows = Math.max(1, ta.value.split('\n').length); ta.focus(); ta.select(); };
+                    ta.style.fontSize = Math.max(13, (s.fs || 20) * k) + 'px'; ta.rows = Math.max(1, ta.value.split('\n').length);
+                    // Focusing synchronously inside SVG pointerdown is undone by the browser's default
+                    // focus handling for the SVG. Defer it so the textarea reliably receives typing.
+                    requestAnimationFrame(() => { if (st.editing === id && ta.isConnected) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }); };
                 const commitText = (cancel) => { if (!st.editing) return; const s = st.board.shapes.find(x => x.id === st.editing); st.editing = null; const v = cancel ? (s ? s.text || '' : '') : ta.value; ta.style.display = 'none';
                     if (s) { if (s.t === 'text' && !v.trim()) { st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); if (st.sel === s.id) st.sel = null; }
                         else if ((s.text || '') !== v) { pushUndo(); s.text = v; } }
@@ -15526,7 +15529,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (row.type === 'list' && d) { row.text = d.items.join('\n'); row.ordered = !!d.ordered; }
                 else if (row.type === 'timeline' && d) row.text = d.events.map(e => (e.when ? e.when + ' - ' : '') + e.label).join('\n');
                 else if (row.type === 'info' && d) row.text = fcInfoToText(d.sections);
-                else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; }
+                else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; row.descriptionEnabled = !!(d.notes && String(d.notes).trim()); }
                 return row; }
             function openFlashcardDeckEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
@@ -15593,7 +15596,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (type === 'graph') { const board = row.board, has = board && Array.isArray(board.shapes) && board.shapes.length; if (!front && !has) return null;
                     if (!front) return { error: 'needs a prompt (what should the student draw?)' };
                     if (!has) return { error: 'needs a model drawing — use "Draw the model answer"' };
-                    const notes = String(row.text || '').trim(), labels = wbLabels(board);
+                    const notes = row.descriptionEnabled ? String(row.text || '').trim() : '', labels = wbLabels(board);
                     return { card: { type: 'graph', front, back: notes || ('Diagram' + (labels.length ? ': ' + labels.slice(0, 10).join(', ') : '')), data: { board: wbClone(board), notes } } }; }
                 const text = String(row.text || ''); if (!front && !text.trim()) return null;
                 if (!front) return { error: 'needs a title' };
@@ -15948,7 +15951,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     const secSel = secDeck && fcSecs(secDeck).length ? `<select data-action="flashcard-manual-section" data-index="${i}" style="max-width:220px" aria-label="Section">${fcSecOptions(secDeck).map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
                     const moveBtns = d.mode === 'deck-edit' ? `<button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button>` : '';
                     const head = `<div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><span class="small"><strong>#${i + 1}</strong></span>${typeSel}${secSel}<span style="flex:1"></span>${moveBtns}<button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
-                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Optional marking notes — what a full-marks answer must include (axes labelled, curve shapes, key points…)" style="min-height:64px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>`;
+                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><label class="fc-check"><input type="checkbox" data-action="flashcard-manual-description" data-index="${i}" ${c.descriptionEnabled ? 'checked' : ''}> Include accompanying description</label>${c.descriptionEnabled ? `<textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Describe the diagram and explain the key points (e.g. what the curves show, why they shift, and the effect on equilibrium…)" style="min-height:80px">${escape(c.text || '')}</textarea>` : ''}<div class="small">${ty.hint}</div>`;
                     const fields = t === 'graph' ? graphFields : t === 'term'
                         ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
                         : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
@@ -22693,6 +22696,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset && t.dataset.action === 'ctt-minutes') { const a0 = customTtDraft && customTtDraft.slots[t.dataset.key]; if (a0 && a0[Number(t.dataset.index)]) { a0[Number(t.dataset.index)].minutes = Math.max(0, Number(t.value) || 0); renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-type') { if (flashcardCreateDraft) { const row = flashcardCreateDraft.cards[Number(t.dataset.index)]; row.type = t.value; renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'flashcard-manual-ordered') { if (flashcardCreateDraft) flashcardCreateDraft.cards[Number(t.dataset.index)].ordered = t.checked; }
+                else if (t.dataset && t.dataset.action === 'flashcard-manual-description') { if (flashcardCreateDraft) { const row = flashcardCreateDraft.cards[Number(t.dataset.index)]; row.descriptionEnabled = t.checked; renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'info-review-toggle') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].include = t.checked; }
                 else if (t.id === 'translate-source-lang') { translateSourceLang = t.value; if (translateInputText.trim()) runTranslate(); }
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
