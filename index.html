@@ -4490,7 +4490,8 @@
         .exam-page-wrap.tool-draw canvas.exam-ink-canvas, .exam-page-wrap.tool-erase canvas.exam-ink-canvas { pointer-events: auto; cursor: crosshair; }
         .exam-page-wrap.tool-text .exam-overlay, .exam-page-wrap.tool-checkbox .exam-overlay { cursor: copy; }
         .exam-box { position: absolute; }
-        .exam-textbox { min-width: 110px; }
+        .exam-textbox { min-width: 0; min-height: 4%; }
+        .exam-textbox .exam-box-text { height: 100%; min-height: 100%; }
         /* Controls float over the box's own top edge rather than sitting in a bar above it, so a
            placed/detected box never pushes into -- or visually collides with -- whatever printed
            content sits just above where it was positioned. Hidden until hovered/focused so a page
@@ -7683,11 +7684,16 @@ ${numbered}`;
             // broken experience. Runs once, only when a paper is opened with no saved answers yet
             // (see openExamPaper) -- never re-runs over a student's already-customised layout.
             const round2 = (x) => Math.round(x * 100) / 100;
+            // PDF.js affine matrices use [a,b,c,d,e,f], not row-major [a,c,e,b,d,f].
+            // The previous multiplication mixed those conventions, so every nested transform
+            // (including scaled/rotated form elements) could be placed at the wrong coordinates.
             function examPaperMulMatrix(m1, m2) {
+                const [a, b, c, d, e, f] = m1;
+                const [g, h, i, j, k, l] = m2;
                 return [
-                    m1[0] * m2[0] + m1[1] * m2[2], m1[0] * m2[1] + m1[1] * m2[3],
-                    m1[2] * m2[0] + m1[3] * m2[2], m1[2] * m2[1] + m1[3] * m2[3],
-                    m1[4] * m2[0] + m1[5] * m2[2] + m2[4], m1[4] * m2[1] + m1[5] * m2[3] + m2[5],
+                    a * g + c * h, b * g + d * h,
+                    a * i + c * j, b * i + d * j,
+                    a * k + c * l + e, b * k + d * l + f
                 ];
             }
 
@@ -7731,23 +7737,49 @@ ${numbered}`;
                     const fn = fnArray[i], args = argsArray[i];
                     if (fn === OPS.save) stack.push(ctm);
                     else if (fn === OPS.restore) ctm = stack.pop() || ctm;
-                    else if (fn === OPS.transform) ctm = examPaperMulMatrix(args, ctm);
+                    else if (fn === OPS.transform) ctm = examPaperMulMatrix(ctm, args);
                     else if (fn === OPS.constructPath) {
                         const [ops, coords] = args;
-                        let ci = 0, subStart = null, prev = null;
+                        let ci = 0, subStart = null, prev = null, subPath = [];
+                        const finishSubPath = (closed) => {
+                            if (closed && subPath.length >= 4 && subPath.length <= 6) {
+                                // A lot of SEC PDFs draw form squares as four move/line commands
+                                // rather than the PDF rectangle operator. Recover their bounding box.
+                                const xs = subPath.map(p => p[0]), ys = subPath.map(p => p[1]);
+                                const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+                                const w = x1 - x0, h = y1 - y0;
+                                const corners = [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+                                const axisAligned = subPath.every(pt =>
+                                    (Math.abs(pt[0]-x0)<1.5 || Math.abs(pt[0]-x1)<1.5) &&
+                                    (Math.abs(pt[1]-y0)<1.5 || Math.abs(pt[1]-y1)<1.5));
+                                if (axisAligned && w >= 8 && h >= 8 && Math.abs(w-h) < Math.max(w,h)*0.32)
+                                    recordRectDevice(corners);
+                            }
+                            subPath = [];
+                        };
                         for (const op of ops) {
-                            if (op === OPS.moveTo) { const d = toDevice(applyCtm(coords[ci++], coords[ci++])); subStart = d; prev = d; }
-                            else if (op === OPS.lineTo) { const d = toDevice(applyCtm(coords[ci++], coords[ci++])); if (prev) classifySeg(prev, d); prev = d; }
-                            else if (op === OPS.curveTo) { ci += 6; prev = null; }
-                            else if (op === OPS.curveTo2 || op === OPS.curveTo3) { ci += 4; prev = null; }
-                            else if (op === OPS.closePath) { if (prev && subStart) classifySeg(prev, subStart); prev = subStart; }
-                            else if (op === OPS.rectangle) {
+                            if (op === OPS.moveTo) {
+                                finishSubPath(false);
+                                const d = toDevice(applyCtm(coords[ci++], coords[ci++]));
+                                subStart = d; prev = d; subPath.push(d);
+                            } else if (op === OPS.lineTo) {
+                                const d = toDevice(applyCtm(coords[ci++], coords[ci++]));
+                                if (prev) classifySeg(prev, d);
+                                prev = d; subPath.push(d);
+                            } else if (op === OPS.curveTo) { ci += 6; prev = null; subPath = []; }
+                            else if (op === OPS.curveTo2 || op === OPS.curveTo3) { ci += 4; prev = null; subPath = []; }
+                            else if (op === OPS.closePath) {
+                                if (prev && subStart) classifySeg(prev, subStart);
+                                finishSubPath(true); prev = subStart;
+                            } else if (op === OPS.rectangle) {
+                                finishSubPath(false);
                                 const x = coords[ci++], y = coords[ci++], w = coords[ci++], h = coords[ci++];
                                 const corners = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(c => toDevice(applyCtm(c[0], c[1])));
                                 recordRectDevice(corners);
                                 prev = null; subStart = null;
                             }
                         }
+                        finishSubPath(false);
                     }
                 }
                 return { squares, hSegs, vSegs, cellRects };
@@ -7841,7 +7873,7 @@ ${numbered}`;
                             const wPct = Math.min((band.x2 - band.x1) / viewport.width * 100, 92);
                             fields.push({ id: uid(), type: 'text', page: slotId,
                                 x: round2(band.x1 / viewport.width * 100), y: round2(band.yTop / viewport.height * 100),
-                                w: round2(wPct), hPx: Math.round(Math.max(36, band.yBottom - band.yTop)), value: '', auto: true });
+                                w: round2(wPct), h: round2(Math.max(36, band.yBottom - band.yTop) / viewport.height * 100), value: '', auto: true });
                         }
                     } catch (e) { /* best-effort -- a parsing hiccup on one page shouldn't lose the rest */ }
                 }
@@ -7903,8 +7935,9 @@ ${numbered}`;
                     if (examPaperNeedsDetection && examPaperOpen === entry) {
                         try {
                             const detectDoc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
-                            const autoBoxes = await examPaperDetectAllFields(detectDoc);
-                            detectDoc.destroy();
+                            let autoBoxes;
+                            try { autoBoxes = await examPaperDetectAllFields(detectDoc); }
+                            finally { await detectDoc.destroy(); }
                             if (examPaperOpen === entry && examPaperAnswers) {
                                 examPaperAnswers.boxes.push(...autoBoxes);
                                 for (const box of autoBoxes) {
@@ -7914,6 +7947,7 @@ ${numbered}`;
                                 const status = document.getElementById('exam-save-status');
                                 if (status) status.parentElement.insertAdjacentHTML('afterbegin',
                                     `<button type="button" class="button ghost" data-action="examp-clear-auto-fields">Clear auto-detected (${autoBoxes.length})</button>`);
+                                if (autoBoxes.length) examPaperScheduleSave();
                             }
                         } catch (e) { console.error('Auto-detecting answer fields failed -- opening with a blank paper instead', e); }
                     }
@@ -8048,9 +8082,9 @@ ${numbered}`;
 <button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button>
 </div>`;
                 }
-                return `<div class="exam-box exam-textbox${autoClass}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;width:${box.w}%">
+                return `<div class="exam-box exam-textbox${autoClass}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;width:${box.w}%;${box.h ? `height:${box.h}%` : ''}">
 <div class="exam-box-bar"><span class="exam-box-drag" aria-label="Drag to move">⠿</span><button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button></div>
-<textarea class="exam-box-text" data-box-id="${box.id}" rows="3"${box.hPx ? ` style="height:${box.hPx}px"` : ''} placeholder="Type your answer…">${escape(box.value || '')}</textarea>
+<textarea class="exam-box-text" data-box-id="${box.id}" rows="3" placeholder="Type your answer…">${escape(box.value || '')}</textarea>
 </div>`;
             }
 
@@ -8221,7 +8255,12 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 }
                 if (e.target.matches('.exam-box-text')) {
                     const boxId = e.target.dataset.boxId, box = examPaperAnswers && examPaperAnswers.boxes.find(b => b.id === boxId);
-                    if (box) box.hPx = e.target.offsetHeight;
+                    if (box) {
+                        const page = e.target.closest('.exam-page-wrap');
+                        const pageHeight = page ? page.getBoundingClientRect().height : 0;
+                        if (pageHeight) box.h = round2(e.target.getBoundingClientRect().height / pageHeight * 100);
+                        delete box.hPx;
+                    }
                 }
             });
 
@@ -18151,8 +18190,15 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     .innerHTML = renderInsightsPage();
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
-                    .innerHTML = renderTools(); } else if (view === 'exam-papers') { document.getElementById('app').innerHTML = renderExamPapers();
-                    requestAnimationFrame(renderExamPaperCanvases); } else if (view === 'games') {
+                    .innerHTML = renderTools(); } else if (view === 'exam-papers') {
+                    const app = document.getElementById('app');
+                    const viewerAlreadyMounted = !!(examPaperOpen && app.querySelector('.exam-pages'));
+                    // A background poll/auth refresh can call the global render() many times a minute.
+                    // Keep the live viewer DOM intact while a paper is open: rebuilding it closes/reopens
+                    // the apparent paper, resets scroll, and can discard in-progress input focus.
+                    if (!viewerAlreadyMounted) app.innerHTML = renderExamPapers();
+                    requestAnimationFrame(renderExamPaperCanvases);
+                } else if (view === 'games') {
                     // Skip rebuilding while a game is already mounted here -- a periodic call into
                     // this render() (chat's poll, the multiplayer games poll) would otherwise tear
                     // down and remount whatever's running (a canvas game loop, an in-progress board)
