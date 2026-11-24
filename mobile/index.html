@@ -4570,7 +4570,9 @@
             color: transparent;
         }
 
-    </style>
+    .mobile-flashcards-only { padding-bottom: 0 !important; }
+    .mobile-flashcards-only .mobile-bottom-nav { display: none !important; }
+</style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script>
@@ -10745,7 +10747,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             function taskRow(task, map) { const s = subject(task.subjectId); return `<div class="task-row ${task.done?'done':''}"><button class="check ${task.done?'done':''}" aria-label="Mark ${escape(task.title)} ${task.done?'incomplete':'complete'}" data-action="toggle-task" data-id="${task.id}">${task.done?'✓':''}</button><button class="button ghost task-main" data-action="open-task" data-id="${task.id}"><span class="task-name">${taskIndicator(task)}${escape(task.title)}</span><span class="task-meta">${s?escape(s.name)+' · ':''}${fmtDate(task.due)}${task.type==='test'?' · test':''}${task.type!=='test'?' · '+fmtMins(task.minutes):''}</span></button><button class="button ghost" data-action="open-task" data-id="${task.id}" aria-label="Edit ${escape(task.title)}">Edit</button>${statusPill(task,map)}</div>`; }
 
             function appFrame(content) {
-                return `<div class="app-shell mobile-app-shell">
+                return `<div class="app-shell mobile-app-shell mobile-flashcards-only">
                     <main>
                         ${syncBannerHtml()}
                         ${tourBannerHtml()}
@@ -10753,10 +10755,6 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                         ${chatNotifyBannerHtml()}
                         ${content}
                     </main>
-                    <nav class="mobile-bottom-nav" aria-label="Main navigation">
-                        ${navButton('timetable','calendar','Timetable')}
-                        ${navButton('flashcards','layers','Flashcards')}
-                    </nav>
                 </div>`;
             }
             // Whether a given announcement id has already been shown/dismissed on this
@@ -18759,8 +18757,9 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     </div>`;
             }
 
+            const MOBILE_FLASHCARDS_ONLY = true;
             function render() {
-                if (view !== 'timetable' && view !== 'flashcards') view = 'timetable'; const landingLayer = document.getElementById('landing-layer'),
+                if (view !== 'flashcards') view = 'flashcards'; const landingLayer = document.getElementById('landing-layer'),
                     aiChatWidgetEl = document.getElementById('ai-chat-widget'); if (showLanding ||
                     viewingPrivacyFromApp) {
                     landingLayer.classList.remove('hidden');
@@ -18868,11 +18867,10 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                         try { restoreEl.setSelectionRange(focusedSelStart, focusedSelEnd); } catch (err) {}
                     }
                 }
-                if (view === 'admin') return; if (
-                    !state.settings.onboarded && !modal) openModal('onboarding');
-                else if (state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
-                else if (state.settings.onboarded && !modal && !state.settings.schoolId && !schoolPromptDismissed) openModal('school-prompt');
-                else if (state.settings.onboarded && !modal && isSophiaMode() && !sophiaWelcomeShown) {
+                if (view === 'admin') return; if (!MOBILE_FLASHCARDS_ONLY && !state.settings.onboarded && !modal) openModal('onboarding');
+                else if (!MOBILE_FLASHCARDS_ONLY && state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
+                else if (!MOBILE_FLASHCARDS_ONLY && state.settings.onboarded && !modal && !state.settings.schoolId && !schoolPromptDismissed) openModal('school-prompt');
+                else if (!MOBILE_FLASHCARDS_ONLY && state.settings.onboarded && !modal && isSophiaMode() && !sophiaWelcomeShown) {
                     sophiaWelcomeShown = true;
                     openModal('sophia-welcome'); }
                 else if (!modal) { const pop = activeAnnouncements.find(x => (x.kind === 'popup' || x.kind === 'action') && !announcementSeen(x.id));
