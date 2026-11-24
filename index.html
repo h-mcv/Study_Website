@@ -12519,12 +12519,45 @@ ${pointsSvg}
                     asText(data?.output_text) || asText(data?.data?.output_text) || asText(data?.text) || asText(data?.message?.content) ||
                     asText(choiceContent) || asText(data?.response?.text) || asText(data?.response) || asText(data?.result) || asText(data?.output) || '';
             }
+            function mathHelperRepairJsonCandidate(input) {
+                // Repair common model mistakes without altering valid JSON strings:
+                // raw line breaks inside strings and unescaped LaTeX commands such as \frac / \(.
+                const source=String(input||'').trim();
+                let output='', inString=false;
+                for(let i=0;i<source.length;i++) {
+                    const ch=source[i];
+                    if(!inString) {
+                        output+=ch;
+                        if(ch==='"') inString=true;
+                        continue;
+                    }
+                    if(ch==='"') { output+=ch; inString=false; continue; }
+                    if(ch==='\\') {
+                        const next=source[i+1];
+                        if(next===undefined) { output+='\\\\'; continue; }
+                        if(next==='\\' || next==='"' || next==='/') { output+='\\'+next; i++; continue; }
+                        if(next==='u' && /^[0-9a-f]{4}$/i.test(source.slice(i+2,i+6))) { output+='\\u'+source.slice(i+2,i+6); i+=5; continue; }
+                        // JSON's \n, \t, etc are kept only when they are standalone escapes.
+                        // \neq, \text, \frac, \right, etc are LaTeX commands and need a doubled slash.
+                        if('bfnrt'.includes(next) && !/[A-Za-z]/.test(source[i+2]||'')) { output+='\\'+next; i++; continue; }
+                        output+='\\\\'+next; i++; continue;
+                    }
+                    if(ch==='\n') { output+='\\n'; continue; }
+                    if(ch==='\r') { if(source[i+1]==='\n') i++; output+='\\n'; continue; }
+                    if(ch==='\t') { output+='\\t'; continue; }
+                    if(ch.charCodeAt(0)<0x20) { output+=' '; continue; }
+                    output+=ch;
+                }
+                return output;
+            }
             function mathHelperTryParseJson(raw) {
                 const source=String(raw||'').replace(/^\uFEFF/,'').trim();
                 if(!source) return null;
-                const candidates=[source.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/,'').trim()];
-                // Models sometimes add a short preamble or wrap valid JSON in a Markdown fence.
-                // Scan balanced JSON objects/arrays instead of relying on the first/last brace pair.
+                const candidates=[];
+                const unfenced=source.replace(/^```(?:json|javascript|js)?\s*/i,'').replace(/\s*```\s*$/,'').trim();
+                candidates.push(unfenced);
+                // Models occasionally bold the entire JSON block or add a sentence around it.
+                // Locate balanced object/array blocks, respecting quoted strings and escaped quotes.
                 for(let start=0;start<source.length;start++) {
                     if(source[start]!=='{' && source[start]!=='[') continue;
                     const stack=[]; let inString=false, escaped=false;
@@ -12541,17 +12574,23 @@ ${pointsSvg}
                     }
                 }
                 for(const candidate of candidates) {
-                    for(const variant of [candidate, candidate.replace(/,\s*([}\]])/g,'$1')]) {
-                        try { return JSON.parse(variant); } catch {}
+                    const variants=[mathHelperRepairJsonCandidate(candidate), candidate, candidate.replace(/,\s*([}\]])/g,'$1')];
+                    for(const variant of variants) {
+                        for(const cleaned of [variant,variant.replace(/,\s*([}\]])/g,'$1')]) {
+                            try { return JSON.parse(cleaned); } catch {}
+                        }
                     }
                 }
                 return null;
             }
             function mathHelperStringValue(value) {
                 if(value==null) return '';
-                if(typeof value==='string' || typeof value==='number') return String(value);
-                if(typeof value==='object') return String(value.latex||value.math||value.text||value.value||value.expression||JSON.stringify(value));
-                return '';
+                let result='';
+                if(typeof value==='string' || typeof value==='number') result=String(value);
+                else if(typeof value==='object') result=String(value.latex||value.math||value.text||value.value||value.expression||JSON.stringify(value));
+                // Remove broken bold markers that some models split across a line inside a formula.
+                // Preserve normal Markdown emphasis elsewhere for the renderer to display.
+                return result.replace(/\*\*\s*\r?\n\s*\*\*/g,'').replace(/\r\n?/g,'\n');
             }
             function mathHelperNormaliseResponse(parsed, raw) {
                 if(typeof parsed==='string') return {summary:'',steps:[],finalAnswer:parsed,note:''};
@@ -12583,7 +12622,7 @@ ${pointsSvg}
                 const parsed=mathHelperTryParseJson(raw);
                 // A plain-text answer, Markdown response, or slightly malformed JSON should
                 // still be displayed instead of turning an otherwise successful AI call into an error.
-                if(parsed===null) return {summary:'',steps:[],finalAnswer:raw.slice(0,12000),note:'The AI returned a text answer rather than the requested structured format.'};
+                if(parsed===null) { const readable=raw.replace(/^\s*```(?:json)?\s*/i,'').replace(/\s*```\s*$/,'').replace(/^\*\*\s*/, '').replace(/\s*\*\*$/,'').replace(/\*\*\s*\n\s*\*\*/g,'').trim(); return {summary:'',steps:[],finalAnswer:readable.slice(0,12000),note:'The AI did not return valid structured data, so its answer is displayed as text. Please verify any proposed solution by substitution.'}; }
                 const response=mathHelperNormaliseResponse(parsed,raw);
                 if(!response.finalAnswer && !response.steps.length && !response.summary) {
                     return {summary:'',steps:[],finalAnswer:raw.slice(0,12000),note:'The AI response did not match the expected structure, so it is shown as returned.'};
@@ -12640,7 +12679,7 @@ ${pointsSvg}
                         history[history.length-1].parts.push({text:'Relevant official Formulae and Tables booklet page images are attached. Read the printed formulae and constants directly; do not guess if unclear.'});
                         formulaImages.forEach(part=>history[history.length-1].parts.push({inlineData:part.inlineData}));
                     }
-                    const buildPrompt=(referenceText)=>`The student is asking a question in ${mathHelperProgramme==='lc'?'Leaving Certificate':'Junior Cycle'} ${subject?.name||'this subject'} at ${mathHelperExamLevel} level.\n\n${modeInstructions}\n\nReturn one JSON object and nothing else, with this exact schema: {"summary":"optional short introduction or context","steps":[{"id":"1","title":"short step title","math":"LaTeX without surrounding dollar signs","explanation":"what happened in this step","why":"why this step is valid","rule":"named rule or formula, if relevant","check":"optional check"}],"finalAnswer":"final answer, using LaTeX delimiters where helpful","note":"optional note about assumptions or precision"}. Use double-quoted JSON strings, escape any quotation marks inside text, and do not include trailing commas. For Solve mode, steps must be [] and summary/note should be empty. For Normal mode, step explanations/why/rule should be empty strings. FORMATTING IS STRICT: every mathematical expression, number-containing equation, formula, symbol sequence, fraction, power, root, function, unit calculation or numerical substitution MUST be written in LaTeX. In summary/explanation/why/rule/check/note fields, wrap every inline expression in \\( ... \\). In each steps[].math field and finalAnswer, write LaTeX only (without Markdown), and do not mix raw unformatted equations with prose. If a final answer includes words, put the words in summary and put the answer expression alone in finalAnswer. Never write equations as plain ASCII text. Do not output Markdown code fences or text outside the JSON.\n\nSUBJECT-SPECIFIC EXAM INSTRUCTIONS:\n${mathHelperOfficialGuidance(mathHelperSubjectId,mathHelperProgramme)}\n\nREFERENCE DOCUMENTS AND EXAMINER CONVENTIONS (use only where relevant):\n${referenceText}\n\n${stepContext?`FOCUS ON THIS PREVIOUS STEP: ${String(stepContext).slice(0,1800)}\nAnswer the student's follow-up specifically about this step, explaining the point they asked about. Preserve the context of the earlier solution.`:''}\n\nIf the question is ambiguous, state the most reasonable assumption in the summary. If a required diagram or missing value prevents a unique answer, say so rather than guessing. Keep the solution at the selected course level.`;
+                    const buildPrompt=(referenceText)=>`The student is asking a question in ${mathHelperProgramme==='lc'?'Leaving Certificate':'Junior Cycle'} ${subject?.name||'this subject'} at ${mathHelperExamLevel} level.\n\n${modeInstructions}\n\nReturn one JSON object and nothing else, with this exact schema: {"summary":"optional short introduction or context","steps":[{"id":"1","title":"short step title","math":"LaTeX without surrounding dollar signs","explanation":"what happened in this step","why":"why this step is valid","rule":"named rule or formula, if relevant","check":"optional check"}],"finalAnswer":"final answer, using LaTeX delimiters where helpful","note":"optional note about assumptions or precision"}. Use double-quoted JSON strings, escape any quotation marks inside text, and do not include trailing commas. For Solve mode, steps must be [] and summary/note should be empty. For Normal mode, step explanations/why/rule should be empty strings. FORMATTING IS STRICT: every mathematical expression, number-containing equation, formula, symbol sequence, fraction, power, root, function, unit calculation or numerical substitution MUST be written in LaTeX. In summary/explanation/why/rule/check/note fields, wrap every inline expression in \\( ... \\). In each steps[].math field and finalAnswer, write LaTeX only (without Markdown), and do not mix raw unformatted equations with prose. If a final answer includes words, put the words in summary and put the answer expression alone in finalAnswer. Never write equations as plain ASCII text. Do not output Markdown code fences or text outside the JSON.\n\nSUBJECT-SPECIFIC EXAM INSTRUCTIONS:\n${mathHelperOfficialGuidance(mathHelperSubjectId,mathHelperProgramme)}\n\nREFERENCE DOCUMENTS AND EXAMINER CONVENTIONS (use only where relevant):\n${referenceText}\n\n${stepContext?`FOCUS ON THIS PREVIOUS STEP: ${String(stepContext).slice(0,1800)}\nAnswer the student's follow-up specifically about this step, explaining the point they asked about. Preserve the context of the earlier solution.`:''}\n\nDo not narrate what the student is asking or describe the prompt; solve the mathematics directly. Before stating any candidate solution, substitute it into the original question and check both sides numerically or algebraically. Never claim a value is an exact solution unless substitution confirms equality. For equations involving roots, logarithms, denominators or other domain restrictions, establish the real domain first and check whether any real solutions exist; do not assume an integer solution by inspection. If no real solution exists, say so and justify it. In Help and Ultra help modes, provide at least one meaningful step unless the question is genuinely unanswerable. If the question is ambiguous, state the most reasonable assumption in the summary. If a required diagram or missing value prevents a unique answer, say so rather than guessing. Keep the solution at the selected course level.`;
                     let data;
                     try {
                         data=await aiInvoke({contents:history,systemInstruction:{parts:[{text:buildPrompt(refs)}]},preferProvider:'quality'});
@@ -12656,6 +12695,7 @@ ${pointsSvg}
                     if (!response.finalAnswer && response.steps.length) response.finalAnswer='';
                     if (mathHelperMode==='solve') { response.steps=[]; response.summary=''; response.note=''; }
                     if (mathHelperMode==='normal') { response.summary=''; response.note=''; response.steps=response.steps.map(st=>({...st,explanation:'',why:'',rule:'',check:''})); }
+                    if ((mathHelperMode==='help'||mathHelperMode==='ultra') && !response.steps.length && response.finalAnswer) { response.note=response.note||'The AI did not provide separate working steps for this response. Check the final answer by substituting it into the original question.'; }
                     mathHelperMessages.push({id:uid(),role:'assistant',response,mode:mathHelperMode});
                 } catch(err) {
                     const rawError=String(err?.message||'AI request failed.');
