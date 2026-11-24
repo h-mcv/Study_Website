@@ -4513,6 +4513,62 @@
         .exam-insert-blank-row button { font-size: 12px; }
         .exam-remove-blank-page { position: absolute; top: 8px; right: 8px; font-size: 11px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--danger); cursor: pointer; }
 
+
+        /* Exam answer areas: the PDF remains visible underneath the typing area. */
+        .exam-page-wrap {
+            container-type: inline-size;
+        }
+        .exam-textbox {
+            min-width: 0;
+            min-height: 0;
+            overflow: visible;
+        }
+        .exam-textbox .exam-box-text {
+            display: block;
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
+            margin: 0;
+            padding: 1px 2px;
+            resize: none;
+            border: 1px solid transparent;
+            border-radius: 0;
+            outline: none;
+            box-shadow: none;
+            background: transparent;
+            color: #171717;
+            font-family: Arial, sans-serif;
+            font-size: clamp(9px, 1.15cqw, 14px);
+            line-height: 1.35;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+        .exam-textbox .exam-box-text:focus,
+        .exam-textbox .exam-box-text:focus-visible {
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
+            background: transparent;
+        }
+        .exam-textbox.auto-detected .exam-box-text {
+            border: 1px solid transparent;
+            background: transparent;
+        }
+        .exam-textbox:hover .exam-box-text,
+        .exam-textbox:focus-within .exam-box-text {
+            background: rgba(255,255,255,.025);
+        }
+        .exam-textbox .exam-box-bar {
+            pointer-events: none;
+        }
+        .exam-textbox:hover .exam-box-bar,
+        .exam-textbox:focus-within .exam-box-bar {
+            pointer-events: auto;
+        }
+        .exam-textbox .exam-box-text::placeholder {
+            color: transparent;
+        }
+
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
@@ -7777,87 +7833,261 @@ ${numbered}`;
             // on-screen pixel coordinates for `viewport`) as a tick-box-shaped square, or a thin
             // rectangle/line segment (horizontal == a ruled writing line, vertical == kept only to
             // help tell a real ruled answer area apart from a table/graph grid later).
+
             async function examPaperDetectPageFields(page, viewport) {
                 const OPS = pdfjsLib.OPS;
                 const { fnArray, argsArray } = await page.getOperatorList();
+
                 let ctm = [1, 0, 0, 1, 0, 0];
                 const stack = [];
-                const squares = [], hSegs = [], vSegs = [], cellRects = [];
-                const applyCtm = (x, y) => [ctm[0] * x + ctm[2] * y + ctm[4], ctm[1] * x + ctm[3] * y + ctm[5]];
-                const toDevice = (pt) => viewport.convertToViewportPoint(pt[0], pt[1]);
+
+                const squares = [];
+                const hSegs = [];
+                const vSegs = [];
+                const cellRects = [];
+                const answerRects = [];
+
+                const applyCtm = (x, y) => [
+                    ctm[0] * x + ctm[2] * y + ctm[4],
+                    ctm[1] * x + ctm[3] * y + ctm[5]
+                ];
+
+                const toDevice = pt =>
+                    viewport.convertToViewportPoint(pt[0], pt[1]);
 
                 const classifySeg = (p1, p2) => {
-                    const dx = Math.abs(p1[0] - p2[0]), dy = Math.abs(p1[1] - p2[1]);
-                    if (dy < 1.2 && dx > 30) hSegs.push({ x1: Math.min(p1[0], p2[0]), x2: Math.max(p1[0], p2[0]), y: (p1[1] + p2[1]) / 2 });
-                    else if (dx < 1.2 && dy > 6) vSegs.push({ y1: Math.min(p1[1], p2[1]), y2: Math.max(p1[1], p2[1]), x: (p1[0] + p2[0]) / 2 });
+                    const dx = Math.abs(p1[0] - p2[0]);
+                    const dy = Math.abs(p1[1] - p2[1]);
+
+                    if (dy < 1.5 && dx > 30) {
+                        hSegs.push({
+                            x1: Math.min(p1[0], p2[0]),
+                            x2: Math.max(p1[0], p2[0]),
+                            y: (p1[1] + p2[1]) / 2
+                        });
+                    } else if (dx < 1.5 && dy > 6) {
+                        vSegs.push({
+                            y1: Math.min(p1[1], p2[1]),
+                            y2: Math.max(p1[1], p2[1]),
+                            x: (p1[0] + p2[0]) / 2
+                        });
+                    }
                 };
-                const recordRectDevice = (corners) => {
-                    const xs = corners.map(c => c[0]), ys = corners.map(c => c[1]);
-                    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-                    const w = x1 - x0, h = y1 - y0;
-                    if (w > 1 && h > 1 && Math.min(w, h) < 2.5 && Math.max(w, h) > 35) {
-                        if (w >= h) hSegs.push({ x1: x0, x2: x1, y: (y0 + y1) / 2 }); else vSegs.push({ y1: y0, y2: y1, x: (x0 + x1) / 2 });
-                    } else if (w >= 10 && w <= 55 && h >= 10 && h <= 55 && Math.abs(w - h) < Math.max(w, h) * 0.28) {
+
+                const recordRectDevice = corners => {
+                    const xs = corners.map(c => c[0]);
+                    const ys = corners.map(c => c[1]);
+
+                    const x0 = Math.min(...xs);
+                    const x1 = Math.max(...xs);
+                    const y0 = Math.min(...ys);
+                    const y1 = Math.max(...ys);
+
+                    const w = x1 - x0;
+                    const h = y1 - y0;
+
+                    if (w <= 1 || h <= 1) return;
+
+                    // Thin outlined rectangles are treated as ruled lines.
+                    if (Math.min(w, h) < 2.5 && Math.max(w, h) > 35) {
+                        if (w >= h) {
+                            hSegs.push({ x1: x0, x2: x1, y: (y0 + y1) / 2 });
+                        } else {
+                            vSegs.push({ y1: y0, y2: y1, x: (x0 + x1) / 2 });
+                        }
+                        return;
+                    }
+
+                    // Small squares are likely tick boxes.
+                    if (
+                        w >= 10 && w <= 55 &&
+                        h >= 10 && h <= 55 &&
+                        Math.abs(w - h) < Math.max(w, h) * 0.28
+                    ) {
                         squares.push({ x: x0, y: y0, w, h });
                     }
-                    // Tables are often drawn as a grid of individual per-cell rectangles rather than
-                    // shared border strokes -- track every rectangle in this "cell-ish" size range
-                    // (too big to be a rule/tick-box, too small to be a whole answer area) so a later
-                    // pass can tell a real table apart from a genuine ruled writing block even when
-                    // there's no single long dividing line to detect.
-                    if (w >= 15 && h >= 12 && w <= 260 && h <= 60) cellRects.push({ x: x0, y: y0, w, h });
+
+                    // Keep cell-sized rectangles so tables can be recognised.
+                    if (w >= 15 && h >= 12 && w <= 260 && h <= 60) {
+                        cellRects.push({ x: x0, y: y0, w, h });
+                    }
+
+                    // Also recognise larger outlined answer spaces.
+                    // Limits are relative to the page, so this works across
+                    // different page sizes and PDF scaling.
+                    if (
+                        w >= viewport.width * 0.12 &&
+                        w <= viewport.width * 0.97 &&
+                        h >= Math.max(24, viewport.height * 0.018) &&
+                        h <= viewport.height * 0.32
+                    ) {
+                        answerRects.push({
+                            x1: x0,
+                            x2: x1,
+                            yTop: y0,
+                            yBottom: y1,
+                            source: 'rectangle'
+                        });
+                    }
                 };
 
                 for (let i = 0; i < fnArray.length; i++) {
-                    const fn = fnArray[i], args = argsArray[i];
-                    if (fn === OPS.save) stack.push(ctm);
-                    else if (fn === OPS.restore) ctm = stack.pop() || ctm;
-                    else if (fn === OPS.transform) ctm = examPaperMulMatrix(ctm, args);
-                    else if (fn === OPS.constructPath) {
+                    const fn = fnArray[i];
+                    const args = argsArray[i];
+
+                    if (fn === OPS.save) {
+                        stack.push(ctm.slice());
+                    } else if (fn === OPS.restore) {
+                        ctm = stack.pop() || ctm;
+                    } else if (fn === OPS.transform) {
+                        ctm = examPaperMulMatrix(ctm, args);
+                    } else if (fn === OPS.constructPath) {
                         const [ops, coords] = args;
-                        let ci = 0, subStart = null, prev = null, subPath = [];
-                        const finishSubPath = (closed) => {
+                        let ci = 0;
+                        let subStart = null;
+                        let prev = null;
+                        let subPath = [];
+
+                        const finishSubPath = closed => {
                             if (closed && subPath.length >= 4 && subPath.length <= 6) {
-                                // A lot of SEC PDFs draw form squares as four move/line commands
-                                // rather than the PDF rectangle operator. Recover their bounding box.
-                                const xs = subPath.map(p => p[0]), ys = subPath.map(p => p[1]);
-                                const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-                                const w = x1 - x0, h = y1 - y0;
-                                const corners = [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+                                const xs = subPath.map(p => p[0]);
+                                const ys = subPath.map(p => p[1]);
+
+                                const x0 = Math.min(...xs);
+                                const x1 = Math.max(...xs);
+                                const y0 = Math.min(...ys);
+                                const y1 = Math.max(...ys);
+
+                                const w = x1 - x0;
+                                const h = y1 - y0;
+
                                 const axisAligned = subPath.every(pt =>
-                                    (Math.abs(pt[0]-x0)<1.5 || Math.abs(pt[0]-x1)<1.5) &&
-                                    (Math.abs(pt[1]-y0)<1.5 || Math.abs(pt[1]-y1)<1.5));
-                                if (axisAligned && w >= 8 && h >= 8 && Math.abs(w-h) < Math.max(w,h)*0.32)
-                                    recordRectDevice(corners);
+                                    (Math.abs(pt[0] - x0) < 1.5 ||
+                                     Math.abs(pt[0] - x1) < 1.5) &&
+                                    (Math.abs(pt[1] - y0) < 1.5 ||
+                                     Math.abs(pt[1] - y1) < 1.5)
+                                );
+
+                                if (axisAligned && w >= 8 && h >= 8) {
+                                    recordRectDevice([
+                                        [x0, y0], [x1, y0],
+                                        [x1, y1], [x0, y1]
+                                    ]);
+                                }
                             }
                             subPath = [];
                         };
+
                         for (const op of ops) {
                             if (op === OPS.moveTo) {
                                 finishSubPath(false);
-                                const d = toDevice(applyCtm(coords[ci++], coords[ci++]));
-                                subStart = d; prev = d; subPath.push(d);
+                                const x = coords[ci++];
+                                const y = coords[ci++];
+                                const d = toDevice(applyCtm(x, y));
+                                subStart = d;
+                                prev = d;
+                                subPath.push(d);
+
                             } else if (op === OPS.lineTo) {
-                                const d = toDevice(applyCtm(coords[ci++], coords[ci++]));
+                                const x = coords[ci++];
+                                const y = coords[ci++];
+                                const d = toDevice(applyCtm(x, y));
+
                                 if (prev) classifySeg(prev, d);
-                                prev = d; subPath.push(d);
-                            } else if (op === OPS.curveTo) { ci += 6; prev = null; subPath = []; }
-                            else if (op === OPS.curveTo2 || op === OPS.curveTo3) { ci += 4; prev = null; subPath = []; }
-                            else if (op === OPS.closePath) {
-                                if (prev && subStart) classifySeg(prev, subStart);
-                                finishSubPath(true); prev = subStart;
+
+                                prev = d;
+                                subPath.push(d);
+
+                            } else if (op === OPS.curveTo) {
+                                ci += 6;
+                                prev = null;
+                                subPath = [];
+
+                            } else if (op === OPS.curveTo2 || op === OPS.curveTo3) {
+                                ci += 4;
+                                prev = null;
+                                subPath = [];
+
+                            } else if (op === OPS.closePath) {
+                                if (prev && subStart) {
+                                    classifySeg(prev, subStart);
+                                }
+                                finishSubPath(true);
+                                prev = subStart;
+
                             } else if (op === OPS.rectangle) {
                                 finishSubPath(false);
-                                const x = coords[ci++], y = coords[ci++], w = coords[ci++], h = coords[ci++];
-                                const corners = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(c => toDevice(applyCtm(c[0], c[1])));
+
+                                const x = coords[ci++];
+                                const y = coords[ci++];
+                                const w = coords[ci++];
+                                const h = coords[ci++];
+
+                                const corners = [
+                                    [x, y],
+                                    [x + w, y],
+                                    [x + w, y + h],
+                                    [x, y + h]
+                                ].map(c =>
+                                    toDevice(applyCtm(c[0], c[1]))
+                                );
+
                                 recordRectDevice(corners);
-                                prev = null; subStart = null;
+                                prev = null;
+                                subStart = null;
                             }
                         }
+
                         finishSubPath(false);
                     }
                 }
-                return { squares, hSegs, vSegs, cellRects };
+
+                // Obtain the printed text positions. These are used to avoid
+                // placing editable answer boxes over question wording.
+                const textRects = [];
+
+                try {
+                    const textContent = await page.getTextContent();
+
+                    for (const item of textContent.items || []) {
+                        if (!item.str || !item.str.trim() || !item.transform) continue;
+
+                        const matrix = pdfjsLib.Util.transform(
+                            viewport.transform,
+                            item.transform
+                        );
+
+                        const height = Math.max(
+                            4,
+                            Math.hypot(matrix[2], matrix[3])
+                        );
+
+                        const width = Math.max(
+                            2,
+                            Math.abs(item.width || 0) * viewport.scale
+                        );
+
+                        textRects.push({
+                            x: matrix[4],
+                            y: matrix[5] - height,
+                            w: width,
+                            h: height,
+                            text: item.str
+                        });
+                    }
+                } catch (e) {
+                    // Text extraction is supplementary. Drawing detection
+                    // should still work if a PDF has unusual text encoding.
+                }
+
+                return {
+                    squares,
+                    hSegs,
+                    vSegs,
+                    cellRects,
+                    answerRects,
+                    textRects
+                };
             }
 
             // Groups consecutive ruled lines (consistent vertical spacing, overlapping horizontal
@@ -7879,79 +8109,294 @@ ${numbered}`;
                 return out;
             }
 
-            function examPaperGroupRuledBands(hSegsRaw, vSegs, cellRects, minWidth) {
-                const lines = examPaperDedupeSegments(hSegsRaw).sort((a, b) => a.y - b.y);
+
+            function examPaperGroupRuledBands(
+                hSegsRaw, vSegs, cellRects, minWidth, pageHeight, textRects
+            ) {
+                const lines = examPaperDedupeSegments(hSegsRaw)
+                    .sort((a, b) => a.y - b.y);
+
                 const bands = [];
                 let cur = null;
+
+                // Scale the permitted line spacing to the actual PDF page.
+                const minGap = Math.max(6, pageHeight * 0.006);
+                const maxGap = Math.min(75, pageHeight * 0.055);
+
                 for (const line of lines) {
                     if (cur) {
                         const gap = line.y - cur.lastY;
-                        const overlap = Math.min(cur.x2, line.x2) - Math.max(cur.x1, line.x1);
-                        const minSpan = Math.min(cur.x2 - cur.x1, line.x2 - line.x1) * 0.5;
-                        if (gap >= 14 && gap <= 46 && overlap > minSpan) {
-                            cur.lines.push(line); cur.lastY = line.y;
-                            cur.x1 = Math.min(cur.x1, line.x1); cur.x2 = Math.max(cur.x2, line.x2);
+                        const overlap = Math.min(cur.x2, line.x2) -
+                            Math.max(cur.x1, line.x1);
+
+                        const minSpan = Math.min(
+                            cur.x2 - cur.x1,
+                            line.x2 - line.x1
+                        ) * 0.5;
+
+                        const previousGap = cur.gaps.length
+                            ? cur.gaps[cur.gaps.length - 1]
+                            : null;
+
+                        const consistentSpacing =
+                            previousGap === null ||
+                            Math.abs(gap - previousGap) <=
+                                Math.max(5, previousGap * 0.4);
+
+                        if (
+                            gap >= minGap &&
+                            gap <= maxGap &&
+                            overlap > minSpan &&
+                            consistentSpacing
+                        ) {
+                            cur.lines.push(line);
+                            cur.gaps.push(gap);
+                            cur.lastY = line.y;
+                            cur.x1 = Math.min(cur.x1, line.x1);
+                            cur.x2 = Math.max(cur.x2, line.x2);
                             continue;
                         }
+
                         bands.push(cur);
                     }
-                    cur = { lines: [line], firstY: line.y, lastY: line.y, x1: line.x1, x2: line.x2 };
+
+                    cur = {
+                        lines: [line],
+                        gaps: [],
+                        firstY: line.y,
+                        lastY: line.y,
+                        x1: line.x1,
+                        x2: line.x2
+                    };
                 }
+
                 if (cur) bands.push(cur);
+
                 return bands
-                    // A lone line is usually just a header/instruction's own underline, not a ruled
-                    // writing block -- real writing space is (almost) always more than one line.
                     .filter(b => b.lines.length >= 2)
                     .map(b => {
-                        const rowGap = (b.lastY - b.firstY) / (b.lines.length - 1);
-                        // Pad down past the last line by about a third of a row (comfortable margin
-                        // before whatever comes next), but *not* up past the first line -- the first
-                        // detected line is very often a section header's own underline, and there's
-                        // no reliable way to tell "one more blank row above this" from "the header
-                        // text itself starts right above this" without reading the text. Erring
-                        // toward a slightly short box beats erring toward covering real content.
-                        return { x1: b.x1, x2: b.x2, yTop: b.firstY - 3, yBottom: b.lastY + rowGap * 0.35 };
+                        const rowGap =
+                            (b.lastY - b.firstY) / (b.lines.length - 1);
+
+                        return {
+                            x1: b.x1,
+                            x2: b.x2,
+                            yTop: b.firstY - 3,
+                            yBottom: b.lastY + rowGap * 0.4,
+                            source: 'ruled'
+                        };
                     })
                     .filter(band => {
-                        const crossingV = vSegs.filter(v => v.x > band.x1 + 2 && v.x < band.x2 - 2 && v.y1 < band.yBottom && v.y2 > band.yTop).length;
-                        // Tables are often drawn as a grid of individual per-cell rectangles with no
-                        // single shared border line long enough to register as a crossing vSeg --
-                        // catch those by counting cell-sized rectangles sitting inside the band too.
-                        const cellsInside = cellRects.filter(c => c.x >= band.x1 - 2 && c.x + c.w <= band.x2 + 2 && c.y >= band.yTop - 2 && c.y + c.h <= band.yBottom + 2).length;
-                        return crossingV < 2 && cellsInside < 4 && (band.x2 - band.x1) > minWidth;
+                        const width = band.x2 - band.x1;
+                        const height = band.yBottom - band.yTop;
+
+                        if (width <= minWidth || height < 12) return false;
+
+                        const crossingV = vSegs.filter(v =>
+                            v.x > band.x1 + 2 &&
+                            v.x < band.x2 - 2 &&
+                            v.y1 < band.yBottom &&
+                            v.y2 > band.yTop
+                        ).length;
+
+                        const cellsInside = cellRects.filter(c =>
+                            c.x >= band.x1 - 2 &&
+                            c.x + c.w <= band.x2 + 2 &&
+                            c.y >= band.yTop - 2 &&
+                            c.y + c.h <= band.yBottom + 2
+                        ).length;
+
+                        if (crossingV >= 2 || cellsInside >= 4) return false;
+
+                        // Ignore a candidate if printed text is actually
+                        // inside its writing area, rather than just above it.
+                        const printedTextInside = (textRects || []).filter(t => {
+                            const cx = t.x + t.w / 2;
+                            const cy = t.y + t.h / 2;
+
+                            return (
+                                cx > band.x1 + width * 0.04 &&
+                                cx < band.x2 - width * 0.04 &&
+                                cy > band.yTop + 3 &&
+                                cy < band.yBottom - 3
+                            );
+                        }).length;
+
+                        return printedTextInside === 0;
                     });
             }
 
             // Runs detection across every page and returns ready-to-use box objects, in the exact
             // same shape examPaperAddTextBox/examPaperAddCheckbox produce (just flagged `auto`).
+
             async function examPaperDetectAllFields(doc) {
                 const fields = [];
-                const maxPages = Math.min(doc.numPages, 60); // safety cap for unusually long papers
+                const maxPages = Math.min(doc.numPages, 60);
+
                 for (let p = 1; p <= maxPages; p++) {
-                    let detected;
                     try {
                         const page = await doc.getPage(p);
-                        const viewport = page.getViewport({ scale: EXAM_PAPER_SCALE });
-                        detected = await examPaperDetectPageFields(page, viewport);
+                        const viewport = page.getViewport({
+                            scale: EXAM_PAPER_SCALE
+                        });
+
+                        const detected = await examPaperDetectPageFields(
+                            page, viewport
+                        );
+
                         const slotId = 'pdf-' + p;
+
+                        // Keep checkbox detection separate from text detection.
                         for (const sq of detected.squares) {
-                            fields.push({ id: uid(), type: 'checkbox', page: slotId,
-                                x: round2(sq.x / viewport.width * 100), y: round2(sq.y / viewport.height * 100), value: false, auto: true });
+                            fields.push({
+                                id: uid(),
+                                type: 'checkbox',
+                                page: slotId,
+                                x: round2(sq.x / viewport.width * 100),
+                                y: round2(sq.y / viewport.height * 100),
+                                value: false,
+                                auto: true
+                            });
                         }
-                        const bands = examPaperGroupRuledBands(detected.hSegs, detected.vSegs, detected.cellRects, viewport.width * 0.15)
-                            // A band sitting under a row of tick-boxes (e.g. the exam-number/date
-                            // digit grid on every cover page) is that grid's own underline, not a
-                            // real writing space -- skip it so it doesn't sit on top of the boxes.
-                            .filter(band => detected.squares.filter(sq =>
-                                sq.y < band.yBottom && sq.y + sq.h > band.yTop && sq.x < band.x2 && sq.x + sq.w > band.x1).length < 2);
-                        for (const band of bands) {
-                            const wPct = Math.min((band.x2 - band.x1) / viewport.width * 100, 92);
-                            fields.push({ id: uid(), type: 'text', page: slotId,
-                                x: round2(band.x1 / viewport.width * 100), y: round2(band.yTop / viewport.height * 100),
-                                w: round2(wPct), h: round2(Math.max(36, band.yBottom - band.yTop) / viewport.height * 100), value: '', auto: true });
+
+                        const bands = examPaperGroupRuledBands(
+                            detected.hSegs,
+                            detected.vSegs,
+                            detected.cellRects,
+                            viewport.width * 0.15,
+                            viewport.height,
+                            detected.textRects
+                        );
+
+                        const candidates = [
+                            ...bands,
+                            ...detected.answerRects
+                        ];
+
+                        // Reject answer rectangles that are actually table cells,
+                        // checkbox grids, or contain printed question text.
+                        const validCandidates = candidates.filter(candidate => {
+                            const width = candidate.x2 - candidate.x1;
+                            const height = candidate.yBottom - candidate.yTop;
+
+                            if (
+                                width < viewport.width * 0.12 ||
+                                height < 12 ||
+                                height > viewport.height * 0.32
+                            ) return false;
+
+                            const crossingV = detected.vSegs.filter(v =>
+                                v.x > candidate.x1 + 3 &&
+                                v.x < candidate.x2 - 3 &&
+                                v.y1 < candidate.yBottom &&
+                                v.y2 > candidate.yTop
+                            ).length;
+
+                            if (crossingV >= 2) return false;
+
+                            const cellsInside = detected.cellRects.filter(c =>
+                                c.x >= candidate.x1 - 2 &&
+                                c.x + c.w <= candidate.x2 + 2 &&
+                                c.y >= candidate.yTop - 2 &&
+                                c.y + c.h <= candidate.yBottom + 2
+                            ).length;
+
+                            if (cellsInside >= 3) return false;
+
+                            const checkboxesInside = detected.squares.filter(sq =>
+                                sq.y < candidate.yBottom &&
+                                sq.y + sq.h > candidate.yTop &&
+                                sq.x < candidate.x2 &&
+                                sq.x + sq.w > candidate.x1
+                            ).length;
+
+                            if (checkboxesInside >= 2) return false;
+
+                            const textInside = (detected.textRects || []).filter(t => {
+                                const cx = t.x + t.w / 2;
+                                const cy = t.y + t.h / 2;
+
+                                return (
+                                    cx > candidate.x1 + 3 &&
+                                    cx < candidate.x2 - 3 &&
+                                    cy > candidate.yTop + 3 &&
+                                    cy < candidate.yBottom - 3
+                                );
+                            }).length;
+
+                            return textInside === 0;
+                        });
+
+                        // Remove duplicate detections where an outlined rectangle
+                        // and its ruled lines describe the same answer area.
+                        const uniqueCandidates = [];
+
+                        for (const candidate of validCandidates.sort((a, b) =>
+                            (b.x2 - b.x1) * (b.yBottom - b.yTop) -
+                            (a.x2 - a.x1) * (a.yBottom - a.yTop)
+                        )) {
+                            const duplicate = uniqueCandidates.some(existing => {
+                                const ix1 = Math.max(candidate.x1, existing.x1);
+                                const iy1 = Math.max(candidate.yTop, existing.yTop);
+                                const ix2 = Math.min(candidate.x2, existing.x2);
+                                const iy2 = Math.min(candidate.yBottom, existing.yBottom);
+
+                                if (ix2 <= ix1 || iy2 <= iy1) return false;
+
+                                const intersection = (ix2 - ix1) * (iy2 - iy1);
+                                const areaA =
+                                    (candidate.x2 - candidate.x1) *
+                                    (candidate.yBottom - candidate.yTop);
+                                const areaB =
+                                    (existing.x2 - existing.x1) *
+                                    (existing.yBottom - existing.yTop);
+
+                                return intersection / Math.min(areaA, areaB) > 0.65;
+                            });
+
+                            if (!duplicate) uniqueCandidates.push(candidate);
                         }
-                    } catch (e) { /* best-effort -- a parsing hiccup on one page shouldn't lose the rest */ }
+
+                        for (const candidate of uniqueCandidates) {
+                            const x = Math.max(0, candidate.x1);
+                            const y = Math.max(0, candidate.yTop);
+                            const right = Math.min(viewport.width, candidate.x2);
+                            const bottom = Math.min(viewport.height, candidate.yBottom);
+
+                            const wPct = Math.min(
+                                (right - x) / viewport.width * 100,
+                                96
+                            );
+
+                            const hPct = Math.max(
+                                2.5,
+                                (bottom - y) / viewport.height * 100
+                            );
+
+                            if (wPct < 12 || hPct <= 0) continue;
+
+                            fields.push({
+                                id: uid(),
+                                type: 'text',
+                                page: slotId,
+                                x: round2(x / viewport.width * 100),
+                                y: round2(y / viewport.height * 100),
+                                w: round2(wPct),
+                                h: round2(hPct),
+                                value: '',
+                                auto: true
+                            });
+                        }
+
+                    } catch (e) {
+                        // A problem on one page must not stop detection on others.
+                        console.warn(
+                            'Could not detect answer fields on PDF page ' + p,
+                            e
+                        );
+                    }
                 }
+
                 return fields;
             }
 
@@ -8135,7 +8580,13 @@ ${numbered}`;
                 const meta = examPaperSubjectMeta(examPaperSubjectId);
                 const papers = EXAM_PAPER_INDEX.filter(r => r[0] === examPaperLevel && r[1] === examPaperSubjectId).sort((a, b) => b[2] - a[2] || a[3].localeCompare(b[3]));
                 const byYear = new Map();
-                for (const [level, subjectId, year, label, file] of papers) { if (!byYear.has(year)) byYear.set(year, []); byYear.get(year).push({ level, subjectId, year, label, file }); }
+                for (const [level, subjectId, year, label, file, markingSchemeFile] of papers) {
+                    if (!byYear.has(year)) byYear.set(year, []);
+                    byYear.get(year).push({
+                        level, subjectId, year, label, file,
+                        markingSchemeFile: markingSchemeFile || null
+                    });
+                }
                 const back = `<button type="button" class="subject-page-back" data-action="examp-back-to-subjects">← Back to subjects</button>`;
                 return appFrame(`<div class="page">${back}
         ${header(meta.name + ' — Past Papers', 'Pick a paper to open it and start filling it in, or search a topic across every paper below.', '')}
@@ -8159,7 +8610,7 @@ ${numbered}`;
                 }
                 return `<div class="exam-box exam-textbox${autoClass}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;width:${box.w}%;${box.h ? `height:${box.h}%` : ''}">
 <div class="exam-box-bar"><span class="exam-box-drag" aria-label="Drag to move">⠿</span><button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button></div>
-<textarea class="exam-box-text" data-box-id="${box.id}" rows="3" placeholder="Type your answer…">${escape(box.value || '')}</textarea>
+<textarea class="exam-box-text" data-box-id="${box.id}" rows="3" aria-label="Type your answer">${escape(box.value || '')}</textarea>
 </div>`;
             }
 
@@ -16079,7 +16530,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const tabs = `<div class="fc-chips" style="margin-bottom:14px"><button type="button" class="fc-chip ${flashcardsTab === 'mine' ? 'active' : ''}" data-action="fc-tab" data-tab="mine">My decks</button><button type="button" class="fc-chip ${flashcardsTab === 'community' ? 'active' : ''}" data-action="fc-tab" data-tab="community">🌐 Community</button></div>`;
                 return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${tabs}${flashcardsTab === 'community' ? renderCommunityBody() : body + renderWordBankShelf(filterId)}</div>`; }
 
-            
+
             // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
             function flashcardCreateModal() { const d = flashcardCreateDraft;
                 if (!d) return modalShell('Create Flashcards', '', '');
