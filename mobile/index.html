@@ -4716,6 +4716,49 @@
             touch-action: manipulation;
         }
     }
+
+/* MOBILE FLASHCARDS CLEANUP */
+@media (max-width: 700px) {
+    .flashcard-stage {
+        width: 100%;
+        max-width: 100%;
+        padding: 0;
+    }
+    .flashcard-face {
+        min-height: 250px;
+        font-size: clamp(21px, 6vw, 30px);
+        padding: 25px 20px;
+        touch-action: pan-y;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .flashcard-nav {
+        justify-content: center;
+        gap: 12px;
+    }
+    .flashcard-nav button[data-action="flashcard-prev"],
+    .flashcard-nav button[data-action="flashcard-next"] {
+        display: none !important;
+    }
+    button[data-action="open-flashcard-create"],
+    button[data-action="open-flashcard-create-for-deck"],
+    button[data-action="flashcard-delete-card"],
+    button[data-action="flashcard-delete-deck"],
+    button[data-action="create-flashcard-folder"],
+    button[data-action="delete-flashcard-folder"],
+    button[data-action*="edit"],
+    button[data-action*="rename"] {
+        display: none !important;
+    }
+    .fc-wrap, .fc-panel {
+        width: 100%;
+        max-width: 100%;
+    }
+    .flashcard-progress {
+        text-align: center;
+    }
+}
+
 </style>
 
 </head>
@@ -23499,6 +23542,36 @@ If the user asks about how to study or study methods generally, answer from your
                 navigator.serviceWorker.register('sw.js').catch(() => {}); });
             examArchiveTryRestore().then(() => { if (view === 'exam-papers' && !examPaperOpen) render(); });
         })();
-    </script>
+
+// Mobile flashcard swipe navigation
+(function () {
+    let startX = 0;
+    let startY = 0;
+
+    document.addEventListener('touchstart', function (e) {
+        if (!document.getElementById('fc-card')) return;
+        if (!e.target.closest('#fc-card, .flashcard-face')) return;
+        startX = e.changedTouches[0].clientX;
+        startY = e.changedTouches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', function (e) {
+        if (!document.getElementById('fc-card')) return;
+        if (!e.target.closest('#fc-card, .flashcard-face')) return;
+
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+
+        if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+
+        const next = document.querySelector('[data-action="flashcard-next"]');
+        const prev = document.querySelector('[data-action="flashcard-prev"]');
+
+        if (dx < 0 && next) next.click();
+        if (dx > 0 && prev) prev.click();
+    }, { passive: true });
+})();
+
+</script>
 </body>
 </html>
