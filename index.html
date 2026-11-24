@@ -8,9 +8,9 @@
         default-src 'self';
         script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://eu.i.posthog.com https://eu-assets.i.posthog.com https://js-de.sentry-cdn.com https://sdk.scdn.co;
         worker-src 'self' blob:;
-        style-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
         img-src 'self' data: blob: https://*.googleusercontent.com https://*.scdn.co https://*.spotifycdn.com https://rlwfxvnwekkyfslxltus.supabase.co;
-        font-src 'self' data:;
+        font-src 'self' data: https://cdn.jsdelivr.net;
         connect-src 'self' https://rlwfxvnwekkyfslxltus.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://api.spotify.com https://accounts.spotify.com https://translate.googleapis.com https://api.mymemory.translated.net https://cdn.jsdelivr.net;
         frame-src 'self' https://sdk.scdn.co;
         object-src 'none';
@@ -19,6 +19,15 @@
         frame-ancestors 'self';
     ">
     <title>Simple Study</title>
+    <script>
+        window.MathJax = {
+            startup: { typeset: false },
+            tex: { inlineMath: [['\\(', '\\)'], ['$', '$']], displayMath: [['\\[', '\\]'], ['$$', '$$']], processEscapes: true },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathlive"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
@@ -4544,6 +4553,70 @@
         .exam-insert-blank-row { display: flex; justify-content: center; }
         .exam-insert-blank-row button { font-size: 12px; }
         .exam-remove-blank-page { position: absolute; top: 8px; right: 8px; font-size: 11px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--danger); cursor: pointer; }
+
+
+        /* Maths Helper and digital scientific calculators */
+        .mh-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:12px 0 16px; }
+        .mh-toolbar .field { margin:0; min-width:150px; flex:1; }
+        .mh-mode-switch { display:flex; gap:4px; padding:4px; background:var(--surface-2); border:1px solid var(--line); border-radius:13px; }
+        .mh-mode-switch button { border:0; background:transparent; color:var(--muted); padding:8px 13px; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer; }
+        .mh-mode-switch button.active { color:var(--primary); background:var(--surface); box-shadow:0 1px 4px #00000012; }
+        .mh-chat { display:flex; flex-direction:column; gap:14px; min-height:430px; }
+        .mh-message { max-width:100%; border:1px solid var(--line); border-radius:16px; padding:14px 16px; background:var(--surface); }
+        .mh-message.user { margin-left:auto; max-width:min(820px,92%); background:var(--primary-soft); border-color:transparent; }
+        .mh-message-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; color:var(--muted); font-size:12px; font-weight:700; }
+        .mh-message-body { line-height:1.65; overflow-wrap:anywhere; }
+        .mh-message-body p { margin:5px 0 10px; }
+        .mh-message-body .mh-final { font-size:1.12rem; font-weight:750; margin:10px 0; padding:12px; border-radius:12px; background:var(--surface-2); border:1px solid var(--line); }
+        .mh-steps { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+        .mh-step { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--surface); }
+        .mh-step-toggle { display:flex; width:100%; align-items:center; gap:10px; padding:11px 12px; border:0; color:var(--text); text-align:left; background:transparent; cursor:pointer; }
+        .mh-step-number { display:grid; place-items:center; flex:0 0 26px; width:26px; height:26px; border-radius:50%; background:var(--primary-soft); color:var(--primary); font-size:12px; font-weight:800; }
+        .mh-step-title { flex:1; font-weight:700; }
+        .mh-step-math { padding:4px 14px 12px 48px; overflow-x:auto; }
+        .mh-step-detail { border-top:1px solid var(--line); padding:12px 14px 14px 48px; color:var(--text); background:var(--surface-2); }
+        .mh-step-detail p { margin:5px 0 10px; }
+        .mh-step-question { display:flex; gap:8px; margin-top:10px; }
+        .mh-step-question textarea { min-width:0; flex:1; min-height:42px; }
+        .mh-composer { position:sticky; bottom:0; background:var(--bg); padding:12px 0 max(8px,env(safe-area-inset-bottom)); border-top:1px solid var(--line); margin-top:16px; }
+        .mh-compose-row { display:flex; gap:8px; align-items:flex-end; }
+        .mh-compose-row textarea { min-width:0; flex:1; min-height:64px; max-height:180px; resize:vertical; }
+        .mh-composer-tools { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+        .mh-reference-note { font-size:12px; color:var(--muted); margin:8px 0 0; }
+        .mh-empty { text-align:center; padding:40px 18px; border:1px dashed var(--line); border-radius:16px; background:var(--surface); }
+        .mh-equation-overlay { position:fixed; z-index:10020; inset:0; background:#11182799; display:grid; place-items:center; padding:14px; }
+        .mh-equation-dialog { width:min(900px,100%); max-height:min(90vh,900px); overflow:auto; background:var(--surface); color:var(--text); border:1px solid var(--line); border-radius:18px; box-shadow:0 24px 80px #0004; padding:18px; }
+        .mh-equation-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+        .mh-equation-field-wrap { padding:12px; margin:12px 0; border:1px solid var(--line); border-radius:13px; background:var(--surface-2); }
+        #mh-equation-field { display:block; min-height:54px; width:100%; font-size:25px; background:transparent; border:0; }
+        .mh-equation-tabs { display:flex; gap:7px; flex-wrap:wrap; margin:10px 0; }
+        .mh-equation-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:7px; }
+        .mh-equation-grid button { min-height:46px; border:1px solid var(--line); border-radius:10px; color:var(--text); background:var(--surface-2); cursor:pointer; font-size:15px; font-weight:650; }
+        .mh-equation-grid button:hover { border-color:var(--primary); background:var(--primary-soft); }
+        .mh-equation-foot { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+        .mh-calculator-layout { display:grid; grid-template-columns:minmax(0,520px) minmax(220px,1fr); gap:18px; align-items:start; }
+        .mh-calculator { width:100%; max-width:520px; margin:0 auto; padding:16px; border-radius:26px; border:1px solid #273647; background:linear-gradient(145deg,#e3e8ed,#b8c1ca); box-shadow:0 12px 28px #0002,inset 0 1px #fff; }
+        .mh-calculator.fx85-gtcw { background:linear-gradient(145deg,#d5e6ed,#a8bdc7); }
+        .mh-calc-brand { font-size:11px; color:#344251; letter-spacing:1.1px; font-weight:900; margin:0 0 5px 6px; }
+        .mh-calc-model { font-size:19px; color:#172b40; font-weight:900; margin:0 0 12px 6px; }
+        .mh-calc-screen { border:7px solid #344354; border-radius:10px; background:#d9e4d0; color:#18251a; padding:10px 12px; min-height:84px; box-shadow:inset 0 2px 8px #0003; margin-bottom:13px; }
+        .mh-calc-screen-meta { display:flex; justify-content:space-between; font-size:10px; font-weight:800; min-height:14px; }
+        .mh-calc-expression { width:100%; min-width:0; padding:8px 0 4px; border:0; outline:0; background:transparent; color:#17271b; font:600 22px ui-monospace,monospace; }
+        .mh-calc-result { min-height:19px; text-align:right; font:700 17px ui-monospace,monospace; overflow-wrap:anywhere; }
+        .mh-calc-keys { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; }
+        .fx85-gtcw .mh-calc-keys { grid-template-columns:repeat(6,minmax(0,1fr)); }
+        .mh-calc-key { min-width:0; min-height:47px; border:1px solid #8997a5; border-radius:9px; background:linear-gradient(#f8fafb,#dbe1e6); color:#152536; box-shadow:0 2px 0 #8794a1; font-weight:750; font-size:14px; cursor:pointer; }
+        .mh-calc-key:active { transform:translateY(2px); box-shadow:none; }
+        .mh-calc-key.dark { background:linear-gradient(#465a6b,#263a4c); color:#fff; border-color:#1e2f3d; box-shadow:0 2px 0 #152330; }
+        .mh-calc-key.accent { background:linear-gradient(#3f72dc,#2450aa); color:#fff; border-color:#204b9c; box-shadow:0 2px 0 #173d85; }
+        .mh-calc-key.orange { background:linear-gradient(#f0bd61,#d99425); color:#38270d; border-color:#bd852e; }
+        .mh-calc-key.wide { grid-column:span 2; }
+        .mh-calc-history { max-height:450px; overflow:auto; display:flex; flex-direction:column; gap:7px; }
+        .mh-calc-history-item { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--surface); font-size:13px; }
+        .mh-calc-history-item strong { display:block; text-align:right; font-size:15px; }
+        .mh-calculator-note { color:#36495a; font-size:11px; margin:8px 4px 0; }
+        @media(max-width:760px) { .mh-calculator-layout { grid-template-columns:1fr; } .mh-equation-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .mh-mode-switch { width:100%; justify-content:space-between; } .mh-mode-switch button { flex:1; padding:8px 5px; font-size:12px; } .mh-step-detail { padding-left:14px; } .mh-step-math { padding-left:14px; } }
+        @media(max-width:420px) { .mh-calc-key { min-height:42px; font-size:12px; } .mh-calc-keys,.fx85-gtcw .mh-calc-keys { gap:5px; } .mh-calculator { padding:10px; } .mh-equation-grid button { min-height:42px; font-size:13px; } }
 
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -9287,7 +9360,30 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             let gamesActiveGame = null; // null (tile grid) | a GAMES key, e.g. 'snake'
 
             // ---- Tools page (tile landing, like Classes) ----------------------------------------------
-            let toolsActiveTool = null; // null (tile grid) | 'formulas' | 'cao'
+            let toolsActiveTool = null; // null = tile grid | 'formulas' | 'cao' | 'mathhelper' | 'digitalcalc'
+            let mathHelperProgramme = 'lc';
+            let mathHelperSubjectId = 'maths';
+            let mathHelperExamLevel = 'higher';
+            let mathHelperMode = 'help'; // solve | normal | help | ultra
+            let mathHelperMessages = [];
+            let mathHelperComposer = '';
+            let mathHelperLoading = false;
+            let mathHelperLoadingDetail = '';
+            let mathHelperEquationOpen = false;
+            let mathHelperEquationTab = 'structures';
+            let mathHelperLatexDraft = '';
+            let mathHelperExpandedSteps = new Set();
+            let mathHelperReferenceCache = new Map();
+            let mathHelperCurrentRequestId = 0;
+            let digitalCalcModel = 'gtx'; // gtx | cw
+            let digitalCalcExpression = '';
+            let digitalCalcResult = '';
+            let digitalCalcAnswer = 0;
+            let digitalCalcAngleMode = 'DEG';
+            let digitalCalcError = '';
+            let digitalCalcHistory = [];
+            let digitalCalcShift = false;
+            let digitalCalcJustEvaluated = false;
             let gradeExplorerMySubjects = false;
             let gradeExplorerCoreOnly = false;
             let gradeExplorerYear = new Date().getFullYear() - 1;
@@ -12068,11 +12164,368 @@ ${pointsSvg}
 
             // ---- Grade & CAO Points Finder (Tools page) — quick single-mark → LC grade band lookup,
             // reusing the same LC_BANDS/CAO_POINTS tables as the CAO Calculator and exam results.
+            // ---- Maths Helper: subject-aware AI tutoring and structured equation entry -----------------
+            const MATH_HELPER_MODE_LABELS = { solve: 'Solve', normal: 'Normal', help: 'Help', ultra: 'Ultra help' };
+            const MATH_HELPER_SUBJECT_GUIDANCE = {
+                maths: `Irish Leaving Certificate Mathematics: use the syllabus applicable to the student's examination year (the long-running syllabus is the one for examination from 2015; do not treat the recently-consulted draft specification as binding). Work accurately with algebra, functions, calculus, geometry, trigonometry, statistics and probability. Prefer exact fractions and surds where appropriate; keep exact values until a decimal is requested or needed. Use accepted school-level methods, state domain restrictions, and show enough algebra to make every transformation auditable. The official Formulae and Tables booklet is an exam resource: use relevant formulae from it and do not invent a page or a formula.`,
+                'applied-maths': `Irish Leaving Certificate Applied Mathematics: follow the current Applied Mathematics specification and its modelling/problem-solving approach. Topics include particle motion in 2D, vectors, projectiles, forces, Newton's laws, connected particles, collisions and momentum, friction/resistance, integration, and difference/differential equations. Set out a clear model, define axes and positive directions, draw/describe force balances where relevant, use consistent vector components and signs, and interpret the result in context. Keep exact expressions and surds where possible; do not round intermediate calculations. Use correct units and distinguish assumptions from conclusions. Do not import advanced university mechanics methods when an LC method is available.`,
+                physics: `Irish Leaving Certificate Physics: use the specification that applies to the learner's cohort. A revised LC Physics specification was introduced for students entering school in September 2025; use that updated specification for those cohorts, and the previous syllabus only where it still applies. Prioritise physical meaning, correct symbols, SI units, significant figures, equations, substitutions and clear final units. State the relevant law/principle before applying it. Use decimal answers and round to the precision requested by the question or justified by supplied data; avoid leaving a final physics answer as an exact surd when a measured numerical value is expected. Check vector directions, sign conventions and units.`,
+                chemistry: `Irish Leaving Certificate Chemistry: use the applicable syllabus, precise chemical terminology, balanced equations, correct state symbols where relevant, mole ratios, units and significant figures. For calculations show the formula, substitution and unit-bearing result. Distinguish concentration units, volumes in dm^3 where required, and empirical assumptions. In organic chemistry use correct structures, naming and reaction conditions.`,
+                'physics-chemistry': `Irish Leaving Certificate Chemical and Physical Science: identify whether the question is testing physics or chemistry and apply the corresponding school-level method, vocabulary, SI/chemical units and significant figures. Do not assume it is identical in depth to the standalone Physics or Chemistry courses.`,
+                biology: `Irish Leaving Certificate Biology: use precise syllabus terminology, correct biological sequences and labelled structures. For calculations, show formula, substitution, units and suitable significant figures. Distinguish processes that are often confused, and do not invent experimental observations or syllabus facts.`,
+                economics: `Irish Leaving Certificate Economics: define key terms, identify the relevant economic relationship, show calculations and axes clearly when needed, and link the conclusion to the question's context. Use correct diagrams/labels and avoid unsupported claims.`,
+                accounting: `Irish Leaving Certificate Accounting: use standard accounting layout, double-entry logic, correct debit/credit treatment, clear workings and balancing checks. Use euro symbols and correct periods where relevant; never silently force a trial balance to balance.`,
+                'computer-science': `Irish Leaving Certificate Computer Science: explain the algorithm or computational concept precisely, use clear pseudocode or code where appropriate, trace values carefully and discuss testing, edge cases and complexity at the level expected by the course.`,
+                dcg: `Irish Leaving Certificate Design and Communication Graphics: explain the geometric/construction method in a reproducible sequence, name the relevant projections and conventions, and distinguish construction lines from final visible edges.`,
+                engineering: `Irish Leaving Certificate Engineering: use correct mechanical/materials/manufacturing terminology, show calculations with units, explain force and motion assumptions, and distinguish theoretical examination content from practical project decisions.`,
+                'construction-studies': `Irish Leaving Certificate Construction Studies: use correct building, materials, structure and construction terminology. Explain the practical sequence and relevant standards/safety considerations without inventing a regulation.`,
+                'agricultural-science': `Irish Leaving Certificate Agricultural Science: use accurate biological/agricultural terminology, explain the underlying principles and practical context, and show calculations with units and suitable precision.`,
+                english: `Irish Leaving Certificate English: answer the actual question directly, use clear evidence and analysis, and distinguish quotation from interpretation. For language analysis, explain effects rather than merely naming techniques.`,
+                irish: `Irish Leaving Certificate Irish: use accurate Gaeilge appropriate to the student's level, and distinguish grammar, idiom and translation choices. Where useful, provide an English explanation of the language point.`,
+                history: `Irish Leaving Certificate History: use accurate dates, named evidence, cause/consequence and balanced evaluation. Distinguish established evidence from interpretation and do not invent quotations or source details.`,
+                geography: `Irish Leaving Certificate Geography: use accurate geographical processes, named examples where supported, map/diagram conventions and units. Link explanation to scale, location and evidence in the question.`,
+                business: `Irish Leaving Certificate Business: define the relevant business concept, apply it to the question's case/context, and distinguish description from analysis and evaluation. Use clear calculations and units.`,
+                music: `Irish Leaving Certificate Music: use accurate musical terminology, explain harmony/rhythm/structure in context and show any calculations or notation clearly.`,
+                'classical-studies': `Irish Leaving Certificate Classical Studies: ground the answer in relevant ancient evidence and context, distinguish source evidence from later interpretation, and avoid invented source quotations.`,
+                'home-economics': `Irish Leaving Certificate Home Economics: use accurate nutrition, food science, consumer and household terminology. Show calculations, units and relevant assumptions clearly.`,
+                art: `Irish Leaving Certificate Art: explain visual choices using precise art terminology and link technique, materials and meaning to the task.`,
+                'politics-society': `Irish Leaving Certificate Politics and Society: define political concepts, distinguish evidence from opinion and compare perspectives fairly using relevant examples.`,
+                'religious-education': `Irish Leaving Certificate Religious Education: distinguish traditions, beliefs, ethical arguments and supporting evidence; represent viewpoints accurately and respectfully.`
+            };
+            function mathHelperSubjectMeta() { return SUBJECT_TAXONOMY.find(x => x.id === mathHelperSubjectId) || SUBJECT_TAXONOMY.find(x => x.id === 'maths'); }
+            function mathHelperSubjectOptions() { return SUBJECT_TAXONOMY.filter(x => (x.levels || []).includes(mathHelperProgramme)).sort((a,b)=>a.name.localeCompare(b.name)); }
+            function mathHelperSetSubject(id) { if (mathHelperSubjectOptions().some(x=>x.id===id)) mathHelperSubjectId=id; else mathHelperSubjectId=mathHelperSubjectOptions()[0]?.id || 'maths'; }
+            function mathHelperSetProgramme(level) { mathHelperProgramme = level === 'jc' ? 'jc' : 'lc'; mathHelperExamLevel = mathHelperProgramme==='jc' ? 'common' : (mathHelperExamLevel==='common'?'higher':mathHelperExamLevel); mathHelperSetSubject(mathHelperSubjectId); mathHelperMessages=[]; mathHelperComposer=''; mathHelperExpandedSteps.clear(); mathHelperReferenceCache.clear(); }
+            function mathHelperSafeText(text) {
+                let html = escape(String(text || ''));
+                html = html.replace(/\\\[([\s\S]*?)\\\]/g, '<div class="math-display">\\[$1\\]</div>');
+                html = html.replace(/\\\(([\s\S]*?)\\\)/g, '<span>\\($1\\)</span>');
+                html = html.replace(/\$\$([\s\S]*?)\$\$/g, '<div class="math-display">\\[$1\\]</div>');
+                html = html.replace(/\$([^$\n]+)\$/g, '<span>\\($1\\)</span>');
+                html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                return html.split(/\n{2,}/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+            }
+            function mathHelperTypeset() { if (window.MathJax?.typesetPromise) window.MathJax.typesetPromise([document.getElementById('math-helper-thread') || document.getElementById('mh-equation-dialog')].filter(Boolean)).catch(()=>{}); }
+            function mathHelperRenderSteps(msg) {
+                const response = msg.response || {}, steps = Array.isArray(response.steps) ? response.steps : [];
+                return steps.map((step,i)=>{
+                    const id = String(step.id || i+1), key = `${msg.id}:${id}`, expanded = mathHelperExpandedSteps.has(key);
+                    const title = step.title || step.label || `Step ${i+1}`;
+                    const math = step.math || step.equation || step.expression || '';
+                    const detail = step.detail || step.explanation || step.why || '';
+                    const why = step.why && step.explanation ? step.why : '';
+                    return `<div class="mh-step"><button type="button" class="mh-step-toggle" data-action="mh-step-toggle" data-message="${escape(msg.id)}" data-step="${escape(id)}" aria-expanded="${expanded}"><span class="mh-step-number">${i+1}</span><span class="mh-step-title">${escape(title)}</span><span>${expanded?'▾':'▸'}</span></button>${math?`<div class="mh-step-math">\\[${escape(math)}\\]</div>`:''}${expanded?`<div class="mh-step-detail">${detail?mathHelperSafeText(detail):'<p>No extra explanation was supplied for this step.</p>'}${why?`<p><strong>Why this step?</strong> ${mathHelperSafeText(why)}</p>`:''}${step.rule?`<p><strong>Rule used:</strong> ${mathHelperSafeText(step.rule)}</p>`:''}${step.check?`<p><strong>Check:</strong> ${mathHelperSafeText(step.check)}</p>`:''}<div class="mh-step-question"><textarea id="mh-step-question-${escape(msg.id)}-${escape(id)}" rows="2" placeholder="Ask a question about this step…"></textarea><button type="button" class="button primary" data-action="mh-ask-step" data-message="${escape(msg.id)}" data-step="${escape(id)}">Ask</button></div></div>`:''}</div>`;
+                }).join('');
+            }
+            function mathHelperMessageHtml(msg) {
+                if (msg.role === 'user') return `<article class="mh-message user"><div class="mh-message-head"><span>You</span></div><div class="mh-message-body">${mathHelperSafeText(msg.text)}</div></article>`;
+                const r=msg.response||{}, summary=r.summary||r.text||r.explanation||'', answer=r.finalAnswer||r.answer||r.result||'';
+                const hasSteps=Array.isArray(r.steps)&&r.steps.length;
+                return `<article class="mh-message assistant"><div class="mh-message-head"><span>∑ Maths Helper</span><span>${escape(MATH_HELPER_MODE_LABELS[msg.mode||mathHelperMode]||'')}</span></div><div class="mh-message-body">${summary?mathHelperSafeText(summary):''}${answer?`<div class="mh-final">${mathHelperSafeText(String(answer))}</div>`:''}${hasSteps?`<div class="mh-steps">${mathHelperRenderSteps(msg)}</div>`:''}${r.note?`<p class="mh-reference-note">${mathHelperSafeText(r.note)}</p>`:''}</div></article>`;
+            }
+            function mathHelperEquationButtons() {
+                const common = [
+                    ['Fraction','\\frac{\\placeholder{}}{\\placeholder{}}'],['Square root','\\sqrt{\\placeholder{}}'],['Nth root','\\sqrt[\\placeholder{n}]{\\placeholder{x}}'],['Power','^{\\placeholder{}}'],['Square','^{2}'],['Cube','^{3}'],['Subscript','_{\\placeholder{}}'],['Brackets','\\left(\\placeholder{}\\right)'],['Absolute value','\\left|\\placeholder{}\\right|'],['Modulus','\\operatorname{mod}\\left(\\placeholder{a},\\placeholder{b}\\right)'],['Choose  nCr','\\binom{\\placeholder{n}}{\\placeholder{r}}'],['Factorial','!'],
+                    ['Equals','='],['Not equal','\\ne'],['Approx.','\\approx'],['Less / greater','<'],['Less/equal','\\le'],['Greater/equal','\\ge'],['Plus/minus','\\pm'],['Multiply','\\times'],['Divide','\\div'],['Plus','+'],['Minus','-'],['Comma',','],['Decimal','.'],['Percent','\\%'],['Infinity','\\infty'],['Derivative','\\frac{d}{dx}'],['Integral','\\int'],['Definite integral','\\int_{\\placeholder{a}}^{\\placeholder{b}}'],['Summation','\\sum_{\\placeholder{i=1}}^{\\placeholder{n}}'],['Limit','\\lim_{x\\to\\placeholder{a}}'],['Vector','\\vec{\\placeholder{a}}'],['Matrix','\\begin{pmatrix}\\placeholder{a}&\\placeholder{b}\\\\\\placeholder{c}&\\placeholder{d}\\end{pmatrix}']
+                ];
+                const constants = [
+                    ['π','\\pi'],['e','e'],['i','i'],['φ (golden ratio)','\\varphi'],['γ (Euler constant)','\\gamma'],['∞','\\infty'],['Speed of light c','c'],['Gravity g','g'],['Gravitational G','G'],['Planck h','h'],['Boltzmann k','k_{B}'],['Gas constant R','R'],['Avogadro Nₐ','N_{A}'],['Elementary charge symbol (qₑ)','q_{e}'],['Electron mass','m_{e}'],['Proton mass','m_{p}'],['Earth mass','M_{\\oplus}'],['Earth radius','R_{\\oplus}'],['Degree','^\\circ'],['Radians π','\\pi']
+                ];
+                const functions = [
+                    ['sin','\\sin\\left(\\placeholder{}\\right)'],['cos','\\cos\\left(\\placeholder{}\\right)'],['tan','\\tan\\left(\\placeholder{}\\right)'],['sin⁻¹','\\arcsin\\left(\\placeholder{}\\right)'],['cos⁻¹','\\arccos\\left(\\placeholder{}\\right)'],['tan⁻¹','\\arctan\\left(\\placeholder{}\\right)'],['sinh','\\sinh\\left(\\placeholder{}\\right)'],['cosh','\\cosh\\left(\\placeholder{}\\right)'],['tanh','\\tanh\\left(\\placeholder{}\\right)'],['log₁₀','\\log_{10}\\left(\\placeholder{}\\right)'],['ln','\\ln\\left(\\placeholder{}\\right)'],['Log base a','\\log_{\\placeholder{a}}\\left(\\placeholder{x}\\right)'],['Exponential','e^{\\placeholder{x}}'],['10 power','10^{\\placeholder{x}}'],['Absolute','\\left|\\placeholder{}\\right|'],['Mod','\\operatorname{mod}\\left(\\placeholder{a},\\placeholder{b}\\right)'],['nCr','\\binom{\\placeholder{n}}{\\placeholder{r}}'],['nPr','{}_{\\placeholder{n}}P_{\\placeholder{r}}'],['Floor','\\lfloor\\placeholder{}\\rfloor'],['Ceiling','\\lceil\\placeholder{}\\rceil'],['Mean','\\overline{x}'],['Sigma','\\sigma'],['Theta','\\theta'],['Delta','\\Delta']
+                ];
+                const items = mathHelperEquationTab==='constants'?constants:mathHelperEquationTab==='functions'?functions:common;
+                return items.map(([label,latex])=>`<button type="button" data-action="mh-eq-insert" data-latex="${escape(latex)}" title="${escape(label)}">${escape(label)}</button>`).join('');
+            }
+            function mathHelperEquationModalHtml() {
+                if (!mathHelperEquationOpen) return '';
+                return `<div class="mh-equation-overlay" id="mh-equation-overlay"><section class="mh-equation-dialog" id="mh-equation-dialog" role="dialog" aria-modal="true" aria-label="Equation editor"><div class="mh-equation-head"><div><h2 style="margin:0">Equation editor</h2><p class="small" style="margin:4px 0 0">Build nested fractions, roots, powers and functions. Click a placeholder to type inside it.</p></div><button type="button" class="button ghost" data-action="mh-eq-close" aria-label="Close">✕</button></div><div class="mh-equation-field-wrap"><math-field id="mh-equation-field" math-virtual-keyboard-policy="auto" placeholder="Start typing an equation…">${escape(mathHelperLatexDraft)}</math-field></div><div class="mh-equation-tabs"><button type="button" class="button ${mathHelperEquationTab==='structures'?'primary':'ghost'}" data-action="mh-eq-tab" data-tab="structures">Symbols & structures</button><button type="button" class="button ${mathHelperEquationTab==='functions'?'primary':'ghost'}" data-action="mh-eq-tab" data-tab="functions">Functions</button><button type="button" class="button ${mathHelperEquationTab==='constants'?'primary':'ghost'}" data-action="mh-eq-tab" data-tab="constants">Constants</button></div><div class="mh-equation-grid">${mathHelperEquationButtons()}</div><div class="mh-equation-foot"><button type="button" class="button ghost" data-action="mh-eq-clear">Clear</button><button type="button" class="button primary" data-action="mh-eq-use">Insert into question</button></div></section></div>`;
+            }
+            function mathHelperHtml() {
+                const options=mathHelperSubjectOptions();
+                const levelOptions = options.map(o=>`<option value="${escape(o.id)}" ${o.id===mathHelperSubjectId?'selected':''}>${escape(o.name)}</option>`).join('');
+                const assessmentOptions = mathHelperProgramme==='jc'
+                    ? `<div class="field"><label for="mh-exam-level">Assessment</label><select id="mh-exam-level" data-action="mh-exam-level"><option value="common" selected>Common Level</option></select></div>`
+                    : `<div class="field"><label for="mh-exam-level">Exam level</label><select id="mh-exam-level" data-action="mh-exam-level"><option value="higher" ${mathHelperExamLevel==='higher'?'selected':''}>Higher Level</option><option value="ordinary" ${mathHelperExamLevel==='ordinary'?'selected':''}>Ordinary Level</option><option value="foundation" ${mathHelperExamLevel==='foundation'?'selected':''}>Foundation Level</option></select></div>`;
+                const messages = mathHelperMessages.map(mathHelperMessageHtml).join('');
+                const loginNote = !currentUser ? `<div class="empty" style="margin-bottom:12px">Sign in with Google to use the AI Maths Helper. It uses the same protected AI service as the rest of the website.</div>` : '';
+                const loading = mathHelperLoading ? `<article class="mh-message assistant"><div class="mh-message-head"><span>∑ Maths Helper</span><span>Thinking…</span></div><p class="small">${escape(mathHelperLoadingDetail||'Working through the question…')}</p></article>` : '';
+                return `<div class="page">${`<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`}${header('Maths Helper','An exam-focused AI tutor for Mathematics, Applied Mathematics, Physics and other subjects.','')}
+                    <div class="mh-toolbar"><div class="field"><label for="mh-programme">Course</label><select id="mh-programme" data-action="mh-programme"><option value="lc" ${mathHelperProgramme==='lc'?'selected':''}>Leaving Certificate</option><option value="jc" ${mathHelperProgramme==='jc'?'selected':''}>Junior Cycle</option></select></div><div class="field"><label for="mh-subject">Subject</label><select id="mh-subject" data-action="mh-subject">${levelOptions}</select></div>${assessmentOptions}</div>
+                    <div class="mh-mode-switch" role="group" aria-label="Explanation level">${[['solve','Solve'],['normal','Normal'],['help','Help'],['ultra','Ultra help']].map(([id,label])=>`<button type="button" data-action="mh-mode" data-mode="${id}" class="${mathHelperMode===id?'active':''}" aria-pressed="${mathHelperMode===id}">${label}</button>`).join('')}</div>
+                    ${loginNote}<div class="mh-chat" id="math-helper-thread">${messages || `<div class="mh-empty"><div style="font-size:34px;margin-bottom:8px">∑</div><h3 style="margin:0 0 6px">What are you working on?</h3><p class="small" style="max-width:500px;margin:0 auto">Type a question or use the Equations button to build a properly formatted expression. The helper will follow the selected subject's exam methods.</p></div>`}${loading}</div>
+                    <div class="mh-composer"><div class="mh-composer-tools"><button type="button" class="button ghost" data-action="mh-eq-open">∑ Equations</button><span class="mh-reference-note">${escape(mathHelperSubjectMeta()?.name||'Subject')} · ${escape(MATH_HELPER_MODE_LABELS[mathHelperMode])} mode · recent marking schemes used where available</span></div><div class="mh-compose-row"><textarea id="mh-composer" rows="2" placeholder="Ask a question… use Shift + Enter for a new line" ${!currentUser||mathHelperLoading?'disabled':''}>${escape(mathHelperComposer)}</textarea><button type="button" class="button primary" data-action="mh-send" ${!currentUser||mathHelperLoading?'disabled':''}>${mathHelperLoading?'Working…':'Send ↗'}</button></div></div>
+                    ${mathHelperEquationModalHtml()}</div>`;
+            }
+            function mathHelperOfficialGuidance(subjectId, programme) {
+                const selected=SUBJECT_TAXONOMY.find(x=>x.id===subjectId), name=selected?.name||'this subject';
+                if (programme==='jc') {
+                    const jcGuidance = {
+                        maths: `Junior Cycle Mathematics: work within the Junior Cycle Mathematics specification, using the strands Number; Geometry and trigonometry; Algebra and functions; and Statistics and probability. Prioritise clear reasoning, correct mathematical notation, diagrams where useful, and explaining how an answer follows. Use accessible Junior Cycle methods rather than importing Leaving Certificate calculus or advanced techniques. Give exact fractions or surds when the question naturally calls for them, but use decimals and a calculator appropriately when the task or data calls for it.`,
+                        science: `Junior Cycle Science: identify the relevant biology, chemistry or physics concept and use the Junior Cycle integrated-science level. Explain observations and investigations clearly, distinguish variables, controls and results, use correct units and simple calculations, and do not assume Leaving Certificate depth.`,
+                        english: `Junior Cycle English: answer the exact task, support interpretations with relevant textual evidence, and explain how language, structure and form create effects. Keep the response appropriate to the Junior Cycle assessment criteria and do not import Leaving Certificate essay conventions unless asked.`,
+                        irish: `Junior Cycle Gaeilge: use accurate language appropriate to the Junior Cycle level. Explain grammar and idiom clearly, give natural examples, and distinguish literal translation from a natural Irish expression.`,
+                        french: `Junior Cycle French: use vocabulary and grammar appropriate to the Junior Cycle course. Give natural examples and explain key grammar points simply; do not assume Leaving Certificate breadth or complexity.`,
+                        german: `Junior Cycle German: use vocabulary and grammar appropriate to the Junior Cycle course. Give natural examples and explain word order, cases and verb forms at the level required.`,
+                        spanish: `Junior Cycle Spanish: use vocabulary and grammar appropriate to the Junior Cycle course. Give natural examples and explain verb forms, agreement and sentence structure without assuming Leaving Certificate depth.`,
+                        history: `Junior Cycle History: build answers from accurate evidence, chronology and historical thinking. Distinguish primary sources from later accounts, explain cause and consequence, and keep source analysis appropriate to the Junior Cycle course.`,
+                        geography: `Junior Cycle Geography: explain physical, environmental and human processes at Junior Cycle depth. Use named examples only when relevant, interpret maps/diagrams accurately, and include units in calculations.`,
+                        business: `Junior Cycle Business Studies: define concepts accurately, apply them to familiar business situations, and explain consequences clearly. Keep calculations and examples at Junior Cycle level.`,
+                        'religious-education': `Junior Cycle Religious Education: represent beliefs, traditions and ethical viewpoints accurately and respectfully. Explain evidence and reasoning clearly without assuming the Leaving Certificate course.`,
+                        dcg: `Junior Cycle Graphics: describe the construction in a reproducible sequence, use correct geometric terminology and conventions, and distinguish construction lines from final visible edges.`,
+                        technology: `Junior Cycle Technology: connect the design problem, materials, mechanisms, electronics and making process. Give practical, safe, step-by-step explanations appropriate to the course.`,
+                        'materials-tech-wood': `Junior Cycle Materials Technology (Wood): use correct tools, materials, joints and workshop terminology. Describe practical processes in a safe, ordered sequence and explain why a method is suitable.`,
+                        metalwork: `Junior Cycle Metalwork: use correct materials, tools, forming and joining terminology. Explain workshop processes in a safe, ordered sequence and connect design decisions to function.`,
+                        cspe: `Junior Cycle CSPE: explain citizenship, rights, responsibilities, democracy and participation with accurate examples. Separate evidence from personal opinion and keep the answer grounded in the Junior Cycle course.`,
+                        sphe: `Junior Cycle SPHE: give age-appropriate, factual explanations, distinguish reliable information from assumptions, and avoid presenting personal opinions as universal facts.`,
+                        ess: `Junior Cycle Environmental and Social Studies: explain environmental and social processes using evidence, clear cause-and-effect reasoning and relevant examples at Junior Cycle level.`,
+                        art: `Junior Cycle Art: use accurate visual-art terminology and explain how materials, processes, visual elements and design choices serve the task.`,
+                        music: `Junior Cycle Music: use accurate musical vocabulary, explain listening/composition/performance concepts clearly, and show musical notation or calculations where relevant.`,
+                        'home-economics': `Junior Cycle Home Economics: use accurate food, nutrition, textiles, consumer and household terminology. Show calculations and practical procedures clearly and safely.`
+                    };
+                    const jcBase=jcGuidance[subjectId] || `Junior Cycle ${name}: answer using the current Junior Cycle course and assessment expectations. Use the correct subject vocabulary, explain the reasoning clearly, show calculations with units where relevant, and avoid importing Leaving Certificate or university-level methods. Treat any official marking-scheme or assessment material supplied as the strongest evidence of expected answer structure.`;
+                    return `${jcBase}\n\nGeneral assessment expectations: answer the task asked, use only methods appropriate to the selected Junior Cycle level, show the reasoning needed to make the answer clear, and be honest when a source or syllabus requirement is uncertain.`;
+                }
+                const base= MATH_HELPER_SUBJECT_GUIDANCE[subjectId] || `Irish ${programme==='lc'?'Leaving Certificate':'Junior Cycle'} ${name}: answer to the current syllabus and exam level, use the accepted terminology and methods demonstrated in the official marking schemes provided, show calculations clearly with correct units and suitable precision, and explain the reasoning at the depth requested. Do not invent syllabus rules or claim a method is required unless a source supports it.`;
+                let cohortNote='';
+                if (programme==='jc' && subjectId==='maths') cohortNote=' Junior Cycle Mathematics is organised around the unifying strand and the strands Number, Geometry and trigonometry, Algebra and functions, and Statistics and probability.';
+                if (subjectId==='physics' && programme==='lc') cohortNote+=' Check the student\'s cohort: the revised Physics specification was introduced for fifth-year students in September 2025.';
+                return `${base}${cohortNote}\n\nGeneral examiner expectations: answer the question asked; keep notation consistent; do not skip a necessary transformation; use the exact level's methods; do not make up marking allocations. When a relevant official marking scheme is supplied, treat it as the strongest evidence of accepted answer structure, notation and precision. If the scheme uses a different valid method, explain that other valid methods may exist rather than claiming only one is accepted.`;
+            }
+            function mathHelperOfficialDocumentContext() {
+                if (mathHelperProgramme==='jc' && mathHelperSubjectId==='maths') return 'OFFICIAL NCCA JUNIOR CYCLE MATHEMATICS SPECIFICATION: the course is built around a unifying strand and four contextual strands: Number; Geometry and trigonometry; Algebra and functions; and Statistics and probability. Emphasise reasoning, problem-solving, communication and interpreting results in context. Source: Curriculum Online, Junior Cycle Mathematics specification (https://curriculumonline.ie/getmedia/6a7f1ff5-9b9e-4d71-8e1f-6d4f932191db/JC_Mathematics_Specification.pdf).';
+                if (mathHelperProgramme==='jc' && mathHelperSubjectId==='science') return 'OFFICIAL NCCA JUNIOR CYCLE SCIENCE SPECIFICATION: Nature of Science is the unifying strand, alongside Physical World, Chemical World, Biological World, and Earth and Space. Give evidence-based explanations and distinguish investigation variables, observations, results and conclusions. Source: Curriculum Online, Junior Cycle Science specification (https://www.curriculumonline.ie/getmedia/f668d804-6283-4d4a-84ab-c71e5b37d198/Specification-for-Junior-Cycle-Science.pdf).';
+                if (mathHelperProgramme==='lc' && mathHelperSubjectId==='maths') return 'OFFICIAL CURRICULUM ONLINE REFERENCE: the published Leaving Certificate Mathematics syllabus is the syllabus for examination from 2015, with Higher, Ordinary and Foundation levels. Follow the syllabus applying to this examination cohort and use the SEC marking scheme for the exact question format. Source: https://curriculumonline.ie/getmedia/f6f2e822-2b0c-461e-bcd4-dfcde6decc0c/SCSEC25_Maths_syllabus_examination-2015_English.pdf.';
+                if (mathHelperProgramme==='lc' && mathHelperSubjectId==='applied-maths') return 'OFFICIAL NCCA LEAVING CERTIFICATE APPLIED MATHEMATICS SPECIFICATION: use mathematical modelling as the problem-solving cycle: formulate the real-world problem, translate it into a mathematical model, compute a solution, and evaluate it in context. The specification contains modelling, networks and graphs, modelling the physical world, and modelling a changing world. Source: https://www.curriculumonline.ie/getmedia/46931efd-8fa6-4c31-9ec3-dfb9e870fa1a/Leaving-Certificate-Specification-Applied-Mathematics_EN_1.pdf.';
+                if (mathHelperProgramme==='lc' && mathHelperSubjectId==='physics') return 'OFFICIAL NCCA LEAVING CERTIFICATE PHYSICS SPECIFICATION: for fifth-year students from September 2025, use the redeveloped Physics specification rather than the previous syllabus. It emphasises core concepts, applying physics to analyse and solve problems, scientific inquiry and practical skills. Check cohort before applying it to an older candidate. Source: https://curriculumonline.ie/getmedia/aec702a9-4818-45f1-917e-497c3a9a2466/SC-PHYSICS-Spec-EN.pdf.';
+                if (mathHelperProgramme==='lc' && mathHelperSubjectId==='physics-chemistry') return 'OFFICIAL CURRICULUM ONLINE REFERENCE: Leaving Certificate Chemical and Physical Science is an integrated course; identify whether each part of a problem is testing physics or chemistry and use the corresponding syllabus conventions. Check the specification and examination year that apply to the candidate.';
+                return `Use the current NCCA/Curriculum Online specification for ${mathHelperProgramme==='lc'?'Leaving Certificate':'Junior Cycle'} ${mathHelperSubjectMeta()?.name||'this subject'}, and use the supplied SEC marking schemes as the strongest evidence of exam answer conventions. Do not invent a syllabus requirement or claim a specific marking allocation without evidence.`;
+            }
+            function mathHelperRelevantFormulaPages(question) {
+                if (mathHelperProgramme!=='lc' || !FORMULA_BOOK_SUBJECTS.includes(mathHelperSubjectId)) return [];
+                const q=String(question||'').toLowerCase().replace(/[^a-z0-9.+-]+/g,' ');
+                const rules=[
+                    [/quadratic|matrix|binomial|complex number|de moivre/, [21]],
+                    [/index|indices|exponent|power rule|logarithm|\blog\b/, [22]],
+                    [/differentiat|derivative|integrat|calculus|chain rule|product rule|quotient rule/, [26,27]],
+                    [/trig|sine rule|cosine rule|triangle|angle|\bsin\b|\bcos\b|\btan\b/, [14,15,17]],
+                    [/vector|coordinate geometry|midpoint|gradient of a line|equation of a line|circle equation/, [18,19,20]],
+                    [/sequence|series|arithmetic|geometric/, [23]],
+                    [/mean|median|standard deviation|statistics|normal distribution|probability|hypothesis test|correlation/, [35,36,37]],
+                    [/mechanic|motion|suvat|velocity|acceleration|projectile|force|momentum|collision|energy|work|gravitation|friction|circular motion|torque|inertia|pendulum/, [53,54,58,59,60]],
+                    [/electric|voltage|resistance|current|capacitor|magnetic|circuit|ohm/, [64,65]],
+                    [/heat|temperature|specific heat|latent heat|thermal/, [61]],
+                    [/wave|light|sound|photon|refraction|doppler|optics/, [62,63]],
+                    [/radioactiv|half life|decay/, [66]],
+                    [/chem|mole|gas constant|molar|ph |titration|atomic mass/, [67]],
+                    [/constant|speed of light|planck|avogadro|gravitational constant|electron mass/, [48]]
+                ];
+                const pages=[]; const add=p=>{if(!pages.includes(p)&&pages.length<3)pages.push(p);};
+                for(const [pattern,group] of rules){if(pattern.test(q))group.forEach(add);if(pages.length>=3)break;}
+                if(!pages.length){
+                    const defaults={maths:[14,21,26],'applied-maths':[53,54,58],physics:[48,53,62],chemistry:[67,48],'physics-chemistry':[48,53,67]};
+                    (defaults[mathHelperSubjectId]||[]).forEach(add);
+                }
+                return pages;
+            }
+            async function mathHelperFormulaImageParts(question) {
+                const pages=mathHelperRelevantFormulaPages(question);
+                const out=[];
+                for(const page of pages){
+                    try{
+                        const path=`formula-book/pages/p${String(page).padStart(3,'0')}.jpg`;
+                        const response=await fetch(path,{cache:'force-cache'});
+                        if(!response.ok)continue;
+                        const bytes=new Uint8Array(await response.arrayBuffer());
+                        let binary=''; const block=0x8000;
+                        for(let i=0;i<bytes.length;i+=block)binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+block,bytes.length)));
+                        out.push({inlineData:{mimeType:'image/jpeg',data:btoa(binary)},text:`Official Formulae and Tables booklet, printed page ${page}.`});
+                    }catch(err){console.warn('Maths Helper could not load formula booklet image',page,err);}
+                }
+                return out;
+            }
+            async function mathHelperReferenceContext() {
+                const key=`${mathHelperProgramme}:${mathHelperSubjectId}:${mathHelperExamLevel}`;
+                if (mathHelperReferenceCache.has(key)) return mathHelperReferenceCache.get(key);
+                let pieces=[mathHelperOfficialDocumentContext()];
+                // Ask for the live archive manifest so new SEC schemes are included without hardcoding paths.
+                if (examArchiveManifestStatus!=='loaded') { try { await examArchiveLoadManifest(); } catch {} }
+                const levelWord=mathHelperExamLevel==='common'?'common':mathHelperExamLevel==='higher'?'higher':mathHelperExamLevel==='ordinary'?'ordinary':'foundation';
+                let rows=EXAM_PAPER_INDEX.filter(r=>r[0]===mathHelperProgramme && r[1]===mathHelperSubjectId && r[5]);
+                const levelRows=rows.filter(r=>String(r[3]||'').toLowerCase().includes(levelWord));
+                if (levelRows.length) rows=levelRows;
+                const schemeRows=[]; const seen=new Set(); let foundScheme=false;
+                rows.sort((a,b)=>Number(b[2])-Number(a[2]));
+                for (const row of rows) { const path=row[5]; if(!path||seen.has(path)) continue; seen.add(path); schemeRows.push({year:row[2],label:row[3],path}); }
+                const maxSchemes=mathHelperSubjectId==='maths'||mathHelperSubjectId==='applied-maths'?2:1;
+                for (const item of schemeRows.slice(0,maxSchemes)) {
+                    try {
+                        const buf=await examArchiveGetPdfBytes(item.path);
+                        if (!window.pdfjsLib) throw new Error('PDF text reader unavailable');
+                        const doc=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
+                        const pages=await examPaperExtractPageTexts(doc); doc.destroy();
+                        let content=pages.map((p,i)=>`[Page ${i+1}] ${p}`).join('\n').replace(/\s+/g,' ').trim();
+                        if (content.length>14000) content=content.slice(0,14000)+' [truncated]';
+                        if (content) { pieces.push(`OFFICIAL SEC MARKING SCHEME — ${item.year} — ${item.label}\n${content}`); foundScheme=true; }
+                    } catch(err) { console.warn('Maths Helper could not read marking scheme',item.path,err); }
+                }
+                if (!foundScheme) pieces.push('No matching SEC marking-scheme PDF text was available for this exact subject and level in the archive. Follow the official syllabus guidance and do not claim that a method or phrase is required by the SEC unless supported by a source.');
+                if (mathHelperProgramme==='lc' && FORMULA_BOOK_SUBJECTS.includes(mathHelperSubjectId)) {
+                    const entries=FORMULA_BOOK_ENTRIES.map(e=>`${e.name}${e.aliases?.length?' (also: '+e.aliases.slice(0,3).join(', ')+')':''} — booklet page ${e.page}`).join('\n');
+                    pieces.push(`OFFICIAL FORMULAE AND TABLES BOOKLET CONTENTS (reference index, not full formula text):\n${entries.slice(0,6500)}\nThe student can open the Formula Book tool to inspect the actual pages. Do not invent a formula or page number if you are unsure.`);
+                }
+                if (!pieces.length) pieces.push('No matching SEC marking scheme could be loaded for this subject and level. Use the subject-specific syllabus guidance, and be transparent about uncertainty.');
+                const context=pieces.join('\n\n').slice(0,31000);
+                mathHelperReferenceCache.set(key,context);
+                return context;
+            }
+            function mathHelperExtractResponse(data) {
+                const raw=data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || data?.output_text || data?.text || '';
+                if (!raw.trim()) throw new Error('The AI did not return a usable structured answer. Please try again.');
+                return parseAiJson(raw);
+            }
+            async function mathHelperSend(overrideText, stepContext) {
+                if (mathHelperLoading) return;
+                const textValue=String(overrideText!==undefined?overrideText:(document.getElementById('mh-composer')?.value||mathHelperComposer)).trim();
+                if (!textValue) { toast('Type a question first.'); return; }
+                if (!currentUser) { toast('Sign in with Google to use the AI Maths Helper.'); return; }
+                mathHelperComposer='';
+                const userMsg={id:uid(),role:'user',text:textValue,mode:mathHelperMode};
+                mathHelperMessages.push(userMsg);
+                const requestId=++mathHelperCurrentRequestId;
+                mathHelperLoading=true; mathHelperLoadingDetail='Checking the relevant exam guidance and marking schemes…'; render();
+                try {
+                    const subject=mathHelperSubjectMeta(), refs=await mathHelperReferenceContext();
+                    if (requestId!==mathHelperCurrentRequestId) return;
+                    mathHelperLoadingDetail='Working through the question…'; render();
+                    const modeInstructions={
+                        solve:'SOLVE MODE: return only the final answer. Do not include working, steps, explanation, commentary or greetings. Return an empty steps array.',
+                        normal:'NORMAL MODE: show a small number of concise mathematical steps (usually 2–5). Each step should contain the transformation/equation only, with no prose explanation. Return the final answer.',
+                        help:'HELP MODE: show a clear sequence of steps and explain the method, the reason for each important transformation, and the relevant rule. Keep each step focused.',
+                        ultra:'ULTRA HELP MODE: teach every operation one at a time. Break the work into the smallest meaningful steps without skipping arithmetic or algebra. For every step explain exactly what changed, why it is valid, what rule/property is being used, and how to check it. Explain notation and any assumptions as needed. Be thorough but do not fabricate intermediate values.'
+                    }[mathHelperMode];
+                    const history=mathHelperMessages.map(m=>m.role==='user'?{role:'user',parts:[{text:m.text}]}:{role:'model',parts:[{text:JSON.stringify(m.response||{})}]});
+                    const formulaImages=await mathHelperFormulaImageParts(textValue);
+                    if(formulaImages.length && history.length){
+                        history[history.length-1].parts.push({text:'Relevant official Formulae and Tables booklet pages are attached as images. Read the printed formulae and constants directly; do not guess a formula if it is unclear.'});
+                        formulaImages.forEach(part=>history[history.length-1].parts.push({inlineData:part.inlineData}));
+                    }
+                    const prompt=`The student is asking a question in ${mathHelperProgramme==='lc'?'Leaving Certificate':'Junior Cycle'} ${subject?.name||'this subject'} at ${mathHelperExamLevel} level.\n\n${modeInstructions}\n\nReturn ONLY valid JSON using this schema: {"summary":"optional short introduction or context","steps":[{"id":"1","title":"short step title","math":"LaTeX without surrounding dollar signs","explanation":"what happened in this step","why":"why this step is valid","rule":"named rule or formula, if relevant","check":"optional check"}],"finalAnswer":"final answer, using LaTeX delimiters where helpful","note":"optional note about assumptions or precision"}. For Solve mode, steps must be [] and summary/note should be empty. For Normal mode, step explanations/why/rule should be empty strings. For every answer, keep all maths in LaTeX (use \\( ... \\) in text fields or the math field). Do not output Markdown code fences or text outside the JSON.\n\nSUBJECT-SPECIFIC EXAM INSTRUCTIONS:\n${mathHelperOfficialGuidance(mathHelperSubjectId,mathHelperProgramme)}\n\nREFERENCE DOCUMENTS AND EXAMINER CONVENTIONS (use only where relevant):\n${refs}\n\n${stepContext?`FOCUS ON THIS PREVIOUS STEP: ${stepContext}\nAnswer the student's follow-up specifically about this step, explaining the point they asked about. Preserve the context of the earlier solution.`:''}\n\nIf the question is ambiguous, state the most reasonable assumption in the summary. If a required diagram or missing value prevents a unique answer, say so rather than guessing. Keep the solution at the selected course level.`;
+                    const data=await aiInvoke({contents:history,systemInstruction:{parts:[{text:prompt}]},preferProvider:'quality'});
+                    const response=mathHelperExtractResponse(data);
+                    response.steps=Array.isArray(response.steps)?response.steps:[];
+                    response.finalAnswer=response.finalAnswer||response.answer||response.result||'';
+                    if (!response.finalAnswer && response.steps.length) response.finalAnswer='';
+                    if (mathHelperMode==='solve') { response.steps=[]; response.summary=''; response.note=''; }
+                    if (mathHelperMode==='normal') { response.summary=''; response.note=''; response.steps=response.steps.map(st=>({...st,explanation:'',why:'',rule:'',check:''})); }
+                    mathHelperMessages.push({id:uid(),role:'assistant',response,mode:mathHelperMode});
+                } catch(err) {
+                    mathHelperMessages.push({id:uid(),role:'assistant',mode:mathHelperMode,response:{summary:`I couldn't complete that request: ${err.message||'AI request failed.'}`,steps:[],finalAnswer:'',note:'Check your connection and try again.'}});
+                } finally { mathHelperLoading=false; mathHelperLoadingDetail=''; render(); requestAnimationFrame(mathHelperTypeset); }
+            }
+            function mathHelperInitializeEquationField() {
+                const mf=document.getElementById('mh-equation-field'); if(!mf) return;
+                try { if (mf.getValue && mf.getValue('latex')!==mathHelperLatexDraft) mf.setValue(mathHelperLatexDraft); } catch {}
+                mf.addEventListener('input',()=>{ try { mathHelperLatexDraft=mf.getValue('latex'); } catch {} });
+            }
+
+            // ---- Digital scientific calculator: functional FX-85GTX / FX-85GT CW-inspired layouts ---------
+            function calcTokenize(input) {
+                const source=String(input||'').trim().replace(/[×·]/g,'*').replace(/[÷]/g,'/').replace(/[−–]/g,'-').replace(/π/g,'pi').replace(/√/g,'sqrt').replace(/²/g,'^2').replace(/³/g,'^3').replace(/Ans/gi,'ans');
+                const re=/\s*(?:(\d+(?:\.\d*)?|\.\d+)(?:([eE][+-]?\d+))?|([A-Za-z]+)|(\*\*|<=|>=|!=|[()+\-*/^!,%<>|]))/gy;
+                let tokens=[],pos=0,m;
+                while(pos<source.length) { re.lastIndex=pos; m=re.exec(source); if(!m) throw new Error(`Unexpected character: ${source[pos]}`); pos=re.lastIndex;
+                    if(m[1]) tokens.push({type:'number',value:Number(m[1]+(m[2]||''))});
+                    else if(m[3]) tokens.push({type:'id',value:m[3].toLowerCase()});
+                    else tokens.push({type:'op',value:m[4]}); }
+                const output=[]; const canEnd=t=>t&&(t.type==='number'||(t.type==='id'&&t.value!=='mod')||t.value===')'||t.value==='!'||t.value==='%');
+                const canStart=t=>t&&(t.type==='number'||t.type==='id'||t.value==='(');
+                const funcs=new Set(['sin','cos','tan','asin','acos','atan','sinh','cosh','tanh','sqrt','cbrt','abs','ln','log','log10','exp','floor','ceil','round','ncr','npr','min','max','mod','root','pow']);
+                for(let i=0;i<tokens.length;i++){const t=tokens[i],p=output[output.length-1];if(canEnd(p)&&canStart(t)&&!(t.type==='id'&&t.value==='mod')&&!(p.type==='id'&&funcs.has(p.value)&&t.value==='('))output.push({type:'op',value:'*'});output.push(t);}
+                return output;
+            }
+            function calcFactorial(n) { if(!Number.isInteger(n)||n<0||n>170) throw new Error('Factorial needs a whole number from 0 to 170.'); let v=1;for(let i=2;i<=n;i++)v*=i;return v; }
+            function calcNcr(n,r) { if(!Number.isInteger(n)||!Number.isInteger(r)||n<0||r<0||r>n||n>1000) throw new Error('nCr needs whole numbers with 0 ≤ r ≤ n.'); r=Math.min(r,n-r);let v=1;for(let i=1;i<=r;i++)v=v*(n-r+i)/i;return v; }
+            function calcEvaluateExpression(source) {
+                const tokens=calcTokenize(source); let at=0;
+                const peek=()=>tokens[at], take=()=>tokens[at++];
+                const angle=x=>digitalCalcAngleMode==='DEG'?x*Math.PI/180:x;
+                const trigOut=x=>digitalCalcAngleMode==='DEG'?x*180/Math.PI:x;
+                const constants={pi:Math.PI,e:Math.E,ans:Number(digitalCalcAnswer)||0,phi:(1+Math.sqrt(5))/2,inf:Infinity};
+                const functions={sin:x=>Math.sin(angle(x)),cos:x=>Math.cos(angle(x)),tan:x=>Math.tan(angle(x)),asin:x=>trigOut(Math.asin(x)),acos:x=>trigOut(Math.acos(x)),atan:x=>trigOut(Math.atan(x)),sinh:x=>Math.sinh(x),cosh:x=>Math.cosh(x),tanh:x=>Math.tanh(x),sqrt:x=>Math.sqrt(x),cbrt:x=>Math.cbrt(x),abs:x=>Math.abs(x),ln:x=>Math.log(x),log:(x,b=10)=>Math.log(x)/Math.log(b),log10:x=>Math.log10(x),exp:x=>Math.exp(x),floor:x=>Math.floor(x),ceil:x=>Math.ceil(x),round:x=>Math.round(x),ncr:(n,r)=>calcNcr(n,r),npr:(n,r)=>calcNcr(n,r)*calcFactorial(r),min:(...x)=>Math.min(...x),max:(...x)=>Math.max(...x),mod:(a,b)=>a%b,root:(n,x)=>{if(n===0)throw new Error('The root index cannot be zero.');if(x<0&&Number.isInteger(n)&&Math.abs(n)%2===0)throw new Error('An even root of a negative number is not real.');return Math.sign(x)*Math.pow(Math.abs(x),1/n);},pow:(a,b)=>Math.pow(a,b)};
+                function primary(){const t=take();if(!t)throw new Error('Incomplete expression.');
+                    if(t.type==='number')return t.value;
+                    if(t.value==='+'||t.value==='-')return (t.value==='-'?-1:1)*expression(25);
+                    if(t.value==='('){const v=expression(0);if(take()?.value!==')')throw new Error('Missing closing bracket.');return v;}
+                    if(t.value==='|'){const v=expression(0);if(take()?.value!=='|')throw new Error('Missing closing | for modulus.');return Math.abs(v);}
+                    if(t.type==='id'){if(peek()?.value==='('){take();const args=[];if(peek()?.value!==')'){do{args.push(expression(0));if(peek()?.value!==',')break;take();}while(true);}if(take()?.value!==')')throw new Error('Missing closing bracket.');const fn=functions[t.value];if(!fn)throw new Error(`Unknown function ${t.value}.`);return fn(...args);}if(t.value==='mod')throw new Error('Use mod(a,b) for a modulus calculation.');if(t.value==='ans'||Object.prototype.hasOwnProperty.call(constants,t.value))return constants[t.value];throw new Error(`Unknown symbol ${t.value}.`);}
+                    throw new Error(`Unexpected token ${t.value}.`); }
+                function expression(minPrec){let left=primary();
+                    while(peek()){
+                        const t=peek();
+                        if(t.value==='!'){take();left=calcFactorial(left);continue;}
+                        if(t.value==='%'){take();left/=100;continue;}
+                        let op=t.value,prec=({'+':10,'-':10,'*':20,'/':20,'mod':20,'^':30,'**':30,'<':5,'>':5,'<=':5,'>=':5,'!=':5})[op];
+                        if(t.type==='id'&&op==='mod')prec=20;
+                        if(prec===undefined||prec<minPrec)break;take();const right=expression(prec+(op==='^'||op==='**'?0:1));
+                        if(op==='+')left+=right;else if(op==='-')left-=right;else if(op==='*')left*=right;else if(op==='/'){if(right===0)throw new Error('Cannot divide by zero.');left/=right;}else if(op==='^'||op==='**')left=Math.pow(left,right);else if(op==='mod'||op==='mod')left%=right;else if(op==='<')left=left<right?1:0;else if(op==='>')left=left>right?1:0;else if(op==='<=')left=left<=right?1:0;else if(op==='>=')left=left>=right?1:0;else if(op==='!=')left=left!==right?1:0;
+                    }return left;}
+                if(!tokens.length)throw new Error('Enter a calculation first.');const value=expression(0);if(at<tokens.length)throw new Error(`Unexpected ${tokens[at].value}.`);if(Number.isNaN(value))throw new Error('This expression has no real-number result.');if(!Number.isFinite(value))throw new Error('The result is outside the calculator range.');return value;
+            }
+            function calcFormat(value) { if(!Number.isFinite(value))return String(value);if(value!==0&&(Math.abs(value)>=1e12||Math.abs(value)<1e-8))return value.toExponential(8).replace(/\.?(\d*?)0+e/,'$1e');return Number(value.toPrecision(12)).toString(); }
+            function digitalCalculatorKeys() {
+                const gtx=[
+                    ['SHIFT','shift','orange'],['ALPHA','alpha','dark'],['MODE','mode','dark'],['DEL','del','dark'],['AC','ac','orange'],
+                    ['x⁻¹','1/(',''],['x²','^2',''],['√','sqrt(',''],['xʸ','^(',''],['÷','/','accent'],
+                    ['log','log(',''],['ln','ln(',''],['sin','sin(',''],['cos','cos(',''],['tan','tan(',''],
+                    ['(−)','neg',''],['□/□','fraction',''],['x!','!',''],['|x|','abs(',''],['mod','mod','accent'],
+                    ['7','7',''],['8','8',''],['9','9',''],['π','pi',''],['−','-','accent'],
+                    ['4','4',''],['5','5',''],['6','6',''],['Ans','ans','dark'],['+','+','accent'],
+                    ['1','1',''],['2','2',''],['3','3',''],['nCr','ncr(',''],['nPr','npr(',''],
+                    ['0','0','wide'],['.','.',''],['EXP','*10^(',''],['e','e',''],['=','= ','orange']
+                ];
+                const cw=[
+                    ['HOME','home','dark'],['SETTINGS','settings','dark'],['↑','up','dark'],['OPTN','optn','dark'],['TOOLS','tools','dark'],['AC','ac','orange'],
+                    ['SHIFT','shift','orange'],['x²','^2',''],['xʸ','^(',''],['□/□','fraction',''],['√','sqrt(',''],['DEL','del','dark'],
+                    ['sin','sin(',''],['cos','cos(',''],['tan','tan(',''],['log','log(',''],['ln','ln(',''],['÷','/','accent'],
+                    ['(−)','neg',''],['(','(',''],[')',' )',''],['|x|','abs(',''],['nCr','ncr(',''],['mod','mod','accent'],
+                    ['7','7',''],['8','8',''],['9','9',''],['×10ˣ','*10^(',''],['Ans','ans','dark'],['−','-','accent'],
+                    ['4','4',''],['5','5',''],['6','6',''],['π','pi',''],['e','e',''],['+','+','accent'],
+                    ['1','1',''],['2','2',''],['3','3',''],['nPr','npr(',''],['x!','!',''],['=','= ','orange']
+                ];
+                return (digitalCalcModel==='cw'?cw:gtx).map(([label,key,cls])=>`<button type="button" class="mh-calc-key ${cls}" data-action="digital-calc-key" data-key="${escape(key.trim())}">${escape(label)}</button>`).join('');
+            }
+            function renderDigitalCalculator() {
+                const modelName=digitalCalcModel==='cw'?'fx-85GT CW':'fx-85GTX';
+                const history=digitalCalcHistory.slice(-12).reverse().map(x=>`<div class="mh-calc-history-item"><span>${escape(x.expression)}</span><strong>${escape(x.result)}</strong></div>`).join('')||'<p class="small">Your recent calculations will appear here.</p>';
+                return `<div class="page"><button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>${header('Scientific Calculator','Choose the calculator layout and use the keys or your keyboard.','')}<div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap"><button type="button" class="button ${digitalCalcModel==='gtx'?'primary':'ghost'}" data-action="digital-calc-model" data-model="gtx">Casio fx-85GTX</button><button type="button" class="button ${digitalCalcModel==='cw'?'primary':'ghost'}" data-action="digital-calc-model" data-model="cw">Casio fx-85GT CW</button><button type="button" class="button ghost" data-action="digital-calc-angle">${digitalCalcAngleMode} mode</button></div><div class="mh-calculator-layout"><section class="mh-calculator ${digitalCalcModel==='cw'?'fx85-gtcw':'fx85-gtx'}"><div class="mh-calc-brand">CASIO · SCIENTIFIC CALCULATOR</div><div class="mh-calc-model">${modelName}</div><div class="mh-calc-screen"><div class="mh-calc-screen-meta"><span>${digitalCalcShift?'SHIFT':''}</span><span>${digitalCalcAngleMode}</span></div><input id="digital-calc-expression" class="mh-calc-expression" value="${escape(digitalCalcExpression)}" placeholder="0" autocomplete="off" aria-label="Calculator expression"><div class="mh-calc-result">${escape(digitalCalcError||digitalCalcResult||'')}</div></div><div class="mh-calc-keys">${digitalCalculatorKeys()}</div><p class="mh-calculator-note">Independent digital calculator. It does not store anything in your study records.</p></section><aside class="card" style="padding:14px"><div class="row" style="justify-content:space-between;align-items:center"><h3 style="margin:0">History</h3><button type="button" class="button ghost" data-action="digital-calc-history-clear">Clear</button></div><div class="mh-calc-history" style="margin-top:10px">${history}</div><p class="small" style="margin-top:12px">Functions include trigonometry, inverse trigonometry, logarithms, powers, roots, factorials, combinations, permutations and modulus.</p></aside></div></div>`;
+            }
+            function digitalCalcPress(key) {
+                digitalCalcError=''; digitalCalcResult='';
+                if(key==='ac'){digitalCalcExpression='';digitalCalcJustEvaluated=false;return;}
+                if(key==='del'){digitalCalcExpression=digitalCalcExpression.slice(0,-1);digitalCalcJustEvaluated=false;return;}
+                if(key==='= '||key==='='){try{const v=calcEvaluateExpression(digitalCalcExpression);digitalCalcAnswer=v;digitalCalcResult=calcFormat(v);digitalCalcHistory.push({expression:digitalCalcExpression,result:digitalCalcResult});digitalCalcExpression=digitalCalcResult;digitalCalcJustEvaluated=true;}catch(err){digitalCalcError=err.message||'Invalid calculation';digitalCalcJustEvaluated=false;}return;}
+                const startsNew=['pi','e','ans','sqrt(','sin(','cos(','tan(','asin(','acos(','atan(','log(','ln(','abs(','ncr(','npr(','mod(','sinh(','cosh(','tanh(','1/(','('].includes(key)||/^\d$/.test(key)||key==='.';
+                if(digitalCalcJustEvaluated&&startsNew)digitalCalcExpression='';
+                digitalCalcJustEvaluated=false;
+                if(key==='ans'){digitalCalcExpression+='Ans';return;}
+                if(key==='neg'){digitalCalcExpression+='-';return;}
+                if(key==='fraction'){digitalCalcExpression+='/';return;}
+                if(key==='degmin'){digitalCalcAngleMode=digitalCalcAngleMode==='DEG'?'RAD':'DEG';return;}
+                if(key==='mode'||key==='home'||key==='settings'||key==='up'||key==='optn'||key==='tools'){digitalCalcShift=!digitalCalcShift;return;}
+                if(key==='shift'||key==='alpha'){digitalCalcShift=!digitalCalcShift;return;}
+                if(key==='hyp'){digitalCalcExpression+='sinh(';return;}
+                if(digitalCalcShift){const inverse={'sin(':'asin(','cos(':'acos(','tan(':'atan(','log(':'10^(','ln(':'exp('};if(inverse[key]){digitalCalcExpression+=inverse[key];digitalCalcShift=false;return;}}
+                digitalCalcExpression+=key;
+            }
+
             function renderTools() { if (!toolsActiveTool) { const tile = (id, icon, title, desc) =>
                         `<button type="button" class="class-tile" data-action="tools-open" data-tool="${id}" style="--subject:var(--primary)"><strong>${icon} ${title}</strong><span class="small">${desc}</span></button>`;
                     return appFrame(`<div class="page">${header('Tools','Extra study tools that don\'t fit neatly anywhere else.','')}
         <div class="class-grid">
           ${tile('formulas','📘','Formula Book','The official Formulae & Tables booklet allowed in the exam — searchable and browsable.')}
+          ${tile('mathhelper','∑','Maths Helper','Ask an AI tutor questions, enter equations and get exam-style worked solutions.')}
+          ${tile('digitalcalc','▦','Scientific Calculator','A digital scientific calculator with FX-85GTX and FX-85GT CW layouts.')}
           ${tile('cao','◎','CAO Points Calculator','Work out your best-6 CAO points, or find grade combinations that reach a target.')}
           ${tile('quadratic','➗','Quadratic Solver','Enter a, b and c and see the roots instantly — as exact fractions or decimals.')}
           ${tile('translate','🌐','Translate','Quick translations between languages — free, instant, no sign-in needed.')}
@@ -12088,7 +12541,7 @@ ${pointsSvg}
           ${tile('grades','📈','Grade Explorer','Compare Leaving Certificate grade distributions by subject.')}
         </div>
         </div>`); }
-                const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (
+                const back = `<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`; if (toolsActiveTool === 'mathhelper') return appFrame(mathHelperHtml()); if (toolsActiveTool === 'digitalcalc') return appFrame(renderDigitalCalculator()); if (
                     toolsActiveTool === 'formulas') return appFrame(`<div class="page">${back}
         ${header('Formula Book',"The full official booklet, trimmed to just the formula and table pages — browse the contents, or search for what you need below.",'')}
         ${formulaBookHtml()}
@@ -22244,8 +22697,22 @@ If the user asks about how to study or study methods generally, answer from your
             // same reasoning as the Word Bank one above.
             document.addEventListener('click', e => { const b = e.target.closest('[data-action]'); if (!b) return;
                 const a = b.dataset.action;
-                if (a === 'tools-open') { toolsActiveTool = b.dataset.tool; render(); }
-                else if (a === 'tools-back') { toolsActiveTool = null; render(); }
+                if (a === 'tools-open') { toolsActiveTool = b.dataset.tool; render(); if (toolsActiveTool==='mathhelper' && mathHelperEquationOpen) requestAnimationFrame(mathHelperInitializeEquationField); }
+                else if (a === 'tools-back') { toolsActiveTool = null; mathHelperEquationOpen=false; render(); }
+                else if (a === 'mh-mode') { mathHelperMode=b.dataset.mode; render(); mathHelperTypeset(); }
+                else if (a === 'mh-eq-open') { mathHelperEquationOpen=true; mathHelperLatexDraft=''; mathHelperEquationTab='structures'; render(); requestAnimationFrame(mathHelperInitializeEquationField); }
+                else if (a === 'mh-eq-close') { const mf=document.getElementById('mh-equation-field'); try{if(mf)mathHelperLatexDraft=mf.getValue('latex');}catch{} mathHelperEquationOpen=false; render(); }
+                else if (a === 'mh-eq-tab') { const mf=document.getElementById('mh-equation-field'); try{if(mf)mathHelperLatexDraft=mf.getValue('latex');}catch{} mathHelperEquationTab=b.dataset.tab; render(); requestAnimationFrame(mathHelperInitializeEquationField); }
+                else if (a === 'mh-eq-insert') { const mf=document.getElementById('mh-equation-field'); if(mf){try{mf.insert(b.dataset.latex||'',{selectionMode:'placeholder',focus:true});mathHelperLatexDraft=mf.getValue('latex');}catch(err){toast('The equation editor could not insert that symbol.');}} }
+                else if (a === 'mh-eq-clear') { const mf=document.getElementById('mh-equation-field'); if(mf){mf.setValue('');mathHelperLatexDraft='';mf.focus();} }
+                else if (a === 'mh-eq-use') { const mf=document.getElementById('mh-equation-field'); let latex='';try{latex=mf?.getValue('latex')||mathHelperLatexDraft;}catch{latex=mathHelperLatexDraft;}if(!latex.trim()){toast('Enter an equation first.');return;}if(/\\placeholder\s*\{/.test(latex)){toast('Fill in the empty equation boxes first.');return;}mathHelperComposer+=(mathHelperComposer?' ':'')+`\\(${latex}\\)`;mathHelperLatexDraft=latex;mathHelperEquationOpen=false;render();document.getElementById('mh-composer')?.focus(); }
+                else if (a === 'mh-send') mathHelperSend();
+                else if (a === 'mh-step-toggle') {const key=`${b.dataset.message}:${b.dataset.step}`;if(mathHelperExpandedSteps.has(key))mathHelperExpandedSteps.delete(key);else mathHelperExpandedSteps.add(key);render();mathHelperTypeset();}
+                else if (a === 'mh-ask-step') {const msg=mathHelperMessages.find(m=>m.id===b.dataset.message),step=msg?.response?.steps?.find((x,i)=>String(x.id||i+1)===b.dataset.step);const q=document.getElementById(`mh-step-question-${b.dataset.message}-${b.dataset.step}`)?.value||'';if(!q.trim()){toast('Type what you want to know about this step.');return;}const ctx=step?`Step ${b.dataset.step}: ${JSON.stringify(step)}`:'';mathHelperSend(q,ctx);}
+                else if (a === 'digital-calc-model') {digitalCalcModel=b.dataset.model;render();}
+                else if (a === 'digital-calc-angle') {digitalCalcAngleMode=digitalCalcAngleMode==='DEG'?'RAD':'DEG';render();}
+                else if (a === 'digital-calc-key') {digitalCalcPress(b.dataset.key||'');render();document.getElementById('digital-calc-expression')?.focus();}
+                else if (a === 'digital-calc-history-clear') {digitalCalcHistory=[];render();}
                 else if (a === 'grade-explorer-toggle') { if (b.dataset.toggle === 'mine') gradeExplorerMySubjects = b.checked; else if (b.dataset.toggle === 'core') gradeExplorerCoreOnly = b.checked; render(); }
                 else if (a === 'grade-explorer-select') { gradeExplorerSelected = { name: b.dataset.subject, index: Number(b.dataset.index) }; render(); }
                 else if (a === 'grade-explorer-sort') { gradeExplorerSort = b.dataset.sort; gradeExplorerSelected = null; render(); }
@@ -22285,12 +22752,18 @@ If the user asks about how to study or study methods generally, answer from your
             });
 
             document.addEventListener('input', e => {
+                if (e.target?.id === 'mh-composer') { mathHelperComposer=e.target.value; return; }
+                if (e.target?.id === 'mh-equation-field') { try{mathHelperLatexDraft=e.target.getValue('latex');}catch{} return; }
+                if (e.target?.id === 'digital-calc-expression') { digitalCalcExpression=e.target.value;digitalCalcError='';digitalCalcResult='';digitalCalcJustEvaluated=false;return; }
                 if (e.target?.dataset?.action === 'grade-explorer-points') {
                     gradeExplorerPointsTarget = e.target.value;
                 }
             });
             document.addEventListener('change', e => {
-                if (e.target?.dataset?.action === 'grade-explorer-sort') {
+                if (e.target?.id === 'mh-programme') { mathHelperSetProgramme(e.target.value);render(); }
+                else if (e.target?.id === 'mh-subject') { mathHelperSubjectId=e.target.value;mathHelperMessages=[];mathHelperComposer='';mathHelperExpandedSteps.clear();mathHelperReferenceCache.clear();render(); }
+                else if (e.target?.id === 'mh-exam-level') { mathHelperExamLevel=e.target.value;mathHelperMessages=[];mathHelperComposer='';mathHelperExpandedSteps.clear();mathHelperReferenceCache.clear();render(); }
+                else if (e.target?.dataset?.action === 'grade-explorer-sort') {
                     gradeExplorerSort = e.target.value;
                     gradeExplorerSelected = null;
                     render();
@@ -22304,7 +22777,11 @@ If the user asks about how to study or study methods generally, answer from your
                 if (a === 'games-open') { gamesActiveGame = b.dataset.game; render(); }
                 else if (a === 'games-back') { unmountCurrentGame(); gamesActiveGame = null; render(); }
             });
-            document.addEventListener('keydown', e => { if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value);
+            document.addEventListener('keydown', e => {
+                if (e.target?.id==='mh-composer' && e.key==='Enter' && !e.shiftKey) {e.preventDefault();mathHelperSend();return;}
+                if (e.target?.id==='digital-calc-expression' && e.key==='Enter') {e.preventDefault();digitalCalcPress('=');render();return;}
+                if (e.key==='Escape' && mathHelperEquationOpen) {mathHelperEquationOpen=false;render();return;}
+                if (e.target && e.target.id === 'formula-search-input' && e.key === 'Enter') formulaBookRunSearch(e.target.value);
                 else if (e.target && e.target.id === 'cao-target-input' && e.key === 'Enter') { const target = parseInt(e.target.value, 10); if (!isNaN(target) && target > 0) { caoCalcTargetInput = e.target.value; caoCalcTargetResults = caoCalcFindCombos(target); render(); } } });
 
             document.addEventListener('input', e => { if (e.target.id === 'search-input') { searchQuery = e.target
