@@ -4570,7 +4570,6 @@
             color: transparent;
         }
 
-    
     .mobile-flashcards-only { padding-bottom: 0 !important; }
     .mobile-flashcards-only .mobile-bottom-nav { display: none !important; }
 </style>
@@ -12837,8 +12836,7 @@ ${pointsSvg}
                     for (const i of empties) { board[i] = 'X'; const blocks = winner(board) === 'X'; board[i] = null; if (blocks) { board[i] = 'O'; return; } }
                     const prefer = [4,0,2,6,8,1,3,5,7].filter(i => empties.includes(i));
                     board[prefer[0]] = 'O'; }
-                const MOBILE_FLASHCARDS_ONLY = true;
-            function render() { const w = winner(board);
+                function render() { const w = winner(board);
                     if (w === 'X') { if (!gameOver) gameReportWin('tictactoe'); gameOver = true; message = '🎉 You win!'; }
                     else if (w === 'O') { gameOver = true; message = 'The computer won this one — try again?'; }
                     else if (w === 'draw') { gameOver = true; message = "It's a draw."; }
@@ -18759,6 +18757,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     </div>`;
             }
 
+            const MOBILE_FLASHCARDS_ONLY = true;
             function render() {
                 if (view !== 'flashcards') view = 'flashcards'; const landingLayer = document.getElementById('landing-layer'),
                     aiChatWidgetEl = document.getElementById('ai-chat-widget'); if (showLanding ||
@@ -18868,8 +18867,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                         try { restoreEl.setSelectionRange(focusedSelStart, focusedSelEnd); } catch (err) {}
                     }
                 }
-                if (view === 'admin') return; if (
-                    !state.settings.onboarded && !modal) openModal('onboarding');
+                if (view === 'admin') return; if (!MOBILE_FLASHCARDS_ONLY && !state.settings.onboarded && !modal) openModal('onboarding');
                 else if (!MOBILE_FLASHCARDS_ONLY && state.settings.onboarded && !modal && schoolYearHasEnded()) openModal('year-rollover');
                 else if (!MOBILE_FLASHCARDS_ONLY && state.settings.onboarded && !modal && !state.settings.schoolId && !schoolPromptDismissed) openModal('school-prompt');
                 else if (!MOBILE_FLASHCARDS_ONLY && state.settings.onboarded && !modal && isSophiaMode() && !sophiaWelcomeShown) {
