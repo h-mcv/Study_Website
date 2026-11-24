@@ -12329,18 +12329,42 @@ ${pointsSvg}
                 return pages;
             }
             async function mathHelperFormulaImageParts(question) {
-                const pages=mathHelperRelevantFormulaPages(question);
+                // Image pages are useful for checking exact formulae, but full-resolution scans
+                // can make the edge-function request several megabytes. Keep at most two pages
+                // and compress them in the browser before converting them to inlineData.
+                const pages=mathHelperRelevantFormulaPages(question).slice(0,2);
                 const out=[];
                 for(const page of pages){
                     try{
                         const path=`formula-book/pages/p${String(page).padStart(3,'0')}.jpg`;
                         const response=await fetch(path,{cache:'force-cache'});
                         if(!response.ok)continue;
-                        const bytes=new Uint8Array(await response.arrayBuffer());
+                        let blob=await response.blob();
+                        if(blob.size>145000){
+                            if(typeof createImageBitmap!=='function') continue;
+                            const bitmap=await createImageBitmap(blob);
+                            const canvas=document.createElement('canvas');
+                            const attempts=[{max:1500,quality:0.58},{max:1250,quality:0.48},{max:1050,quality:0.40}];
+                            let compressed=null;
+                            for(const attempt of attempts){
+                                const scale=Math.min(1,attempt.max/Math.max(bitmap.width,bitmap.height));
+                                canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+                                canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+                                const ctx=canvas.getContext('2d');
+                                ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+                                const candidate=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',attempt.quality));
+                                if(candidate && (!compressed || candidate.size<compressed.size)) compressed=candidate;
+                                if(candidate && candidate.size<=145000){compressed=candidate;break;}
+                            }
+                            bitmap.close?.();
+                            if(!compressed || compressed.size>180000) continue;
+                            blob=compressed;
+                        }
+                        const bytes=new Uint8Array(await blob.arrayBuffer());
                         let binary=''; const block=0x8000;
                         for(let i=0;i<bytes.length;i+=block)binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+block,bytes.length)));
                         out.push({inlineData:{mimeType:'image/jpeg',data:btoa(binary)},text:`Official Formulae and Tables booklet, printed page ${page}.`});
-                    }catch(err){console.warn('Maths Helper could not load formula booklet image',page,err);}
+                    }catch(err){console.warn('Maths Helper could not load or compress formula booklet image',page,err);}
                 }
                 return out;
             }
@@ -12357,25 +12381,27 @@ ${pointsSvg}
                 const schemeRows=[]; const seen=new Set(); let foundScheme=false;
                 rows.sort((a,b)=>Number(b[2])-Number(a[2]));
                 for (const row of rows) { const path=row[5]; if(!path||seen.has(path)) continue; seen.add(path); schemeRows.push({year:row[2],label:row[3],path}); }
-                const maxSchemes=mathHelperSubjectId==='maths'||mathHelperSubjectId==='applied-maths'?2:1;
-                for (const item of schemeRows.slice(0,maxSchemes)) {
+                // One recent scheme is usually enough to establish examiner conventions.
+                // Loading several complete schemes made otherwise ordinary questions exceed
+                // the AI endpoint's request-size limit.
+                for (const item of schemeRows.slice(0,1)) {
                     try {
                         const buf=await examArchiveGetPdfBytes(item.path);
                         if (!window.pdfjsLib) throw new Error('PDF text reader unavailable');
                         const doc=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
                         const pages=await examPaperExtractPageTexts(doc); doc.destroy();
                         let content=pages.map((p,i)=>`[Page ${i+1}] ${p}`).join('\n').replace(/\s+/g,' ').trim();
-                        if (content.length>14000) content=content.slice(0,14000)+' [truncated]';
+                        if (content.length>5200) content=content.slice(0,5200)+' [truncated]';
                         if (content) { pieces.push(`OFFICIAL SEC MARKING SCHEME — ${item.year} — ${item.label}\n${content}`); foundScheme=true; }
                     } catch(err) { console.warn('Maths Helper could not read marking scheme',item.path,err); }
                 }
                 if (!foundScheme) pieces.push('No matching SEC marking-scheme PDF text was available for this exact subject and level in the archive. Follow the official syllabus guidance and do not claim that a method or phrase is required by the SEC unless supported by a source.');
                 if (mathHelperProgramme==='lc' && FORMULA_BOOK_SUBJECTS.includes(mathHelperSubjectId)) {
                     const entries=FORMULA_BOOK_ENTRIES.map(e=>`${e.name}${e.aliases?.length?' (also: '+e.aliases.slice(0,3).join(', ')+')':''} — booklet page ${e.page}`).join('\n');
-                    pieces.push(`OFFICIAL FORMULAE AND TABLES BOOKLET CONTENTS (reference index, not full formula text):\n${entries.slice(0,6500)}\nThe student can open the Formula Book tool to inspect the actual pages. Do not invent a formula or page number if you are unsure.`);
+                    pieces.push(`OFFICIAL FORMULAE AND TABLES BOOKLET CONTENTS (reference index, not full formula text):\n${entries.slice(0,1600)}\nThe student can open the Formula Book tool to inspect the actual pages. Do not invent a formula or page number if you are unsure.`);
                 }
                 if (!pieces.length) pieces.push('No matching SEC marking scheme could be loaded for this subject and level. Use the subject-specific syllabus guidance, and be transparent about uncertainty.');
-                const context=pieces.join('\n\n').slice(0,31000);
+                const context=pieces.join('\n\n').slice(0,7600);
                 mathHelperReferenceCache.set(key,context);
                 return context;
             }
@@ -12383,6 +12409,30 @@ ${pointsSvg}
                 const raw=data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || data?.output_text || data?.text || '';
                 if (!raw.trim()) throw new Error('The AI did not return a usable structured answer. Please try again.');
                 return parseAiJson(raw);
+            }
+            function mathHelperBuildHistory() {
+                // Keep the current question and at most two recent exchanges. Older turns
+                // remain visible in the chat UI, but are not resent indefinitely to the API.
+                const recent=mathHelperMessages.slice(-5);
+                const compact=recent.map(m=>{
+                    if(m.role==='user') return {role:'user',parts:[{text:String(m.text||'').slice(0,2600)}]};
+                    const r=m.response||{};
+                    const summary={
+                        summary:String(r.summary||'').slice(0,350),
+                        steps:(Array.isArray(r.steps)?r.steps:[]).slice(0,4).map(st=>({
+                            title:String(st.title||'').slice(0,100),
+                            math:String(st.math||'').slice(0,500),
+                            explanation:String(st.explanation||'').slice(0,350),
+                            why:String(st.why||'').slice(0,250)
+                        })),
+                        finalAnswer:String(r.finalAnswer||'').slice(0,900),
+                        note:String(r.note||'').slice(0,200)
+                    };
+                    return {role:'model',parts:[{text:JSON.stringify(summary).slice(0,3000)}]};
+                });
+                let total=compact.reduce((n,m)=>n+(m.parts?.[0]?.text||'').length,0);
+                while(compact.length>1 && total>10500){const removed=compact.shift();total-=(removed.parts?.[0]?.text||'').length;}
+                return compact;
             }
             async function mathHelperSend(overrideText, stepContext) {
                 if (mathHelperLoading) return;
@@ -12404,14 +12454,22 @@ ${pointsSvg}
                         help:'HELP MODE: show a clear sequence of steps and explain the method, the reason for each important transformation, and the relevant rule. Keep each step focused.',
                         ultra:'ULTRA HELP MODE: teach every operation one at a time. Break the work into the smallest meaningful steps without skipping arithmetic or algebra. For every step explain exactly what changed, why it is valid, what rule/property is being used, and how to check it. Explain notation and any assumptions as needed. Be thorough but do not fabricate intermediate values.'
                     }[mathHelperMode];
-                    const history=mathHelperMessages.map(m=>m.role==='user'?{role:'user',parts:[{text:m.text}]}:{role:'model',parts:[{text:JSON.stringify(m.response||{})}]});
+                    const history=mathHelperBuildHistory();
                     const formulaImages=await mathHelperFormulaImageParts(textValue);
                     if(formulaImages.length && history.length){
-                        history[history.length-1].parts.push({text:'Relevant official Formulae and Tables booklet pages are attached as images. Read the printed formulae and constants directly; do not guess a formula if it is unclear.'});
+                        history[history.length-1].parts.push({text:'Relevant official Formulae and Tables booklet page images are attached. Read the printed formulae and constants directly; do not guess if unclear.'});
                         formulaImages.forEach(part=>history[history.length-1].parts.push({inlineData:part.inlineData}));
                     }
-                    const prompt=`The student is asking a question in ${mathHelperProgramme==='lc'?'Leaving Certificate':'Junior Cycle'} ${subject?.name||'this subject'} at ${mathHelperExamLevel} level.\n\n${modeInstructions}\n\nReturn ONLY valid JSON using this schema: {"summary":"optional short introduction or context","steps":[{"id":"1","title":"short step title","math":"LaTeX without surrounding dollar signs","explanation":"what happened in this step","why":"why this step is valid","rule":"named rule or formula, if relevant","check":"optional check"}],"finalAnswer":"final answer, using LaTeX delimiters where helpful","note":"optional note about assumptions or precision"}. For Solve mode, steps must be [] and summary/note should be empty. For Normal mode, step explanations/why/rule should be empty strings. For every answer, keep all maths in LaTeX (use \\( ... \\) in text fields or the math field). Do not output Markdown code fences or text outside the JSON.\n\nSUBJECT-SPECIFIC EXAM INSTRUCTIONS:\n${mathHelperOfficialGuidance(mathHelperSubjectId,mathHelperProgramme)}\n\nREFERENCE DOCUMENTS AND EXAMINER CONVENTIONS (use only where relevant):\n${refs}\n\n${stepContext?`FOCUS ON THIS PREVIOUS STEP: ${stepContext}\nAnswer the student's follow-up specifically about this step, explaining the point they asked about. Preserve the context of the earlier solution.`:''}\n\nIf the question is ambiguous, state the most reasonable assumption in the summary. If a required diagram or missing value prevents a unique answer, say so rather than guessing. Keep the solution at the selected course level.`;
-                    const data=await aiInvoke({contents:history,systemInstruction:{parts:[{text:prompt}]},preferProvider:'quality'});
+                    const buildPrompt=(referenceText)=>`The student is asking a question in ${mathHelperProgramme==='lc'?'Leaving Certificate':'Junior Cycle'} ${subject?.name||'this subject'} at ${mathHelperExamLevel} level.\n\n${modeInstructions}\n\nReturn ONLY valid JSON using this schema: {"summary":"optional short introduction or context","steps":[{"id":"1","title":"short step title","math":"LaTeX without surrounding dollar signs","explanation":"what happened in this step","why":"why this step is valid","rule":"named rule or formula, if relevant","check":"optional check"}],"finalAnswer":"final answer, using LaTeX delimiters where helpful","note":"optional note about assumptions or precision"}. For Solve mode, steps must be [] and summary/note should be empty. For Normal mode, step explanations/why/rule should be empty strings. For every answer, keep all maths in LaTeX (use \\( ... \\) in text fields or the math field). Do not output Markdown code fences or text outside the JSON.\n\nSUBJECT-SPECIFIC EXAM INSTRUCTIONS:\n${mathHelperOfficialGuidance(mathHelperSubjectId,mathHelperProgramme)}\n\nREFERENCE DOCUMENTS AND EXAMINER CONVENTIONS (use only where relevant):\n${referenceText}\n\n${stepContext?`FOCUS ON THIS PREVIOUS STEP: ${String(stepContext).slice(0,1800)}\nAnswer the student's follow-up specifically about this step, explaining the point they asked about. Preserve the context of the earlier solution.`:''}\n\nIf the question is ambiguous, state the most reasonable assumption in the summary. If a required diagram or missing value prevents a unique answer, say so rather than guessing. Keep the solution at the selected course level.`;
+                    let data;
+                    try {
+                        data=await aiInvoke({contents:history,systemInstruction:{parts:[{text:buildPrompt(refs)}]},preferProvider:'quality'});
+                    } catch(firstError) {
+                        // Retry an oversized request once without formula images or chat history.
+                        if(!/request too large|payload too large|body.{0,20}too large|413|maximum.{0,20}(size|length)|content.{0,20}too long/i.test(String(firstError?.message||''))) throw firstError;
+                        const currentQuestion=String(textValue).slice(0,12000);
+                        data=await aiInvoke({contents:[{role:'user',parts:[{text:currentQuestion}]}],systemInstruction:{parts:[{text:buildPrompt(String(refs).slice(0,2200))}]},preferProvider:'quality'});
+                    }
                     const response=mathHelperExtractResponse(data);
                     response.steps=Array.isArray(response.steps)?response.steps:[];
                     response.finalAnswer=response.finalAnswer||response.answer||response.result||'';
@@ -12420,7 +12478,12 @@ ${pointsSvg}
                     if (mathHelperMode==='normal') { response.summary=''; response.note=''; response.steps=response.steps.map(st=>({...st,explanation:'',why:'',rule:'',check:''})); }
                     mathHelperMessages.push({id:uid(),role:'assistant',response,mode:mathHelperMode});
                 } catch(err) {
-                    mathHelperMessages.push({id:uid(),role:'assistant',mode:mathHelperMode,response:{summary:`I couldn't complete that request: ${err.message||'AI request failed.'}`,steps:[],finalAnswer:'',note:'Check your connection and try again.'}});
+                    const rawError=String(err?.message||'AI request failed.');
+                    const tooLarge=/request too large|payload too large|body.{0,20}too large|413|maximum.{0,20}(size|length)|content.{0,20}too long/i.test(rawError);
+                    const message=tooLarge
+                        ? 'This question is still too large for the AI service after reducing the reference material. Try splitting it into a shorter question.'
+                        : rawError;
+                    mathHelperMessages.push({id:uid(),role:'assistant',mode:mathHelperMode,response:{summary:`I couldn't complete that request: ${message}`,steps:[],finalAnswer:'',note:tooLarge?'Try sending one part of the question at a time.':'Check your connection and try again.'}});
                 } finally { mathHelperLoading=false; mathHelperLoadingDetail=''; render(); requestAnimationFrame(mathHelperTypeset); }
             }
             function mathHelperInitializeEquationField() {
