@@ -4736,9 +4736,31 @@
         justify-content: center;
         gap: 12px;
     }
-    .flashcard-nav button[data-action="flashcard-prev"],
-    .flashcard-nav button[data-action="flashcard-next"] {
+    /* Hide desktop-only controls during mobile flip-through */
+    .fc-controls button,
+    .fc-tools,
+    .fc-kbd {
         display: none !important;
+    }
+
+    .fc-card {
+        touch-action: pan-y;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    .fc-scene {
+        height: min(62vh, 520px);
+        min-height: 280px;
+    }
+
+    .fc-face {
+        padding: 28px 20px;
+        font-size: clamp(21px, 6vw, 30px);
+    }
+
+    .fc-face.back {
+        font-size: clamp(17px, 4.5vw, 23px);
     }
     button[data-action="open-flashcard-create"],
     button[data-action="open-flashcard-create-for-deck"],
