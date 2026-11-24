@@ -9409,6 +9409,12 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             let mathHelperExpandedSteps = new Set();
             let mathHelperReferenceCache = new Map();
             let mathHelperCurrentRequestId = 0;
+            // MathJax output belongs to a particular DOM node. The app's global render()
+            // rebuilds #app during unrelated background refreshes, so track which Maths
+            // Helper nodes have been typeset and serialise work to avoid competing renders.
+            let mathHelperTypesetQueue = Promise.resolve();
+            const mathHelperTypesetDone = new WeakSet();
+            const mathHelperTypesetPending = new WeakSet();
             let digitalCalcModel = 'gtx'; // gtx | cw
             let digitalCalcExpression = '';
             let digitalCalcResult = '';
@@ -12302,11 +12308,43 @@ ${pointsSvg}
                 return `<div class="math-display">\\[${escape(tex)}\\]</div>`;
             }
             function mathHelperTypeset() {
-                const target=document.getElementById('math-helper-thread') || document.getElementById('mh-equation-dialog');
-                if(!target || !window.MathJax?.typesetPromise) return;
-                try { window.MathJax.typesetClear?.([target]); } catch {}
-                window.MathJax.typesetPromise([target]).catch(()=>{});
+                // Typeset both the conversation and equation dialog. Do not clear MathJax's
+                // output on every call: a competing clear/typeset can make the same response
+                // alternate between rendered maths and raw TeX after unrelated page refreshes.
+                const targets = [
+                    document.getElementById('math-helper-thread'),
+                    document.getElementById('mh-equation-dialog')
+                ].filter(target => target && target.isConnected);
+                const mathJax = window.MathJax;
+                if (!targets.length || !mathJax?.typesetPromise) return;
+                const fresh = targets.filter(target => !mathHelperTypesetDone.has(target) && !mathHelperTypesetPending.has(target));
+                if (!fresh.length) return;
+                fresh.forEach(target => mathHelperTypesetPending.add(target));
+                mathHelperTypesetQueue = mathHelperTypesetQueue.catch(() => {}).then(async () => {
+                    for (const target of fresh) {
+                        if (!target.isConnected) {
+                            mathHelperTypesetPending.delete(target);
+                            continue;
+                        }
+                        try {
+                            await mathJax.typesetPromise([target]);
+                            if (target.isConnected) {
+                                mathHelperTypesetDone.add(target);
+                            } else {
+                                // A refresh removed this node while MathJax was working.
+                                try { mathJax.typesetClear?.([target]); } catch {}
+                            }
+                        } catch (error) {
+                            console.warn('Maths Helper equation rendering failed', error);
+                        } finally {
+                            mathHelperTypesetPending.delete(target);
+                        }
+                    }
+                });
             }
+            window.addEventListener('load', () => {
+                if (view === 'tools' && toolsActiveTool === 'mathhelper') mathHelperTypeset();
+            }, { once: true });
             function mathHelperRenderSteps(msg) {
                 const response = msg.response || {}, steps = Array.isArray(response.steps) ? response.steps : [];
                 return steps.map((step,i)=>{
@@ -19010,9 +19048,22 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     .innerHTML = renderSparkysCloset(); } else if (view === 'cao') { document.getElementById('app')
                     .innerHTML = renderCaoPage(); } else if (view === 'insights') { document.getElementById('app')
                     .innerHTML = renderInsightsPage();
-                    requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
-                    .getElementById('app')
-                    .innerHTML = renderTools(); } else if (view === 'exam-papers') {
+                    requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') {
+                    const app = document.getElementById('app');
+                    // Clear MathJax's bookkeeping while the old conversation node is still
+                    // attached. The new helper DOM is typeset immediately after each app render.
+                    if (toolsActiveTool === 'mathhelper') {
+                        const oldTargets = [app.querySelector('#math-helper-thread'), app.querySelector('#mh-equation-dialog')].filter(Boolean);
+                        oldTargets.forEach(target => {
+                            if (mathHelperTypesetDone.has(target) && window.MathJax?.typesetClear) {
+                                try { window.MathJax.typesetClear([target]); } catch {}
+                                mathHelperTypesetDone.delete(target);
+                            }
+                        });
+                    }
+                    app.innerHTML = renderTools();
+                    if (toolsActiveTool === 'mathhelper') requestAnimationFrame(mathHelperTypeset);
+                } else if (view === 'exam-papers') {
                     const app = document.getElementById('app');
                     const viewerAlreadyMounted = !!(examPaperOpen && app.querySelector('.exam-pages'));
                     // A background poll/auth refresh can call the global render() many times a minute.
