@@ -2816,6 +2816,38 @@
         .wb-tool.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
         .wb-stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; padding: 12px; min-width: 0; overflow: hidden; }
         .wb-svg { aspect-ratio: 1000 / 640; width: min(100%, calc((100vh - 230px) * 1.5625)); max-height: 100%; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); touch-action: none; user-select: none; display: block; }
+        .fc-graph-answer { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(180px, 1fr); align-items: center; gap: clamp(14px, 2.5vw, 28px); width: 100%; max-width: 100%; text-align: left; }
+        .fc-graph-answer .fc-wb { min-width: 0; width: 100%; }
+        .fc-graph-description { min-width: 0; font-size: 15px; line-height: 1.55; font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
+        @media (max-width: 620px) { .fc-graph-answer { grid-template-columns: minmax(0, 1fr); gap: 12px; } .fc-graph-description { font-size: 14px; } }
+
+        .fc-check { gap: 6px; padding: 4px 2px; font-size: 12px; font-weight: 600; }
+        .fc-scene { height: clamp(340px, 56vh, 560px); min-height: 340px; }
+        .fc-face { padding: clamp(24px, 4vw, 44px); }
+        .fc-face.back { font-size: clamp(17px, 2vw, 24px); }
+        .fc-more-actions { margin-top:12px; border-top:1px solid var(--line); padding-top:9px; }
+        .fc-more-actions summary { width:max-content; cursor:pointer; color:var(--muted); font-size:12px; font-weight:700; padding:4px 2px; }
+        .fc-more-actions-inner { display:flex; gap:7px; flex-wrap:wrap; padding-top:9px; }
+        .fc-more-actions-inner .button { padding:7px 10px; font-size:12px; }
+        .fc-wrap > .fc-topbar { flex-wrap:wrap; }
+        .fc-deck { min-height:116px; padding:14px 15px; }
+        .fc-listcard { min-width:0; }
+        .fc-listtext { min-width:0; overflow-wrap:anywhere; }
+        .fc-listcard .button.icon { flex:0 0 32px; width:32px; height:32px; }
+        .fc-editor-list { display: grid; gap: 12px; }
+        .fc-editor-list > .topic-row { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+        .fc-editor-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:4px; }
+        .fc-editor-head select { max-width: 190px !important; font-size:12px; padding:6px 8px; }
+        .fc-editor-number { display:grid; place-items:center; width:24px; height:24px; border-radius:7px; background:var(--primary-soft); color:var(--primary); font-size:11px; font-weight:800; }
+        .fc-editor-spacer { flex:1; }
+        .fc-section-manager { display:grid; gap:8px; padding:12px 14px; margin:0 0 14px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); }
+        .fc-section-manager > div:first-child { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+        .fc-section-chips { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+        .fc-section-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:12px; font-weight:600; }
+        .fc-section-chip button { border:0; background:transparent; color:var(--muted); cursor:pointer; padding:0 1px; font-size:16px; line-height:1; }
+        .fc-section-select { min-width: 112px; }
+        @media (max-width:640px) { .fc-scene { height: min(58vh, 460px); min-height: 300px; } .fc-editor-head select { max-width: 150px !important; } }
+
         .wb-text { position: absolute; display: none; z-index: 2; border: 2px solid var(--primary); border-radius: 6px; padding: 2px 6px; background: #fff; color: #111; resize: none; font-family: system-ui, sans-serif; line-height: 1.3; outline: none; }
         .wb-style { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
         .wb-style .group { display: flex; align-items: center; gap: 4px; padding-right: 10px; border-right: 1px solid var(--line); }
@@ -15333,7 +15365,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 let deck = state.flashcardDecks.find(d => d.subjectId === subjectId && d.topic.toLowerCase() === topic.toLowerCase());
                 if (!deck) { deck = { id: uid(), subjectId, topic, cards: [], createdAt: Date.now() }; state.flashcardDecks.push(deck); }
                 return deck; }
-            function addFlashcardsToDeck(subjectId, topic, cards) { const existed = !!fcFindDeck(subjectId, topic), deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
+            function addFlashcardsToDeck(subjectId, topic, cards, sections) { const existed = !!fcFindDeck(subjectId, topic), deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
+                if (Array.isArray(sections) && sections.length) { deck.sections = fcSecs(deck).slice(); sections.forEach(x => { if (x.name && !deck.sections.some(y => y.id === x.id)) deck.sections.push({ id: x.id || uid(), name: String(x.name).trim(), subs: Array.isArray(x.subs) ? x.subs : [] }); }); }
                 if (!existed && flashcardCreateDraft && flashcardCreateDraft.isPrivate) deck.isPrivate = true;
                 (cards || []).forEach(c => { const front = (c.front || '').trim(), back = (c.back || '').trim(); if (!front || !back) return;
                     const card = { id: uid(), front, back }; if (c.secId) fcApplyPlace(deck, card, fcCardKey(c)); if (c.type && c.type !== 'term' && FC_TYPES[c.type] && c.data) { card.type = c.type; card.data = c.data; } deck.cards.push(card); });
@@ -15348,7 +15381,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function openFlashcardCreateModal(subjectId, mode) {
                 if (!subjectId || !subject(subjectId)) subjectId = (state.subjects.find(x => x.active !== false) || {}).id;
                 flashcardCreateDraft = { mode: mode || 'manual',
-                    subjectId, topic: '', cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                    subjectId, topic: '', sections: [], cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                 openModal('flashcard-create'); }
 
             // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
@@ -15412,14 +15445,14 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
               ${weakCount ? `<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>` : ''}
             </div>
             ${scopeBar}
-            <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
+            <details class="fc-more-actions"><summary>Deck options</summary><div class="fc-more-actions-inner">
               <button type="button" class="button ghost" data-action="flashcard-edit-deck" data-deck="${deck.id}">✏️ Edit deck</button>
               <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add cards</button>
               <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram && deck.diagram.points.length ? '🖼 Edit diagram' : '🖼 Add diagram'}</button>
               <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
               <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">💬 Ask Sparky</button>
               <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete deck</button>
-            </div>
+            </div></details>
             ${folders.length ? `<div class="row" style="margin-top:12px;align-items:center;gap:8px"><span class="small">Folder:</span><select data-action="flashcard-assign-folder" data-deck="${deck.id}" style="max-width:220px"><option value="">No folder</option>${folders.map(f => `<option value="${f.id}" ${current && current.id === f.id ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select></div>` : ''}
           </section>
           ${cardsHtml}
@@ -15625,7 +15658,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; }
                 return row; }
             function openFlashcardDeckEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
-                flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, sections: fcSecs(deck).map(x => ({ id: x.id, name: x.name, subs: (x.subs || []).map(u => ({ id: u.id, name: u.name })) })), cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                 if (!flashcardCreateDraft.cards.length) flashcardCreateDraft.cards.push({ type: 'term', front: '', back: '', text: '', secKey: '' });
                 openModal('flashcard-create'); }
             function saveDeckEdits() { const d = flashcardCreateDraft; if (!d || d.mode !== 'deck-edit') return; const deck = flashcardDeck(d.editing.deckId); if (!deck) { closeModal(); return; }
@@ -15636,9 +15669,11 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     const card = (row.id && deck.cards.find(c => c.id === row.id)) || { id: uid() };
                     card.front = r.card.front; card.back = r.card.back;
                     if (r.card.type === 'term') { delete card.type; delete card.data; } else { card.type = r.card.type; card.data = r.card.data; }
-                    fcApplyPlace(deck, card, row.secKey); out.push(card); });
+                    card._pendingSecKey = row.secKey || ''; out.push(card); });
                 if (problem) { toast(problem); return; }
-                deck.cards = out; deck.topic = topic;
+                if (Array.isArray(d.sections)) deck.sections = d.sections.map(x => ({ id: x.id || uid(), name: String(x.name || '').trim(), subs: Array.isArray(x.subs) ? x.subs : [] })).filter(x => x.name);
+                out.forEach(c => { const key = c._pendingSecKey; delete c._pendingSecKey; fcApplyPlace(deck, c, key); });
+                deck.cards = out; deck.topic = topic; if (Array.isArray(d.sections)) deck.cards.forEach(c => { if (c.secId && !deck.sections.some(x => x.id === c.secId)) { delete c.secId; delete c.subId; } });
                 if (deck.subjectId !== d.subjectId) { deck.subjectId = d.subjectId; (state.flashcardFolders || []).forEach(f => { f.deckIds = f.deckIds.filter(id => id !== deck.id); }); if (flashcardsFilterSubject !== 'all') flashcardsFilterSubject = d.subjectId; }
                 if (fcScope && fcScope.deckId === deck.id && !fcScopeCards(deck).length) fcScope = null;
                 save(); toast('Deck updated.'); flashcardCreateDraft = null; closeModal(); render(); }
@@ -15700,7 +15735,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const sections = fcParseInfo(text); if (!sections.some(s => s.points.length)) return { error: 'needs at least one point (start lines with -)' };
                 return { card: { type: 'info', front, back: fcInfoPlain(sections), data: { sections } } }; }
             function fcBackHtml(card) { const d = card.data; if (card.backHtml) return card.backHtml;
-                if (card.type === 'graph' && d && d.board) return `<div class="fc-wb">${wbBoardSvg(d.board)}</div>${d.notes ? `<p class="small" style="margin-top:8px;white-space:pre-wrap">${escape(d.notes)}</p>` : ''}`;
+                if (card.type === 'graph' && d && d.board) return `<div class="fc-graph-answer"><div class="fc-wb">${wbBoardSvg(d.board)}</div>${d.notes ? `<div class="fc-graph-description">${escape(d.notes)}</div>` : ''}</div>`;
                 if (card.type === 'list' && d) return `<${d.ordered ? 'ol' : 'ul'}>${d.items.map(x => `<li>${escape(x)}</li>`).join('')}</${d.ordered ? 'ol' : 'ul'}>`;
                 if (card.type === 'timeline' && d) return `<ol>${d.events.map(e => `<li>${e.when ? `<strong>${escape(e.when)}</strong> — ` : ''}${escape(e.label)}</li>`).join('')}</ol>`;
                 if (card.type === 'info' && d) return d.sections.map(s => `${s.heading ? `<h4>${escape(s.heading)}</h4>` : ''}<ul>${s.points.map(p => `<li>${escape(p.text)}${p.subs && p.subs.length ? `<ul>${p.subs.map(x => `<li>${escape(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>`).join('');
@@ -16041,15 +16076,18 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const manualCardRow = (c, i) => { const t = FC_TYPES[c.type] ? c.type : 'term', ty = FC_TYPES[t];
                     const typeSel = `<select data-action="flashcard-manual-type" data-index="${i}" style="max-width:260px">${Object.entries(FC_TYPES).map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>`;
                     const secDeck = d.mode === 'deck-edit' || d.mode === 'edit' ? flashcardDeck(d.editing.deckId) : (d.mode === 'manual' ? fcFindDeck(d.subjectId, d.topic) : null);
-                    const secSel = secDeck && fcSecs(secDeck).length ? `<select data-action="flashcard-manual-section" data-index="${i}" style="max-width:220px" aria-label="Section">${fcSecOptions(secDeck).map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
+                    const availableSections = secDeck ? fcSecs(secDeck) : (d.sections || []);
+                    const sectionOptions = [{ key: '', label: 'No section' }, ...availableSections.map(x => ({ key: x.id, label: x.name }))];
+                    const secSel = availableSections.length ? `<select data-action="flashcard-manual-section" data-index="${i}" class="fc-section-select" aria-label="Section">${sectionOptions.map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
                     const moveBtns = d.mode === 'deck-edit' ? `<button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button>` : '';
-                    const head = `<div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><span class="small"><strong>#${i + 1}</strong></span>${typeSel}${secSel}<span style="flex:1"></span>${moveBtns}<button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
+                    const head = `<div class="fc-editor-head"><span class="fc-editor-number">${i + 1}</span>${typeSel}${secSel}<span class="fc-editor-spacer"></span>${moveBtns}<button type="button" class="button ghost danger icon" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove" title="Remove card">✕</button></div>`;
                     const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Optional marking notes — what a full-marks answer must include (axes labelled, curve shapes, key points…)" style="min-height:64px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>`;
                     const fields = t === 'graph' ? graphFields : t === 'term'
                         ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
                         : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
                     return `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px">${head}${fields}</div></div>`; };
-                const manualBody = `${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
+                const sectionManager = `<div class="fc-section-manager"><div><strong>Sections</strong><span class="small">Optional groups for organising this deck</span></div><div class="fc-section-chips">${(d.sections || []).map(x => `<span class="fc-section-chip">${escape(x.name)}<button type="button" data-action="fc-draft-section-remove" data-section="${x.id}" aria-label="Remove ${escape(x.name)}">×</button></span>`).join('') || '<span class="small">No sections yet</span>'}<button type="button" class="button ghost" data-action="fc-draft-section-add">+ Add section</button></div></div>`;
+                const manualBody = `${topicField}${d.mode === 'manual' ? sectionManager : ''}<div class="fc-editor-list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:12px" data-action="flashcard-manual-add-row">+ Add card</button>`;
                 const imgThumb = (img, i) => img.mimeType === 'application/pdf'
                     ? `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:72px;height:72px;margin:0 8px 8px 0;border-radius:8px;border:1px solid var(--line);background:var(--card)"><span style="font-size:22px">📄</span><span class="small" style="max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escape(img.name||'PDF')}</span><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove file">✕</button></div>`
                     : `<div style="position:relative;display:inline-block;margin:0 8px 8px 0"><img src="${img.dataUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="${escape(img.name||'photo')}"><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove photo">✕</button></div>`;
@@ -16098,7 +16136,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 else if (d.mode === 'infoimage') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-info-extract" ${flashcardCreateLoading || !d.images.length ? 'disabled' : ''}>${flashcardCreateLoading ? 'Reading cards…' : 'Generate info cards'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
                 else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?(flashcardCreateLoadingStage==='checking'?'Double-checking cards…':'Reading files…'):'Generate flashcards'}</button>`;
-                if (d.mode === 'deck-edit') return modalShell('Edit deck', `<p class="small" style="margin-bottom:10px">Change the subject, deck name and every card in one place. Cards you clear are removed; their review history is kept for the ones you keep.</p>${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-deck-save">Save deck</button>`, true);
+                if (d.mode === 'deck-edit') return modalShell('Edit deck', `<p class="small" style="margin-bottom:10px">Edit the deck and organise its cards in one place.</p>${topicField}${sectionManager}<div class="fc-editor-list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:12px" data-action="flashcard-manual-add-row">+ Add card</button>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-deck-save">Save deck</button>`, true);
                 if (d.mode === 'edit') return modalShell('Edit card', `<div class="list">${manualCardRow(d.cards[0], 0)}</div>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-edit-save">Save changes</button>`, true);
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
 
@@ -16158,7 +16196,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 d.cards.forEach((row, i) => { const r = fcBuildCard(row); if (!r) return; if (r.error) { if (!problem) problem = `Card #${i + 1} ${r.error}.`; return; } Object.assign(r.card, fcSecFields(row.secKey)); cards.push(r.card); });
                 if (problem) { toast(problem); return; }
                 if (!cards.length) { toast('Add at least one complete card.'); return; }
-                addFlashcardsToDeck(d.subjectId, topic, cards);
+                addFlashcardsToDeck(d.subjectId, topic, cards, d.sections || []);
                 toast(`Added ${cards.length} flashcard${cards.length === 1 ? '' : 's'} to "${topic}".`);
                 flashcardCreateDraft = null;
                 closeModal(); render(); }
@@ -16390,7 +16428,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     const gradeBtns = `<p class="small" style="margin-top:12px">Compare with the model, then grade yourself — or let the AI check it.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="button primary" data-action="fc-info-grade" data-frac="1">✅ Got it</button><button type="button" class="button" data-action="fc-info-grade" data-frac="0.5">🟡 Partly</button><button type="button" class="button ghost danger" data-action="fc-info-grade" data-frac="0">❌ Missed it</button><button type="button" class="button" data-action="fc-graph-ai" ${sess.aiBusy ? 'disabled' : ''}>${sess.aiBusy ? 'Checking…' : '🤖 Check with AI'}</button></div>`;
                     body = `<h2>${escape(card.front)}</h2><p class="muted">Draw your answer on the whiteboard, then submit to compare it with the model.</p>
               ${has ? `<div class="fc-wb">${wbBoardSvg(mine)}</div>` : '<div class="fc-empty" style="padding:28px"><p class="muted" style="margin:0">Nothing drawn yet.</p></div>'}
-              ${sess.revealed ? `<div class="fc-answerkey"><strong>Model answer</strong><div class="fc-wb" style="margin-top:8px">${wbBoardSvg(card.data.board)}</div>${card.data.notes ? `<p class="small" style="margin-top:8px;white-space:pre-wrap">${escape(card.data.notes)}</p>` : ''}</div>` : ''}
+              ${sess.revealed ? `<div class="fc-answerkey"><strong>Model answer</strong><div class="fc-graph-answer" style="margin-top:8px"><div class="fc-wb">${wbBoardSvg(card.data.board)}</div>${card.data.notes ? `<div class="fc-graph-description">${escape(card.data.notes)}</div>` : ''}</div></div>` : ''}
               ${ai ? `<div class="fc-answerkey"><strong>${pill(ai.frac)} ${Math.round(ai.frac * 100)}% — AI check</strong>${ai.feedback ? `<p style="margin:6px 0">${escape(ai.feedback)}</p>` : ''}${ai.got.length ? `<div class="small">✅ ${ai.got.map(escape).join(' · ')}</div>` : ''}${ai.missing.length ? `<div class="small" style="margin-top:4px">⚠️ ${ai.missing.map(escape).join(' · ')}</div>` : ''}</div>` : ''}
               ${sess.revealed && !sess.checked ? gradeBtns : ''}`;
                     graphFoot = sess.checked ? nextBtn : (sess.revealed ? '' : `<span class="row" style="gap:8px"><button type="button" class="button" data-action="fc-graph-open">✏️ ${has ? 'Edit drawing' : 'Open whiteboard'}</button><button type="button" class="button primary" data-action="fc-graph-submit">Submit &amp; compare</button></span>`); }
@@ -22644,6 +22682,8 @@ If the user asks about how to study or study methods generally, answer from your
                     if (deck) { flashcardCreateDraft = { mode: 'manual', subjectId: deck.subjectId, topic: deck.topic, cards: [{ front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                         openModal('flashcard-create'); } }
                 else if (a === 'flashcard-create-mode') { if (flashcardCreateDraft) { flashcardCreateDraft.mode = b.dataset.mode; renderModal(); } }
+                else if (a === 'fc-draft-section-add') { const d = flashcardCreateDraft; if (d && (d.mode === 'manual' || d.mode === 'deck-edit')) { const name = prompt('Section name (e.g. Monopolies):'); if (name && name.trim()) { d.sections = d.sections || []; d.sections.push({ id: uid(), name: name.trim(), subs: [] }); renderModal(); } } }
+                else if (a === 'fc-draft-section-remove') { const d = flashcardCreateDraft; if (d) { d.sections = (d.sections || []).filter(x => x.id !== b.dataset.section); d.cards.forEach(c => { if (c.secKey === b.dataset.section) c.secKey = ''; }); renderModal(); } }
                 else if (a === 'flashcard-manual-add-row') fcManualAddRow();
                 else if (a === 'flashcard-manual-remove') { const d = flashcardCreateDraft; if (d) { d.cards.splice(Number(b.dataset.index), 1);
                         if (!d.cards.length) d.cards.push({ front: '', back: '' }); renderModal(); } }
