@@ -4571,18 +4571,30 @@
 
 
         /* Maths Helper and digital scientific calculators */
-        .mh-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:12px 0 16px; }
-        .mh-toolbar .field { margin:0; min-width:150px; flex:1; }
-        .mh-mode-control { margin:10px 0 16px; padding:13px 15px 11px; border:1px solid var(--line); border-radius:14px; background:var(--surface); }
-        .mh-mode-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:5px; }
-        .mh-mode-top strong { color:var(--primary); font-size:14px; }
-        .mh-mode-range { display:block; width:100%; margin:10px 0 4px; accent-color:var(--primary); cursor:pointer; }
-        .mh-mode-labels { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
-        .mh-mode-labels span { color:var(--muted); font-size:11px; text-align:center; white-space:nowrap; }
+        .mh-top-controls { display:flex; justify-content:flex-end; align-items:flex-end; flex-wrap:wrap; gap:8px; margin:8px 0 14px; }
+        .mh-toolbar { display:flex; flex:0 1 auto; flex-wrap:wrap; align-items:flex-end; gap:7px; margin:0; }
+        .mh-toolbar .field { margin:0; min-width:0; width:auto; flex:0 1 auto; }
+        .mh-toolbar .field label { display:block; margin:0 0 3px; font-size:10px; line-height:1.2; color:var(--muted); }
+        .mh-toolbar select { height:34px; min-height:34px; padding:5px 25px 5px 8px; font-size:12px; border-radius:8px; }
+        #mh-programme { width:132px; }
+        #mh-subject { width:158px; }
+        #mh-exam-level { width:140px; }
+        .mh-mode-control { width:205px; flex:0 0 205px; margin:0; padding:6px 9px 5px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+        .mh-mode-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:1px; }
+        .mh-mode-top label { font-size:10px; color:var(--muted); }
+        .mh-mode-top strong { color:var(--primary); font-size:11px; }
+        .mh-mode-range { display:block; width:100%; height:15px; margin:2px 0 1px; accent-color:var(--primary); cursor:pointer; }
+        .mh-mode-labels { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:2px; }
+        .mh-mode-labels span { color:var(--muted); font-size:9px; text-align:center; white-space:nowrap; }
         .mh-mode-labels span:first-child { text-align:left; }
         .mh-mode-labels span:last-child { text-align:right; }
         .mh-mode-labels span.active { color:var(--primary); font-weight:800; }
-        .mh-mode-description { color:var(--muted); font-size:12px; margin:7px 0 0; }
+        .mh-mode-description { display:none; }
+        .math-display { display:block; max-width:100%; overflow-x:auto; overflow-y:hidden; padding:5px 0; text-align:center; }
+        .mh-final .math-display { padding:3px 0; }
+        .mh-message-body mjx-container[jax="CHTML"][display="true"] { max-width:100%; overflow-x:auto; overflow-y:hidden; }
+        @media(max-width:760px) { .mh-top-controls { justify-content:flex-start; } .mh-toolbar { flex:1 1 100%; } .mh-mode-control { width:205px; flex-basis:205px; } }
+        @media(max-width:470px) { .mh-toolbar { width:100%; display:grid; grid-template-columns:1fr 1fr; } .mh-toolbar .field { width:100%; } #mh-programme,#mh-subject,#mh-exam-level { width:100%; max-width:100%; } .mh-toolbar .field:last-child:nth-child(3) { grid-column:1 / -1; } .mh-mode-control { width:205px; flex-basis:205px; } }
         .mh-chat { display:flex; flex-direction:column; gap:14px; min-height:430px; }
         .mh-message { max-width:100%; border:1px solid var(--line); border-radius:16px; padding:14px 16px; background:var(--surface); }
         .mh-message.user { margin-left:auto; max-width:min(820px,92%); background:var(--primary-soft); border-color:transparent; }
@@ -12222,16 +12234,79 @@ ${pointsSvg}
             function mathHelperSubjectOptions() { return SUBJECT_TAXONOMY.filter(x => MATH_HELPER_ALLOWED_SUBJECTS.has(x.id) && (x.levels || []).includes(mathHelperProgramme)).sort((a,b)=>a.name.localeCompare(b.name)); }
             function mathHelperSetSubject(id) { if (mathHelperSubjectOptions().some(x=>x.id===id)) mathHelperSubjectId=id; else mathHelperSubjectId=mathHelperSubjectOptions()[0]?.id || 'maths'; }
             function mathHelperSetProgramme(level) { mathHelperProgramme = level === 'jc' ? 'jc' : 'lc'; mathHelperExamLevel = mathHelperProgramme==='jc' ? 'common' : (mathHelperExamLevel==='common'?'higher':mathHelperExamLevel); mathHelperSetSubject(mathHelperSubjectId); mathHelperMessages=[]; mathHelperComposer=''; mathHelperExpandedSteps.clear(); mathHelperReferenceCache.clear(); }
-            function mathHelperSafeText(text) {
-                let html = escape(String(text || ''));
-                html = html.replace(/\\\[([\s\S]*?)\\\]/g, '<div class="math-display">\\[$1\\]</div>');
-                html = html.replace(/\\\(([\s\S]*?)\\\)/g, '<span>\\($1\\)</span>');
-                html = html.replace(/\$\$([\s\S]*?)\$\$/g, '<div class="math-display">\\[$1\\]</div>');
-                html = html.replace(/\$([^$\n]+)\$/g, '<span>\\($1\\)</span>');
-                html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-                return html.split(/\n{2,}/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+            function mathHelperLooksLikeBareMathLine(value) {
+                const line=String(value||'').trim().replace(/^[-*•]\s*/,'').replace(/[;:]$/,'');
+                if(!line || line.length>260 || /\\\(|\\\[|\$/.test(line)) return false;
+                if(/^[+\-]?(?:\d+(?:[.,]\d*)?|\.\d+)(?:\s*(?:%|°|[A-Za-z]{1,5}(?:\/[A-Za-z]{1,5})?))?$/.test(line)) return true;
+                const hasLatexCommand=/\\(?:frac|dfrac|tfrac|sqrt|sin|cos|tan|arcsin|arccos|arctan|log|ln|sum|prod|int|lim|pi|theta|alpha|beta|gamma|Delta|times|cdot|pm|le|ge|neq|approx|infty|left|right|mathrm|text|overline|vec|binom|begin)\b/.test(line);
+                const hasOperator=/(?:=|≤|≥|≈|≠|<|>|\^|_|[+×÷*/√∑∫π±∞]|\\(?:times|cdot|pm|le|ge|neq|approx))/.test(line);
+                if(!hasLatexCommand && !hasOperator) return false;
+                const words=(line.match(/[A-Za-z]{2,}/g)||[]).map(w=>w.toLowerCase());
+                const mathWords=new Set(['sin','cos','tan','arcsin','arccos','arctan','sinh','cosh','tanh','log','ln','lim','mod','sqrt','frac','dfrac','tfrac','pi','theta','alpha','beta','gamma','delta','mathrm','text','times','cdot','pm','neq','approx','infty','left','right','overline','vec','binom','begin','end','sum','prod','int','min','max','exp','det','ln','log','boxed']);
+                const proseWords=words.filter(w=>!mathWords.has(w));
+                // Only promote a whole line when it is genuinely equation-like. This avoids
+                // turning ordinary explanatory sentences containing an equals sign into maths.
+                if(proseWords.length>1) return false;
+                return true;
             }
-            function mathHelperTypeset() { if (window.MathJax?.typesetPromise) window.MathJax.typesetPromise([document.getElementById('math-helper-thread') || document.getElementById('mh-equation-dialog')].filter(Boolean)).catch(()=>{}); }
+            function mathHelperFormatDelimitedText(line) {
+                const raw=String(line||'');
+                const parts=raw.split(/(\\\([\s\S]*?\\\)|\$[^$\n]+\$)/g);
+                const inlineEquation=/(?<![A-Za-z])((?:\\(?:frac|dfrac|tfrac|sqrt|sin|cos|tan|arcsin|arccos|arctan|log|ln|sum|int|lim|pi|theta|alpha|beta|gamma|boxed)\b(?:\[[^\]]*\])?(?:\{[^{}\n]*\}){1,4})|(?:[A-Za-z0-9πθαβΔ\\{}().]+(?:\s*(?:<=|>=|=|≤|≥|≈|≠|<|>|[+\-−×÷*/^])\s*[A-Za-z0-9πθαβΔ\\{}().]+)+))(?![A-Za-z])/g;
+                return parts.map(part=>{
+                    if(/^\\\([\s\S]*\\\)$/.test(part) || /^\$[^$\n]+\$$/.test(part)) {
+                        let math=escape(part);
+                        math=math.replace(/\\\(([\s\S]*?)\\\)/g,'<span>\\($1\\)</span>');
+                        math=math.replace(/\$([^$\n]+)\$/g,'<span>\\($1\\)</span>');
+                        return math;
+                    }
+                    let html='', cursor=0, match;
+                    inlineEquation.lastIndex=0;
+                    while((match=inlineEquation.exec(part))!==null) {
+                        html+=escape(part.slice(cursor,match.index))+`<span>\\(${escape(match[1])}\\)</span>`;
+                        cursor=match.index+match[0].length;
+                    }
+                    html+=escape(part.slice(cursor));
+                    return html.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+                }).join('');
+            }
+            function mathHelperSafeText(text, autoMath=true) {
+                const source=String(text||'').replace(/\r\n?/g,'\n');
+                if(!source.trim()) return '';
+                const output=[];
+                source.split(/\n{2,}/).forEach(paragraph=>{
+                    const textLines=[];
+                    const flushText=()=>{if(textLines.length){output.push(`<p>${textLines.map(mathHelperFormatDelimitedText).join('<br>')}</p>`);textLines.length=0;}};
+                    paragraph.split('\n').forEach(line=>{
+                        const trimmed=line.trim();
+                        const explicitDisplay=trimmed.match(/^\\\[([\s\S]*)\\\]$|^\$\$([\s\S]*)\$\$$/);
+                        if(explicitDisplay) {
+                            flushText();
+                            output.push(`<div class="math-display">\\[${escape(explicitDisplay[1]??explicitDisplay[2])}\\]</div>`);
+                        } else if(autoMath && mathHelperLooksLikeBareMathLine(line)) {
+                            flushText();
+                            output.push(`<div class="math-display">\\[${escape(line.trim())}\\]</div>`);
+                        } else textLines.push(line);
+                    });
+                    flushText();
+                });
+                return output.join('');
+            }
+            function mathHelperMathBlock(value) {
+                let tex=String(value??'').trim();
+                if(!tex) return '';
+                // The step.math field is always rendered as display maths. Remove one outer
+                // delimiter pair first so provider formatting differences cannot nest them.
+                const pairs=[[/^\\\[([\s\S]*)\\\]$/,'$1'],[/^\\\(([\s\S]*)\\\)$/,'$1'],[/^\$\$([\s\S]*)\$\$$/,'$1'],[/^\$([^\n]*)\$$/,'$1']];
+                for(const [re,repl] of pairs){const match=tex.match(re);if(match){tex=match[1].trim();break;}}
+                return `<div class="math-display">\\[${escape(tex)}\\]</div>`;
+            }
+            function mathHelperTypeset() {
+                const target=document.getElementById('math-helper-thread') || document.getElementById('mh-equation-dialog');
+                if(!target || !window.MathJax?.typesetPromise) return;
+                try { window.MathJax.typesetClear?.([target]); } catch {}
+                window.MathJax.typesetPromise([target]).catch(()=>{});
+            }
             function mathHelperRenderSteps(msg) {
                 const response = msg.response || {}, steps = Array.isArray(response.steps) ? response.steps : [];
                 return steps.map((step,i)=>{
@@ -12240,7 +12315,7 @@ ${pointsSvg}
                     const math = step.math || step.equation || step.expression || '';
                     const detail = step.detail || step.explanation || step.why || '';
                     const why = step.why && step.explanation ? step.why : '';
-                    return `<div class="mh-step"><button type="button" class="mh-step-toggle" data-action="mh-step-toggle" data-message="${escape(msg.id)}" data-step="${escape(id)}" aria-expanded="${expanded}"><span class="mh-step-number">${i+1}</span><span class="mh-step-title">${escape(title)}</span><span>${expanded?'▾':'▸'}</span></button>${math?`<div class="mh-step-math">\\[${escape(math)}\\]</div>`:''}${expanded?`<div class="mh-step-detail">${detail?mathHelperSafeText(detail):'<p>No extra explanation was supplied for this step.</p>'}${why?`<p><strong>Why this step?</strong> ${mathHelperSafeText(why)}</p>`:''}${step.rule?`<p><strong>Rule used:</strong> ${mathHelperSafeText(step.rule)}</p>`:''}${step.check?`<p><strong>Check:</strong> ${mathHelperSafeText(step.check)}</p>`:''}<div class="mh-step-question"><textarea id="mh-step-question-${escape(msg.id)}-${escape(id)}" rows="2" placeholder="Ask a question about this step…"></textarea><button type="button" class="button primary" data-action="mh-ask-step" data-message="${escape(msg.id)}" data-step="${escape(id)}">Ask</button></div></div>`:''}</div>`;
+                    return `<div class="mh-step"><button type="button" class="mh-step-toggle" data-action="mh-step-toggle" data-message="${escape(msg.id)}" data-step="${escape(id)}" aria-expanded="${expanded}"><span class="mh-step-number">${i+1}</span><span class="mh-step-title">${escape(title)}</span><span>${expanded?'▾':'▸'}</span></button>${math?`<div class="mh-step-math">${mathHelperMathBlock(math)}</div>`:''}${expanded?`<div class="mh-step-detail">${detail?mathHelperSafeText(detail):'<p>No extra explanation was supplied for this step.</p>'}${why?`<p><strong>Why this step?</strong> ${mathHelperSafeText(why)}</p>`:''}${step.rule?`<p><strong>Rule used:</strong> ${mathHelperSafeText(step.rule)}</p>`:''}${step.check?`<p><strong>Check:</strong> ${mathHelperSafeText(step.check)}</p>`:''}<div class="mh-step-question"><textarea id="mh-step-question-${escape(msg.id)}-${escape(id)}" rows="2" placeholder="Ask a question about this step…"></textarea><button type="button" class="button primary" data-action="mh-ask-step" data-message="${escape(msg.id)}" data-step="${escape(id)}">Ask</button></div></div>`:''}</div>`;
                 }).join('');
             }
             function mathHelperMessageHtml(msg) {
@@ -12279,8 +12354,7 @@ ${pointsSvg}
                 const loginNote = !currentUser ? `<div class="empty" style="margin-bottom:12px">Sign in with Google to use the AI Maths Helper. It uses the same protected AI service as the rest of the website.</div>` : '';
                 const loading = mathHelperLoading ? `<article class="mh-message assistant"><div class="mh-message-head"><span>∑ Maths Helper</span><span>Thinking…</span></div><p class="small">${escape(mathHelperLoadingDetail||'Working through the question…')}</p></article>` : '';
                 return `<div class="page">${`<button type="button" class="subject-page-back" data-action="tools-back">← Back to Tools</button>`}${header('Maths Helper','An exam-focused AI tutor for Mathematics, Applied Mathematics, Physics, Chemistry, DCG and other mathematical subjects.','')}
-                    <div class="mh-toolbar"><div class="field"><label for="mh-programme">Course</label><select id="mh-programme" data-action="mh-programme"><option value="lc" ${mathHelperProgramme==='lc'?'selected':''}>Leaving Certificate</option><option value="jc" ${mathHelperProgramme==='jc'?'selected':''}>Junior Cycle</option></select></div><div class="field"><label for="mh-subject">Subject</label><select id="mh-subject" data-action="mh-subject">${levelOptions}</select></div>${assessmentOptions}</div>
-                    <div class="mh-mode-control"><div class="mh-mode-top"><label for="mh-mode-slider">Explanation level</label><strong id="mh-mode-current">${escape(MATH_HELPER_MODE_LABELS[mathHelperMode])}</strong></div><input id="mh-mode-slider" class="mh-mode-range" type="range" min="0" max="3" step="1" value="${modeIndex}" aria-label="Explanation level" aria-valuetext="${escape(MATH_HELPER_MODE_LABELS[mathHelperMode])}"><div class="mh-mode-labels">${MATH_HELPER_MODE_ORDER.map((id,i)=>`<span class="${i===modeIndex?'active':''}" data-mh-mode-label="${id}">${escape(MATH_HELPER_MODE_LABELS[id])}</span>`).join('')}</div><p class="mh-mode-description" id="mh-mode-description">${escape(modeDescriptions[mathHelperMode])}</p></div>
+                    <div class="mh-top-controls"><div class="mh-toolbar"><div class="field"><label for="mh-programme">Course</label><select id="mh-programme" data-action="mh-programme"><option value="lc" ${mathHelperProgramme==='lc'?'selected':''}>Leaving Certificate</option><option value="jc" ${mathHelperProgramme==='jc'?'selected':''}>Junior Cycle</option></select></div><div class="field"><label for="mh-subject">Subject</label><select id="mh-subject" data-action="mh-subject">${levelOptions}</select></div>${assessmentOptions}</div><div class="mh-mode-control"><div class="mh-mode-top"><label for="mh-mode-slider">Mode</label><strong id="mh-mode-current">${escape(MATH_HELPER_MODE_LABELS[mathHelperMode])}</strong></div><input id="mh-mode-slider" class="mh-mode-range" type="range" min="0" max="3" step="1" value="${modeIndex}" aria-label="Explanation level" aria-valuetext="${escape(MATH_HELPER_MODE_LABELS[mathHelperMode])}"><div class="mh-mode-labels">${MATH_HELPER_MODE_ORDER.map((id,i)=>`<span class="${i===modeIndex?'active':''}" data-mh-mode-label="${id}">${escape(MATH_HELPER_MODE_LABELS[id])}</span>`).join('')}</div><p class="mh-mode-description" id="mh-mode-description">${escape(modeDescriptions[mathHelperMode])}</p></div></div>
                     ${loginNote}<div class="mh-chat" id="math-helper-thread">${messages || `<div class="mh-empty"><div style="font-size:34px;margin-bottom:8px">∑</div><h3 style="margin:0 0 6px">What are you working on?</h3><p class="small" style="max-width:500px;margin:0 auto">Type a question or use the Equations button to build a properly formatted expression. The helper will follow the selected subject's exam methods.</p></div>`}${loading}</div>
                     <div class="mh-composer"><div class="mh-composer-tools"><button type="button" class="button ghost" data-action="mh-eq-open">∑ Equations</button><span class="mh-reference-note">${escape(mathHelperSubjectMeta()?.name||'Subject')} · ${escape(MATH_HELPER_MODE_LABELS[mathHelperMode])} mode · recent marking schemes used where available</span></div><div class="mh-compose-row"><textarea id="mh-composer" rows="2" placeholder="Ask a question… use Shift + Enter for a new line" ${!currentUser||mathHelperLoading?'disabled':''}>${escape(mathHelperComposer)}</textarea><button type="button" class="button primary" data-action="mh-send" ${!currentUser||mathHelperLoading?'disabled':''}>${mathHelperLoading?'Working…':'Send ↗'}</button></div></div>
                     ${mathHelperEquationModalHtml()}</div>`;
@@ -12566,7 +12640,7 @@ ${pointsSvg}
                         history[history.length-1].parts.push({text:'Relevant official Formulae and Tables booklet page images are attached. Read the printed formulae and constants directly; do not guess if unclear.'});
                         formulaImages.forEach(part=>history[history.length-1].parts.push({inlineData:part.inlineData}));
                     }
-                    const buildPrompt=(referenceText)=>`The student is asking a question in ${mathHelperProgramme==='lc'?'Leaving Certificate':'Junior Cycle'} ${subject?.name||'this subject'} at ${mathHelperExamLevel} level.\n\n${modeInstructions}\n\nReturn one JSON object and nothing else, with this exact schema: {"summary":"optional short introduction or context","steps":[{"id":"1","title":"short step title","math":"LaTeX without surrounding dollar signs","explanation":"what happened in this step","why":"why this step is valid","rule":"named rule or formula, if relevant","check":"optional check"}],"finalAnswer":"final answer, using LaTeX delimiters where helpful","note":"optional note about assumptions or precision"}. Use double-quoted JSON strings, escape any quotation marks inside text, and do not include trailing commas. For Solve mode, steps must be [] and summary/note should be empty. For Normal mode, step explanations/why/rule should be empty strings. For every answer, keep all maths in LaTeX (use \\( ... \\) in text fields or the math field). Do not output Markdown code fences or text outside the JSON.\n\nSUBJECT-SPECIFIC EXAM INSTRUCTIONS:\n${mathHelperOfficialGuidance(mathHelperSubjectId,mathHelperProgramme)}\n\nREFERENCE DOCUMENTS AND EXAMINER CONVENTIONS (use only where relevant):\n${referenceText}\n\n${stepContext?`FOCUS ON THIS PREVIOUS STEP: ${String(stepContext).slice(0,1800)}\nAnswer the student's follow-up specifically about this step, explaining the point they asked about. Preserve the context of the earlier solution.`:''}\n\nIf the question is ambiguous, state the most reasonable assumption in the summary. If a required diagram or missing value prevents a unique answer, say so rather than guessing. Keep the solution at the selected course level.`;
+                    const buildPrompt=(referenceText)=>`The student is asking a question in ${mathHelperProgramme==='lc'?'Leaving Certificate':'Junior Cycle'} ${subject?.name||'this subject'} at ${mathHelperExamLevel} level.\n\n${modeInstructions}\n\nReturn one JSON object and nothing else, with this exact schema: {"summary":"optional short introduction or context","steps":[{"id":"1","title":"short step title","math":"LaTeX without surrounding dollar signs","explanation":"what happened in this step","why":"why this step is valid","rule":"named rule or formula, if relevant","check":"optional check"}],"finalAnswer":"final answer, using LaTeX delimiters where helpful","note":"optional note about assumptions or precision"}. Use double-quoted JSON strings, escape any quotation marks inside text, and do not include trailing commas. For Solve mode, steps must be [] and summary/note should be empty. For Normal mode, step explanations/why/rule should be empty strings. FORMATTING IS STRICT: every mathematical expression, number-containing equation, formula, symbol sequence, fraction, power, root, function, unit calculation or numerical substitution MUST be written in LaTeX. In summary/explanation/why/rule/check/note fields, wrap every inline expression in \\( ... \\). In each steps[].math field and finalAnswer, write LaTeX only (without Markdown), and do not mix raw unformatted equations with prose. If a final answer includes words, put the words in summary and put the answer expression alone in finalAnswer. Never write equations as plain ASCII text. Do not output Markdown code fences or text outside the JSON.\n\nSUBJECT-SPECIFIC EXAM INSTRUCTIONS:\n${mathHelperOfficialGuidance(mathHelperSubjectId,mathHelperProgramme)}\n\nREFERENCE DOCUMENTS AND EXAMINER CONVENTIONS (use only where relevant):\n${referenceText}\n\n${stepContext?`FOCUS ON THIS PREVIOUS STEP: ${String(stepContext).slice(0,1800)}\nAnswer the student's follow-up specifically about this step, explaining the point they asked about. Preserve the context of the earlier solution.`:''}\n\nIf the question is ambiguous, state the most reasonable assumption in the summary. If a required diagram or missing value prevents a unique answer, say so rather than guessing. Keep the solution at the selected course level.`;
                     let data;
                     try {
                         data=await aiInvoke({contents:history,systemInstruction:{parts:[{text:buildPrompt(refs)}]},preferProvider:'quality'});
