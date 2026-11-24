@@ -2818,6 +2818,8 @@
         .wb-top strong { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .wb-hint { color: var(--muted); font-size: 12px; }
         .wb-spacer { flex: 1; }
+        .wb-zoom-group { display: inline-flex; align-items: center; gap: 4px; padding: 0 5px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+        .wb-mini.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
         .wb-main { flex: 1; display: flex; min-height: 0; }
         .wb-tools { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; border-right: 1px solid var(--line); background: var(--surface); overflow-y: auto; }
         .wb-tool { width: 40px; height: 40px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: var(--text); font-size: 18px; cursor: pointer; }
@@ -2857,7 +2859,20 @@
         .fc-section-select { min-width: 112px; }
         @media (max-width:640px) { .fc-scene { height: min(58vh, 460px); min-height: 300px; } .fc-editor-head select { max-width: 150px !important; } }
 
-        .wb-text { position: absolute; display: none; z-index: 2; border: 2px solid var(--primary); border-radius: 6px; padding: 2px 6px; background: #fff; color: #111; resize: none; font-family: system-ui, sans-serif; line-height: 1.3; outline: none; }
+        .wb-text { position: absolute; display: none; z-index: 20; pointer-events: auto; border: 2px solid var(--primary); border-radius: 7px; padding: 5px 7px; background: #fff; color: #111; resize: both; overflow: auto; font-family: system-ui, sans-serif; line-height: 1.35; outline: none; box-shadow: 0 5px 18px rgba(15,23,42,.18); min-width: 120px; min-height: 34px; }
+        .wb-text:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft), 0 5px 18px rgba(15,23,42,.18); }
+        .wb-description-panel { flex: 0 0 min(300px, 28vw); min-width: 210px; display: flex; flex-direction: column; gap: 10px; padding: 16px; border-left: 1px solid var(--line); background: var(--surface); overflow-y: auto; }
+        .wb-description-toggle { display: flex; align-items: center; gap: 8px; font-weight: 650; cursor: pointer; }
+        .wb-description-panel p { margin: 0; line-height: 1.45; }
+        .wb-description-input { width: 100%; min-height: 180px; resize: vertical; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); font: inherit; line-height: 1.5; }
+        .wb-description-input[hidden] { display: none; }
+        .wb-stage.pan-mode .wb-svg { cursor: grab; }
+        .wb-stage.pan-mode .wb-svg:active { cursor: grabbing; }
+        .wb-zoom-label { display: inline-block; min-width: 42px; text-align: center; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+        .fc-graph-editor-preview { margin: 7px 0; grid-template-columns: minmax(0, 1.4fr) minmax(140px, 1fr); align-items: start; }
+        @media (max-width: 620px) { .fc-graph-editor-preview { grid-template-columns: minmax(0, 1fr); } }
+        @media (max-width: 850px) { .wb-description-panel { flex-basis: 230px; min-width: 190px; padding: 12px; } }
+        @media (max-width: 700px) { .wb-main { flex-direction: column; } .wb-tools { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; } .wb-description-panel { flex: 0 0 auto; min-width: 0; max-height: 190px; border-left: 0; border-top: 1px solid var(--line); } .wb-description-input { min-height: 75px; } }
         .wb-style { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
         .wb-style .group { display: flex; align-items: center; gap: 4px; padding-right: 10px; border-right: 1px solid var(--line); }
         .wb-style .group:last-child { border-right: 0; }
@@ -16124,15 +16139,17 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             // opts: { title, hint, board, onDone(board) }
             function openWhiteboard(opts) { closeWhiteboard();
                 const st = { board: wbClone(opts.board && Array.isArray(opts.board.shapes) ? opts.board : { shapes: [] }), tool: 'select', sel: null, undo: [], redo: [], drag: null, editing: null, snap: true, lastClick: null, swPending: false,
-                    style: { color: WB_COLORS[0], fill: 0, sw: 3, dash: 'solid', fs: 20 } };
+                    panMode: false, view: { x: 0, y: 0, w: WB_W, h: WB_H }, style: { color: WB_COLORS[0], fill: 0, sw: 3, dash: 'solid', fs: 20 } };
                 const root = document.createElement('div'); root.className = 'wb-overlay'; root.id = 'wb-overlay';
                 const tools = [['select', '↖', 'Select / move (V)'], ['rect', '▭', 'Rectangle (R)'], ['oval', '◯', 'Oval (O)'], ['rhombus', '◇', 'Rhombus (D)'], ['triangle', '△', 'Triangle (G)'], ['blockarrow', '⇨', 'Block arrow (B)'],
                     ['line', '╱', 'Line (L)'], ['arrow', '↗', 'Arrow (A)'], ['elbow', '↱', 'Elbow arrow (E)'], ['curve', '⌒', 'Curved line (C)'], ['pen', '✎', 'Freehand (P)'], ['text', 'T', 'Text box (T)']];
-                root.innerHTML = `<div class="wb-top"><strong>${escape(opts.title || 'Whiteboard')}</strong><span class="wb-hint">${escape(opts.hint || 'Double-click a shape to type in it · Delete removes · Ctrl+Z undoes')}</span><span class="wb-spacer"></span>
+                root.innerHTML = `<div class="wb-top"><strong>${escape(opts.title || 'Whiteboard')}</strong><span class="wb-hint">${escape(opts.hint || 'Double-click a shape to type · Delete removes · Ctrl+Z undoes · Use the zoom controls or scroll to zoom')}</span><span class="wb-spacer"></span>
                     <button type="button" class="wb-mini" data-wb="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button type="button" class="wb-mini" data-wb="redo" title="Redo">↷ Redo</button><button type="button" class="wb-mini" data-wb="clear">Clear</button>
+                    <span class="wb-zoom-group"><button type="button" class="wb-mini" data-wb="zoom-out" title="Zoom out">−</button><span class="wb-zoom-label" data-wb-zoom-label>100%</span><button type="button" class="wb-mini" data-wb="zoom-in" title="Zoom in">＋</button><button type="button" class="wb-mini" data-wb="fit" title="Fit drawing to screen">Fit</button><button type="button" class="wb-mini" data-wb="reset-zoom" title="Reset zoom">Reset</button><button type="button" class="wb-mini" data-wb="pan" title="Toggle pan mode">Pan</button></span>
                     <button type="button" class="button ghost" data-wb="cancel">Cancel</button><button type="button" class="button primary" data-wb="done">Done</button></div>
                   <div class="wb-main"><div class="wb-tools">${tools.map(t => `<button type="button" class="wb-tool" data-wb-tool="${t[0]}" title="${t[2]}" aria-label="${t[2]}">${t[1]}</button>`).join('')}</div>
-                    <div class="wb-stage"><svg class="wb-svg" viewBox="0 0 ${WB_W} ${WB_H}" xmlns="http://www.w3.org/2000/svg"></svg><textarea class="wb-text" rows="1"></textarea></div></div>
+                    <div class="wb-stage"><svg class="wb-svg" viewBox="0 0 ${WB_W} ${WB_H}" xmlns="http://www.w3.org/2000/svg"></svg><textarea class="wb-text" rows="1" aria-label="Shape text" placeholder="Type here…"></textarea></div>
+                    ${opts.allowDescription ? `<aside class="wb-description-panel"><label class="wb-description-toggle"><input type="checkbox" data-wb-description-toggle ${opts.descriptionEnabled ? 'checked' : ''}> <span>Add explanation beside the graph</span></label><p class="small">This explanation appears beside the model diagram when the flashcard answer is shown.</p><textarea class="wb-description-input" data-wb-description ${opts.descriptionEnabled ? '' : 'hidden'} placeholder="Explain what the diagram shows, how to read it and the key points the student should mention…">${escape(opts.descriptionText || '')}</textarea></aside>` : ''}</div>
                   <div class="wb-style">
                     <div class="group" title="Colour">${WB_COLORS.map(c => `<button type="button" class="wb-swatch" data-wb-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
                     <div class="group"><button type="button" class="wb-mini" data-wb="fill" title="Cycle outline / tint / solid">Fill: none</button></div>
@@ -16144,10 +16161,20 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     <div class="group"><button type="button" class="wb-mini" data-wb="dup">Duplicate</button><button type="button" class="wb-mini" data-wb="front">To front</button><button type="button" class="wb-mini" data-wb="back">To back</button><button type="button" class="wb-mini" data-wb="del">🗑 Delete</button></div>
                   </div>`;
                 document.body.appendChild(root);
-                const svg = root.querySelector('.wb-svg'), ta = root.querySelector('.wb-text');
+                const svg = root.querySelector('.wb-svg'), ta = root.querySelector('.wb-text'), stage = root.querySelector('.wb-stage');
                 const cur = () => st.board.shapes.find(s => s.id === st.sel) || null;
                 const snapV = (v) => st.snap ? Math.round(v / 10) * 10 : v, snapP = (p) => ({ x: snapV(p.x), y: snapV(p.y) });
-                const pt = (e) => { const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) / (r.width || WB_W) * WB_W, y: (e.clientY - r.top) / (r.height || WB_H) * WB_H }; };
+                const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+                const pt = (e) => { const r = svg.getBoundingClientRect(); return { x: st.view.x + (e.clientX - r.left) / (r.width || WB_W) * st.view.w, y: st.view.y + (e.clientY - r.top) / (r.height || WB_H) * st.view.h }; };
+                const setView = (v) => { st.view = v; st.view.h = st.view.w * WB_H / WB_W; };
+                const zoomAt = (factor, clientX, clientY) => { const r = svg.getBoundingClientRect(), cx = clientX == null ? r.left + r.width / 2 : clientX, cy = clientY == null ? r.top + r.height / 2 : clientY;
+                    const ax = st.view.x + clamp((cx - r.left) / (r.width || 1), 0, 1) * st.view.w, ay = st.view.y + clamp((cy - r.top) / (r.height || 1), 0, 1) * st.view.h;
+                    const nw = clamp(st.view.w * factor, WB_W / 4, WB_W * 2), nh = nw * WB_H / WB_W, rx = (ax - st.view.x) / st.view.w, ry = (ay - st.view.y) / st.view.h;
+                    setView({ x: ax - rx * nw, y: ay - ry * nh, w: nw, h: nh }); draw(); };
+                const resetView = () => { setView({ x: 0, y: 0, w: WB_W, h: WB_H }); draw(); };
+                const fitView = () => { if (!st.board.shapes.length) { resetView(); return; } const boxes = st.board.shapes.map(wbBBox), minX = Math.min(...boxes.map(b => b.x)), minY = Math.min(...boxes.map(b => b.y)), maxX = Math.max(...boxes.map(b => b.x + b.w)), maxY = Math.max(...boxes.map(b => b.y + b.h));
+                    const w = Math.max(100, maxX - minX + 100), h = Math.max(100, maxY - minY + 100), vw = clamp(Math.max(w, h * WB_W / WB_H), WB_W / 4, WB_W * 2), vh = vw * WB_H / WB_W;
+                    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2; setView({ x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh }); draw(); };
                 const pushUndo = () => { st.undo.push(JSON.stringify(st.board.shapes)); if (st.undo.length > 60) st.undo.shift(); st.redo = []; };
                 const selUi = () => { const s = cur(); if (!s) return '';
                     const hdl = (k, x, y) => `<circle data-wb-h="${k}" cx="${x}" cy="${y}" r="8" fill="#fff" stroke="#2563eb" stroke-width="2.5" style="cursor:pointer"/>`;
@@ -16162,27 +16189,34 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     const fillV = s && WB_BOX.includes(s.t) ? s.fill : st0.fill; root.querySelector('[data-wb="fill"]').textContent = 'Fill: ' + ['none', 'tint', 'solid'][fillV || 0];
                     root.querySelector('[data-wb="snap"]').textContent = 'Snap: ' + (st.snap ? 'on' : 'off');
                     const sw = root.querySelector('[data-wb-sw]'); sw.value = (s && s.sw) || st0.sw;
-                    root.querySelector('[data-wb="h1"]').classList.toggle('active', !!(s && s.h1)); root.querySelector('[data-wb="h2"]').classList.toggle('active', !!(s && s.h2)); };
+                    root.querySelector('[data-wb="h1"]').classList.toggle('active', !!(s && s.h1)); root.querySelector('[data-wb="h2"]').classList.toggle('active', !!(s && s.h2));
+                    const zoomLabel = root.querySelector('[data-wb-zoom-label]'); if (zoomLabel) zoomLabel.textContent = Math.round(WB_W / st.view.w * 100) + '%';
+                    const panBtn = root.querySelector('[data-wb="pan"]'); if (panBtn) panBtn.classList.toggle('active', st.panMode); stage.classList.toggle('pan-mode', st.panMode); };
                 const draw = () => { const grid = st.snap ? `<defs><pattern id="wbg" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#d1d5db"/></pattern></defs><rect width="${WB_W}" height="${WB_H}" fill="url(#wbg)" pointer-events="none"/>` : '';
+                    svg.setAttribute('viewBox', `${st.view.x} ${st.view.y} ${st.view.w} ${st.view.h}`);
                     svg.innerHTML = `<rect width="${WB_W}" height="${WB_H}" fill="#ffffff"/>${grid}${st.board.shapes.map(wbShapeSvg).join('')}${selUi()}`; sync(); };
                 const startTextEdit = (id) => { const s = st.board.shapes.find(x => x.id === id); if (!s || !(WB_BOX.includes(s.t) || s.t === 'text')) return;
-                    st.editing = id; const r = svg.getBoundingClientRect(), k = (r.width || WB_W) / WB_W, stageR = svg.parentElement.getBoundingClientRect(); let x, y, w;
+                    st.editing = id; const r = svg.getBoundingClientRect(), kx = (r.width || WB_W) / st.view.w, ky = (r.height || WB_H) / st.view.h, stageR = stage.getBoundingClientRect(); let x, y, w;
                     if (s.t === 'text') { const z = wbTextSize(s); x = s.x; y = s.y; w = Math.max(180, z.w); } else { w = Math.max(s.w, 180); x = s.x + s.w / 2 - w / 2; y = s.y + s.h / 2 - 18; }
-                    ta.value = s.text || ''; ta.style.display = 'block'; ta.style.left = (r.left - stageR.left + x * k) + 'px'; ta.style.top = (r.top - stageR.top + y * k) + 'px'; ta.style.width = (w * k) + 'px';
-                    ta.style.fontSize = Math.max(13, (s.fs || 20) * k) + 'px'; ta.rows = Math.max(1, ta.value.split('\n').length); ta.focus(); ta.select(); };
+                    const left = r.left - stageR.left + (x - st.view.x) * kx, top = r.top - stageR.top + (y - st.view.y) * ky;
+                    ta.value = s.text || ''; ta.style.display = 'block'; ta.style.left = left + 'px'; ta.style.top = top + 'px'; ta.style.width = Math.max(120, Math.min(w * kx, stageR.width - left - 12)) + 'px';
+                    ta.style.fontSize = Math.max(13, (s.fs || 20) * kx) + 'px'; ta.rows = Math.max(1, ta.value.split('\n').length); ta.style.height = 'auto'; ta.style.height = Math.max(38, ta.scrollHeight + 4) + 'px';
+                    // Defer focus: synchronous SVG pointer handlers can otherwise lose focus to the SVG's default action.
+                    requestAnimationFrame(() => { if (st.editing === id && ta.isConnected) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }); };
                 const commitText = (cancel) => { if (!st.editing) return; const s = st.board.shapes.find(x => x.id === st.editing); st.editing = null; const v = cancel ? (s ? s.text || '' : '') : ta.value; ta.style.display = 'none';
                     if (s) { if (s.t === 'text' && !v.trim()) { st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); if (st.sel === s.id) st.sel = null; }
                         else if ((s.text || '') !== v) { pushUndo(); s.text = v; } }
                     draw(); };
                 ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); } else if (e.key === 'Escape') { e.preventDefault(); commitText(true); } e.stopPropagation(); });
-                ta.addEventListener('input', () => { ta.rows = Math.max(1, ta.value.split('\n').length); });
+                ta.addEventListener('input', () => { ta.rows = Math.max(1, ta.value.split('\n').length); ta.style.height = 'auto'; ta.style.height = Math.max(38, ta.scrollHeight + 4) + 'px'; });
                 ta.addEventListener('blur', () => commitText());
                 const applyMove = (s, o, dx, dy) => { if (WB_BOX.includes(s.t) || s.t === 'text') { s.x = o.x + dx; s.y = o.y + dy; }
                     else if (WB_LINE.includes(s.t)) { s.x1 = o.x1 + dx; s.y1 = o.y1 + dy; s.x2 = o.x2 + dx; s.y2 = o.y2 + dy; if (o.cx != null) { s.cx = o.cx + dx; s.cy = o.cy + dy; } }
                     else if (s.t === 'pen') s.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]); };
-                svg.addEventListener('pointerdown', e => { if (e.button > 0) return; if (st.editing) commitText();
-                    const p = pt(e), hnd = e.target.closest && e.target.closest('[data-wb-h]'), hit = e.target.closest && e.target.closest('[data-wb-id]');
+                svg.addEventListener('pointerdown', e => { if (e.button !== 0 && e.button !== 1) return; if (st.editing) commitText();
                     try { svg.setPointerCapture && svg.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events have no active pointer */ }
+                    if (st.panMode || e.button === 1) { st.drag = { kind: 'pan', startClient: { x: e.clientX, y: e.clientY }, origView: { ...st.view } }; e.preventDefault(); return; }
+                    const p = pt(e), hnd = e.target.closest && e.target.closest('[data-wb-h]'), hit = e.target.closest && e.target.closest('[data-wb-id]');
                     if (hnd && cur()) { pushUndo(); st.drag = { kind: 'handle', h: hnd.dataset.wbH, orig: wbClone(cur()), start: p }; return; }
                     if (st.tool === 'select') {
                         if (hit) { const id = hit.dataset.wbId, now = Date.now();
@@ -16196,7 +16230,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     else if (st.tool === 'pen') s = Object.assign(base, { t: 'pen', pts: [[Math.round(p.x), Math.round(p.y)]] });
                     else s = Object.assign(base, { t: st.tool === 'arrow' ? 'line' : st.tool, x1: sp.x, y1: sp.y, x2: sp.x, y2: sp.y, h1: false, h2: st.tool === 'arrow' || st.tool === 'elbow' });
                     st.board.shapes.push(s); st.sel = id; st.drag = { kind: 'create', id, start: sp }; draw(); });
-                svg.addEventListener('pointermove', e => { const d = st.drag; if (!d) return; const p = pt(e), s = cur(); if (!s) return;
+                svg.addEventListener('pointermove', e => { const d = st.drag; if (!d) return;
+                    if (d.kind === 'pan') { const r = svg.getBoundingClientRect(), dx = (e.clientX - d.startClient.x) / (r.width || 1) * d.origView.w, dy = (e.clientY - d.startClient.y) / (r.height || 1) * d.origView.h;
+                        setView({ x: d.origView.x - dx, y: d.origView.y - dy, w: d.origView.w, h: d.origView.h }); draw(); return; }
+                    const p = pt(e), s = cur(); if (!s) return;
                     if (d.kind === 'create') { const q = snapP(p);
                         if (WB_BOX.includes(s.t)) { s.x = Math.min(d.start.x, q.x); s.y = Math.min(d.start.y, q.y); s.w = Math.abs(q.x - d.start.x); s.h = Math.abs(q.y - d.start.y); }
                         else if (s.t === 'pen') { const l = s.pts[s.pts.length - 1]; if (Math.hypot(p.x - l[0], p.y - l[1]) > 3) s.pts.push([Math.round(p.x), Math.round(p.y)]); }
@@ -16207,7 +16244,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                         if (WB_BOX.includes(s.t)) { const fx = d.h.includes('w') ? o.x + o.w : o.x, fy = d.h.includes('n') ? o.y + o.h : o.y; s.x = Math.min(q.x, fx); s.y = Math.min(q.y, fy); s.w = Math.max(8, Math.abs(q.x - fx)); s.h = Math.max(8, Math.abs(q.y - fy)); }
                         else if (d.h === 'p1') { s.x1 = q.x; s.y1 = q.y; } else if (d.h === 'p2') { s.x2 = q.x; s.y2 = q.y; } else if (d.h === 'c') { s.cx = p.x; s.cy = p.y; } }
                     draw(); });
-                const endDrag = () => { const d = st.drag; st.drag = null; if (!d) return; const s = cur();
+                const endDrag = () => { const d = st.drag; st.drag = null; if (!d) return; if (d.kind === 'pan') { draw(); return; } const s = cur();
                     if (d.kind === 'create' && s) {
                         if (WB_BOX.includes(s.t) && s.w < 6 && s.h < 6) { s.w = 150; s.h = 100; }
                         else if (WB_LINE.includes(s.t) && Math.hypot(s.x2 - s.x1, s.y2 - s.y1) < 6) { s.x2 = s.x1 + (s.t === 'elbow' ? 140 : 170); s.y2 = s.y1 + (s.t === 'elbow' ? 90 : 0); }
@@ -16221,7 +16258,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const dup = () => { const s = cur(); if (!s) return; pushUndo(); const c = wbClone(s); c.id = wbId(); applyMove(c, s, 20, 20); st.board.shapes.push(c); st.sel = c.id; draw(); };
                 const undo = () => { if (!st.undo.length) return; st.redo.push(JSON.stringify(st.board.shapes)); st.board.shapes = JSON.parse(st.undo.pop()); if (!cur()) st.sel = null; draw(); };
                 const redo = () => { if (!st.redo.length) return; st.undo.push(JSON.stringify(st.board.shapes)); st.board.shapes = JSON.parse(st.redo.pop()); if (!cur()) st.sel = null; draw(); };
-                const finish = (save) => { if (st.editing) commitText(); if (save && opts.onDone) opts.onDone(wbClone(st.board)); closeWhiteboard(); };
+                const finish = (save) => { if (st.editing) commitText(); if (save && opts.onDone) {
+                    const desc = root.querySelector('[data-wb-description]'), toggle = root.querySelector('[data-wb-description-toggle]');
+                    opts.onDone(wbClone(st.board), { enabled: !!(toggle && toggle.checked), text: desc ? desc.value : '' });
+                } closeWhiteboard(); };
                 root.addEventListener('click', e => { const b = e.target.closest('[data-wb],[data-wb-tool],[data-wb-color],[data-wb-dash],[data-wb-fs]'); if (!b) return;
                     if (b.dataset.wbTool) { st.tool = b.dataset.wbTool; if (st.tool !== 'select') st.sel = null; draw(); return; }
                     if (b.dataset.wbColor) { style({ color: b.dataset.wbColor }); return; }
@@ -16229,6 +16269,8 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     if (b.dataset.wbFs) { style({ fs: Number(b.dataset.wbFs) }); return; }
                     const a = b.dataset.wb, s = cur();
                     if (a === 'undo') undo(); else if (a === 'redo') redo();
+                    else if (a === 'zoom-in') zoomAt(0.8); else if (a === 'zoom-out') zoomAt(1.25); else if (a === 'fit') fitView(); else if (a === 'reset-zoom') resetView();
+                    else if (a === 'pan') { st.panMode = !st.panMode; draw(); }
                     else if (a === 'clear') { if (st.board.shapes.length && (typeof confirm !== 'function' || confirm('Clear the whole board?'))) { pushUndo(); st.board.shapes = []; st.sel = null; draw(); } }
                     else if (a === 'cancel') { if (st.undo.length && typeof confirm === 'function' && !confirm('Discard your changes to this drawing?')) return; finish(false); }
                     else if (a === 'done') finish(true);
@@ -16243,14 +16285,17 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                         st.board.shapes.push(Object.assign({ id: wbId(), t: 'line', x1: 140, y1: 540, x2: 140, y2: 70 }, base), Object.assign({ id: wbId(), t: 'line', x1: 140, y1: 540, x2: 900, y2: 540 }, base)); draw(); } });
                 root.addEventListener('input', e => { const r = e.target.closest('[data-wb-sw]'); if (!r) return; const v = Number(r.value); st.style.sw = v; const s = cur();
                     if (s) { if (!st.swPending) { pushUndo(); st.swPending = true; } s.sw = v; } draw(); });
-                root.addEventListener('change', e => { if (e.target.closest('[data-wb-sw]')) st.swPending = false; });
+                root.addEventListener('change', e => { if (e.target.closest('[data-wb-sw]')) st.swPending = false; const toggle = e.target.closest('[data-wb-description-toggle]'); if (toggle) { const field = root.querySelector('[data-wb-description]'); if (field) { field.hidden = !toggle.checked; if (toggle.checked) field.focus(); } } });
+                svg.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 0.88 : 1.14, e.clientX, e.clientY); }, { passive: false });
                 const onKey = (e) => { if (!wbActive || wbActive.root !== root || st.editing) return; const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'textarea' || tag === 'input') return; const k = e.key.toLowerCase();
                     if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
                     if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
                     if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault(); dup(); return; }
                     if (e.ctrlKey || e.metaKey || e.altKey) return;
                     if (k === 'delete' || k === 'backspace') { e.preventDefault(); del(); return; }
-                    if (k === 'escape') { e.preventDefault(); st.tool = 'select'; st.sel = null; draw(); return; }
+                    if (k === 'enter' && cur() && (WB_BOX.includes(cur().t) || cur().t === 'text')) { e.preventDefault(); startTextEdit(st.sel); return; }
+                    if (k === '+' || k === '=') { e.preventDefault(); zoomAt(0.8); return; } if (k === '-') { e.preventDefault(); zoomAt(1.25); return; }
+                    if (k === 'escape') { e.preventDefault(); st.tool = 'select'; st.panMode = false; st.sel = null; draw(); return; }
                     if (k.startsWith('arrow') && cur()) { e.preventDefault(); pushUndo(); const n = e.shiftKey ? 10 : 1, s = cur(); applyMove(s, wbClone(s), k === 'arrowleft' ? -n : k === 'arrowright' ? n : 0, k === 'arrowup' ? -n : k === 'arrowdown' ? n : 0); draw(); return; }
                     const map = { v: 'select', r: 'rect', o: 'oval', d: 'rhombus', g: 'triangle', b: 'blockarrow', l: 'line', a: 'arrow', e: 'elbow', c: 'curve', p: 'pen', t: 'text' };
                     if (map[k]) { st.tool = map[k]; if (st.tool !== 'select') st.sel = null; draw(); } };
@@ -16262,7 +16307,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (row.type === 'list' && d) { row.text = d.items.join('\n'); row.ordered = !!d.ordered; }
                 else if (row.type === 'timeline' && d) row.text = d.events.map(e => (e.when ? e.when + ' - ' : '') + e.label).join('\n');
                 else if (row.type === 'info' && d) row.text = fcInfoToText(d.sections);
-                else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; }
+                else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; row.descriptionEnabled = !!(d.notes && String(d.notes).trim()); }
                 return row; }
             function openFlashcardDeckEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, sections: fcSecs(deck).map(x => ({ id: x.id, name: x.name, subs: (x.subs || []).map(u => ({ id: u.id, name: u.name })) })), cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
@@ -16331,7 +16376,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (type === 'graph') { const board = row.board, has = board && Array.isArray(board.shapes) && board.shapes.length; if (!front && !has) return null;
                     if (!front) return { error: 'needs a prompt (what should the student draw?)' };
                     if (!has) return { error: 'needs a model drawing — use "Draw the model answer"' };
-                    const notes = String(row.text || '').trim(), labels = wbLabels(board);
+                    const notes = row.descriptionEnabled ? String(row.text || '').trim() : '', labels = wbLabels(board);
                     return { card: { type: 'graph', front, back: notes || ('Diagram' + (labels.length ? ': ' + labels.slice(0, 10).join(', ') : '')), data: { board: wbClone(board), notes } } }; }
                 const text = String(row.text || ''); if (!front && !text.trim()) return null;
                 if (!front) return { error: 'needs a title' };
@@ -16688,7 +16733,9 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     const secSel = availableSections.length ? `<select data-action="flashcard-manual-section" data-index="${i}" class="fc-section-select" aria-label="Section">${sectionOptions.map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
                     const moveBtns = d.mode === 'deck-edit' ? `<button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button>` : '';
                     const head = `<div class="fc-editor-head"><span class="fc-editor-number">${i + 1}</span>${typeSel}${secSel}<span class="fc-editor-spacer"></span>${moveBtns}<button type="button" class="button ghost danger icon" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove" title="Remove card">✕</button></div>`;
-                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Optional marking notes — what a full-marks answer must include (axes labelled, curve shapes, key points…)" style="min-height:64px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>`;
+                    const graphHasBoard = !!(c.board && c.board.shapes && c.board.shapes.length), graphDescription = c.descriptionEnabled && String(c.text || '').trim();
+                    const graphPreview = graphHasBoard ? `<div class="fc-graph-answer fc-graph-editor-preview"><div class="fc-wb">${wbBoardSvg(c.board)}</div>${graphDescription ? `<div class="fc-graph-description">${escape(c.text)}</div>` : `<div class="small">No explanation added yet.</div>`}</div>` : '';
+                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${graphPreview}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${graphHasBoard ? 'Edit the model answer and explanation' : 'Draw the model answer'}</button></div><div class="small">${graphDescription ? 'Explanation will appear beside the graph.' : 'You can add an explanation beside the graph in the whiteboard.'}</div><div class="small">${ty.hint}</div>`;
                     const fields = t === 'graph' ? graphFields : t === 'term'
                         ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
                         : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
@@ -23299,7 +23346,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'ctt-clear') { if (customTtDraft) { customTtDraft.slots = {}; renderModal(); } }
                 else if (a === 'ctt-save') saveCustomTimetable();
                 else if (a === 'flashcard-start-struct-test') startFlashcardStructTest(b.dataset.deck);
-                else if (a === 'flashcard-manual-draw') { const d0 = flashcardCreateDraft, row = d0 && d0.cards[Number(b.dataset.index)]; if (row) openWhiteboard({ title: row.front || 'Model answer', hint: 'Draw the answer a student should produce. Double-click shapes to label them.', board: row.board, onDone: (board) => { row.board = board; renderModal(); } }); }
+                else if (a === 'flashcard-manual-draw') { const d0 = flashcardCreateDraft, row = d0 && d0.cards[Number(b.dataset.index)]; if (row) openWhiteboard({ title: row.front || 'Model answer', hint: 'Draw the answer a student should produce. Double-click shapes to label them.', board: row.board, allowDescription: true, descriptionEnabled: !!row.descriptionEnabled, descriptionText: row.text || '', onDone: (board, description) => { row.board = board; row.descriptionEnabled = !!description.enabled; row.text = description.text || ''; renderModal(); } }); }
                 else if (a === 'flashcard-edit-card') openFlashcardEditModal(b.dataset.deck, b.dataset.card);
                 else if (a === 'flashcard-edit-save') saveEditedFlashcard();
                 else if (a === 'fc-graph-open') { const s0 = flashcardStudySession, card = fcStructCard(); if (s0 && card && !s0.revealed) openWhiteboard({ title: card.front, hint: 'Draw your answer, then press Done.', board: s0.answers.board, onDone: (board) => { s0.answers.board = board; render(); } }); }
