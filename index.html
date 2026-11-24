@@ -4483,13 +4483,6 @@
         .exam-save-status.saving { color: var(--warning); }
         .exam-save-status.error { color: var(--danger); }
         .exam-pages { display: flex; flex-direction: column; align-items: center; gap: 18px; }
-        .exam-viewer-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-        .exam-viewer-split .exam-pages { min-width: 0; }
-        .exam-scheme-panel { position: sticky; top: 12px; min-width: 0; height: calc(100vh - 150px); min-height: 420px; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
-        .exam-scheme-panel h3 { margin: 0; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
-        .exam-scheme-panel iframe { width: 100%; flex: 1; border: 0; background: #f4f4f4; }
-        .exam-scheme-message { padding: 16px; color: var(--muted); }
-        @media (max-width: 850px) { .exam-viewer-split { grid-template-columns: minmax(0,1fr); } .exam-scheme-panel { position: relative; top: auto; height: 75vh; min-height: 360px; } }
         .exam-page-wrap { position: relative; background: #fff; box-shadow: var(--shadow); border-radius: 4px; max-width: 100%; }
         .exam-page-wrap canvas.exam-pdf-canvas { display: block; border-radius: 4px; max-width: 100%; height: auto; }
         .exam-overlay, .exam-ink-canvas { position: absolute; inset: 0; }
@@ -4497,7 +4490,8 @@
         .exam-page-wrap.tool-draw canvas.exam-ink-canvas, .exam-page-wrap.tool-erase canvas.exam-ink-canvas { pointer-events: auto; cursor: crosshair; }
         .exam-page-wrap.tool-text .exam-overlay, .exam-page-wrap.tool-checkbox .exam-overlay { cursor: copy; }
         .exam-box { position: absolute; }
-        .exam-textbox { min-width: 110px; }
+        .exam-textbox { min-width: 0; min-height: 4%; }
+        .exam-textbox .exam-box-text { height: 100%; min-height: 100%; }
         /* Controls float over the box's own top edge rather than sitting in a bar above it, so a
            placed/detected box never pushes into -- or visually collides with -- whatever printed
            content sits just above where it was positioned. Hidden until hovered/focused so a page
@@ -7180,31 +7174,35 @@
             const EXAM_ARCHIVE_MANIFEST_URL = 'https://cdn.jsdelivr.net/gh/h-mcv/sec-exam-papers-public@main/manifest.json';
             let examArchiveManifestStatus = 'bundled'; // 'bundled' | 'loading' | 'loaded' | 'error'
             function examArchiveIsMarkingScheme(item) {
-                const type = String(item.type || item.kind || item.documentType || item.category || '').toLowerCase();
-                return /marking[\s_-]?scheme|markscheme|answer[\s_-]?scheme/.test(type + ' ' + (item.label || '') + ' ' + (item.file || ''));
+                // In this repository schemes are separate manifest records. Their labels start
+                // with 'Marking Scheme - …' and their files live in sec-marking-schemes folders.
+                return /^marking\s+scheme\b/i.test(String(item.label || '').trim()) ||
+                    /(?:^|\/)sec-marking-schemes\//i.test(String(item.file || '')) ||
+                    /marking[\s-]?scheme/i.test(String(item.file || ''));
             }
             function examArchiveSchemeForPaper(paper, schemes) {
-                // Prefer an explicit relationship supplied by the manifest/database.
-                const explicit = paper.markingSchemeFile || paper.markingSchemeUrl || paper.marking_scheme_file || paper.marking_scheme_url || paper.markingScheme?.file || paper.markingScheme?.url;
-                if (explicit) return { file: typeof explicit === 'string' ? explicit : (explicit.file || explicit.url), label: 'Marking scheme' };
-                const candidates = schemes.filter(s => String(s.level).toLowerCase() === String(paper.level).toLowerCase() && String(s.subjectId || s.subject_id).toLowerCase() === String(paper.subjectId || paper.subject_id).toLowerCase() && Number(s.year) === Number(paper.year));
+                const candidates = schemes.filter(s => s.level === paper.level && s.subjectId === paper.subjectId && Number(s.year) === Number(paper.year));
                 if (!candidates.length) return null;
-                const norm = v => String(v || '').toLowerCase().replace(/marking[\s_-]?scheme|answer[\s_-]?scheme|markscheme/g, '').replace(/\.pdf$/,'').replace(/[^a-z0-9]+/g,' ').trim();
-                const levelOf = v => ['higher','ordinary','foundation','common'].find(x => norm(v).includes(x)) || '';
-                const partOf = v => norm(v).match(/paper (one|two)|paper ([12])|section ([a-c])|part ([12])/i)?.[0] || '';
-                const paperLevel = levelOf(paper.label), paperPart = partOf(paper.label), paperStem = norm(paper.file).replace(/\bpaper\b/g,'').replace(/\b(ev|iv)\b/g,'').trim();
-                const scored = candidates.map(s => {
-                    const sl = levelOf(s.label), sp = partOf(s.label), stem = norm(s.file).replace(/\bmarking\b/g,'').replace(/\bscheme\b/g,'').replace(/\b(ev|iv)\b/g,'').trim();
-                    if (paperLevel && sl && paperLevel !== sl) return { s, score: -100 };
-                    if (paperPart && sp && paperPart !== sp) return { s, score: -100 };
-                    let score = (paperLevel && sl === paperLevel ? 8 : 0) + (paperPart && sp === paperPart ? 12 : 0);
-                    if (stem && paperStem && (stem.includes(paperStem) || paperStem.includes(stem))) score += 20;
-                    return { s, score };
-                }).filter(x => x.score >= 0).sort((a,b) => b.score-a.score);
-                if (!scored.length) return null;
-                // Don't silently attach a possibly unrelated scheme when several are equally plausible.
-                if (scored.length > 1 && scored[0].score === scored[1].score && scored[0].score < 8) return null;
-                return scored[0].s;
+                const paperLabel = String(paper.label || '').toLowerCase();
+                const paperLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => paperLabel.includes(level));
+                const paperPart = paperLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                let levelCandidates = candidates.filter(s => {
+                    const schemeLabel = String(s.label || '').toLowerCase();
+                    const schemeLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => schemeLabel.includes(level));
+                    return !paperLevel || !schemeLevel || paperLevel === schemeLevel;
+                });
+                if (!levelCandidates.length) return null;
+                // Prefer the same language edition as the paper. If the archive only has one
+                // edition, use it rather than incorrectly reporting that no scheme exists.
+                if (paper.language) {
+                    const sameLanguage = levelCandidates.filter(s => s.language === paper.language);
+                    if (sameLanguage.length) levelCandidates = sameLanguage;
+                }
+                return levelCandidates.find(s => {
+                    const schemeLabel = String(s.label || '').toLowerCase();
+                    const schemePart = schemeLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                    return paperPart && schemePart ? paperPart === schemePart : true;
+                }) || levelCandidates[0];
             }
             async function examArchiveLoadManifest() {
                 examArchiveManifestStatus = 'loading';
@@ -7218,9 +7216,12 @@
                     const schemes = entries.filter(examArchiveIsMarkingScheme);
                     EXAM_PAPER_INDEX = entries.filter(item => !examArchiveIsMarkingScheme(item)).map(item => {
                         const scheme = examArchiveSchemeForPaper(item, schemes);
-                        const schemeFile = item.markingSchemeFile || item.markingSchemeUrl || item.marking_scheme_file || item.marking_scheme_url || item.markingScheme?.file || item.markingScheme?.url || scheme?.file || null;
-                        return [item.level, item.subjectId || item.subject_id, Number(item.year), item.label, item.file, schemeFile];
-                    }).filter(row => row[0] && row[1] && row[2] && row[3] && row[4]);
+                        return [
+                            item.level, item.subjectId, Number(item.year), item.label, item.file,
+                            item.markingSchemeFile || item.markingSchemeUrl || scheme?.file || null,
+                            item.language || 'english-version'
+                        ];
+                    });
                     examArchiveManifestStatus = 'loaded';
                     if (view === 'exam-papers' && !examPaperOpen) render();
                 } catch (error) {
@@ -7342,10 +7343,6 @@
             let topicSearchResults = null;      // rows from exam_topic_index for the active search
             let examPaperOpen = null; // { level, subjectId, year, label, file } of the paper open in the viewer
             let examPaperDoc = null; // pdf.js PDFDocumentProxy for examPaperOpen
-            let examPaperSchemeUrl = null; // temporary object URL for the paired marking scheme
-            let examPaperSchemeLoading = false;
-            let examPaperSchemeError = '';
-            let examPaperSchemeVisible = false;
             let examPaperLoading = false;
             let examPaperLoadError = ''; // '' | 'CONNECT_NEEDED' | a message
             let examPaperAnswers = null; // { pageOrder, boxes, strokes } for examPaperOpen
@@ -7698,11 +7695,16 @@ ${numbered}`;
             // broken experience. Runs once, only when a paper is opened with no saved answers yet
             // (see openExamPaper) -- never re-runs over a student's already-customised layout.
             const round2 = (x) => Math.round(x * 100) / 100;
+            // PDF.js affine matrices use [a,b,c,d,e,f], not row-major [a,c,e,b,d,f].
+            // The previous multiplication mixed those conventions, so every nested transform
+            // (including scaled/rotated form elements) could be placed at the wrong coordinates.
             function examPaperMulMatrix(m1, m2) {
+                const [a, b, c, d, e, f] = m1;
+                const [g, h, i, j, k, l] = m2;
                 return [
-                    m1[0] * m2[0] + m1[1] * m2[2], m1[0] * m2[1] + m1[1] * m2[3],
-                    m1[2] * m2[0] + m1[3] * m2[2], m1[2] * m2[1] + m1[3] * m2[3],
-                    m1[4] * m2[0] + m1[5] * m2[2] + m2[4], m1[4] * m2[1] + m1[5] * m2[3] + m2[5],
+                    a * g + c * h, b * g + d * h,
+                    a * i + c * j, b * i + d * j,
+                    a * k + c * l + e, b * k + d * l + f
                 ];
             }
 
@@ -7746,23 +7748,49 @@ ${numbered}`;
                     const fn = fnArray[i], args = argsArray[i];
                     if (fn === OPS.save) stack.push(ctm);
                     else if (fn === OPS.restore) ctm = stack.pop() || ctm;
-                    else if (fn === OPS.transform) ctm = examPaperMulMatrix(args, ctm);
+                    else if (fn === OPS.transform) ctm = examPaperMulMatrix(ctm, args);
                     else if (fn === OPS.constructPath) {
                         const [ops, coords] = args;
-                        let ci = 0, subStart = null, prev = null;
+                        let ci = 0, subStart = null, prev = null, subPath = [];
+                        const finishSubPath = (closed) => {
+                            if (closed && subPath.length >= 4 && subPath.length <= 6) {
+                                // A lot of SEC PDFs draw form squares as four move/line commands
+                                // rather than the PDF rectangle operator. Recover their bounding box.
+                                const xs = subPath.map(p => p[0]), ys = subPath.map(p => p[1]);
+                                const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+                                const w = x1 - x0, h = y1 - y0;
+                                const corners = [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+                                const axisAligned = subPath.every(pt =>
+                                    (Math.abs(pt[0]-x0)<1.5 || Math.abs(pt[0]-x1)<1.5) &&
+                                    (Math.abs(pt[1]-y0)<1.5 || Math.abs(pt[1]-y1)<1.5));
+                                if (axisAligned && w >= 8 && h >= 8 && Math.abs(w-h) < Math.max(w,h)*0.32)
+                                    recordRectDevice(corners);
+                            }
+                            subPath = [];
+                        };
                         for (const op of ops) {
-                            if (op === OPS.moveTo) { const d = toDevice(applyCtm(coords[ci++], coords[ci++])); subStart = d; prev = d; }
-                            else if (op === OPS.lineTo) { const d = toDevice(applyCtm(coords[ci++], coords[ci++])); if (prev) classifySeg(prev, d); prev = d; }
-                            else if (op === OPS.curveTo) { ci += 6; prev = null; }
-                            else if (op === OPS.curveTo2 || op === OPS.curveTo3) { ci += 4; prev = null; }
-                            else if (op === OPS.closePath) { if (prev && subStart) classifySeg(prev, subStart); prev = subStart; }
-                            else if (op === OPS.rectangle) {
+                            if (op === OPS.moveTo) {
+                                finishSubPath(false);
+                                const d = toDevice(applyCtm(coords[ci++], coords[ci++]));
+                                subStart = d; prev = d; subPath.push(d);
+                            } else if (op === OPS.lineTo) {
+                                const d = toDevice(applyCtm(coords[ci++], coords[ci++]));
+                                if (prev) classifySeg(prev, d);
+                                prev = d; subPath.push(d);
+                            } else if (op === OPS.curveTo) { ci += 6; prev = null; subPath = []; }
+                            else if (op === OPS.curveTo2 || op === OPS.curveTo3) { ci += 4; prev = null; subPath = []; }
+                            else if (op === OPS.closePath) {
+                                if (prev && subStart) classifySeg(prev, subStart);
+                                finishSubPath(true); prev = subStart;
+                            } else if (op === OPS.rectangle) {
+                                finishSubPath(false);
                                 const x = coords[ci++], y = coords[ci++], w = coords[ci++], h = coords[ci++];
                                 const corners = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(c => toDevice(applyCtm(c[0], c[1])));
                                 recordRectDevice(corners);
                                 prev = null; subStart = null;
                             }
                         }
+                        finishSubPath(false);
                     }
                 }
                 return { squares, hSegs, vSegs, cellRects };
@@ -7856,7 +7884,7 @@ ${numbered}`;
                             const wPct = Math.min((band.x2 - band.x1) / viewport.width * 100, 92);
                             fields.push({ id: uid(), type: 'text', page: slotId,
                                 x: round2(band.x1 / viewport.width * 100), y: round2(band.yTop / viewport.height * 100),
-                                w: round2(wPct), hPx: Math.round(Math.max(36, band.yBottom - band.yTop)), value: '', auto: true });
+                                w: round2(wPct), h: round2(Math.max(36, band.yBottom - band.yTop) / viewport.height * 100), value: '', auto: true });
                         }
                     } catch (e) { /* best-effort -- a parsing hiccup on one page shouldn't lose the rest */ }
                 }
@@ -7865,8 +7893,6 @@ ${numbered}`;
 
             async function openExamPaper(entry, targetPage) {
                 examPaperOpen = entry;
-                if (examPaperSchemeUrl) URL.revokeObjectURL(examPaperSchemeUrl);
-                examPaperSchemeUrl = null; examPaperSchemeVisible = false; examPaperSchemeLoading = false; examPaperSchemeError = '';
                 examPaperDoc = null;
                 examPaperAnswers = null;
                 examPaperLoadError = '';
@@ -7920,8 +7946,9 @@ ${numbered}`;
                     if (examPaperNeedsDetection && examPaperOpen === entry) {
                         try {
                             const detectDoc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
-                            const autoBoxes = await examPaperDetectAllFields(detectDoc);
-                            detectDoc.destroy();
+                            let autoBoxes;
+                            try { autoBoxes = await examPaperDetectAllFields(detectDoc); }
+                            finally { await detectDoc.destroy(); }
                             if (examPaperOpen === entry && examPaperAnswers) {
                                 examPaperAnswers.boxes.push(...autoBoxes);
                                 for (const box of autoBoxes) {
@@ -7931,35 +7958,15 @@ ${numbered}`;
                                 const status = document.getElementById('exam-save-status');
                                 if (status) status.parentElement.insertAdjacentHTML('afterbegin',
                                     `<button type="button" class="button ghost" data-action="examp-clear-auto-fields">Clear auto-detected (${autoBoxes.length})</button>`);
+                                if (autoBoxes.length) examPaperScheduleSave();
                             }
                         } catch (e) { console.error('Auto-detecting answer fields failed -- opening with a blank paper instead', e); }
                     }
                 }
             }
 
-            async function examPaperToggleScheme() {
-                if (!examPaperOpen?.markingSchemeFile) return;
-                if (examPaperSchemeVisible) { examPaperSchemeVisible = false; render(); return; }
-                examPaperSchemeVisible = true;
-                examPaperSchemeError = '';
-                render();
-                if (examPaperSchemeUrl) return;
-                examPaperSchemeLoading = true;
-                render();
-                try {
-                    const bytes = await examArchiveGetPdfBytes(examPaperOpen.markingSchemeFile);
-                    examPaperSchemeUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-                } catch (e) {
-                    examPaperSchemeError = e?.message === 'CONNECT_NEEDED' ? 'Could not load the marking scheme. Check your connection and try again.' : (e?.message || 'Could not load the marking scheme.');
-                } finally {
-                    examPaperSchemeLoading = false;
-                    if (examPaperOpen) render();
-                }
-            }
             function examPaperClose() {
                 examPaperOpen = null; examPaperDoc = null; examPaperAnswers = null; examPaperLoadError = ''; examPaperPageRefSize = null;
-                if (examPaperSchemeUrl) URL.revokeObjectURL(examPaperSchemeUrl);
-                examPaperSchemeUrl = null; examPaperSchemeVisible = false; examPaperSchemeLoading = false; examPaperSchemeError = '';
                 render();
             }
 
@@ -8064,7 +8071,12 @@ ${numbered}`;
                 const meta = examPaperSubjectMeta(examPaperSubjectId);
                 const papers = EXAM_PAPER_INDEX.filter(r => r[0] === examPaperLevel && r[1] === examPaperSubjectId).sort((a, b) => b[2] - a[2] || a[3].localeCompare(b[3]));
                 const byYear = new Map();
-                for (const [level, subjectId, year, label, file] of papers) { if (!byYear.has(year)) byYear.set(year, []); byYear.get(year).push({ level, subjectId, year, label, file }); }
+                // Keep the sixth field (markingSchemeFile) and seventh (language) attached
+                // to each paper. Dropping field six here was why every scheme button vanished.
+                for (const [level, subjectId, year, label, file, markingSchemeFile, language] of papers) {
+                    if (!byYear.has(year)) byYear.set(year, []);
+                    byYear.get(year).push({ level, subjectId, year, label, file, markingSchemeFile: markingSchemeFile || null, language });
+                }
                 const back = `<button type="button" class="subject-page-back" data-action="examp-back-to-subjects">← Back to subjects</button>`;
                 return appFrame(`<div class="page">${back}
         ${header(meta.name + ' — Past Papers', 'Pick a paper to open it and start filling it in, or search a topic across every paper below.', '')}
@@ -8072,7 +8084,7 @@ ${numbered}`;
         <div class="exam-year-list">
             ${[...byYear.entries()].map(([year, list]) => `<div class="exam-year-group"><h3>${year}</h3>${list.map(entry => {
                 const scheme = examPaperMarkingSchemeEntry(entry);
-                return `<div class="exam-paper-row"><span>${escape(entry.label)}</span><div class="row">${scheme ? `<button type="button" class="button ghost" data-action="examp-open-paper" data-file="${escape(scheme.file)}">Marking scheme</button>` : `<span class="small" style="color:var(--muted)">No scheme yet</span>`}<button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(entry.file)}">Open paper</button></div></div>`;
+                return `<div class="exam-paper-row"><span>${escape(entry.label)}</span><div class="row">${scheme ? `<button type="button" class="button ghost" data-action="examp-open-paper" data-file="${escape(scheme.file)}">Open marking scheme</button>` : ''}<button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(entry.file)}">Open</button></div></div>`;
             }).join('')}</div>`).join('')}
         </div>
         </div>`);
@@ -8086,9 +8098,9 @@ ${numbered}`;
 <button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button>
 </div>`;
                 }
-                return `<div class="exam-box exam-textbox${autoClass}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;width:${box.w}%">
+                return `<div class="exam-box exam-textbox${autoClass}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;width:${box.w}%;${box.h ? `height:${box.h}%` : ''}">
 <div class="exam-box-bar"><span class="exam-box-drag" aria-label="Drag to move">⠿</span><button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button></div>
-<textarea class="exam-box-text" data-box-id="${box.id}" rows="3"${box.hPx ? ` style="height:${box.hPx}px"` : ''} placeholder="Type your answer…">${escape(box.value || '')}</textarea>
+<textarea class="exam-box-text" data-box-id="${box.id}" rows="3" placeholder="Type your answer…">${escape(box.value || '')}</textarea>
 </div>`;
             }
 
@@ -8130,7 +8142,6 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
         ${['#20202b', '#bd3f53', '#2E63F6'].map(c => `<button type="button" class="examp-color-swatch ${examPaperDrawColor === c ? 'active' : ''}" data-action="examp-set-color" data-color="${c}" style="--swatch:${c}" aria-label="Pen color"></button>`).join('')}
     </div>
     <div class="row">
-        ${entry.markingSchemeFile ? `<button type="button" class="button ${examPaperSchemeVisible ? 'primary' : 'ghost'}" data-action="examp-toggle-scheme">${examPaperSchemeVisible ? 'Hide marking scheme' : 'Show marking scheme beside paper'}</button>` : ''}
         <button type="button" class="button ghost" data-action="examp-undo-stroke">Undo stroke</button>
         ${examPaperAnswers.boxes.some(b => b.auto) ? `<button type="button" class="button ghost" data-action="examp-clear-auto-fields">Clear auto-detected (${examPaperAnswers.boxes.filter(b => b.auto).length})</button>` : ''}
         <span id="exam-save-status" class="exam-save-status ${examPaperSaveStatus}">${examPaperSaveStatus === 'saving' ? 'Saving…' : examPaperSaveStatus === 'saved' ? 'Saved' : ''}</span>
@@ -8138,8 +8149,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
 </div>`;
                 const pagesHtml = examPaperAnswers.pageOrder.map(slotId => examPaperPageWrapHtml(slotId) +
                     `<div class="exam-insert-blank-row"><button type="button" class="button ghost" data-action="examp-insert-blank-after" data-slot="${slotId}">+ Insert blank writing page here</button></div>`).join('');
-                const schemePanel = examPaperSchemeVisible ? `<aside class="exam-scheme-panel"><h3>Marking scheme — ${escape(entry.year)}</h3>${examPaperSchemeLoading ? `<div class="exam-scheme-message">Loading marking scheme…</div>` : examPaperSchemeError ? `<div class="exam-scheme-message">${escape(examPaperSchemeError)}</div>` : examPaperSchemeUrl ? `<iframe title="Marking scheme" src="${examPaperSchemeUrl}#view=FitH"></iframe>` : `<div class="exam-scheme-message">Preparing marking scheme…</div>`}</aside>` : '';
-                return appFrame(`<div class="page">${back}${titleHtml}${toolbarHtml}<div class="exam-viewer-split"><div class="exam-pages">${pagesHtml}</div>${schemePanel}</div></div>`);
+                return appFrame(`<div class="page">${back}${titleHtml}${toolbarHtml}<div class="exam-pages">${pagesHtml}</div></div>`);
             }
 
             function renderExamPapers() { return examPaperOpen ? examPaperViewerHtml() : examPaperBrowseHtml(); }
@@ -8261,7 +8271,12 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 }
                 if (e.target.matches('.exam-box-text')) {
                     const boxId = e.target.dataset.boxId, box = examPaperAnswers && examPaperAnswers.boxes.find(b => b.id === boxId);
-                    if (box) box.hPx = e.target.offsetHeight;
+                    if (box) {
+                        const page = e.target.closest('.exam-page-wrap');
+                        const pageHeight = page ? page.getBoundingClientRect().height : 0;
+                        if (pageHeight) box.h = round2(e.target.getBoundingClientRect().height / pageHeight * 100);
+                        delete box.hPx;
+                    }
                 }
             });
 
@@ -8323,7 +8338,6 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 else if (a === 'topic-search-open') { const entry = examPaperEntryFromFile(b.dataset.file); if (entry) openExamPaper(entry, Number(b.dataset.page)); }
                 else if (a === 'examp-retry-open') { if (examPaperOpen) openExamPaper(examPaperOpen); }
                 else if (a === 'examp-close-paper') examPaperClose();
-                else if (a === 'examp-toggle-scheme') examPaperToggleScheme();
                 else if (a === 'examp-connect-folder' || a === 'examp-change-folder') examArchiveConnect();
                 else if (a === 'examp-reconnect-folder') examArchiveReconnect();
                 else if (a === 'examp-set-tool') examPaperSetTool(b.dataset.tool);
@@ -18192,8 +18206,15 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     .innerHTML = renderInsightsPage();
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
-                    .innerHTML = renderTools(); } else if (view === 'exam-papers') { document.getElementById('app').innerHTML = renderExamPapers();
-                    requestAnimationFrame(renderExamPaperCanvases); } else if (view === 'games') {
+                    .innerHTML = renderTools(); } else if (view === 'exam-papers') {
+                    const app = document.getElementById('app');
+                    const viewerAlreadyMounted = !!(examPaperOpen && app.querySelector('.exam-pages'));
+                    // A background poll/auth refresh can call the global render() many times a minute.
+                    // Keep the live viewer DOM intact while a paper is open: rebuilding it closes/reopens
+                    // the apparent paper, resets scroll, and can discard in-progress input focus.
+                    if (!viewerAlreadyMounted) app.innerHTML = renderExamPapers();
+                    requestAnimationFrame(renderExamPaperCanvases);
+                } else if (view === 'games') {
                     // Skip rebuilding while a game is already mounted here -- a periodic call into
                     // this render() (chat's poll, the multiplayer games poll) would otherwise tear
                     // down and remount whatever's running (a canvas game loop, an in-progress board)
