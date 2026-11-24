@@ -2480,47 +2480,6 @@
             padding: 2px;
             height: 38px;
         }
-        /* Consistent compact checkbox styling across the entire app. */
-        input[type="checkbox"] {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            min-width: 18px;
-            height: 18px;
-            padding: 0 !important;
-            border: 1.5px solid var(--line);
-            border-radius: 5px;
-            background: var(--surface);
-            display: inline-grid;
-            place-content: center;
-            vertical-align: middle;
-            flex: 0 0 18px;
-            cursor: pointer;
-            transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
-        }
-        input[type="checkbox"]::after {
-            content: "";
-            width: 9px;
-            height: 5px;
-            border: 2px solid #fff;
-            border-top: 0;
-            border-right: 0;
-            transform: translateY(-1px) rotate(-45deg);
-            opacity: 0;
-        }
-        input[type="checkbox"]:checked {
-            background: var(--primary);
-            border-color: var(--primary);
-        }
-        input[type="checkbox"]:checked::after { opacity: 1; }
-        input[type="checkbox"]:focus-visible {
-            outline: 3px solid rgba(46, 99, 246, .28);
-            outline-offset: 2px;
-        }
-        input[type="checkbox"]:disabled {
-            opacity: .45;
-            cursor: not-allowed;
-        }
         .switch-row {
             display: flex;
             align-items: center;
@@ -2804,6 +2763,10 @@
         /* ---- Whiteboard (graph cards) ---- */
         .fc-wb svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
         .fc-face.back.rich .fc-wb { width: 100%; }
+        .fc-graph-answer { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(180px, 1fr); align-items: center; gap: clamp(14px, 2.5vw, 28px); width: 100%; max-width: 100%; text-align: left; }
+        .fc-graph-answer .fc-wb { min-width: 0; width: 100%; }
+        .fc-graph-description { min-width: 0; font-size: 15px; line-height: 1.55; font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
+        @media (max-width: 620px) { .fc-graph-answer { grid-template-columns: minmax(0, 1fr); gap: 12px; } .fc-graph-description { font-size: 14px; } }
         .wb-overlay { position: fixed; inset: 0; z-index: 5000; background: var(--bg, #f6f7fb); display: flex; flex-direction: column; color: var(--text); }
         .wb-top { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
         .wb-top strong { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2816,7 +2779,14 @@
         .wb-tool.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
         .wb-stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; padding: 12px; min-width: 0; overflow: hidden; }
         .wb-svg { aspect-ratio: 1000 / 640; width: min(100%, calc((100vh - 230px) * 1.5625)); max-height: 100%; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); touch-action: none; user-select: none; display: block; }
-        .wb-text { position: absolute; display: none; z-index: 2; border: 2px solid var(--primary); border-radius: 6px; padding: 2px 6px; background: #fff; color: #111; resize: none; font-family: system-ui, sans-serif; line-height: 1.3; outline: none; }
+        .wb-text { position: absolute; display: none; z-index: 10; pointer-events: auto; border: 2px solid var(--primary); border-radius: 6px; padding: 2px 6px; background: #fff; color: #111; resize: none; font-family: system-ui, sans-serif; line-height: 1.3; outline: none; }
+        .wb-description-panel { flex: 0 0 min(300px, 28vw); min-width: 210px; display: flex; flex-direction: column; gap: 10px; padding: 18px; border-left: 1px solid var(--line); background: var(--surface); overflow-y: auto; }
+        .wb-description-toggle { display: flex; align-items: center; gap: 8px; font-weight: 650; cursor: pointer; }
+        .wb-description-panel p { margin: 0; line-height: 1.45; }
+        .wb-description-input { width: 100%; min-height: 180px; resize: vertical; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); font: inherit; line-height: 1.5; }
+        .wb-description-input[hidden] { display: none; }
+        @media (max-width: 850px) { .wb-description-panel { flex-basis: 230px; min-width: 190px; padding: 12px; } }
+        @media (max-width: 700px) { .wb-description-panel { flex: 0 0 auto; min-width: 0; max-height: 190px; border-left: 0; border-top: 1px solid var(--line); } .wb-description-input { min-height: 75px; } }
         .wb-style { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
         .wb-style .group { display: flex; align-items: center; gap: 4px; padding-right: 10px; border-right: 1px solid var(--line); }
         .wb-style .group:last-child { border-right: 0; }
@@ -2825,6 +2795,50 @@
         .wb-mini { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 600; cursor: pointer; }
         .wb-mini.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
         @media (max-width: 700px) { .wb-hint { display: none; } .wb-tools { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; } .wb-main { flex-direction: column; } .wb-svg { width: 100%; } }
+
+        /* Consistent compact checkbox controls across the app */
+        input[type="checkbox"] {
+            appearance: none; -webkit-appearance: none; flex: 0 0 16px;
+            width: 16px; height: 16px; min-width: 16px; min-height: 16px;
+            margin: 0 2px 0 0; border: 1.5px solid var(--line-strong, #aab2c0);
+            border-radius: 5px; background: var(--surface); display: inline-grid;
+            place-content: center; vertical-align: middle; cursor: pointer;
+            transition: background .14s ease, border-color .14s ease, box-shadow .14s ease;
+        }
+        input[type="checkbox"]::before { content: ""; width: 8px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) scale(0); transform-origin: center; transition: transform .12s ease; margin-top: -2px; }
+        input[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
+        input[type="checkbox"]:checked::before { transform: rotate(-45deg) scale(1); }
+        input[type="checkbox"]:focus-visible { outline: 3px solid var(--primary-soft); outline-offset: 2px; }
+        input[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
+        .fc-check { gap: 6px; padding: 4px 2px; font-size: 12px; font-weight: 600; }
+        .fc-scene { height: clamp(340px, 56vh, 560px); min-height: 340px; }
+        .fc-face { padding: clamp(24px, 4vw, 44px); }
+        .fc-face.back { font-size: clamp(17px, 2vw, 24px); }
+
+        .fc-more-actions { margin-top:12px; border-top:1px solid var(--line); padding-top:9px; }
+        .fc-more-actions summary { width:max-content; cursor:pointer; color:var(--muted); font-size:12px; font-weight:700; padding:4px 2px; }
+        .fc-more-actions-inner { display:flex; gap:7px; flex-wrap:wrap; padding-top:9px; }
+        .fc-more-actions-inner .button { padding:7px 10px; font-size:12px; }
+        .fc-wrap > .fc-topbar { flex-wrap:wrap; }
+        .fc-deck { min-height:116px; padding:14px 15px; }
+        .fc-listcard { min-width:0; }
+        .fc-listtext { min-width:0; overflow-wrap:anywhere; }
+        .fc-listcard .button.icon { flex:0 0 32px; width:32px; height:32px; }
+
+        .fc-editor-list { display: grid; gap: 12px; }
+        .fc-editor-list > .topic-row { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+        .fc-editor-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:4px; }
+        .fc-editor-head select { max-width: 190px !important; font-size:12px; padding:6px 8px; }
+        .fc-editor-number { display:grid; place-items:center; width:24px; height:24px; border-radius:7px; background:var(--primary-soft); color:var(--primary); font-size:11px; font-weight:800; }
+        .fc-editor-spacer { flex:1; }
+        .fc-section-manager { display:grid; gap:8px; padding:12px 14px; margin:0 0 14px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); }
+        .fc-section-manager > div:first-child { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+        .fc-section-chips { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+        .fc-section-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:12px; font-weight:600; }
+        .fc-section-chip button { border:0; background:transparent; color:var(--muted); cursor:pointer; padding:0 1px; font-size:16px; line-height:1; }
+        .fc-section-select { min-width: 112px; }
+        @media (max-width:640px) { .fc-scene { height: min(58vh, 460px); min-height: 300px; } .fc-editor-head select { max-width: 150px !important; } }
+
         .fc-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 4px; }
         .fc-sec-h { margin: 22px 0 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .fc-sec-h h3 { margin: 0; font-size: 17px; }
@@ -4490,8 +4504,7 @@
         .exam-page-wrap.tool-draw canvas.exam-ink-canvas, .exam-page-wrap.tool-erase canvas.exam-ink-canvas { pointer-events: auto; cursor: crosshair; }
         .exam-page-wrap.tool-text .exam-overlay, .exam-page-wrap.tool-checkbox .exam-overlay { cursor: copy; }
         .exam-box { position: absolute; }
-        .exam-textbox { min-width: 0; min-height: 4%; }
-        .exam-textbox .exam-box-text { height: 100%; min-height: 100%; }
+        .exam-textbox { min-width: 110px; }
         /* Controls float over the box's own top edge rather than sitting in a bar above it, so a
            placed/detected box never pushes into -- or visually collides with -- whatever printed
            content sits just above where it was positioned. Hidden until hovered/focused so a page
@@ -4501,7 +4514,7 @@
         .exam-box-drag { cursor: grab; color: #fff; background: var(--primary); border-radius: 5px; font-size: 11px; padding: 1px 5px; user-select: none; box-shadow: var(--shadow); }
         .exam-box-delete { border: none; color: #fff; background: var(--danger); border-radius: 50%; width: 18px; height: 18px; line-height: 16px; text-align: center; font-size: 13px; padding: 0; cursor: pointer; box-shadow: var(--shadow); }
         .exam-box-text { width: 100%; min-height: 40px; resize: vertical; border: 2px solid var(--primary); border-radius: 6px; background: rgba(255,255,255,.94); font-family: inherit; font-size: 13px; padding: 6px 8px; box-sizing: border-box; color: #20202b; }
-        .exam-checkbox { width: 26px; height: 26px; } /* Manual boxes keep their default size; detected dimensions are set inline. */
+        .exam-checkbox { width: 26px; height: 26px; }
         .exam-checkbox .exam-box-delete { position: absolute; top: -9px; right: -9px; opacity: 0; transition: opacity .1s; }
         .exam-checkbox:hover .exam-box-delete, .exam-checkbox:focus-within .exam-box-delete { opacity: 1; }
         .exam-checkbox-mark { width: 100%; height: 100%; border: 2.5px solid var(--primary); border-radius: 5px; background: rgba(255,255,255,.85); cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -4512,61 +4525,6 @@
         .exam-insert-blank-row { display: flex; justify-content: center; }
         .exam-insert-blank-row button { font-size: 12px; }
         .exam-remove-blank-page { position: absolute; top: 8px; right: 8px; font-size: 11px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--danger); cursor: pointer; }
-
-
-        /* Exam answer areas: the PDF remains visible underneath the typing area. */
-        .exam-page-wrap {
-        }
-        .exam-textbox {
-            min-width: 0;
-            min-height: 0;
-            overflow: visible;
-        }
-        .exam-textbox .exam-box-text {
-            display: block;
-            width: 100%;
-            height: 100%;
-            min-height: 100%;
-            margin: 0;
-            padding: 1px 2px;
-            resize: none;
-            border: 1px solid transparent;
-            border-radius: 0;
-            outline: none;
-            box-shadow: none;
-            background: transparent;
-            color: #171717;
-            font-family: Arial, sans-serif;
-            font-size: clamp(9px, 1.15cqw, 14px);
-            line-height: 1.35;
-            box-sizing: border-box;
-            overflow: auto;
-        }
-        .exam-textbox .exam-box-text:focus,
-        .exam-textbox .exam-box-text:focus-visible {
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-            background: transparent;
-        }
-        .exam-textbox.auto-detected .exam-box-text {
-            border: 1px solid transparent;
-            background: transparent;
-        }
-        .exam-textbox:hover .exam-box-text,
-        .exam-textbox:focus-within .exam-box-text {
-            background: rgba(255,255,255,.025);
-        }
-        .exam-textbox .exam-box-bar {
-            pointer-events: none;
-        }
-        .exam-textbox:hover .exam-box-bar,
-        .exam-textbox:focus-within .exam-box-bar {
-            pointer-events: auto;
-        }
-        .exam-textbox .exam-box-text::placeholder {
-            color: transparent;
-        }
 
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -7232,99 +7190,24 @@
                 return /marking[\s-]?scheme/i.test(item.label || '') || /marking[\s-]?scheme/i.test(item.file || '');
             }
             function examArchiveSchemeForPaper(paper, schemes) {
-                const normaliseLanguage = item => {
-                    const value = String(item.language || '').toLowerCase();
-                    if (value.includes('irish') || value === 'iv') return 'irish';
-                    if (value.includes('english') || value === 'ev') return 'english';
-                    if (value.includes('bilingual') || value === 'bv') return 'bilingual';
-
-                    const filename = String(item.file || '').toLowerCase();
-                    if (/(?:-|\.)(?:iv)\.pdf$/.test(filename)) return 'irish';
-                    if (/(?:-|\.)(?:ev)\.pdf$/.test(filename)) return 'english';
-                    if (/(?:-|\.)(?:bv)\.pdf$/.test(filename)) return 'bilingual';
-                    return null;
-                };
-
-                const getSecCode = item => {
-                    const match = String(item.file || '').match(/LP(\d{3})(?:EV|IV|BV)\.pdf$/i);
-                    return match ? match[1] : null;
-                };
-
-                const getExamLevel = item => {
-                    const label = String(item.label || '').toLowerCase();
-                    return ['higher', 'ordinary', 'foundation', 'common']
-                        .find(level => label.includes(level)) || null;
-                };
-
-                const getPart = item => {
-                    const label = String(item.label || '').toLowerCase();
-                    return label.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
-                };
-
-                const candidates = schemes.filter(s =>
-                    s.level === paper.level &&
-                    s.subjectId === paper.subjectId &&
-                    Number(s.year) === Number(paper.year)
-                );
-
+                const candidates = schemes.filter(s => s.level === paper.level && s.subjectId === paper.subjectId && Number(s.year) === Number(paper.year));
                 if (!candidates.length) return null;
-
-                const paperLanguage = normaliseLanguage(paper);
-                const paperLevel = getExamLevel(paper);
-                const paperPart = getPart(paper);
-                const paperCode = getSecCode(paper);
-
-                const ranked = candidates
-                    .filter(s => {
-                        const schemeLevel = getExamLevel(s);
-                        if (paperLevel && schemeLevel && paperLevel !== schemeLevel) return false;
-
-                        const schemeLanguage = normaliseLanguage(s);
-                        if (paperLanguage && schemeLanguage &&
-                            schemeLanguage !== paperLanguage &&
-                            schemeLanguage !== 'bilingual') return false;
-
-                        const schemeCode = getSecCode(s);
-                        if (paperCode && schemeCode && schemeCode !== paperCode) return false;
-
-                        const schemePart = getPart(s);
-                        if (paperPart && schemePart && paperPart !== schemePart) return false;
-
-                        return true;
-                    })
-                    .sort((a, b) => {
-                        const score = scheme => {
-                            const language = normaliseLanguage(scheme);
-                            const code = getSecCode(scheme);
-                            const part = getPart(scheme);
-
-                            return [
-                                paperLanguage
-                                    ? (language === paperLanguage ? 0 : language === 'bilingual' ? 1 : 2)
-                                    : 0,
-                                paperCode
-                                    ? (code === paperCode ? 0 : code === '000' ? 1 : 2)
-                                    : (code === '000' ? 0 : code === null ? 1 : 2),
-                                paperPart
-                                    ? (part === paperPart ? 0 : part === '' ? 1 : 2)
-                                    : 0,
-                                getExamLevel(scheme) === paperLevel ? 0 : 1
-                            ];
-                        };
-
-                        const sa = score(a);
-                        const sb = score(b);
-
-                        for (let i = 0; i < sa.length; i++) {
-                            if (sa[i] !== sb[i]) return sa[i] - sb[i];
-                        }
-                        return 0;
-                    });
-
-                return ranked[0] || null;
+                const paperLabel = String(paper.label || '').toLowerCase();
+                const paperLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => paperLabel.includes(level));
+                const paperPart = paperLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                const levelCandidates = candidates.filter(s => {
+                    const schemeLabel = String(s.label || '').toLowerCase();
+                    const schemeLevel = ['higher', 'ordinary', 'foundation', 'common'].find(level => schemeLabel.includes(level));
+                    return !paperLevel || !schemeLevel || paperLevel === schemeLevel;
+                });
+                if (!levelCandidates.length) return null;
+                return levelCandidates.find(s => {
+                    const schemeLabel = String(s.label || '').toLowerCase();
+                    const schemePart = schemeLabel.match(/paper (one|two)|section [a-c]|part [12]/)?.[0] || '';
+                    return !paperPart || !schemePart || paperPart === schemePart;
+                }) || levelCandidates[0];
             }
-
-async function examArchiveLoadManifest() {
+            async function examArchiveLoadManifest() {
                 examArchiveManifestStatus = 'loading';
                 try {
                     const response = await fetch(EXAM_ARCHIVE_MANIFEST_URL, { cache: 'no-cache' });
@@ -7813,487 +7696,168 @@ ${numbered}`;
             // exactly like a manually-placed one, so a bad guess is a minor inconvenience, not a
             // broken experience. Runs once, only when a paper is opened with no saved answers yet
             // (see openExamPaper) -- never re-runs over a student's already-customised layout.
-const round2 = (x) => Math.round(x * 100) / 100;
-            // PDF.js affine matrices use [a,b,c,d,e,f], not row-major [a,c,e,b,d,f].
+            const round2 = (x) => Math.round(x * 100) / 100;
             function examPaperMulMatrix(m1, m2) {
-                const [a, b, c, d, e, f] = m1;
-                const [g, h, i, j, k, l] = m2;
                 return [
-                    a * g + c * h, b * g + d * h,
-                    a * i + c * j, b * i + d * j,
-                    a * k + c * l + e, b * k + d * l + f
+                    m1[0] * m2[0] + m1[1] * m2[2], m1[0] * m2[1] + m1[1] * m2[3],
+                    m1[2] * m2[0] + m1[3] * m2[2], m1[2] * m2[1] + m1[3] * m2[3],
+                    m1[4] * m2[0] + m1[5] * m2[2] + m2[4], m1[4] * m2[1] + m1[5] * m2[3] + m2[5],
                 ];
             }
 
-            // =====================================================================================
-            // Answer-area detection
-            //
-            // How the real papers are built (checked against ~45 SEC papers, JC + LC):
-            //   * Boxes are NOT "rectangle" shapes with a visible border. Word/InDesign export draws
-            //     each border as a separate 0.48pt-thick *filled* hairline rectangle, or as stroked
-            //     line segments. At our render scale that is ~0.7px -- so any "ignore shapes <= 1px"
-            //     rule throws away almost every border in the file.
-            //   * Graph-paper answer areas (all of LC/JC Maths + Applied Maths) are 100+ separate
-            //     light grid lines inside one darker outer frame -- the old tick-box rule read every
-            //     17px grid cell as a checkbox, and the old "2+ vertical lines = table" rule rejected
-            //     the grid itself.
-            //   * Economics/Biology/Science/Spanish boxes are a frame with row dividers and printed
-            //     labels INSIDE ("Justify:", "1.", "Reason:", "(lines 1-10)", "p = ____"). The old
-            //     "any text inside = not an answer box" rule rejected all of them.
-            //   * Some frames contain the question itself above the blank space. The usable answer
-            //     area is the biggest text-free gap inside the frame, not the frame.
-            //   * Content can sit inside Form XObjects (paintFormXObjectBegin/End) whose matrix has to
-            //     be applied, and "clip" paths must never be treated as drawn shapes.
-            //
-            // Pipeline: (1) read ink geometry as horizontal/vertical edges in screen px,
-            // (2) rebuild closed frames from those edges, (3) classify each frame using the printed
-            // text/images/curves inside it, (4) fall back to open ruled lines and "____" blanks.
-            // Everything is generic -- no per-paper knowledge. Every result is an ordinary,
-            // movable/resizable/deletable box, so a wrong guess stays a minor inconvenience.
-            // =====================================================================================
-
-            async function examPaperReadPageGeometry(page, viewport) {
+            // Walks one page's raw drawing commands, tracking the current transform matrix through
+            // save/restore/transform, and classifies every path it finds (already converted to
+            // on-screen pixel coordinates for `viewport`) as a tick-box-shaped square, or a thin
+            // rectangle/line segment (horizontal == a ruled writing line, vertical == kept only to
+            // help tell a real ruled answer area apart from a table/graph grid later).
+            async function examPaperDetectPageFields(page, viewport) {
                 const OPS = pdfjsLib.OPS;
                 const { fnArray, argsArray } = await page.getOperatorList();
-
                 let ctm = [1, 0, 0, 1, 0, 0];
-                let dashed = false;
                 const stack = [];
-                const rawH = [], rawV = [], images = [], curves = [];
-                let path = [];
-                let cur = null;
+                const squares = [], hSegs = [], vSegs = [], cellRects = [];
+                const applyCtm = (x, y) => [ctm[0] * x + ctm[2] * y + ctm[4], ctm[1] * x + ctm[3] * y + ctm[5]];
+                const toDevice = (pt) => viewport.convertToViewportPoint(pt[0], pt[1]);
 
-                const dev = (x, y) => {
-                    const ux = ctm[0] * x + ctm[2] * y + ctm[4];
-                    const uy = ctm[1] * x + ctm[3] * y + ctm[5];
-                    return viewport.convertToViewportPoint(ux, uy);
+                const classifySeg = (p1, p2) => {
+                    const dx = Math.abs(p1[0] - p2[0]), dy = Math.abs(p1[1] - p2[1]);
+                    if (dy < 1.2 && dx > 30) hSegs.push({ x1: Math.min(p1[0], p2[0]), x2: Math.max(p1[0], p2[0]), y: (p1[1] + p2[1]) / 2 });
+                    else if (dx < 1.2 && dy > 6) vSegs.push({ y1: Math.min(p1[1], p2[1]), y2: Math.max(p1[1], p2[1]), x: (p1[0] + p2[0]) / 2 });
                 };
-                const bboxOf = pts => {
-                    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-                    for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
-                    return { x0, y0, x1, y1 };
-                };
-                const addSeg = (p, q) => {
-                    const dx = Math.abs(p[0] - q[0]), dy = Math.abs(p[1] - q[1]);
-                    if (dy < 1.3 && dx >= 4) rawH.push({ a1: Math.min(p[0], q[0]), a2: Math.max(p[0], q[0]), p: (p[1] + q[1]) / 2, dashed });
-                    else if (dx < 1.3 && dy >= 4) rawV.push({ a1: Math.min(p[1], q[1]), a2: Math.max(p[1], q[1]), p: (p[0] + q[0]) / 2, dashed });
-                };
-                const addRect = (r, stroke) => {
-                    const w = r.x1 - r.x0, h = r.y1 - r.y0;
-                    const mid = (r.y0 + r.y1) / 2, midx = (r.x0 + r.x1) / 2;
-                    if (h < 2.6 && w >= 4) { rawH.push({ a1: r.x0, a2: r.x1, p: mid, dashed }); return; }   // hairline fill == a line
-                    if (w < 2.6 && h >= 4) { rawV.push({ a1: r.y0, a2: r.y1, p: midx, dashed }); return; }
-                    if (!stroke) return;                                                                  // big filled rect = shading, not a frame
-                    rawH.push({ a1: r.x0, a2: r.x1, p: r.y0, dashed }); rawH.push({ a1: r.x0, a2: r.x1, p: r.y1, dashed });
-                    rawV.push({ a1: r.y0, a2: r.y1, p: r.x0, dashed }); rawV.push({ a1: r.y0, a2: r.y1, p: r.x1, dashed });
-                };
-                const paint = (fill, stroke) => {
-                    for (const sp of path) {
-                        if (sp.rect) { addRect(sp.rect, stroke); continue; }
-                        const pts = sp.pts;
-                        if (sp.curveBox && (sp.curveBox.x1 - sp.curveBox.x0 >= 6 || sp.curveBox.y1 - sp.curveBox.y0 >= 6)) curves.push(sp.curveBox);
-                        for (let i = 1; i < pts.length; i++) addSeg(pts[i - 1], pts[i]);
-                        if (sp.closed && pts.length > 2) addSeg(pts[pts.length - 1], pts[0]);
-                        // a filled thin polygon (4-5 points) is also just a line
-                        if (fill && !stroke && pts.length >= 4 && pts.length <= 5 && !sp.curveBox) {
-                            const b = bboxOf(pts);
-                            if (b.y1 - b.y0 < 2.6 && b.x1 - b.x0 >= 4) rawH.push({ a1: b.x0, a2: b.x1, p: (b.y0 + b.y1) / 2, dashed });
-                            else if (b.x1 - b.x0 < 2.6 && b.y1 - b.y0 >= 4) rawV.push({ a1: b.y0, a2: b.y1, p: (b.x0 + b.x1) / 2, dashed });
-                        }
+                const recordRectDevice = (corners) => {
+                    const xs = corners.map(c => c[0]), ys = corners.map(c => c[1]);
+                    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+                    const w = x1 - x0, h = y1 - y0;
+                    if (w > 1 && h > 1 && Math.min(w, h) < 2.5 && Math.max(w, h) > 35) {
+                        if (w >= h) hSegs.push({ x1: x0, x2: x1, y: (y0 + y1) / 2 }); else vSegs.push({ y1: y0, y2: y1, x: (x0 + x1) / 2 });
+                    } else if (w >= 10 && w <= 55 && h >= 10 && h <= 55 && Math.abs(w - h) < Math.max(w, h) * 0.28) {
+                        squares.push({ x: x0, y: y0, w, h });
                     }
-                    path = []; cur = null;
-                };
-                const pushImage = () => {
-                    const c = [dev(0, 0), dev(1, 0), dev(1, 1), dev(0, 1)];
-                    const b = bboxOf(c);
-                    if (b.x1 - b.x0 >= 8 && b.y1 - b.y0 >= 8) images.push(b);
+                    // Tables are often drawn as a grid of individual per-cell rectangles rather than
+                    // shared border strokes -- track every rectangle in this "cell-ish" size range
+                    // (too big to be a rule/tick-box, too small to be a whole answer area) so a later
+                    // pass can tell a real table apart from a genuine ruled writing block even when
+                    // there's no single long dividing line to detect.
+                    if (w >= 15 && h >= 12 && w <= 260 && h <= 60) cellRects.push({ x: x0, y: y0, w, h });
                 };
 
                 for (let i = 0; i < fnArray.length; i++) {
                     const fn = fnArray[i], args = argsArray[i];
-                    switch (fn) {
-                        case OPS.save: stack.push({ ctm: ctm.slice(), dashed }); break;
-                        case OPS.restore: { const s = stack.pop(); if (s) { ctm = s.ctm; dashed = s.dashed; } break; }
-                        case OPS.transform: ctm = examPaperMulMatrix(ctm, args); break;
-                        // Form XObjects carry their own matrix; pdf.js applies it as save+transform.
-                        case OPS.paintFormXObjectBegin:
-                            stack.push({ ctm: ctm.slice(), dashed });
-                            if (args && args[0]) ctm = examPaperMulMatrix(ctm, args[0]);
-                            break;
-                        case OPS.paintFormXObjectEnd: { const s = stack.pop(); if (s) { ctm = s.ctm; dashed = s.dashed; } break; }
-                        case OPS.setDash: dashed = !!(args && args[0] && args[0].length); break;
-                        case OPS.paintImageXObject: case OPS.paintInlineImageXObject:
-                        case OPS.paintImageMaskXObject: case OPS.paintImageXObjectRepeat:
-                        case OPS.paintJpegXObject: pushImage(); break;
-                        case OPS.constructPath: {
-                            const [ops, coords] = args;
-                            let ci = 0;
-                            for (const op of ops) {
-                                if (op === OPS.moveTo) {
-                                    cur = { pts: [dev(coords[ci], coords[ci + 1])], closed: false, curveBox: null };
-                                    ci += 2; path.push(cur);
-                                } else if (op === OPS.lineTo) {
-                                    if (!cur) { cur = { pts: [], closed: false, curveBox: null }; path.push(cur); }
-                                    cur.pts.push(dev(coords[ci], coords[ci + 1])); ci += 2;
-                                } else if (op === OPS.curveTo || op === OPS.curveTo2 || op === OPS.curveTo3) {
-                                    const n = op === OPS.curveTo ? 3 : 2;
-                                    if (!cur) { cur = { pts: [], closed: false, curveBox: null }; path.push(cur); }
-                                    const cp = [];
-                                    for (let k = 0; k < n; k++) cp.push(dev(coords[ci + 2 * k], coords[ci + 2 * k + 1]));
-                                    ci += 2 * n;
-                                    const all = cur.pts.slice(-1).concat(cp);
-                                    const b = bboxOf(all);
-                                    cur.curveBox = cur.curveBox ? bboxOf([[cur.curveBox.x0, cur.curveBox.y0], [cur.curveBox.x1, cur.curveBox.y1], [b.x0, b.y0], [b.x1, b.y1]]) : b;
-                                    cur.pts.push(cp[cp.length - 1]);
-                                } else if (op === OPS.closePath) {
-                                    if (cur) cur.closed = true;
-                                } else if (op === OPS.rectangle) {
-                                    const x = coords[ci], y = coords[ci + 1], w = coords[ci + 2], h = coords[ci + 3];
-                                    ci += 4;
-                                    const b = bboxOf([dev(x, y), dev(x + w, y), dev(x + w, y + h), dev(x, y + h)]);
-                                    path.push({ rect: b });
-                                    cur = null;
-                                }
+                    if (fn === OPS.save) stack.push(ctm);
+                    else if (fn === OPS.restore) ctm = stack.pop() || ctm;
+                    else if (fn === OPS.transform) ctm = examPaperMulMatrix(args, ctm);
+                    else if (fn === OPS.constructPath) {
+                        const [ops, coords] = args;
+                        let ci = 0, subStart = null, prev = null;
+                        for (const op of ops) {
+                            if (op === OPS.moveTo) { const d = toDevice(applyCtm(coords[ci++], coords[ci++])); subStart = d; prev = d; }
+                            else if (op === OPS.lineTo) { const d = toDevice(applyCtm(coords[ci++], coords[ci++])); if (prev) classifySeg(prev, d); prev = d; }
+                            else if (op === OPS.curveTo) { ci += 6; prev = null; }
+                            else if (op === OPS.curveTo2 || op === OPS.curveTo3) { ci += 4; prev = null; }
+                            else if (op === OPS.closePath) { if (prev && subStart) classifySeg(prev, subStart); prev = subStart; }
+                            else if (op === OPS.rectangle) {
+                                const x = coords[ci++], y = coords[ci++], w = coords[ci++], h = coords[ci++];
+                                const corners = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(c => toDevice(applyCtm(c[0], c[1])));
+                                recordRectDevice(corners);
+                                prev = null; subStart = null;
                             }
-                            break;
                         }
-                        case OPS.stroke: case OPS.closeStroke: paint(false, true); break;
-                        case OPS.fill: case OPS.eoFill: paint(true, false); break;
-                        case OPS.fillStroke: case OPS.eoFillStroke:
-                        case OPS.closeFillStroke: case OPS.closeEOFillStroke: paint(true, true); break;
-                        // clip / endPath: the path was only a clipping region -- never ink.
-                        case OPS.endPath: case OPS.clip: case OPS.eoClip: path = []; cur = null; break;
-                        default: break;
                     }
                 }
-                return {
-                    H: examPaperMergeEdges(rawH, 6),
-                    V: examPaperMergeEdges(rawV, 6),
-                    images, curves
-                };
+                return { squares, hSegs, vSegs, cellRects };
             }
 
-            // Collapses duplicate / abutting hairlines (PDFs love drawing each border twice) into
-            // single long edges: same position (+-1.6px) and overlapping or touching spans.
-            function examPaperMergeEdges(edges, minLen) {
-                const sorted = edges.slice().sort((a, b) => a.p - b.p);
+            // Groups consecutive ruled lines (consistent vertical spacing, overlapping horizontal
+            // span) into one writing-space band per group, in on-screen pixel coordinates (y grows
+            // downward here). Drops bands that look like a table/graph grid -- ones with two or
+            // more vertical rules crossing through them -- since those need their grid visible to
+            // draw on, not a text box covering it.
+            // Many PDFs draw the same ruled line twice (once as a hairline fill, once as a stroke,
+            // for crisper print rendering) -- collapse near-identical segments before grouping, or
+            // every doubled line becomes its own duplicate one-line band.
+            function examPaperDedupeSegments(segs) {
+                const sorted = segs.slice().sort((a, b) => a.y - b.y || a.x1 - b.x1);
                 const out = [];
-                let i = 0;
-                while (i < sorted.length) {
-                    let j = i;
-                    const base = sorted[i].p;
-                    while (j < sorted.length && sorted[j].p - base <= 1.6) j++;
-                    const group = sorted.slice(i, j).sort((a, b) => a.a1 - b.a1);
-                    let c = null;
-                    for (const e of group) {
-                        if (c && e.a1 <= c.a2 + 2.5) {
-                            c.a2 = Math.max(c.a2, e.a2);
-                            c.psum += e.p * (e.a2 - e.a1 + 1); c.pw += (e.a2 - e.a1 + 1);
-                        } else {
-                            if (c) out.push(c);
-                            c = { a1: e.a1, a2: e.a2, psum: e.p * (e.a2 - e.a1 + 1), pw: (e.a2 - e.a1 + 1) };
-                        }
-                    }
-                    if (c) out.push(c);
-                    i = j;
+                for (const seg of sorted) {
+                    const last = out[out.length - 1];
+                    if (last && Math.abs(last.y - seg.y) < 1 && Math.abs(last.x1 - seg.x1) < 2 && Math.abs(last.x2 - seg.x2) < 2) continue;
+                    out.push(seg);
                 }
-                return out.map(c => ({ a1: c.a1, a2: c.a2, p: c.psum / c.pw }))
-                    .filter(e => e.a2 - e.a1 >= minLen)
-                    .sort((a, b) => a.p - b.p || a.a1 - b.a1);
+                return out;
             }
 
-            async function examPaperReadPageText(page, viewport) {
-                const rects = [];
-                try {
-                    const tc = await page.getTextContent();
-                    for (const it of tc.items || []) {
-                        if (!it.str || !it.str.trim() || !it.transform) continue;
-                        const m = pdfjsLib.Util.transform(viewport.transform, it.transform);
-                        const rotated = Math.abs(m[1]) > Math.abs(m[0]) * 0.5;
-                        const size = Math.max(4, Math.hypot(m[2], m[3]));
-                        const wid = Math.max(2, Math.abs(it.width || 0) * viewport.scale);
-                        if (rotated) {
-                            // 90-degree text (table headers, axis titles): box swapped
-                            rects.push({ x: m[4] - size * 0.9, y: m[5] - wid, w: size * 1.1, h: wid, str: it.str });
-                        } else {
-                            rects.push({ x: m[4], y: m[5] - size * 0.9, w: wid, h: size * 1.15, str: it.str, size });
-                        }
-                    }
-                } catch (e) { /* text is supplementary */ }
-                return rects;
-            }
-
-            // ---- Frames: closed axis-aligned rectangles rebuilt from the edge lists ------------
-            function examPaperFindFrames(H, V, pageW, pageH) {
-                const TOL = 2.6, MINH = 12, MINW = 22;
-                const hs = H.filter(e => e.a2 - e.a1 >= MINW);
-                const vs = V.filter(e => e.a2 - e.a1 >= MINH);
-                if (hs.length > 900 || vs.length > 1200) return [];   // map / artwork page, not a form
-                const maxH = pageH * 0.9;
-                const seen = new Set();
-                const frames = [];
-                for (let i = 0; i < hs.length; i++) {
-                    const T = hs[i];
-                    for (let j = i + 1; j < hs.length; j++) {
-                        const B = hs[j];
-                        const dh = B.p - T.p;
-                        if (dh < MINH) continue;
-                        if (dh > maxH) break;
-                        const ox1 = Math.max(T.a1, B.a1), ox2 = Math.min(T.a2, B.a2);
-                        if (ox2 - ox1 < MINW) continue;
-                        let L = null, R = null;
-                        for (const v of vs) {
-                            if (v.p < ox1 - TOL || v.p > ox2 + TOL) continue;
-                            if (v.a1 > T.p + TOL || v.a2 < B.p - TOL) continue;
-                            if (L === null || v.p < L) L = v.p;
-                            if (R === null || v.p > R) R = v.p;
-                        }
-                        if (L === null || R - L < MINW) continue;
-                        const key = Math.round(L) + ',' + Math.round(T.p) + ',' + Math.round(R) + ',' + Math.round(B.p);
-                        if (seen.has(key)) continue;
-                        seen.add(key);
-                        frames.push({ x0: L, y0: T.p, x1: R, y1: B.p });
-                    }
-                }
-                return frames;
-            }
-
-            // Splits a frame into its cells using edges that run all the way across it.
-            function examPaperCellsOf(f, H, V) {
-                const TOL = 2.6;
-                const xs = [f.x0, f.x1], ys = [f.y0, f.y1];
-                for (const v of V) {
-                    if (v.p > f.x0 + 4 && v.p < f.x1 - 4 && v.a1 <= f.y0 + TOL && v.a2 >= f.y1 - TOL) xs.push(v.p);
-                }
-                for (const h of H) {
-                    if (h.p > f.y0 + 4 && h.p < f.y1 - 4 && h.a1 <= f.x0 + TOL && h.a2 >= f.x1 - TOL) ys.push(h.p);
-                }
-                const uniq = arr => arr.sort((a, b) => a - b).filter((v, i, a) => i === 0 || v - a[i - 1] > 3);
-                const ux = uniq(xs), uy = uniq(ys);
-                const cells = [];
-                if (ux.length < 2 || uy.length < 2 || (ux.length - 1) * (uy.length - 1) > 150) return cells;
-                if (ux.length === 2 && uy.length === 2) return cells;
-                for (let r = 0; r < uy.length - 1; r++)
-                    for (let c = 0; c < ux.length - 1; c++)
-                        cells.push({ x0: ux[c], y0: uy[r], x1: ux[c + 1], y1: uy[r + 1] });
-                return cells;
-            }
-
-            // Text lines (clusters of same-row text items) whose centre lies inside the rect.
-            function examPaperTextLinesIn(r, textRects) {
-                const items = textRects.filter(t => {
-                    const cx = t.x + t.w / 2, cy = t.y + t.h / 2;
-                    return cx > r.x0 + 1 && cx < r.x1 - 1 && cy > r.y0 + 1 && cy < r.y1 - 1;
-                }).sort((a, b) => (a.y + a.h / 2) - (b.y + b.h / 2));
-                const lines = [];
-                for (const t of items) {
-                    const cy = t.y + t.h / 2;
-                    const last = lines[lines.length - 1];
-                    if (last && Math.abs(cy - last.cy) < Math.max(4, t.h * 0.6)) {
-                        last.left = Math.min(last.left, t.x); last.right = Math.max(last.right, t.x + t.w);
-                        last.top = Math.min(last.top, t.y); last.bottom = Math.max(last.bottom, t.y + t.h);
-                        last.chars += t.str.trim().length; last.cy = (last.cy + cy) / 2;
-                        last.text += ' ' + t.str;
-                    } else {
-                        lines.push({ left: t.x, right: t.x + t.w, top: t.y, bottom: t.y + t.h, cy, chars: t.str.trim().length, text: t.str });
-                    }
-                }
-                return lines;
-            }
-
-            // Decides what a frame is. Returns:
-            //   { kind:'check', box }      small empty square-ish box -> tick box
-            //   { kind:'text',  box }      writing area (trimmed to the text-free part of the frame)
-            //   { kind:'container' }       table / diagram / text-heavy -- look at its cells instead
-            //   { kind:'reject' }
-            function examPaperClassifyFrame(f, ctx) {
-                const { textRects, images, curves, pageW, pageH } = ctx;
-                const fw = f.x1 - f.x0, fh = f.y1 - f.y0;
-                if (fw < 9 || fh < 9) return { kind: 'reject' };
-                if (fw * fh > pageW * pageH * 0.55) return { kind: 'container' };   // page border / big layout box
-
-                const lines = examPaperTextLinesIn(f, textRects);
-
-                // tick box: small, empty, roughly square
-                if (fw <= 58 && fh <= 58 && fw >= 9 && fh >= 9 && Math.max(fw, fh) / Math.min(fw, fh) <= 1.9 && lines.length === 0) {
-                    return { kind: 'check', box: { x0: f.x0, y0: f.y0, x1: f.x1, y1: f.y1 } };
-                }
-
-                // pre-drawn artwork inside the frame (a diagram/graph with a picture or curves)
-                const imgArea = images.reduce((s, im) => {
-                    const ix = Math.min(im.x1, f.x1) - Math.max(im.x0, f.x0), iy = Math.min(im.y1, f.y1) - Math.max(im.y0, f.y0);
-                    return s + (ix > 0 && iy > 0 ? ix * iy : 0);
-                }, 0);
-                if (imgArea > fw * fh * 0.12) return { kind: 'container' };
-                const bigCurves = curves.filter(c => c.x0 >= f.x0 - 2 && c.x1 <= f.x1 + 2 && c.y0 >= f.y0 - 2 && c.y1 <= f.y1 + 2 && Math.max(c.x1 - c.x0, c.y1 - c.y0) >= 30);
-                if (bigCurves.length) return { kind: 'container' };
-
-                // split lines into short gutter labels ("Justify:", "1.", "(lines 1-10)") and real text
-                const labels = [], blocks = [];
-                for (const ln of lines) {
-                    const wid = ln.right - ln.left;
-                    const nearLeft = ln.left - f.x0 <= fw * 0.28, nearRight = f.x1 - ln.right <= fw * 0.28;
-                    if (ln.chars <= 16 && wid <= fw * 0.24 && (nearLeft || nearRight) && !/_{3,}/.test(ln.text)) labels.push({ ...ln, side: nearLeft ? 'L' : 'R' });
-                    else blocks.push(ln);
-                }
-                if (blocks.length > 6) return { kind: 'container' };
-                const blockArea = blocks.reduce((s, b) => s + (b.right - b.left) * (b.bottom - b.top), 0);
-                if (blockArea > fw * fh * 0.3) return { kind: 'container' };
-
-                // biggest text-free vertical gap
-                let cursor = f.y0, best = null;
-                const consider = (top, bottom) => {
-                    const h = bottom - top;
-                    if (!best || h > best.h + 12 || (Math.abs(h - best.h) <= 12 && top > best.top)) best = { top, bottom, h };
-                };
-                for (const b of blocks.sort((a, c) => a.top - c.top)) {
-                    consider(cursor, b.top - 1);
-                    cursor = Math.max(cursor, b.bottom + 1);
-                }
-                consider(cursor, f.y1);
-                if (!best || best.h < 15) return { kind: 'container' };
-
-                let x0 = f.x0 + 2.5, x1 = f.x1 - 2.5;
-                for (const lb of labels) {
-                    if (lb.cy < best.top - 2 || lb.cy > best.bottom + 2) continue;
-                    if (lb.side === 'L') x0 = Math.max(x0, lb.right + 5);
-                    else x1 = Math.min(x1, lb.left - 5);
-                }
-                if (x1 - x0 < 40) { x0 = f.x0 + 2.5; x1 = f.x1 - 2.5; }
-                const y0 = best.top <= f.y0 + 0.5 ? f.y0 + 2 : best.top + 1;
-                const y1 = best.bottom >= f.y1 - 0.5 ? f.y1 - 2 : best.bottom - 1;
-                if (y1 - y0 < 14 || x1 - x0 < 30) return { kind: 'reject' };
-                return { kind: 'text', box: { x0, y0, x1, y1 } };
-            }
-
-            // Open ruled writing lines with no surrounding frame (older layouts, answer-book pages).
-            function examPaperRuledBands(H, claimed, ctx) {
-                const { pageW, pageH, textRects } = ctx;
-                const lines = H.filter(e => e.a2 - e.a1 >= pageW * 0.22 && !claimed.some(c => e.p >= c.y0 - 2 && e.p <= c.y1 + 2 && e.a1 >= c.x0 - 3 && e.a2 <= c.x1 + 3));
+            function examPaperGroupRuledBands(hSegsRaw, vSegs, cellRects, minWidth) {
+                const lines = examPaperDedupeSegments(hSegsRaw).sort((a, b) => a.y - b.y);
                 const bands = [];
                 let cur = null;
-                const minGap = 12, maxGap = Math.min(80, pageH * 0.06);
-                for (const ln of lines) {
+                for (const line of lines) {
                     if (cur) {
-                        const gap = ln.p - cur.lastY;
-                        const overlap = Math.min(cur.x1, ln.a2) - Math.max(cur.x0, ln.a1);
-                        const prev = cur.gaps.length ? cur.gaps[cur.gaps.length - 1] : null;
-                        if (gap >= minGap && gap <= maxGap && overlap > 0.6 * Math.min(cur.x1 - cur.x0, ln.a2 - ln.a1) && (prev === null || Math.abs(gap - prev) <= Math.max(4, prev * 0.3))) {
-                            cur.gaps.push(gap); cur.lastY = ln.p; cur.n++;
-                            cur.x0 = Math.min(cur.x0, ln.a1); cur.x1 = Math.max(cur.x1, ln.a2);
+                        const gap = line.y - cur.lastY;
+                        const overlap = Math.min(cur.x2, line.x2) - Math.max(cur.x1, line.x1);
+                        const minSpan = Math.min(cur.x2 - cur.x1, line.x2 - line.x1) * 0.5;
+                        if (gap >= 14 && gap <= 46 && overlap > minSpan) {
+                            cur.lines.push(line); cur.lastY = line.y;
+                            cur.x1 = Math.min(cur.x1, line.x1); cur.x2 = Math.max(cur.x2, line.x2);
                             continue;
                         }
                         bands.push(cur);
                     }
-                    cur = { firstY: ln.p, lastY: ln.p, gaps: [], n: 1, x0: ln.a1, x1: ln.a2 };
+                    cur = { lines: [line], firstY: line.y, lastY: line.y, x1: line.x1, x2: line.x2 };
                 }
                 if (cur) bands.push(cur);
-                const out = [];
-                for (const b of bands) {
-                    if (b.n < 3) continue;
-                    const rowGap = (b.lastY - b.firstY) / (b.n - 1);
-                    let top = b.firstY - rowGap * 0.92, bottom = b.lastY + 2;
-                    // never run over printed text sitting above/inside the lines
-                    const inside = textRects.filter(t => {
-                        const cx = t.x + t.w / 2, cy = t.y + t.h / 2;
-                        return cx > b.x0 && cx < b.x1 && cy > top && cy < bottom;
+                return bands
+                    // A lone line is usually just a header/instruction's own underline, not a ruled
+                    // writing block -- real writing space is (almost) always more than one line.
+                    .filter(b => b.lines.length >= 2)
+                    .map(b => {
+                        const rowGap = (b.lastY - b.firstY) / (b.lines.length - 1);
+                        // Pad down past the last line by about a third of a row (comfortable margin
+                        // before whatever comes next), but *not* up past the first line -- the first
+                        // detected line is very often a section header's own underline, and there's
+                        // no reliable way to tell "one more blank row above this" from "the header
+                        // text itself starts right above this" without reading the text. Erring
+                        // toward a slightly short box beats erring toward covering real content.
+                        return { x1: b.x1, x2: b.x2, yTop: b.firstY - 3, yBottom: b.lastY + rowGap * 0.35 };
+                    })
+                    .filter(band => {
+                        const crossingV = vSegs.filter(v => v.x > band.x1 + 2 && v.x < band.x2 - 2 && v.y1 < band.yBottom && v.y2 > band.yTop).length;
+                        // Tables are often drawn as a grid of individual per-cell rectangles with no
+                        // single shared border line long enough to register as a crossing vSeg --
+                        // catch those by counting cell-sized rectangles sitting inside the band too.
+                        const cellsInside = cellRects.filter(c => c.x >= band.x1 - 2 && c.x + c.w <= band.x2 + 2 && c.y >= band.yTop - 2 && c.y + c.h <= band.yBottom + 2).length;
+                        return crossingV < 2 && cellsInside < 4 && (band.x2 - band.x1) > minWidth;
                     });
-                    for (const t of inside) { if (t.y + t.h < b.firstY) top = Math.max(top, t.y + t.h + 1); }
-                    if (bottom - top < 24) continue;
-                    out.push({ x0: b.x0, y0: top, x1: b.x1, y1: bottom });
-                }
-                return out;
-            }
-
-            // "x = ________" style blanks printed as underscore characters.
-            function examPaperUnderscoreBlanks(textRects, claimedBoxes) {
-                const out = [];
-                for (const t of textRects) {
-                    const m = /_{4,}/.exec(t.str);
-                    if (!m || !t.size) continue;
-                    const per = t.w / Math.max(1, t.str.length);
-                    const x0 = t.x + per * m.index, w = per * m[0].length;
-                    if (w < 28) continue;
-                    const box = { x0, y0: t.y - t.size * 0.45, x1: x0 + w, y1: t.y + t.size * 1.2 };
-                    const hit = claimedBoxes.some(c => Math.min(c.x1, box.x1) - Math.max(c.x0, box.x0) > 6 && Math.min(c.y1, box.y1) - Math.max(c.y0, box.y0) > 6);
-                    if (!hit) out.push(box);
-                }
-                return out;
-            }
-
-            // Whole-page analysis. Pure function of the extracted geometry/text (easy to test).
-            function examPaperAnalysePage(geo, textRects, pageW, pageH) {
-                const ctx = { textRects, images: geo.images, curves: geo.curves, pageW, pageH };
-                const frames = examPaperFindFrames(geo.H, geo.V, pageW, pageH)
-                    .sort((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) - (a.x1 - a.x0) * (a.y1 - a.y0));
-                const accepted = [];        // frames already turned into boxes (children are skipped)
-                const claimedFrames = [];   // frames claimed (text or tick)
-                const texts = [], checks = [];
-                const insideAccepted = f => {
-                    const cx = (f.x0 + f.x1) / 2, cy = (f.y0 + f.y1) / 2;
-                    return accepted.some(a => cx > a.x0 && cx < a.x1 && cy > a.y0 && cy < a.y1);
-                };
-                const handle = (f, isCell, containerCells) => {
-                    if (insideAccepted(f)) return;
-                    const r = examPaperClassifyFrame(f, ctx);
-                    if (r.kind === 'text') {
-                        if (isCell && containerCells > 8) return;       // blank cells in a big table are not answer boxes
-                        texts.push(r.box); accepted.push(f); claimedFrames.push(f);
-                    } else if (r.kind === 'check') {
-                        checks.push(r.box); accepted.push(f); claimedFrames.push(f);
-                    } else if (r.kind === 'container' && !isCell) {
-                        const cells = examPaperCellsOf(f, geo.H, geo.V);
-                        for (const c of cells) handle(c, true, cells.length);
-                    }
-                };
-                for (const f of frames) handle(f, false, 0);
-
-                // grid cells that slipped through as many identical touching "tick boxes" -> not tick boxes
-                const keptChecks = checks.filter(c => {
-                    const w = c.x1 - c.x0, h = c.y1 - c.y0;
-                    const nb = checks.filter(o => o !== c && Math.abs((o.x1 - o.x0) - w) < 2.5 && Math.abs((o.y1 - o.y0) - h) < 2.5 &&
-                        ((Math.abs(o.x0 - c.x1) < 3 || Math.abs(o.x1 - c.x0) < 3) && Math.abs(o.y0 - c.y0) < 3 ||
-                         (Math.abs(o.y0 - c.y1) < 3 || Math.abs(o.y1 - c.y0) < 3) && Math.abs(o.x0 - c.x0) < 3)).length;
-                    return nb < 2;
-                });
-
-                const claimedAll = claimedFrames.concat(frames.filter(fr => !insideAccepted(fr) && false));
-                const bands = examPaperRuledBands(geo.H, accepted, ctx).filter(b => !texts.some(t => Math.min(t.x1, b.x1) - Math.max(t.x0, b.x0) > 10 && Math.min(t.y1, b.y1) - Math.max(t.y0, b.y0) > 6));
-                const blanks = examPaperUnderscoreBlanks(textRects, texts.concat(bands));
-                return { texts: texts.concat(bands, blanks), checks: keptChecks };
             }
 
             // Runs detection across every page and returns ready-to-use box objects, in the exact
             // same shape examPaperAddTextBox/examPaperAddCheckbox produce (just flagged `auto`).
             async function examPaperDetectAllFields(doc) {
                 const fields = [];
-                const maxPages = Math.min(doc.numPages, 60);
+                const maxPages = Math.min(doc.numPages, 60); // safety cap for unusually long papers
                 for (let p = 1; p <= maxPages; p++) {
+                    let detected;
                     try {
                         const page = await doc.getPage(p);
                         const viewport = page.getViewport({ scale: EXAM_PAPER_SCALE });
-                        const geo = await examPaperReadPageGeometry(page, viewport);
-                        const text = await examPaperReadPageText(page, viewport);
-                        const found = examPaperAnalysePage(geo, text, viewport.width, viewport.height);
+                        detected = await examPaperDetectPageFields(page, viewport);
                         const slotId = 'pdf-' + p;
-                        const px = v => round2(v / viewport.width * 100), py = v => round2(v / viewport.height * 100);
-
-                        for (const c of found.checks) {
+                        for (const sq of detected.squares) {
                             fields.push({ id: uid(), type: 'checkbox', page: slotId,
-                                x: px(Math.max(0, c.x0)), y: py(Math.max(0, c.y0)),
-                                w: px(c.x1 - c.x0), h: py(c.y1 - c.y0), value: false, auto: true });
+                                x: round2(sq.x / viewport.width * 100), y: round2(sq.y / viewport.height * 100), value: false, auto: true });
                         }
-                        for (const t of found.texts) {
-                            const x0 = Math.max(0, t.x0), y0 = Math.max(0, t.y0);
-                            const x1 = Math.min(viewport.width, t.x1), y1 = Math.min(viewport.height, t.y1);
-                            if (x1 - x0 < 24 || y1 - y0 < 12) continue;
+                        const bands = examPaperGroupRuledBands(detected.hSegs, detected.vSegs, detected.cellRects, viewport.width * 0.15)
+                            // A band sitting under a row of tick-boxes (e.g. the exam-number/date
+                            // digit grid on every cover page) is that grid's own underline, not a
+                            // real writing space -- skip it so it doesn't sit on top of the boxes.
+                            .filter(band => detected.squares.filter(sq =>
+                                sq.y < band.yBottom && sq.y + sq.h > band.yTop && sq.x < band.x2 && sq.x + sq.w > band.x1).length < 2);
+                        for (const band of bands) {
+                            const wPct = Math.min((band.x2 - band.x1) / viewport.width * 100, 92);
                             fields.push({ id: uid(), type: 'text', page: slotId,
-                                x: px(x0), y: py(y0), w: px(x1 - x0), h: py(y1 - y0), value: '', auto: true });
+                                x: round2(band.x1 / viewport.width * 100), y: round2(band.yTop / viewport.height * 100),
+                                w: round2(wPct), hPx: Math.round(Math.max(36, band.yBottom - band.yTop)), value: '', auto: true });
                         }
-                    } catch (e) {
-                        // A problem on one page must not stop detection on others.
-                        console.warn('Could not detect answer fields on PDF page ' + p, e);
-                    }
+                    } catch (e) { /* best-effort -- a parsing hiccup on one page shouldn't lose the rest */ }
                 }
                 return fields;
             }
@@ -8353,9 +7917,8 @@ const round2 = (x) => Math.round(x * 100) / 100;
                     if (examPaperNeedsDetection && examPaperOpen === entry) {
                         try {
                             const detectDoc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
-                            let autoBoxes;
-                            try { autoBoxes = await examPaperDetectAllFields(detectDoc); }
-                            finally { await detectDoc.destroy(); }
+                            const autoBoxes = await examPaperDetectAllFields(detectDoc);
+                            detectDoc.destroy();
                             if (examPaperOpen === entry && examPaperAnswers) {
                                 examPaperAnswers.boxes.push(...autoBoxes);
                                 for (const box of autoBoxes) {
@@ -8365,7 +7928,6 @@ const round2 = (x) => Math.round(x * 100) / 100;
                                 const status = document.getElementById('exam-save-status');
                                 if (status) status.parentElement.insertAdjacentHTML('afterbegin',
                                     `<button type="button" class="button ghost" data-action="examp-clear-auto-fields">Clear auto-detected (${autoBoxes.length})</button>`);
-                                if (autoBoxes.length) examPaperScheduleSave();
                             }
                         } catch (e) { console.error('Auto-detecting answer fields failed -- opening with a blank paper instead', e); }
                     }
@@ -8478,13 +8040,7 @@ const round2 = (x) => Math.round(x * 100) / 100;
                 const meta = examPaperSubjectMeta(examPaperSubjectId);
                 const papers = EXAM_PAPER_INDEX.filter(r => r[0] === examPaperLevel && r[1] === examPaperSubjectId).sort((a, b) => b[2] - a[2] || a[3].localeCompare(b[3]));
                 const byYear = new Map();
-                for (const [level, subjectId, year, label, file, markingSchemeFile] of papers) {
-                    if (!byYear.has(year)) byYear.set(year, []);
-                    byYear.get(year).push({
-                        level, subjectId, year, label, file,
-                        markingSchemeFile: markingSchemeFile || null
-                    });
-                }
+                for (const [level, subjectId, year, label, file] of papers) { if (!byYear.has(year)) byYear.set(year, []); byYear.get(year).push({ level, subjectId, year, label, file }); }
                 const back = `<button type="button" class="subject-page-back" data-action="examp-back-to-subjects">← Back to subjects</button>`;
                 return appFrame(`<div class="page">${back}
         ${header(meta.name + ' — Past Papers', 'Pick a paper to open it and start filling it in, or search a topic across every paper below.', '')}
@@ -8501,15 +8057,14 @@ const round2 = (x) => Math.round(x * 100) / 100;
             function examPaperBoxHtml(box) {
                 const autoClass = box.auto ? ' auto-detected' : '';
                 if (box.type === 'checkbox') {
-                    const sizeStyle = `${box.w ? `width:${box.w}%;` : ''}${box.h ? `height:${box.h}%;` : ''}`;
-                    return `<div class="exam-box exam-checkbox${autoClass} ${box.value ? 'checked' : ''}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;${sizeStyle}">
+                    return `<div class="exam-box exam-checkbox${autoClass} ${box.value ? 'checked' : ''}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%">
 <div class="exam-checkbox-mark" aria-label="Tick"></div>
 <button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button>
 </div>`;
                 }
-                return `<div class="exam-box exam-textbox${autoClass}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;width:${box.w}%;${box.h ? `height:${box.h}%` : ''}">
+                return `<div class="exam-box exam-textbox${autoClass}" data-box-id="${box.id}" style="left:${box.x}%;top:${box.y}%;width:${box.w}%">
 <div class="exam-box-bar"><span class="exam-box-drag" aria-label="Drag to move">⠿</span><button type="button" class="exam-box-delete" data-action="examp-delete-box" data-box-id="${box.id}" aria-label="Remove">×</button></div>
-<textarea class="exam-box-text" data-box-id="${box.id}" rows="3" aria-label="Type your answer">${escape(box.value || '')}</textarea>
+<textarea class="exam-box-text" data-box-id="${box.id}" rows="3"${box.hPx ? ` style="height:${box.hPx}px"` : ''} placeholder="Type your answer…">${escape(box.value || '')}</textarea>
 </div>`;
             }
 
@@ -8680,12 +8235,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 }
                 if (e.target.matches('.exam-box-text')) {
                     const boxId = e.target.dataset.boxId, box = examPaperAnswers && examPaperAnswers.boxes.find(b => b.id === boxId);
-                    if (box) {
-                        const page = e.target.closest('.exam-page-wrap');
-                        const pageHeight = page ? page.getBoundingClientRect().height : 0;
-                        if (pageHeight) box.h = round2(e.target.getBoundingClientRect().height / pageHeight * 100);
-                        delete box.hPx;
-                    }
+                    if (box) box.hPx = e.target.offsetHeight;
                 }
             });
 
@@ -15742,7 +15292,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 let deck = state.flashcardDecks.find(d => d.subjectId === subjectId && d.topic.toLowerCase() === topic.toLowerCase());
                 if (!deck) { deck = { id: uid(), subjectId, topic, cards: [], createdAt: Date.now() }; state.flashcardDecks.push(deck); }
                 return deck; }
-            function addFlashcardsToDeck(subjectId, topic, cards) { const existed = !!fcFindDeck(subjectId, topic), deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null;
+            function addFlashcardsToDeck(subjectId, topic, cards, sections) { const existed = !!fcFindDeck(subjectId, topic), deck = findOrCreateFlashcardDeck(subjectId, topic); if (!deck) return null; if (Array.isArray(sections) && sections.length) { deck.sections = fcSecs(deck).slice(); sections.forEach(x => { if (x.name && !deck.sections.some(y => y.id === x.id)) deck.sections.push({ id: x.id || uid(), name: String(x.name).trim(), subs: [] }); }); }
                 if (!existed && flashcardCreateDraft && flashcardCreateDraft.isPrivate) deck.isPrivate = true;
                 (cards || []).forEach(c => { const front = (c.front || '').trim(), back = (c.back || '').trim(); if (!front || !back) return;
                     const card = { id: uid(), front, back }; if (c.secId) fcApplyPlace(deck, card, fcCardKey(c)); if (c.type && c.type !== 'term' && FC_TYPES[c.type] && c.data) { card.type = c.type; card.data = c.data; } deck.cards.push(card); });
@@ -15757,7 +15307,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
             function openFlashcardCreateModal(subjectId, mode) {
                 if (!subjectId || !subject(subjectId)) subjectId = (state.subjects.find(x => x.active !== false) || {}).id;
                 flashcardCreateDraft = { mode: mode || 'manual',
-                    subjectId, topic: '', cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                    subjectId, topic: '', sections: [], cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                 openModal('flashcard-create'); }
 
             // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
@@ -15805,7 +15355,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                         const own = deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && !p.sub; }), total = deck.cards.filter(c => c.secId === s.id).length;
                         return `<div class="fc-sec-block"><div class="fc-sec-h"><h3>📂 ${escape(s.name)}</h3><span class="small">${total} card${total === 1 ? '' : 's'}</span>${secTools(s, null)}</div>${rows(own)}${(s.subs || []).map(u => { const uc = deck.cards.filter(c => c.secId === s.id && c.subId === u.id);
                             return `<div class="fc-sec-block sub"><div class="fc-sec-h sub"><h3>${escape(u.name)}</h3><span class="small">${uc.length}</span>${secTools(s, u)}</div>${uc.length ? rows(uc) : '<p class="small" style="margin:4px 0 8px">No cards here yet.</p>'}</div>`; }).join('')}</div>`; }).join(''); }
-                const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep cards in order (don't shuffle)</label><label class="fc-check" title="Private decks are never shown in the Community"><input type="checkbox" data-action="fc-deck-private" data-deck="${deck.id}" ${deck.isPrivate ? 'checked' : ''}> 🔒 Private ${deck.isPrivate ? '' : '<span class="small">(shared in the Community)</span>'}</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
+                const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep order</label><label class="fc-check" title="Private decks are never shown in the Community"><input type="checkbox" data-action="fc-deck-private" data-deck="${deck.id}" ${deck.isPrivate ? 'checked' : ''}> 🔒 Private</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
                 return `<div class="fc-wrap">
           <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
           <div style="border-top:5px solid ${s ? s.color : 'var(--primary)'};padding-top:12px;margin-bottom:16px">
@@ -15821,14 +15371,14 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
               ${weakCount ? `<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>` : ''}
             </div>
             ${scopeBar}
-            <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
-              <button type="button" class="button ghost" data-action="flashcard-edit-deck" data-deck="${deck.id}">✏️ Edit deck</button>
-              <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add cards</button>
-              <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram && deck.diagram.points.length ? '🖼 Edit diagram' : '🖼 Add diagram'}</button>
-              <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
-              <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">💬 Ask Sparky</button>
+            <details class="fc-more-actions"><summary>Deck options</summary><div class="fc-more-actions-inner">
+              <button type="button" class="button ghost" data-action="flashcard-edit-deck" data-deck="${deck.id}">Edit deck</button>
+              <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">Add cards</button>
+              <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram && deck.diagram.points.length ? 'Edit diagram' : 'Add diagram'}</button>
+              <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">Share</button>
+              <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">Ask Sparky</button>
               <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete deck</button>
-            </div>
+            </div></details>
             ${folders.length ? `<div class="row" style="margin-top:12px;align-items:center;gap:8px"><span class="small">Folder:</span><select data-action="flashcard-assign-folder" data-deck="${deck.id}" style="max-width:220px"><option value="">No folder</option>${folders.map(f => `<option value="${f.id}" ${current && current.id === f.id ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select></div>` : ''}
           </section>
           ${cardsHtml}
@@ -15901,7 +15451,8 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     <button type="button" class="wb-mini" data-wb="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button type="button" class="wb-mini" data-wb="redo" title="Redo">↷ Redo</button><button type="button" class="wb-mini" data-wb="clear">Clear</button>
                     <button type="button" class="button ghost" data-wb="cancel">Cancel</button><button type="button" class="button primary" data-wb="done">Done</button></div>
                   <div class="wb-main"><div class="wb-tools">${tools.map(t => `<button type="button" class="wb-tool" data-wb-tool="${t[0]}" title="${t[2]}" aria-label="${t[2]}">${t[1]}</button>`).join('')}</div>
-                    <div class="wb-stage"><svg class="wb-svg" viewBox="0 0 ${WB_W} ${WB_H}" xmlns="http://www.w3.org/2000/svg"></svg><textarea class="wb-text" rows="1"></textarea></div></div>
+                    <div class="wb-stage"><svg class="wb-svg" viewBox="0 0 ${WB_W} ${WB_H}" xmlns="http://www.w3.org/2000/svg"></svg><textarea class="wb-text" rows="1"></textarea></div>
+                    ${opts.allowDescription ? `<aside class="wb-description-panel"><label class="wb-description-toggle"><input type="checkbox" data-wb-description-toggle ${opts.descriptionEnabled ? 'checked' : ''}> <span>Add explanation</span></label><p class="small">Add notes to appear beside this diagram when students see the model answer.</p><textarea class="wb-description-input" data-wb-description ${opts.descriptionEnabled ? '' : 'hidden'} placeholder="Explain what the diagram shows and the key points…">${escape(opts.descriptionText || '')}</textarea></aside>` : ''}</div>
                   <div class="wb-style">
                     <div class="group" title="Colour">${WB_COLORS.map(c => `<button type="button" class="wb-swatch" data-wb-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
                     <div class="group"><button type="button" class="wb-mini" data-wb="fill" title="Cycle outline / tint / solid">Fill: none</button></div>
@@ -15938,7 +15489,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     st.editing = id; const r = svg.getBoundingClientRect(), k = (r.width || WB_W) / WB_W, stageR = svg.parentElement.getBoundingClientRect(); let x, y, w;
                     if (s.t === 'text') { const z = wbTextSize(s); x = s.x; y = s.y; w = Math.max(180, z.w); } else { w = Math.max(s.w, 180); x = s.x + s.w / 2 - w / 2; y = s.y + s.h / 2 - 18; }
                     ta.value = s.text || ''; ta.style.display = 'block'; ta.style.left = (r.left - stageR.left + x * k) + 'px'; ta.style.top = (r.top - stageR.top + y * k) + 'px'; ta.style.width = (w * k) + 'px';
-                    ta.style.fontSize = Math.max(13, (s.fs || 20) * k) + 'px'; ta.rows = Math.max(1, ta.value.split('\n').length); ta.focus(); ta.select(); };
+                    ta.style.fontSize = Math.max(13, (s.fs || 20) * k) + 'px'; ta.rows = Math.max(1, ta.value.split('\n').length);
+                    // Focusing synchronously inside SVG pointerdown is undone by the browser's default
+                    // focus handling for the SVG. Defer it so the textarea reliably receives typing.
+                    requestAnimationFrame(() => { if (st.editing === id && ta.isConnected) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }); };
                 const commitText = (cancel) => { if (!st.editing) return; const s = st.board.shapes.find(x => x.id === st.editing); st.editing = null; const v = cancel ? (s ? s.text || '' : '') : ta.value; ta.style.display = 'none';
                     if (s) { if (s.t === 'text' && !v.trim()) { st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); if (st.sel === s.id) st.sel = null; }
                         else if ((s.text || '') !== v) { pushUndo(); s.text = v; } }
@@ -15990,7 +15544,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const dup = () => { const s = cur(); if (!s) return; pushUndo(); const c = wbClone(s); c.id = wbId(); applyMove(c, s, 20, 20); st.board.shapes.push(c); st.sel = c.id; draw(); };
                 const undo = () => { if (!st.undo.length) return; st.redo.push(JSON.stringify(st.board.shapes)); st.board.shapes = JSON.parse(st.undo.pop()); if (!cur()) st.sel = null; draw(); };
                 const redo = () => { if (!st.redo.length) return; st.undo.push(JSON.stringify(st.board.shapes)); st.board.shapes = JSON.parse(st.redo.pop()); if (!cur()) st.sel = null; draw(); };
-                const finish = (save) => { if (st.editing) commitText(); if (save && opts.onDone) opts.onDone(wbClone(st.board)); closeWhiteboard(); };
+                const finish = (save) => { if (st.editing) commitText(); if (save && opts.onDone) { const desc = root.querySelector('[data-wb-description]'); const toggle = root.querySelector('[data-wb-description-toggle]'); opts.onDone(wbClone(st.board), { enabled: !!(toggle && toggle.checked), text: desc ? desc.value : '' }); } closeWhiteboard(); };
                 root.addEventListener('click', e => { const b = e.target.closest('[data-wb],[data-wb-tool],[data-wb-color],[data-wb-dash],[data-wb-fs]'); if (!b) return;
                     if (b.dataset.wbTool) { st.tool = b.dataset.wbTool; if (st.tool !== 'select') st.sel = null; draw(); return; }
                     if (b.dataset.wbColor) { style({ color: b.dataset.wbColor }); return; }
@@ -16012,7 +15566,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                         st.board.shapes.push(Object.assign({ id: wbId(), t: 'line', x1: 140, y1: 540, x2: 140, y2: 70 }, base), Object.assign({ id: wbId(), t: 'line', x1: 140, y1: 540, x2: 900, y2: 540 }, base)); draw(); } });
                 root.addEventListener('input', e => { const r = e.target.closest('[data-wb-sw]'); if (!r) return; const v = Number(r.value); st.style.sw = v; const s = cur();
                     if (s) { if (!st.swPending) { pushUndo(); st.swPending = true; } s.sw = v; } draw(); });
-                root.addEventListener('change', e => { if (e.target.closest('[data-wb-sw]')) st.swPending = false; });
+                root.addEventListener('change', e => { if (e.target.closest('[data-wb-sw]')) st.swPending = false; const toggle = e.target.closest('[data-wb-description-toggle]'); if (toggle) { const field = root.querySelector('[data-wb-description]'); if (field) { field.hidden = !toggle.checked; if (toggle.checked) field.focus(); } } });
                 const onKey = (e) => { if (!wbActive || wbActive.root !== root || st.editing) return; const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'textarea' || tag === 'input') return; const k = e.key.toLowerCase();
                     if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
                     if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
@@ -16031,10 +15585,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (row.type === 'list' && d) { row.text = d.items.join('\n'); row.ordered = !!d.ordered; }
                 else if (row.type === 'timeline' && d) row.text = d.events.map(e => (e.when ? e.when + ' - ' : '') + e.label).join('\n');
                 else if (row.type === 'info' && d) row.text = fcInfoToText(d.sections);
-                else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; }
+                else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; row.descriptionEnabled = !!(d.notes && String(d.notes).trim()); }
                 return row; }
             function openFlashcardDeckEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
-                flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
+                flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, sections: fcSecs(deck).map(x => ({ id: x.id, name: x.name, subs: (x.subs || []).map(u => ({ id: u.id, name: u.name })) })), cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
                 if (!flashcardCreateDraft.cards.length) flashcardCreateDraft.cards.push({ type: 'term', front: '', back: '', text: '', secKey: '' });
                 openModal('flashcard-create'); }
             function saveDeckEdits() { const d = flashcardCreateDraft; if (!d || d.mode !== 'deck-edit') return; const deck = flashcardDeck(d.editing.deckId); if (!deck) { closeModal(); return; }
@@ -16045,9 +15599,11 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     const card = (row.id && deck.cards.find(c => c.id === row.id)) || { id: uid() };
                     card.front = r.card.front; card.back = r.card.back;
                     if (r.card.type === 'term') { delete card.type; delete card.data; } else { card.type = r.card.type; card.data = r.card.data; }
-                    fcApplyPlace(deck, card, row.secKey); out.push(card); });
+                    card._pendingSecKey = row.secKey || ''; out.push(card); });
                 if (problem) { toast(problem); return; }
-                deck.cards = out; deck.topic = topic;
+                if (Array.isArray(d.sections)) deck.sections = d.sections.map(x => ({ id: x.id || uid(), name: String(x.name || '').trim(), subs: Array.isArray(x.subs) ? x.subs : [] })).filter(x => x.name);
+                out.forEach(c => { const key = c._pendingSecKey; delete c._pendingSecKey; fcApplyPlace(deck, c, key); });
+                deck.cards = out; deck.topic = topic; if (Array.isArray(d.sections)) deck.cards.forEach(c => { if (c.secId && !deck.sections.some(x => x.id === c.secId)) { delete c.secId; delete c.subId; } });
                 if (deck.subjectId !== d.subjectId) { deck.subjectId = d.subjectId; (state.flashcardFolders || []).forEach(f => { f.deckIds = f.deckIds.filter(id => id !== deck.id); }); if (flashcardsFilterSubject !== 'all') flashcardsFilterSubject = d.subjectId; }
                 if (fcScope && fcScope.deckId === deck.id && !fcScopeCards(deck).length) fcScope = null;
                 save(); toast('Deck updated.'); flashcardCreateDraft = null; closeModal(); render(); }
@@ -16098,7 +15654,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (type === 'graph') { const board = row.board, has = board && Array.isArray(board.shapes) && board.shapes.length; if (!front && !has) return null;
                     if (!front) return { error: 'needs a prompt (what should the student draw?)' };
                     if (!has) return { error: 'needs a model drawing — use "Draw the model answer"' };
-                    const notes = String(row.text || '').trim(), labels = wbLabels(board);
+                    const notes = row.descriptionEnabled ? String(row.text || '').trim() : '', labels = wbLabels(board);
                     return { card: { type: 'graph', front, back: notes || ('Diagram' + (labels.length ? ': ' + labels.slice(0, 10).join(', ') : '')), data: { board: wbClone(board), notes } } }; }
                 const text = String(row.text || ''); if (!front && !text.trim()) return null;
                 if (!front) return { error: 'needs a title' };
@@ -16109,7 +15665,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const sections = fcParseInfo(text); if (!sections.some(s => s.points.length)) return { error: 'needs at least one point (start lines with -)' };
                 return { card: { type: 'info', front, back: fcInfoPlain(sections), data: { sections } } }; }
             function fcBackHtml(card) { const d = card.data; if (card.backHtml) return card.backHtml;
-                if (card.type === 'graph' && d && d.board) return `<div class="fc-wb">${wbBoardSvg(d.board)}</div>${d.notes ? `<p class="small" style="margin-top:8px;white-space:pre-wrap">${escape(d.notes)}</p>` : ''}`;
+                if (card.type === 'graph' && d && d.board) return `<div class="fc-graph-answer"><div class="fc-wb">${wbBoardSvg(d.board)}</div>${d.notes ? `<div class="fc-graph-description">${escape(d.notes)}</div>` : ''}</div>`;
                 if (card.type === 'list' && d) return `<${d.ordered ? 'ol' : 'ul'}>${d.items.map(x => `<li>${escape(x)}</li>`).join('')}</${d.ordered ? 'ol' : 'ul'}>`;
                 if (card.type === 'timeline' && d) return `<ol>${d.events.map(e => `<li>${e.when ? `<strong>${escape(e.when)}</strong> — ` : ''}${escape(e.label)}</li>`).join('')}</ol>`;
                 if (card.type === 'info' && d) return d.sections.map(s => `${s.heading ? `<h4>${escape(s.heading)}</h4>` : ''}<ul>${s.points.map(p => `<li>${escape(p.text)}${p.subs && p.subs.length ? `<ul>${p.subs.map(x => `<li>${escape(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>`).join('');
@@ -16332,7 +15888,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             // (see supabase/migrations/0020_community_decks.sql), shown under the owner's NAME, never their email. A background
             // reconcile (debounced after any save) publishes new/changed public decks, and removes rows for decks that became private
             // or were deleted. Copies you take from other people start PRIVATE so nothing you didn't write is re-published by you.
-            let flashcardsTab = 'mine', communityRows = null, communityLoading = false, communityError = '', communityQuery = '', communitySort = 'new', communityDisabled = false, communityShowMine = false;
+            let flashcardsTab = 'mine', communityRows = null, communityLoading = false, communityError = '', communityQuery = '', communitySort = 'new', communityDisabled = false;
             let communityTimer = null, communityBusy = false, communityPreview = null, communitySearchTimer = null, communityTooBigWarned = {};
             function fcHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
             function fcDeckSnapshot(d) { return { cards: d.cards.map(c => Object.assign({ front: c.front, back: c.back }, c.type && c.type !== 'term' && c.data ? { type: c.type, data: c.data } : {}, c.secId ? { secId: c.secId } : {}, c.subId ? { subId: c.subId } : {})), sections: d.sections || [] }; }
@@ -16340,9 +15896,9 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             function communityQueue() { if (communityDisabled || !currentUser || demoModeActive) return; clearTimeout(communityTimer); communityTimer = setTimeout(communityReconcile, 6000); }
             function communityIsMissingTable(e) { return /does not exist|42P01|schema cache|PGRST205/i.test(String((e && (e.message || e.code)) || '')); }
             async function communityReconcile() { if (!currentUser || communityDisabled || communityBusy || demoModeActive) return; communityBusy = true; let changed = false, more = false;
-                try { const pub = new Set((state.settings.communityPublishedIds || [])), del = (id) => supabaseClient.from('community_decks').delete().eq('owner_id', currentUser.id).eq('deck_id', id);
+                try { const pub = new Set((state.settings.communityPublishedIds || [])), hidden = !!state.settings.communityHidden, del = (id) => supabaseClient.from('community_decks').delete().eq('owner_id', currentUser.id).eq('deck_id', id);
                     let budget = 3;
-                    for (const d of state.flashcardDecks) { const want = !d.isPrivate && d.cards.length > 0;
+                    for (const d of state.flashcardDecks) { const want = !hidden && !d.isPrivate && d.cards.length > 0;
                         if (want) { const sig = fcDeckSig(d); if (d.communitySig === sig) continue; if (budget <= 0) { more = true; continue; } const snap = fcDeckSnapshot(d);
                             if (JSON.stringify(snap).length > 1400000) { if (!communityTooBigWarned[d.id]) { communityTooBigWarned[d.id] = 1; toast(`"${d.topic}" is too large to share in the Community, so it stays private.`); } continue; }
                             budget--; const s = subject(d.subjectId);
@@ -16355,16 +15911,16 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 communityBusy = false; if (more) communityQueue(); }
             async function communityLoad() { if (!currentUser) { communityError = 'Sign in to browse the Community.'; communityRows = []; render(); return; } if (communityDisabled) { communityError = 'The Community isn\'t switched on yet.'; communityRows = []; render(); return; }
                 communityLoading = true; communityError = ''; render();
-                try { let q = supabaseClient.from('community_decks').select('id, owner_id, owner_name, subject_name, topic, card_count, copies, updated_at').limit(60);
+                try { let q = supabaseClient.from('community_decks').select('id, owner_id, owner_name, subject_name, topic, card_count, copies, updated_at').neq('owner_id', currentUser.id).limit(60);
                     const t = communityQuery.trim().replace(/[%,()*]/g, ' ').trim(); if (t) q = q.or(`topic.ilike.%${t}%,subject_name.ilike.%${t}%,owner_name.ilike.%${t}%`);
                     q = communitySort === 'popular' ? q.order('copies', { ascending: false }).order('updated_at', { ascending: false }) : q.order('updated_at', { ascending: false });
                     const { data, error } = await q; if (error) throw error; communityRows = data || [];
                 } catch (e) { if (communityIsMissingTable(e)) { communityDisabled = true; communityError = 'The Community isn\'t switched on yet.'; } else communityError = 'Couldn\'t load the Community — try again.'; communityRows = []; }
                 communityLoading = false; render(); }
-            function renderCommunityBody() { const allRows = communityRows || [], rows = allRows.filter(r => communityShowMine || r.owner_id !== currentUser?.id);
-                const sw = `<div style="margin:8px 0 14px"><label class="fc-check" style="margin:0"><input type="checkbox" data-action="comm-show-mine" ${communityShowMine ? 'checked' : ''}> Show my own decks</label></div>`;
+            function renderCommunityBody() { const hidden = !!state.settings.communityHidden, rows = communityRows || [];
+                const sw = `<div class="comm-switch"><label class="fc-check" style="margin:0"><input type="checkbox" data-action="comm-share-toggle" ${hidden ? '' : 'checked'}> Share my decks in the Community <span class="small">(under my name — you can still make any single deck private)</span></label></div>`;
                 const bar = `<div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap"><input type="search" id="fc-comm-search" placeholder="Search by topic, subject or name…" value="${escape(communityQuery)}" autocomplete="off" style="flex:1;min-width:200px"><button type="button" class="fc-chip ${communitySort === 'new' ? 'active' : ''}" data-action="comm-sort" data-sort="new">Newest</button><button type="button" class="fc-chip ${communitySort === 'popular' ? 'active' : ''}" data-action="comm-sort" data-sort="popular">Most copied</button></div>`;
-                const card = (r) => { const mine = r.owner_id === currentUser?.id; return `<div class="comm-card"><strong>${escape(r.topic)}</strong>${mine ? '<span class="pill neutral">Your deck</span>' : ''}<span class="small">${escape(r.subject_name)} · ${r.card_count} card${r.card_count === 1 ? '' : 's'}</span><span class="small">by ${escape(r.owner_name)}${r.copies ? ` · added ${r.copies}×` : ''}</span><div class="row"><button type="button" class="button ghost" data-action="comm-preview" data-id="${r.id}">👀 Preview</button>${mine ? '' : `<button type="button" class="button primary" data-action="comm-preview" data-id="${r.id}" data-add="1">➕ Add to my decks</button>`}</div></div>`; };
+                const card = (r) => `<div class="comm-card"><strong>${escape(r.topic)}</strong><span class="small">${escape(r.subject_name)} · ${r.card_count} card${r.card_count === 1 ? '' : 's'}</span><span class="small">by ${escape(r.owner_name)}${r.copies ? ` · added ${r.copies}×` : ''}</span><div class="row"><button type="button" class="button ghost" data-action="comm-preview" data-id="${r.id}">👀 Preview</button><button type="button" class="button primary" data-action="comm-preview" data-id="${r.id}" data-add="1">➕ Add to my decks</button></div></div>`;
                 const body = communityLoading && communityRows == null ? '<p class="empty">Loading…</p>' : communityError ? `<p class="empty">${escape(communityError)}</p>` : rows.length ? `<div class="comm-grid">${rows.map(card).join('')}</div>` : `<p class="empty">${communityQuery.trim() ? 'No decks match that search.' : 'No one else has shared a deck yet — be the first!'}</p>`;
                 return sw + bar + body; }
             async function communityOpenPreview(id, wantAdd) { const row = (communityRows || []).find(r => r.id === id); if (!row) return; communityPreview = { row, snapshot: null, loading: true, error: '', subjectId: '', title: row.topic };
@@ -16377,7 +15933,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const subs = state.subjects.filter(s => s.active !== false), cards = p.snapshot && p.snapshot.cards || [], badge = (c) => c.type && FC_TYPES[c.type] ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : '';
                 const body = `<p class="small" style="margin-top:0">${escape(p.row.subject_name)} · ${p.row.card_count} cards · by <strong>${escape(p.row.owner_name)}</strong></p>${p.loading ? '<p class="empty">Loading cards…</p>' : p.error ? `<p class="empty">${escape(p.error)}</p>` : `<div class="list" style="max-height:340px;overflow:auto">${cards.slice(0, 30).map(c => `<div class="fc-listcard"><div class="fc-listtext">${badge(c)}<strong>${escape(c.front)}</strong><div class="small">${escape(String(c.back).slice(0, 160))}</div></div></div>`).join('')}${cards.length > 30 ? `<p class="small">…and ${cards.length - 30} more.</p>` : ''}</div>`}
           ${subs.length ? `<div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:14px"><div class="field"><label>Add to subject</label><select id="comm-add-subject">${subs.map(s => `<option value="${s.id}" ${s.id === p.subjectId ? 'selected' : ''}>${escape(s.name)}</option>`).join('')}</select></div><div class="field"><label>Deck name</label><input type="text" id="comm-add-title" value="${escape(p.title)}"></div></div><p class="small">Your copy is private to you, and you can edit it freely.</p>` : '<p class="empty">Add a subject first to copy decks.</p>'}`;
-                return modalShell(escape(p.row.topic), body, `${p.row.owner_id === currentUser?.id ? '' : `<button type="button" class="button ghost danger" data-action="comm-report" data-id="${p.row.id}">🚩 Report</button>`}<span style="flex:1"></span>${close}${p.row.owner_id === currentUser?.id ? '' : `<button type="button" class="button primary" data-action="comm-add" ${p.loading || p.error || !subs.length ? 'disabled' : ''}>➕ Add to my decks</button>`}`, true); }
+                return modalShell(escape(p.row.topic), body, `<button type="button" class="button ghost danger" data-action="comm-report" data-id="${p.row.id}">🚩 Report</button><span style="flex:1"></span>${close}<button type="button" class="button primary" data-action="comm-add" ${p.loading || p.error || !subs.length ? 'disabled' : ''}>➕ Add to my decks</button>`, true); }
             async function communityAddCopy() { const p = communityPreview; if (!p || !p.snapshot) return; const sid = (document.getElementById('comm-add-subject') || {}).value || p.subjectId, subj = subject(sid); if (!subj) { toast('Pick a subject first.'); return; }
                 let title = ((document.getElementById('comm-add-title') || {}).value || p.title).trim() || p.row.topic; if (fcFindDeck(sid, title)) title = `${title} (from ${p.row.owner_name})`; let n = 2, base = title; while (fcFindDeck(sid, title)) title = `${base} ${n++}`;
                 const deck = findOrCreateFlashcardDeck(sid, title); if (!deck) return; const idMap = {}; deck.sections = (p.snapshot.sections || []).map(s => { const id = uid(); idMap[s.id] = id; return { id, name: s.name, subs: (s.subs || []).map(u => { const uid2 = uid(); idMap[s.id + '|' + u.id] = uid2; return { id: uid2, name: u.name }; }) }; });
@@ -16429,7 +15985,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const tabs = `<div class="fc-chips" style="margin-bottom:14px"><button type="button" class="fc-chip ${flashcardsTab === 'mine' ? 'active' : ''}" data-action="fc-tab" data-tab="mine">My decks</button><button type="button" class="fc-chip ${flashcardsTab === 'community' ? 'active' : ''}" data-action="fc-tab" data-tab="community">🌐 Community</button></div>`;
                 return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${tabs}${flashcardsTab === 'community' ? renderCommunityBody() : body + renderWordBankShelf(filterId)}</div>`; }
 
-
+            
             // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
             function flashcardCreateModal() { const d = flashcardCreateDraft;
                 if (!d) return modalShell('Create Flashcards', '', '');
@@ -16445,20 +16001,23 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           <button type="button" class="button ${d.mode==='quizlet'?'primary':'ghost'}" data-action="flashcard-create-mode" data-mode="quizlet">🟣 Import from Quizlet</button>
         </div>`;
                 const subjectOptions = state.subjects.filter(x => x.active !== false || x.id === d.subjectId).map(x => `<option value="${x.id}" ${x.id === d.subjectId ? 'selected' : ''}>${escape(x.name)}</option>`).join('');
-                const privacyRow = (d.mode !== 'edit' && d.mode !== 'deck-edit' && !fcFindDeck(d.subjectId, d.topic)) ? `<label class="fc-check" style="display:flex;margin:-4px 0 12px"><input type="checkbox" data-action="fc-draft-private" ${d.isPrivate ? 'checked' : ''}> 🔒 Keep this deck private <span class="small">(otherwise it's shared in the Community under your name)</span></label>` : '';
+                const privacyRow = (d.mode !== 'edit' && d.mode !== 'deck-edit' && !fcFindDeck(d.subjectId, d.topic)) ? `<label class="fc-check" style="display:flex;margin:-4px 0 12px"><input type="checkbox" data-action="fc-draft-private" ${d.isPrivate ? 'checked' : ''}> 🔒 Private deck <span class="small">(not listed in Community)</span></label>` : '';
                 const topicField = `<div style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1.4fr;gap:10px"><div class="field"><label>Subject</label><select id="flashcard-create-subject">${subjectOptions}</select></div><div class="field"><label>Deck name</label><input type="text" id="flashcard-create-topic" list="flashcard-topic-options" placeholder="e.g. Cell Biology" value="${escape(d.topic)}">${topicDatalist}</div></div>${privacyRow}`;
                 const manualCardRow = (c, i) => { const t = FC_TYPES[c.type] ? c.type : 'term', ty = FC_TYPES[t];
                     const typeSel = `<select data-action="flashcard-manual-type" data-index="${i}" style="max-width:260px">${Object.entries(FC_TYPES).map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>`;
                     const secDeck = d.mode === 'deck-edit' || d.mode === 'edit' ? flashcardDeck(d.editing.deckId) : (d.mode === 'manual' ? fcFindDeck(d.subjectId, d.topic) : null);
-                    const secSel = secDeck && fcSecs(secDeck).length ? `<select data-action="flashcard-manual-section" data-index="${i}" style="max-width:220px" aria-label="Section">${fcSecOptions(secDeck).map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
+                    const availableSections = secDeck ? fcSecs(secDeck) : (d.sections || []);
+                    const sectionOptions = [{ key: '', label: 'No section' }, ...availableSections.map(x => ({ key: x.id, label: x.name }))];
+                    const secSel = availableSections.length ? `<select data-action="flashcard-manual-section" data-index="${i}" class="fc-section-select" aria-label="Section">${sectionOptions.map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
                     const moveBtns = d.mode === 'deck-edit' ? `<button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button>` : '';
-                    const head = `<div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><span class="small"><strong>#${i + 1}</strong></span>${typeSel}${secSel}<span style="flex:1"></span>${moveBtns}<button type="button" class="button ghost danger" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove card">🗑</button></div>`;
-                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="Optional marking notes — what a full-marks answer must include (axes labelled, curve shapes, key points…)" style="min-height:64px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>`;
+                    const head = `<div class="fc-editor-head"><span class="fc-editor-number">${i + 1}</span>${typeSel}${secSel}<span class="fc-editor-spacer"></span>${moveBtns}<button type="button" class="button ghost danger icon" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove" title="Remove card">✕</button></div>`;
+                    const graphFields = `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh || ''}" value="${escape(c.front)}">${c.board && c.board.shapes && c.board.shapes.length ? `<div class="fc-wb" style="max-width:420px">${wbBoardSvg(c.board)}</div>` : ''}<div><button type="button" class="button" data-action="flashcard-manual-draw" data-index="${i}">✏️ ${c.board && c.board.shapes && c.board.shapes.length ? 'Edit the model answer' : 'Draw the model answer'}</button></div><div class="small">${c.descriptionEnabled && c.text ? 'Explanation added' : 'Optional explanation can be added on the whiteboard.'}</div><div class="small">${ty.hint}</div>`;
                     const fields = t === 'graph' ? graphFields : t === 'term'
                         ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
-                        : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
+                        : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Keep order</label>` : ''}`;
                     return `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px">${head}${fields}</div></div>`; };
-                const manualBody = `${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
+                const sectionManager = `<div class="fc-section-manager"><div><strong>Sections</strong><span class="small">Optional groups for organising this deck</span></div><div class="fc-section-chips">${(d.sections || []).map(x => `<span class="fc-section-chip">${escape(x.name)}<button type="button" data-action="fc-draft-section-remove" data-section="${x.id}" aria-label="Remove ${escape(x.name)}">×</button></span>`).join('') || '<span class="small">No sections yet</span>'}<button type="button" class="button ghost" data-action="fc-draft-section-add">+ Add section</button></div></div>`;
+                const manualBody = `${topicField}${d.mode === 'manual' ? sectionManager : ''}<div class="fc-editor-list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:12px" data-action="flashcard-manual-add-row">+ Add card</button>`;
                 const imgThumb = (img, i) => img.mimeType === 'application/pdf'
                     ? `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:72px;height:72px;margin:0 8px 8px 0;border-radius:8px;border:1px solid var(--line);background:var(--card)"><span style="font-size:22px">📄</span><span class="small" style="max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escape(img.name||'PDF')}</span><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove file">✕</button></div>`
                     : `<div style="position:relative;display:inline-block;margin:0 8px 8px 0"><img src="${img.dataUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="${escape(img.name||'photo')}"><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove photo">✕</button></div>`;
@@ -16507,7 +16066,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 else if (d.mode === 'infoimage') footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-info-extract" ${flashcardCreateLoading || !d.images.length ? 'disabled' : ''}>${flashcardCreateLoading ? 'Reading cards…' : 'Generate info cards'}</button>`;
                 else if (d.reviewCards) footer = `<button type="button" class="button ghost" data-action="flashcard-review-cancel">Back</button><button type="button" class="button primary" data-action="flashcard-review-confirm">Add ticked cards</button>`;
                 else footer = `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-extract" ${flashcardCreateLoading||!d.images.length?'disabled':''}>${flashcardCreateLoading?(flashcardCreateLoadingStage==='checking'?'Double-checking cards…':'Reading files…'):'Generate flashcards'}</button>`;
-                if (d.mode === 'deck-edit') return modalShell('Edit deck', `<p class="small" style="margin-bottom:10px">Change the subject, deck name and every card in one place. Cards you clear are removed; their review history is kept for the ones you keep.</p>${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-deck-save">Save deck</button>`, true);
+                if (d.mode === 'deck-edit') return modalShell('Edit deck', `<p class="small" style="margin-bottom:10px">Edit the deck and organise its cards in one place.</p>${topicField}${sectionManager}<div class="fc-editor-list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:12px" data-action="flashcard-manual-add-row">+ Add card</button>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-deck-save">Save deck</button>`, true);
                 if (d.mode === 'edit') return modalShell('Edit card', `<div class="list">${manualCardRow(d.cards[0], 0)}</div>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button><button type="button" class="button primary" data-action="flashcard-edit-save">Save changes</button>`, true);
                 return modalShell('Create Flashcards', modeToggle + body, footer, true); }
 
@@ -16567,7 +16126,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 d.cards.forEach((row, i) => { const r = fcBuildCard(row); if (!r) return; if (r.error) { if (!problem) problem = `Card #${i + 1} ${r.error}.`; return; } Object.assign(r.card, fcSecFields(row.secKey)); cards.push(r.card); });
                 if (problem) { toast(problem); return; }
                 if (!cards.length) { toast('Add at least one complete card.'); return; }
-                addFlashcardsToDeck(d.subjectId, topic, cards);
+                addFlashcardsToDeck(d.subjectId, topic, cards, d.sections || []);
                 toast(`Added ${cards.length} flashcard${cards.length === 1 ? '' : 's'} to "${topic}".`);
                 flashcardCreateDraft = null;
                 closeModal(); render(); }
@@ -16799,7 +16358,7 @@ Be as strict as a real examiner — don't award green for a vague paraphrase tha
                     const gradeBtns = `<p class="small" style="margin-top:12px">Compare with the model, then grade yourself — or let the AI check it.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="button primary" data-action="fc-info-grade" data-frac="1">✅ Got it</button><button type="button" class="button" data-action="fc-info-grade" data-frac="0.5">🟡 Partly</button><button type="button" class="button ghost danger" data-action="fc-info-grade" data-frac="0">❌ Missed it</button><button type="button" class="button" data-action="fc-graph-ai" ${sess.aiBusy ? 'disabled' : ''}>${sess.aiBusy ? 'Checking…' : '🤖 Check with AI'}</button></div>`;
                     body = `<h2>${escape(card.front)}</h2><p class="muted">Draw your answer on the whiteboard, then submit to compare it with the model.</p>
               ${has ? `<div class="fc-wb">${wbBoardSvg(mine)}</div>` : '<div class="fc-empty" style="padding:28px"><p class="muted" style="margin:0">Nothing drawn yet.</p></div>'}
-              ${sess.revealed ? `<div class="fc-answerkey"><strong>Model answer</strong><div class="fc-wb" style="margin-top:8px">${wbBoardSvg(card.data.board)}</div>${card.data.notes ? `<p class="small" style="margin-top:8px;white-space:pre-wrap">${escape(card.data.notes)}</p>` : ''}</div>` : ''}
+              ${sess.revealed ? `<div class="fc-answerkey"><strong>Model answer</strong><div class="fc-graph-answer" style="margin-top:8px"><div class="fc-wb">${wbBoardSvg(card.data.board)}</div>${card.data.notes ? `<div class="fc-graph-description">${escape(card.data.notes)}</div>` : ''}</div></div>` : ''}
               ${ai ? `<div class="fc-answerkey"><strong>${pill(ai.frac)} ${Math.round(ai.frac * 100)}% — AI check</strong>${ai.feedback ? `<p style="margin:6px 0">${escape(ai.feedback)}</p>` : ''}${ai.got.length ? `<div class="small">✅ ${ai.got.map(escape).join(' · ')}</div>` : ''}${ai.missing.length ? `<div class="small" style="margin-top:4px">⚠️ ${ai.missing.map(escape).join(' · ')}</div>` : ''}</div>` : ''}
               ${sess.revealed && !sess.checked ? gradeBtns : ''}`;
                     graphFoot = sess.checked ? nextBtn : (sess.revealed ? '' : `<span class="row" style="gap:8px"><button type="button" class="button" data-action="fc-graph-open">✏️ ${has ? 'Edit drawing' : 'Open whiteboard'}</button><button type="button" class="button primary" data-action="fc-graph-submit">Submit &amp; compare</button></span>`); }
@@ -18615,15 +18174,8 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     .innerHTML = renderInsightsPage();
                     requestAnimationFrame(drawInsightsCharts); } else if (view === 'tools') { document
                     .getElementById('app')
-                    .innerHTML = renderTools(); } else if (view === 'exam-papers') {
-                    const app = document.getElementById('app');
-                    const viewerAlreadyMounted = !!(examPaperOpen && app.querySelector('.exam-pages'));
-                    // A background poll/auth refresh can call the global render() many times a minute.
-                    // Keep the live viewer DOM intact while a paper is open: rebuilding it closes/reopens
-                    // the apparent paper, resets scroll, and can discard in-progress input focus.
-                    if (!viewerAlreadyMounted) app.innerHTML = renderExamPapers();
-                    requestAnimationFrame(renderExamPaperCanvases);
-                } else if (view === 'games') {
+                    .innerHTML = renderTools(); } else if (view === 'exam-papers') { document.getElementById('app').innerHTML = renderExamPapers();
+                    requestAnimationFrame(renderExamPaperCanvases); } else if (view === 'games') {
                     // Skip rebuilding while a game is already mounted here -- a periodic call into
                     // this render() (chat's poll, the multiplayer games poll) would otherwise tear
                     // down and remount whatever's running (a canvas game loop, an in-progress board)
@@ -23028,7 +22580,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'ctt-clear') { if (customTtDraft) { customTtDraft.slots = {}; renderModal(); } }
                 else if (a === 'ctt-save') saveCustomTimetable();
                 else if (a === 'flashcard-start-struct-test') startFlashcardStructTest(b.dataset.deck);
-                else if (a === 'flashcard-manual-draw') { const d0 = flashcardCreateDraft, row = d0 && d0.cards[Number(b.dataset.index)]; if (row) openWhiteboard({ title: row.front || 'Model answer', hint: 'Draw the answer a student should produce. Double-click shapes to label them.', board: row.board, onDone: (board) => { row.board = board; renderModal(); } }); }
+                else if (a === 'flashcard-manual-draw') { const d0 = flashcardCreateDraft, row = d0 && d0.cards[Number(b.dataset.index)]; if (row) openWhiteboard({ title: row.front || 'Model answer', hint: 'Draw the answer a student should produce. Double-click shapes to label them.', board: row.board, allowDescription: true, descriptionEnabled: !!row.descriptionEnabled, descriptionText: row.text || '', onDone: (board, description) => { row.board = board; row.descriptionEnabled = description.enabled; row.text = description.text; renderModal(); } }); }
                 else if (a === 'flashcard-edit-card') openFlashcardEditModal(b.dataset.deck, b.dataset.card);
                 else if (a === 'flashcard-edit-save') saveEditedFlashcard();
                 else if (a === 'fc-graph-open') { const s0 = flashcardStudySession, card = fcStructCard(); if (s0 && card && !s0.revealed) openWhiteboard({ title: card.front, hint: 'Draw your answer, then press Done.', board: s0.answers.board, onDone: (board) => { s0.answers.board = board; render(); } }); }
@@ -23163,6 +22715,8 @@ If the user asks about how to study or study methods generally, answer from your
                     if (s.index >= s.items.length - 1) { finishExamSim(); return; }
                     s.index++; s.answered = null; s.revealed = false; render(); }
                 else if (a === 'create-flashcard-folder') createFlashcardFolder(b.dataset.subject);
+                else if (a === 'fc-draft-section-add') { const d = flashcardCreateDraft; if (d && (d.mode === 'manual' || d.mode === 'deck-edit')) { const name = prompt('Section name (e.g. Monopolies):'); if (name && name.trim()) { d.sections = d.sections || []; d.sections.push({ id: uid(), name: name.trim(), subs: [] }); renderModal(); } } }
+                else if (a === 'fc-draft-section-remove') { const d = flashcardCreateDraft; if (d) { d.sections = (d.sections || []).filter(x => x.id !== b.dataset.section); d.cards.forEach(c => { if (c.secKey === b.dataset.section) c.secKey = ''; }); renderModal(); } }
                 else if (a === 'delete-flashcard-folder') { if (confirm('Delete this folder? Decks inside it are not deleted.')) deleteFlashcardFolder(b.dataset.folder); }
                 else if (a === 'share-flashcard-deck') shareFlashcardDeck(b.dataset.deck);
                 else if (a === 'import-shared-set') importSharedFlashcardSet();
@@ -23190,7 +22744,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.id === 'flashcard-create-subject') { if (flashcardCreateDraft) { flashcardCreateDraft.subjectId = t.value; renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'fc-draft-private') { if (flashcardCreateDraft) flashcardCreateDraft.isPrivate = t.checked; }
                 else if (t.dataset && t.dataset.action === 'fc-deck-private') { const dk = flashcardDeck(t.dataset.deck); if (dk) { dk.isPrivate = t.checked; save(); render(); toast(t.checked ? 'This deck is now private.' : 'This deck is shared in the Community.'); } }
-                else if (t.dataset && t.dataset.action === 'comm-show-mine') { communityShowMine = t.checked; render(); }
+                else if (t.dataset && t.dataset.action === 'comm-share-toggle') { state.settings.communityHidden = !t.checked; save(); communityQueue(); render(); }
                 else if (t.id === 'qz-pdf-file') { const f = t.files && t.files[0]; t.value = ''; if (f) qzHandlePdf(f); }
                 else if (t.dataset && t.dataset.action === 'qz-swap') { if (flashcardCreateDraft) { flashcardCreateDraft.qzSwap = t.checked; if (flashcardCreateDraft.reviewCards) flashcardCreateDraft.reviewCards.forEach(c => { const x = c.front; c.front = c.back; c.back = x; }); renderModal(); } }
                 else if (t.dataset && t.dataset.action === 'qz-join') { if (flashcardCreateDraft) { flashcardCreateDraft.qzJoin = t.checked; renderModal(); } }
