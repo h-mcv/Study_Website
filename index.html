@@ -17429,9 +17429,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             function flashcardTestChoiceModal(deckId) {
                 const deck = flashcardDeck(deckId);
                 if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
-                const hasStruct = fcStructCards(deck).length > 0;
                 const termCount = fcTermCards(deck).length;
-                const structOpt = hasStruct ? `<button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-struct-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧱 Card-type test</strong><div class="small" style="margin-top:2px;font-weight:400">Practise each structured card using its dedicated format, including lists, timelines, info cards and drawing-based graph tests.</div></div></button>` : '';
                 const opt = (action, emoji, title, desc) => `<button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="${action}" data-deck="${deck.id}"><div style="text-align:left"><strong>${emoji} ${title}</strong><div class="small" style="margin-top:2px;font-weight:400">${desc}</div></div></button>`;
                 const termOptions = termCount ? `
             <button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-mcq-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🔤 Multiple Choice</strong><div class="small" style="margin-top:2px;font-weight:400">Pick the right definition from 4 close, tricky options. Term cards only.</div></div></button>
@@ -17443,7 +17441,6 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                 return modalShell(`Test: ${escape(deck.topic)}`,
                     `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test covers every card type.</strong> Type your answers from memory and AI grades them against each card's own answer format. Lists, timelines, info cards and graph prompts are all included.</div>
           <div class="list">
-            ${structOpt}
             <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧠 Smart Test (recommended)</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Test every card in this deck, with AI grading tailored to its type. Retry yellow/red answers until you've learned them.</div></div></button>
             ${termOptions}
             ${deck.diagram&&deck.diagram.points.length?opt('flashcard-start-diagram','🖼','Diagram Labeling', 'Identify what each numbered point on your diagram is.'):''}
