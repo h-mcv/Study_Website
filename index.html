@@ -17145,7 +17145,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 render();
                 runMcqGenerationForSession(deck); }
 
-            async async function runSmartTestGradeRound() {
+            async function runSmartTestGradeRound() {
                 const s = flashcardStudySession;
                 if (!s) return;
                 s.phase = 'grading';
