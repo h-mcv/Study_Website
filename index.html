@@ -2846,6 +2846,9 @@
         .fc-listtext { min-width:0; overflow-wrap:anywhere; }
         .fc-listcard .button.icon { flex:0 0 32px; width:32px; height:32px; }
         .fc-editor-list { display: grid; gap: 12px; }
+        .fc-editor-drag-handle { cursor: grab !important; touch-action: none; }
+        .fc-editor-drag-handle:active { cursor: grabbing !important; }
+        .fc-editor-list > .topic-row.fc-drag-over { outline: 2px dashed var(--primary); outline-offset: 2px; }
         .fc-editor-list > .topic-row { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
         .fc-editor-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:4px; }
         .fc-editor-head select { max-width: 190px !important; font-size:12px; padding:6px 8px; }
@@ -16883,7 +16886,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     const availableSections = secDeck ? fcSecs(secDeck) : (d.sections || []);
                     const sectionOptions = [{ key: '', label: 'No section' }, ...availableSections.map(x => ({ key: x.id, label: x.name }))];
                     const secSel = availableSections.length ? `<select data-action="flashcard-manual-section" data-index="${i}" class="fc-section-select" aria-label="Section">${sectionOptions.map(o => `<option value="${o.key}" ${o.key === (c.secKey || '') ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
-                    const moveBtns = d.mode === 'deck-edit' ? `<button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button>` : '';
+                    const moveBtns = d.mode === 'deck-edit' ? `<button type="button" class="button ghost icon fc-editor-drag-handle" data-fc-drag-handle draggable="true" aria-label="Drag to reorder" title="Drag to reorder">⠿</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button>` : '';
                     const head = `<div class="fc-editor-head"><span class="fc-editor-number">${i + 1}</span>${typeSel}${secSel}<span class="fc-editor-spacer"></span>${moveBtns}<button type="button" class="button ghost danger icon" data-action="flashcard-manual-remove" data-index="${i}" aria-label="Remove" title="Remove card">✕</button></div>`;
                     const graphHasBoard = !!(c.board && c.board.shapes && c.board.shapes.length), graphDescription = c.descriptionEnabled && String(c.text || '').trim();
                     const graphPreview = graphHasBoard ? `<div class="fc-graph-answer fc-graph-editor-preview"><div class="fc-wb">${wbBoardSvg(c.board)}</div>${graphDescription ? `<div class="fc-graph-description">${escape(c.text)}</div>` : `<div class="small">No explanation added yet.</div>`}</div>` : '';
@@ -16891,7 +16894,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     const fields = t === 'graph' ? graphFields : t === 'term'
                         ? `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="Term / cover word" value="${escape(c.front)}"><textarea data-action="flashcard-manual-back" data-index="${i}" placeholder="Definition" style="min-height:52px">${escape(c.back)}</textarea>`
                         : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
-                    return `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px">${head}${fields}</div></div>`; };
+                    return `<div class="topic-row" data-fc-card-row="${i}" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px">${head}${fields}</div></div>`; };
                 const sectionManager = `<div class="fc-section-manager"><div><strong>Sections</strong><span class="small">Optional groups for organising this deck</span></div><div class="fc-section-chips">${(d.sections || []).map(x => `<span class="fc-section-chip">${escape(x.name)}<button type="button" data-action="fc-draft-section-remove" data-section="${x.id}" aria-label="Remove ${escape(x.name)}">×</button></span>`).join('') || '<span class="small">No sections yet</span>'}<button type="button" class="button ghost" data-action="fc-draft-section-add">+ Add section</button></div></div>`;
                 const manualBody = `${topicField}${d.mode === 'manual' ? sectionManager : ''}<div class="fc-editor-list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:12px" data-action="flashcard-manual-add-row">+ Add card</button>`;
                 const imgThumb = (img, i) => img.mimeType === 'application/pdf'
@@ -19256,7 +19259,17 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 layer.innerHTML = '';
                 if (mascotTour) positionMascotWidget(currentMascotStep()); }
 
-            function renderModal() { if (openPicker) closePicker(); const layer = document.getElementById('modal-layer');
+            function renderModal() {
+                const layer = document.getElementById('modal-layer');
+                const preserveFlashcardScroll = !!(modal && modal.kind === 'flashcard-create');
+                const flashcardScrollTop = preserveFlashcardScroll
+                    ? (layer.querySelector('.modal-body')?.scrollTop || 0) : 0;
+                if (preserveFlashcardScroll) requestAnimationFrame(() => {
+                    if (!modal || modal.kind !== 'flashcard-create') return;
+                    const body = layer.querySelector('.modal-body');
+                    if (body) body.scrollTop = flashcardScrollTop;
+                });
+                if (openPicker) closePicker();
                 layer.classList.add('open');
                 layer.setAttribute('aria-hidden', 'false'); if (!modal) return; if (modal.kind === 'onboarding')
                     return layer.innerHTML = onboardingModal(); if (modal.kind === 'year-rollover') return layer
@@ -23779,6 +23792,58 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset && t.dataset.action === 'info-review-toggle') { if (flashcardCreateDraft?.infoReview) flashcardCreateDraft.infoReview[Number(t.dataset.index)].include = t.checked; }
                 else if (t.id === 'translate-source-lang') { translateSourceLang = t.value; if (translateInputText.trim()) runTranslate(); }
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
+
+            const fcDragLayer = document.getElementById('modal-layer');
+            if (fcDragLayer) {
+                let fcDraggingIndex = null;
+
+                fcDragLayer.addEventListener('dragstart', e => {
+                    const handle = e.target.closest('[data-fc-drag-handle]');
+                    if (!handle || !flashcardCreateDraft || flashcardCreateDraft.mode !== 'deck-edit') {
+                        e.preventDefault();
+                        return;
+                    }
+                    const row = handle.closest('[data-fc-card-row]');
+                    if (!row) { e.preventDefault(); return; }
+                    fcDraggingIndex = Number(row.dataset.fcCardRow);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(fcDraggingIndex));
+                    row.classList.add('fc-dragging');
+                });
+
+                fcDragLayer.addEventListener('dragover', e => {
+                    const row = e.target.closest('[data-fc-card-row]');
+                    if (fcDraggingIndex === null || !row) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    fcDragLayer.querySelectorAll('.fc-drag-over').forEach(x => x.classList.remove('fc-drag-over'));
+                    row.classList.add('fc-drag-over');
+                });
+
+                fcDragLayer.addEventListener('drop', e => {
+                    const row = e.target.closest('[data-fc-card-row]');
+                    if (fcDraggingIndex === null || !row || !flashcardCreateDraft) return;
+                    e.preventDefault();
+                    const from = fcDraggingIndex;
+                    const to = Number(row.dataset.fcCardRow);
+                    const cards = flashcardCreateDraft.cards;
+                    if (Number.isInteger(from) && Number.isInteger(to) &&
+                        from >= 0 && from < cards.length && to >= 0 && to < cards.length && from !== to) {
+                        const moved = cards.splice(from, 1)[0];
+                        cards.splice(to, 0, moved);
+                        renderModal();
+                    }
+                    fcDraggingIndex = null;
+                    fcDragLayer.querySelectorAll('.fc-drag-over, .fc-dragging').forEach(x =>
+                        x.classList.remove('fc-drag-over', 'fc-dragging'));
+                });
+
+                fcDragLayer.addEventListener('dragend', () => {
+                    fcDraggingIndex = null;
+                    fcDragLayer.querySelectorAll('.fc-drag-over, .fc-dragging').forEach(x =>
+                        x.classList.remove('fc-drag-over', 'fc-dragging'));
+                });
+            }
 
             // ---- Flashcards: keyboard + swipe for the study view, and a quicker keyboard flow in the create modal ----
             function fcManualAddRow() { if (!flashcardCreateDraft) return; const rows = flashcardCreateDraft.cards, lastType = rows.length ? (rows[rows.length - 1].type || 'term') : 'term'; rows.push({ type: lastType, front: '', back: '', text: '', secKey: rows.length ? (rows[rows.length - 1].secKey || '') : '' }); renderModal();
