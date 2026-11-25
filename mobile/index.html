@@ -16559,11 +16559,7 @@ function renderFlashcardDeckDetail() {
             function fcCardPlace(deck, c) { const sec = fcSecs(deck).find(s => s.id === c.secId); if (!sec) return { sec: null, sub: null };
                 return { sec, sub: (sec.subs || []).find(u => u.id === c.subId) || null }; }
             // Display / study order: unsectioned cards, then each section's own cards, then each of its sub-sections' cards.
-            function fcOrderedCards(deck) { const secs = fcSecs(deck), out = [];
-                out.push(...deck.cards.filter(c => !fcCardPlace(deck, c).sec));
-                secs.forEach(s => { out.push(...deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && !p.sub; }));
-                    (s.subs || []).forEach(u => out.push(...deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && p.sub === u; }))); });
-                return out; }
+            function fcOrderedCards(deck) { return Array.isArray(deck && deck.cards) ? deck.cards.slice() : []; }
             function fcOrd(deck, arr) { if (!deck || !deck.keepOrder) return shuffle(arr); const idx = new Map(fcOrderedCards(deck).map((c, i) => [c.id, i]));
                 return arr.slice().sort((a, b) => (idx.has(a.id) ? idx.get(a.id) : 1e9) - (idx.has(b.id) ? idx.get(b.id) : 1e9)); }
             function fcScopeCards(deck) { if (!fcScope || fcScope.deckId !== deck.id || !fcScope.secId) return deck.cards;
@@ -16882,6 +16878,10 @@ function renderFlashcardDeckDetail() {
                         : `<input type="text" data-action="flashcard-manual-front" data-index="${i}" placeholder="${ty.titlePh}" value="${escape(c.front)}"><textarea data-action="flashcard-manual-text" data-index="${i}" placeholder="${ty.textPh}" style="min-height:104px">${escape(c.text || '')}</textarea><div class="small">${ty.hint}</div>${t === 'list' ? `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-action="flashcard-manual-ordered" data-index="${i}" ${c.ordered ? 'checked' : ''}> Order matters (items must be typed in this order)</label>` : ''}`;
                     return `<div class="topic-row" style="align-items:flex-start"><div style="flex:1;display:grid;gap:6px">${head}${fields}</div></div>`; };
                 const manualBody = `${topicField}<div class="list">${d.cards.map(manualCardRow).join('')}</div><button type="button" class="button ghost" style="margin-top:10px" data-action="flashcard-manual-add-row">+ Add another card</button>`;
+
+                const deckEditRows = `<div class="${mobile and 'list' or 'fc-editor-list'}">${d.cards.map((c, i) => `<div style="display:flex;justify-content:center;margin:3px 0"><button type="button" class="button ghost icon" style="width:28px;height:25px;min-height:25px;padding:0;border-radius:8px;font-size:17px" data-action="flashcard-manual-insert-row" data-index="${i}" title="Insert a card here" aria-label="Insert card here">+</button></div>${manualCardRow(c, i)}`).join('')}<div style="display:flex;justify-content:center;margin:3px 0"><button type="button" class="button ghost icon" style="width:28px;height:25px;min-height:25px;padding:0;border-radius:8px;font-size:17px" data-action="flashcard-manual-insert-row" data-index="${d.cards.length}" title="Add a card at the end" aria-label="Add card at the end">+</button></div></div>`;
+                const reorderMenu = `<details style="margin:10px 0 14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)"><summary style="cursor:pointer;font-weight:700">↕ Reorder cards <span class="small">(${d.cards.length})</span></summary><div style="display:grid;gap:5px;margin-top:10px">${d.cards.map((c, i) => `<div data-fc-card-row="${i}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)"><button type="button" class="button ghost icon fc-editor-drag-handle" data-fc-drag-handle draggable="true" style="width:30px;height:30px;min-height:30px;padding:0" aria-label="Drag to reorder" title="Drag to reorder">⠿</button><span style="flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px">${escape(String(c.front || '').trim() || `Card ${i + 1}`)}</span><button type="button" class="button ghost icon" style="width:30px;height:30px;min-height:30px;padding:0" data-action="flashcard-manual-move" data-index="${i}" data-dir="-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="button ghost icon" style="width:30px;height:30px;min-height:30px;padding:0" data-action="flashcard-manual-move" data-index="${i}" data-dir="1" aria-label="Move down" ${i === d.cards.length - 1 ? 'disabled' : ''}>↓</button></div>`).join('')}</div></details>`;
+
                 const imgThumb = (img, i) => img.mimeType === 'application/pdf'
                     ? `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:72px;height:72px;margin:0 8px 8px 0;border-radius:8px;border:1px solid var(--line);background:var(--card)"><span style="font-size:22px">📄</span><span class="small" style="max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escape(img.name||'PDF')}</span><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove file">✕</button></div>`
                     : `<div style="position:relative;display:inline-block;margin:0 8px 8px 0"><img src="${img.dataUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="${escape(img.name||'photo')}"><button type="button" class="button ghost danger" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px" data-action="flashcard-image-remove" data-index="${i}" aria-label="Remove photo">✕</button></div>`;
@@ -23602,6 +23602,7 @@ If the user asks about how to study or study methods generally, answer from your
                         openModal('flashcard-create'); } }
                 else if (a === 'flashcard-create-mode') { if (flashcardCreateDraft) { flashcardCreateDraft.mode = b.dataset.mode; renderModal(); } }
                 else if (a === 'flashcard-manual-add-row') fcManualAddRow();
+                else if (a === 'flashcard-manual-insert-row') fcManualInsertRow(b.dataset.index);
                 else if (a === 'flashcard-manual-remove') { const d = flashcardCreateDraft; if (d) { d.cards.splice(Number(b.dataset.index), 1);
                         if (!d.cards.length) d.cards.push({ front: '', back: '' }); renderModal(); } }
                 else if (a === 'flashcard-manual-save') saveManualFlashcards();
@@ -23809,8 +23810,68 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.id === 'translate-target-lang') { translateTargetLang = t.value; if (translateInputText.trim()) runTranslate(); } });
 
             // ---- Flashcards: keyboard + swipe for the study view, and a quicker keyboard flow in the create modal ----
-            function fcManualAddRow() { if (!flashcardCreateDraft) return; const rows = flashcardCreateDraft.cards, lastType = rows.length ? (rows[rows.length - 1].type || 'term') : 'term'; rows.push({ type: lastType, front: '', back: '', text: '', secKey: rows.length ? (rows[rows.length - 1].secKey || '') : '' }); renderModal();
-                const idx = flashcardCreateDraft.cards.length - 1; setTimeout(() => document.querySelector(`[data-action="flashcard-manual-front"][data-index="${idx}"]`)?.focus(), 0); }
+
+            const fcMobileDragLayer = document.getElementById('modal-layer');
+            if (fcMobileDragLayer) {
+                let fcMobileDraggingIndex = null;
+                fcMobileDragLayer.addEventListener('dragstart', e => {
+                    const handle = e.target.closest('[data-fc-drag-handle]');
+                    if (!handle || !flashcardCreateDraft || flashcardCreateDraft.mode !== 'deck-edit') return;
+                    const row = handle.closest('[data-fc-card-row]');
+                    if (!row) return;
+                    fcMobileDraggingIndex = Number(row.dataset.fcCardRow);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(fcMobileDraggingIndex));
+                    row.classList.add('fc-dragging');
+                });
+                fcMobileDragLayer.addEventListener('dragover', e => {
+                    const row = e.target.closest('[data-fc-card-row]');
+                    if (fcMobileDraggingIndex === null || !row) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    fcMobileDragLayer.querySelectorAll('.fc-drag-over').forEach(x => x.classList.remove('fc-drag-over'));
+                    row.classList.add('fc-drag-over');
+                });
+                fcMobileDragLayer.addEventListener('drop', e => {
+                    const row = e.target.closest('[data-fc-card-row]');
+                    if (fcMobileDraggingIndex === null || !row || !flashcardCreateDraft) return;
+                    e.preventDefault();
+                    const from = fcMobileDraggingIndex;
+                    const to = Number(row.dataset.fcCardRow);
+                    const cards = flashcardCreateDraft.cards;
+                    if (Number.isInteger(from) && Number.isInteger(to) && from >= 0 && from < cards.length && to >= 0 && to < cards.length && from !== to) {
+                        const moved = cards.splice(from, 1)[0];
+                        cards.splice(to, 0, moved);
+                        renderModal();
+                    }
+                    fcMobileDraggingIndex = null;
+                    fcMobileDragLayer.querySelectorAll('.fc-drag-over, .fc-dragging').forEach(x => x.classList.remove('fc-drag-over', 'fc-dragging'));
+                });
+                fcMobileDragLayer.addEventListener('dragend', () => {
+                    fcMobileDraggingIndex = null;
+                    fcMobileDragLayer.querySelectorAll('.fc-drag-over, .fc-dragging').forEach(x => x.classList.remove('fc-drag-over', 'fc-dragging'));
+                });
+            }
+
+            function fcManualInsertRow(index) {
+                if (!flashcardCreateDraft) return;
+                const rows = flashcardCreateDraft.cards;
+                const at = Math.max(0, Math.min(rows.length, Number(index) || 0));
+                const source = rows[at - 1] || rows[at] || {};
+                rows.splice(at, 0, {
+                    type: source.type || 'term',
+                    front: '',
+                    back: '',
+                    text: '',
+                    secKey: source.secKey || ''
+                });
+                renderModal();
+                setTimeout(() => document.querySelector(`[data-action="flashcard-manual-front"][data-index="${at}"]`)?.focus(), 0);
+            }
+            function fcManualAddRow() {
+                if (!flashcardCreateDraft) return;
+                fcManualInsertRow(flashcardCreateDraft.cards.length);
+            }
             document.addEventListener('keydown', e => {
                 if (e.metaKey || e.ctrlKey || e.altKey) { if (e.key === 'Enter' && e.target.dataset && /^flashcard-manual-(front|back|text)$/.test(e.target.dataset.action || '')) { e.preventDefault(); fcManualAddRow(); } return; }
                 if (modal && modal.kind === 'flashcard-create' && e.key === 'Tab' && !e.shiftKey && e.target.dataset && (e.target.dataset.action === 'flashcard-manual-back' || e.target.dataset.action === 'flashcard-manual-text') &&
