@@ -4572,6 +4572,134 @@
 
     .mobile-flashcards-only { padding-bottom: 0 !important; }
     .mobile-flashcards-only .mobile-bottom-nav { display: none !important; }
+
+        .smart-graph-test {
+            display: grid;
+            gap: 11px;
+            margin-top: 12px;
+        }
+        .smart-graph-preview {
+            width: 100%;
+            min-height: 125px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #fff;
+        }
+        .smart-graph-preview svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .smart-graph-empty {
+            min-height: 125px;
+            display: grid;
+            place-items: center;
+            padding: 15px;
+            color: #70708a;
+            text-align: center;
+        }
+        .smart-graph-label {
+            font-weight: 750;
+            margin-top: 3px;
+        }
+        .smart-graph-test textarea {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--surface);
+            color: var(--text);
+            font: inherit;
+            line-height: 1.5;
+        }
+        .wb-overlay.wb-graph-mode .wb-svg {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    
+        @media (max-width: 700px) {
+            .wb-overlay.wb-graph-mode {
+                height: 100dvh;
+                max-height: 100dvh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+            .wb-overlay.wb-graph-mode .wb-top {
+                flex: 0 0 auto;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 7px;
+            }
+            .wb-overlay.wb-graph-mode .wb-top strong {
+                flex: 1 1 100%;
+                font-size: 14px;
+            }
+            .wb-overlay.wb-graph-mode .wb-hint {
+                display: none;
+            }
+            .wb-overlay.wb-graph-mode .wb-main {
+                display: flex;
+                flex: 1 1 auto;
+                flex-direction: column;
+                min-height: 0;
+                overflow: hidden;
+            }
+            .wb-overlay.wb-graph-mode .wb-tools {
+                display: flex;
+                flex: 0 0 auto;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                gap: 7px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 7px;
+                border-right: 0;
+                border-bottom: 1px solid var(--line);
+                -webkit-overflow-scrolling: touch;
+            }
+            .wb-overlay.wb-graph-mode .wb-tool {
+                flex: 0 0 46px;
+                width: 46px;
+                height: 46px;
+                min-height: 46px;
+                font-size: 21px;
+                touch-action: manipulation;
+            }
+            .wb-overlay.wb-graph-mode .wb-stage {
+                flex: 1 1 auto;
+                min-height: 0;
+                width: 100%;
+                padding: 5px;
+                overflow: hidden;
+            }
+            .wb-overlay.wb-graph-mode .wb-svg {
+                display: block;
+                width: 100%;
+                height: 100%;
+                max-height: 100%;
+            }
+            .wb-overlay.wb-graph-mode .wb-style {
+                display: flex;
+                flex: 0 0 auto;
+                flex-wrap: nowrap;
+                gap: 7px;
+                max-height: 76px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 7px;
+                -webkit-overflow-scrolling: touch;
+            }
+            .wb-overlay.wb-graph-mode .wb-style .group {
+                flex: 0 0 auto;
+            }
+        }
+        
 </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
@@ -16135,10 +16263,12 @@ function renderFlashcardDeckDetail() {
 
             // opts: { title, hint, board, onDone(board) }
             function openWhiteboard(opts) { closeWhiteboard();
-                const st = { board: wbClone(opts.board && Array.isArray(opts.board.shapes) ? opts.board : { shapes: [] }), tool: 'select', sel: null, undo: [], redo: [], drag: null, editing: null, snap: true, lastClick: null, swPending: false,
+                const st = { board: wbClone(opts.board && Array.isArray(opts.board.shapes) ? opts.board : { shapes: [] }), tool: opts.graphMode ? 'pen' : 'select', sel: null, undo: [], redo: [], drag: null, editing: null, snap: true, lastClick: null, swPending: false,
                     style: { color: WB_COLORS[0], fill: 0, sw: 3, dash: 'solid', fs: 20 } };
-                const root = document.createElement('div'); root.className = 'wb-overlay'; root.id = 'wb-overlay';
-                const tools = [['select', '↖', 'Select / move (V)'], ['rect', '▭', 'Rectangle (R)'], ['oval', '◯', 'Oval (O)'], ['rhombus', '◇', 'Rhombus (D)'], ['triangle', '△', 'Triangle (G)'], ['blockarrow', '⇨', 'Block arrow (B)'],
+                const root = document.createElement('div'); root.className = 'wb-overlay'; root.id = 'wb-overlay'; if (opts.graphMode) root.classList.add('wb-graph-mode');
+                const tools = opts.graphMode
+                    ? [['select', '↖', 'Select / move'], ['line', '╱', 'Straight line'], ['curve', '⌒', 'Curved line'], ['pen', '✎', 'Freehand drawing'], ['text', 'T', 'Text / label']]
+                    : [['select', '↖', 'Select / move (V)'], ['rect', '▭', 'Rectangle (R)'], ['oval', '◯', 'Oval (O)'], ['rhombus', '◇', 'Rhombus (D)'], ['triangle', '△', 'Triangle (G)'], ['blockarrow', '⇨', 'Block arrow (B)'],
                     ['line', '╱', 'Line (L)'], ['arrow', '↗', 'Arrow (A)'], ['elbow', '↱', 'Elbow arrow (E)'], ['curve', '⌒', 'Curved line (C)'], ['pen', '✎', 'Freehand (P)'], ['text', 'T', 'Text box (T)']];
                 root.innerHTML = `<div class="wb-top"><strong>${escape(opts.title || 'Whiteboard')}</strong><span class="wb-hint">${escape(opts.hint || 'Double-click a shape to type in it · Delete removes · Ctrl+Z undoes')}</span><span class="wb-spacer"></span>
                     <button type="button" class="wb-mini" data-wb="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button type="button" class="wb-mini" data-wb="redo" title="Redo">↷ Redo</button><button type="button" class="wb-mini" data-wb="clear">Clear</button>
@@ -16937,7 +17067,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                         id: c.id, front: c.front, back: c.back,
                         type: c.type || 'term', data: c.data || null
                     })),
-                    index: 0, answers: {}, phase: 'answering', results: null
+                    index: 0, answers: {}, graphAnswers: {}, phase: 'answering', results: null
                 };
                 render();
             }
@@ -16963,7 +17093,7 @@ Grade every answer according to the actual card type and its expected answer:
 - List cards: assess whether all required items are recalled. Respect whether order matters.
 - Timeline cards: assess the events AND their chronological order.
 - Info cards: assess the key facts, headings, points and important sub-points. Accept equivalent wording.
-- Graph/diagram cards: the student has described the model diagram from memory. Assess whether their description includes the essential labels, axes, shapes, relationships, directions and notes in the model. Do not require drawing-specific details that cannot reasonably be expressed in words.
+- Graph/diagram cards: the student must submit BOTH an actual drawing and a written explanation. The first image supplied for each graph is the model answer; the second is the student's drawing. Compare the actual graphs, including axes, labels, scale, curve shapes, directions, intersections, turning points and important annotations. Assess the written explanation separately and check that it agrees with the drawing. A written description must NEVER substitute for a missing drawing. A good explanation with an incorrect drawing, or a good drawing with an inadequate explanation, must lose marks.
 
 Verdicts:
 - "green": essentially complete and correct, meeting the key requirements.
@@ -16974,23 +17104,51 @@ Be fair to equivalent wording but strict about important facts. Do not penalise 
 
 Return ONLY compact JSON: {"results":[{"id":"...","verdict":"green"|"yellow"|"red","feedback":"..."}]}`;
 
-                    const payload = s.queue.map(c => {
+                    const parts = [];
+
+                    for (const c of s.queue) {
                         let expected = `Expected answer:\n${c.back}`;
+
                         if (c.type === 'list' && c.data) {
                             expected += `\nRequired items: ${JSON.stringify(c.data.items)}\nOrder matters: ${!!c.data.ordered}`;
                         } else if (c.type === 'timeline' && c.data) {
                             expected += `\nCorrect chronological order: ${JSON.stringify(c.data.events)}`;
                         } else if (c.type === 'info' && c.data) {
                             expected += `\nStructured headings, points and sub-points: ${JSON.stringify(c.data.sections)}`;
-                        } else if (c.type === 'graph' && c.data?.board) {
-                            expected += `\nModel diagram labels: ${JSON.stringify(wbLabels(c.data.board))}`;
-                            expected += `\nModel diagram structure: ${wbDescribe(c.data.board)}`;
-                            expected += `\nAdditional model notes: ${c.data.notes || '(none)'}`;
                         }
-                        return `ID: ${c.id}\nCard type: ${c.type || 'term'}\nQuestion: ${c.front}\n${expected}\nStudent's answer: ${(s.answers[c.id] || '').trim() || '(left blank)'}`;
-                    }).join('\n\n---\n\n');
 
-                    const result = await aiJsonOnce(sys, [{ text: payload }]);
+                        if (c.type === 'graph') {
+                            const ga = (s.graphAnswers && s.graphAnswers[c.id]) || {};
+                            const description = String(ga.description || '').trim();
+
+                            if (c.data && c.data.board && ga.board && ga.board.shapes && ga.board.shapes.length) {
+                                const [modelPng, studentPng] = await Promise.all([
+                                    wbToPng(c.data.board),
+                                    wbToPng(ga.board)
+                                ]);
+
+                                expected += `\nModel labels: ${JSON.stringify(wbLabels(c.data.board))}`;
+                                expected += `\nModel shape structure: ${wbDescribe(c.data.board)}`;
+                                expected += `\nMarking notes: ${c.data.notes || '(none)'}`;
+
+                                parts.push({
+                                    text: `ID: ${c.id}\nCard type: Graph / diagram\nQuestion: ${c.front}\n${expected}\nStudent's written explanation: ${description || '(blank)'}\nThe next image is the MODEL graph. The image after it is the STUDENT'S drawing. Compare both images directly.`
+                                });
+                                parts.push({ inlineData: { mimeType: 'image/png', data: modelPng } });
+                                parts.push({ inlineData: { mimeType: 'image/png', data: studentPng } });
+                            } else {
+                                parts.push({
+                                    text: `ID: ${c.id}\nCard type: Graph / diagram\nQuestion: ${c.front}\n${expected}\nSTUDENT DRAWING: MISSING\nStudent's written explanation: ${description || '(blank)'}`
+                                });
+                            }
+                        } else {
+                            parts.push({
+                                text: `ID: ${c.id}\nCard type: ${c.type || 'term'}\nQuestion: ${c.front}\n${expected}\nStudent's answer: ${(s.answers[c.id] || '').trim() || '(left blank)'}`
+                            });
+                        }
+                    }
+
+                    const result = await aiJsonOnce(sys, parts);
                     const byId = new Map((Array.isArray(result.results) ? result.results : []).map(r => [String(r.id), r]));
                     s.results = s.queue.map(c => {
                         const r = byId.get(c.id) || {};
@@ -17161,7 +17319,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                         function renderSmartTestSession(sess) {
                 const deck = flashcardDeck(sess.deckId);
                 if (sess.phase === 'answering') {
-                    const card = sess.queue[sess.index], answer = sess.answers[card.id] || '';
+                    const card = sess.queue[sess.index], answer = sess.answers[card.id] || '', graphAnswer = (sess.graphAnswers && sess.graphAnswers[card.id]) || {};
                     const type = card.type || 'term';
                     const typeName = FC_TYPES[type]?.short || 'Term';
                     const instruction = {
@@ -17169,15 +17327,28 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                         list: card.data?.ordered ? 'Write all the required items in the correct order.' : 'Write all the items you can remember.',
                         timeline: 'Write the events in their correct chronological order.',
                         info: 'Write down the important facts, headings and details you remember.',
-                        graph: 'Describe the model diagram from memory. Include its labels, axes, shapes, relationships and any important notes.'
+                        graph: 'Draw the graph yourself, including its axes, labels and curves, then explain what it shows and the important relationships.'
                     }[type] || 'Write everything important you remember.';
-                    const placeholder = type === 'graph' ? 'Describe the diagram from memory…' : 'Type your answer from memory…';
+                    const placeholder = 'Type your answer from memory…';
                     return `<div class="flashcard-stage">
         ${header(`Smart Test${sess.round>1?` — Round ${sess.round}`:''}`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <p class="small" style="margin-bottom:6px">${escape(typeName)} card</p>
         <div class="flashcard-face" style="cursor:default"><span>${escape(card.front)}</span></div>
         <p class="muted" style="margin-top:12px;margin-bottom:6px">${escape(instruction)}</p>
-        <textarea id="flashcard-smart-answer" placeholder="${escape(placeholder)}" style="margin-top:8px;min-height:130px">${escape(answer)}</textarea>
+        ${type === 'graph' ? `
+        <div class="smart-graph-test">
+          <div class="smart-graph-preview">
+            ${graphAnswer.board && graphAnswer.board.shapes && graphAnswer.board.shapes.length
+                ? wbBoardSvg(graphAnswer.board)
+                : '<div class="smart-graph-empty">Your graph will appear here once you have drawn it.</div>'}
+          </div>
+          <button type="button" class="button primary smart-graph-draw" data-action="flashcard-smart-graph-draw">
+            ✏️ ${graphAnswer.board && graphAnswer.board.shapes && graphAnswer.board.shapes.length ? 'Edit your graph' : 'Draw your graph'}
+          </button>
+          <label class="smart-graph-label" for="flashcard-smart-graph-description">Accompanying description</label>
+          <textarea id="flashcard-smart-graph-description" placeholder="Explain what the graph shows, what the lines and curves represent, and the important relationships..." style="margin-top:6px;min-height:110px">${escape(graphAnswer.description || '')}</textarea>
+        </div>
+        ` : `<textarea id="flashcard-smart-answer" placeholder="${escape(placeholder)}" style="margin-top:8px;min-height:130px">${escape(answer)}</textarea>`}
         <div class="flashcard-nav">
           <span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span>
           <button type="button" class="button primary" data-action="flashcard-smart-next">${sess.index===sess.queue.length-1?'Finish & Grade':'Next ›'}</button>
@@ -23403,12 +23574,63 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcard-flip') { const s0 = flashcardStudySession; if (!s0) return; s0.flipped = !s0.flipped; const el = document.getElementById('fc-card'); if (el) { el.classList.toggle('flipped', s0.flipped); document.querySelectorAll('.fc-grades').forEach(g => { g.hidden = !s0.flipped; }); } else render(); }
                 else if (a === 'flashcard-prev') fcStep(-1);
                 else if (a === 'flashcard-next') fcStep(1);
-                else if (a === 'flashcard-smart-next') { const s = flashcardStudySession; if (!s) return;
-                    const card = s.queue[s.index]; s.answers[card.id] = document.getElementById('flashcard-smart-answer')?.value || '';
-                    if (s.index < s.queue.length - 1) { s.index++; render(); } else runSmartTestGradeRound(); }
+                else if (a === 'flashcard-smart-graph-draw') {
+                    const s = flashcardStudySession;
+                    if (!s || s.phase !== 'answering') return;
+                    const card = s.queue[s.index];
+                    if (!card || card.type !== 'graph') return;
+
+                    s.graphAnswers = s.graphAnswers || {};
+                    const previous = s.graphAnswers[card.id] || {};
+                    const description = document.getElementById('flashcard-smart-graph-description');
+                    if (description) previous.description = description.value;
+
+                    openWhiteboard({
+                        title: card.front,
+                        hint: 'Draw the graph using your finger or mouse. Use the grid, axes and labels as needed.',
+                        graphMode: true,
+                        board: previous.board,
+                        onDone: board => {
+                            s.graphAnswers[card.id] = { ...previous, board };
+                            render();
+                        }
+                    });
+                }
+                else if (a === 'flashcard-smart-next') {
+                    const s = flashcardStudySession;
+                    if (!s) return;
+                    const card = s.queue[s.index];
+
+                    if (card.type === 'graph') {
+                        s.graphAnswers = s.graphAnswers || {};
+                        const previous = s.graphAnswers[card.id] || {};
+                        const description = (document.getElementById('flashcard-smart-graph-description')?.value || '').trim();
+
+                        if (!previous.board || !previous.board.shapes || !previous.board.shapes.length) {
+                            toast('Please draw your graph before continuing.');
+                            return;
+                        }
+                        if (!description) {
+                            toast('Please add your accompanying description before continuing.');
+                            return;
+                        }
+
+                        s.graphAnswers[card.id] = { ...previous, description };
+                        s.answers[card.id] = description;
+                    } else {
+                        s.answers[card.id] = document.getElementById('flashcard-smart-answer')?.value || '';
+                    }
+
+                    if (s.index < s.queue.length - 1) {
+                        s.index++;
+                        render();
+                    } else {
+                        runSmartTestGradeRound();
+                    }
+                }
                 else if (a === 'flashcard-smart-retry') { const s = flashcardStudySession; if (!s) return;
-                    const remaining = s.results.filter(r => r.verdict !== 'green').map(r => ({ id: r.id, front: r.front, back: r.back }));
-                    flashcardStudySession = { mode: 'smart-test', deckId: s.deckId, round: s.round + 1, queue: fcOrd(flashcardDeck(s.deckId), remaining), index: 0, answers: {}, phase: 'answering', results: null };
+                    const remaining = s.results.filter(r => r.verdict !== 'green').map(r => ({ id: r.id, front: r.front, back: r.back, type: r.type || 'term', data: r.data || null }));
+                    flashcardStudySession = { mode: 'smart-test', deckId: s.deckId, round: s.round + 1, queue: fcOrd(flashcardDeck(s.deckId), remaining), index: 0, answers: {}, graphAnswers: {}, phase: 'answering', results: null };
                     render(); }
                 else if (a === 'flashcard-mcq-answer') { const s = flashcardStudySession; if (!s || s.phase !== 'active') return;
                     const q = s.questions[s.index]; if (q.selected != null) return;
