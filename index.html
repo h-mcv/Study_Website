@@ -16349,12 +16349,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
 
             // opts: { title, hint, board, onDone(board) }
             function openWhiteboard(opts) { closeWhiteboard();
-                const st = { board: wbClone(opts.board && Array.isArray(opts.board.shapes) ? opts.board : { shapes: [] }), tool: opts.graphMode ? 'pen' : 'select', sel: null, undo: [], redo: [], drag: null, editing: null, snap: true, lastClick: null, swPending: false,
+                const st = { board: wbClone(opts.board && Array.isArray(opts.board.shapes) ? opts.board : { shapes: [] }), tool: 'select', sel: null, undo: [], redo: [], drag: null, editing: null, snap: true, lastClick: null, swPending: false,
                     panMode: false, view: { x: 0, y: 0, w: WB_W, h: WB_H }, style: { color: WB_COLORS[0], fill: 0, sw: 3, dash: 'solid', fs: 20 } };
                 const root = document.createElement('div'); root.className = 'wb-overlay'; root.id = 'wb-overlay'; if (opts.graphMode) root.classList.add('wb-graph-mode');
-                const tools = opts.graphMode
-                    ? [['select', '↖', 'Select / move'], ['line', '╱', 'Straight line'], ['curve', '⌒', 'Curved line'], ['pen', '✎', 'Freehand drawing'], ['text', 'T', 'Text / label']]
-                    : [['select', '↖', 'Select / move (V)'], ['rect', '▭', 'Rectangle (R)'], ['oval', '◯', 'Oval (O)'], ['rhombus', '◇', 'Rhombus (D)'], ['triangle', '△', 'Triangle (G)'], ['blockarrow', '⇨', 'Block arrow (B)'],
+                const tools = [['select', '↖', 'Select / move (V)'], ['rect', '▭', 'Rectangle (R)'], ['oval', '◯', 'Oval (O)'], ['rhombus', '◇', 'Rhombus (D)'], ['triangle', '△', 'Triangle (G)'], ['blockarrow', '⇨', 'Block arrow (B)'],
                     ['line', '╱', 'Line (L)'], ['arrow', '↗', 'Arrow (A)'], ['elbow', '↱', 'Elbow arrow (E)'], ['curve', '⌒', 'Curved line (C)'], ['pen', '✎', 'Freehand (P)'], ['text', 'T', 'Text box (T)']];
                 root.innerHTML = `<div class="wb-top"><strong>${escape(opts.title || 'Whiteboard')}</strong><span class="wb-hint">${escape(opts.hint || 'Double-click a shape to type · Delete removes · Ctrl+Z undoes · Use the zoom controls or scroll to zoom')}</span><span class="wb-spacer"></span>
                     <button type="button" class="wb-mini" data-wb="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button type="button" class="wb-mini" data-wb="redo" title="Redo">↷ Redo</button><button type="button" class="wb-mini" data-wb="clear">Clear</button>
