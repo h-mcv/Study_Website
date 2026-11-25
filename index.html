@@ -16859,7 +16859,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const tabs = `<div class="fc-chips" style="margin-bottom:14px"><button type="button" class="fc-chip ${flashcardsTab === 'mine' ? 'active' : ''}" data-action="fc-tab" data-tab="mine">My decks</button><button type="button" class="fc-chip ${flashcardsTab === 'community' ? 'active' : ''}" data-action="fc-tab" data-tab="community">🌐 Community</button></div>`;
                 return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${tabs}${flashcardsTab === 'community' ? renderCommunityBody() : body + renderWordBankShelf(filterId)}</div>`; }
 
-            
+
             // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
             function flashcardCreateModal() { const d = flashcardCreateDraft;
                 if (!d) return modalShell('Create Flashcards', '', '');
@@ -17117,12 +17117,24 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 flashcardStudySession = { mode: 'clickthrough', deckId, cards: fcOrd(deck, fcScopeCards(deck)), index: 0, flipped: false };
                 render(); }
 
-            function startFlashcardSmartTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
+            function startFlashcardSmartTest(deckId) {
+                const deck = flashcardDeck(deckId);
+                if (!deck) return;
+                const cards = fcOrd(deck, fcScopeCards(deck));
+                if (!cards.length) { toast('This deck has no cards in the selected section.'); return; }
                 closeModal();
-                flashcardStudySession = { mode: 'smart-test', deckId, round: 1,
-                    queue: fcOrd(deck, fcTermCards(deck)).map(c => ({ id: c.id, front: c.front, back: c.back })),
-                    index: 0, answers: {}, phase: 'answering', results: null };
-                render(); }
+                flashcardStudySession = {
+                    mode: 'smart-test', deckId, round: 1,
+                    queue: cards.map(c => ({
+                        id: c.id, front: c.front, back: c.back,
+                        type: c.type || 'term', data: c.data || null
+                    })),
+                    index: 0, answers: {}, phase: 'answering', results: null
+                };
+                render();
+            }
+
+
 
             function startFlashcardMcqTest(deckId) { const deck = flashcardDeck(deckId); if (!deck || !fcTermCards(deck).length) return;
                 closeModal();
@@ -17130,23 +17142,68 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 render();
                 runMcqGenerationForSession(deck); }
 
-            async function runSmartTestGradeRound() { const s = flashcardStudySession; if (!s) return;
-                s.phase = 'grading'; render();
+            async async function runSmartTestGradeRound() {
+                const s = flashcardStudySession;
+                if (!s) return;
+                s.phase = 'grading';
+                render();
                 try {
-                    const sys = `You are grading a student's flashcard self-test with the rigor of an official state exam marking scheme (SEC/Leaving Cert-style). For EACH item, compare the student's typed answer against the correct definition and assign a verdict:
-- "green": essentially exactly right — hits all the key points/terminology a marking scheme would require for full marks.
-- "yellow": the general idea/concept is right, but the answer misses one or more key terms/buzzwords, or is incomplete/imprecise.
-- "red": wrong, shows a real misunderstanding of the concept, or is blank/irrelevant.
-Be as strict as a real examiner — don't award green for a vague paraphrase that's missing the actual terminology. Reply with ONLY compact JSON: {"results": [{"id": "...", "verdict": "green"|"yellow"|"red", "feedback": "one short sentence — what's missing, or confirming it's spot on"}, ...]}`;
-                    const payload = s.queue.map(c => `ID: ${c.id}\nTerm: ${c.front}\nCorrect definition: ${c.back}\nStudent's answer: ${(s.answers[c.id]||'').trim() || '(left blank)'}`).join('\n\n---\n\n');
+                    const sys = `You are grading a student's mixed-format flashcard Smart Test to the standard of a rigorous official exam marking scheme.
+
+Grade every answer according to the actual card type and its expected answer:
+- Term cards: assess the accuracy, completeness and essential terminology of the definition.
+- List cards: assess whether all required items are recalled. Respect whether order matters.
+- Timeline cards: assess the events AND their chronological order.
+- Info cards: assess the key facts, headings, points and important sub-points. Accept equivalent wording.
+- Graph/diagram cards: the student has described the model diagram from memory. Assess whether their description includes the essential labels, axes, shapes, relationships, directions and notes in the model. Do not require drawing-specific details that cannot reasonably be expressed in words.
+
+Verdicts:
+- "green": essentially complete and correct, meeting the key requirements.
+- "yellow": substantially right but missing important points or containing a minor error.
+- "red": substantially incorrect, shows misunderstanding, or is blank/irrelevant.
+
+Be fair to equivalent wording but strict about important facts. Do not penalise harmless differences in phrasing. Give one short, specific sentence of feedback explaining what was missing or confirming what was correct.
+
+Return ONLY compact JSON: {"results":[{"id":"...","verdict":"green"|"yellow"|"red","feedback":"..."}]}`;
+
+                    const payload = s.queue.map(c => {
+                        let expected = `Expected answer:\n${c.back}`;
+                        if (c.type === 'list' && c.data) {
+                            expected += `\nRequired items: ${JSON.stringify(c.data.items)}\nOrder matters: ${!!c.data.ordered}`;
+                        } else if (c.type === 'timeline' && c.data) {
+                            expected += `\nCorrect chronological order: ${JSON.stringify(c.data.events)}`;
+                        } else if (c.type === 'info' && c.data) {
+                            expected += `\nStructured headings, points and sub-points: ${JSON.stringify(c.data.sections)}`;
+                        } else if (c.type === 'graph' && c.data?.board) {
+                            expected += `\nModel diagram labels: ${JSON.stringify(wbLabels(c.data.board))}`;
+                            expected += `\nModel diagram structure: ${wbDescribe(c.data.board)}`;
+                            expected += `\nAdditional model notes: ${c.data.notes || '(none)'}`;
+                        }
+                        return `ID: ${c.id}\nCard type: ${c.type || 'term'}\nQuestion: ${c.front}\n${expected}\nStudent's answer: ${(s.answers[c.id] || '').trim() || '(left blank)'}`;
+                    }).join('\n\n---\n\n');
+
                     const result = await aiJsonOnce(sys, [{ text: payload }]);
                     const byId = new Map((Array.isArray(result.results) ? result.results : []).map(r => [String(r.id), r]));
-                    s.results = s.queue.map(c => { const r = byId.get(c.id) || {};
+                    s.results = s.queue.map(c => {
+                        const r = byId.get(c.id) || {};
                         const verdict = ['green', 'yellow', 'red'].includes(r.verdict) ? r.verdict : 'yellow';
-                        return { id: c.id, front: c.front, back: c.back, answer: s.answers[c.id] || '', verdict, feedback: r.feedback || '' }; });
+                        return {
+                            id: c.id, front: c.front, back: c.back,
+                            type: c.type || 'term', data: c.data || null,
+                            answer: s.answers[c.id] || '', verdict,
+                            feedback: r.feedback || ''
+                        };
+                    });
                     s.phase = 'results';
-                } catch (err) { toast(err.message || 'Could not grade your answers — try again.'); s.phase = 'answering'; s.index = s.queue.length - 1; }
-                render(); }
+                } catch (err) {
+                    toast(err.message || 'Could not grade your answers — try again.');
+                    s.phase = 'answering';
+                    s.index = s.queue.length - 1;
+                }
+                render();
+            }
+
+
 
 // Multiple-choice distractors are cached on the deck so repeat attempts reuse the SAME quiz (otherwise a
             // student can end up "learning the options" rather than the cards, and every attempt costs an AI call).
@@ -17293,29 +17350,51 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
           <p class="fc-kbd">Space flips · ← → move through the deck</p>
         </div>`; }
 
-                        function renderSmartTestSession(sess) { const deck = flashcardDeck(sess.deckId);
-                if (sess.phase === 'answering') { const card = sess.queue[sess.index], answer = sess.answers[card.id] || '';
+                        function renderSmartTestSession(sess) {
+                const deck = flashcardDeck(sess.deckId);
+                if (sess.phase === 'answering') {
+                    const card = sess.queue[sess.index], answer = sess.answers[card.id] || '';
+                    const type = card.type || 'term';
+                    const typeName = FC_TYPES[type]?.short || 'Term';
+                    const instruction = {
+                        term: 'Write the full definition, including the key points and terminology.',
+                        list: card.data?.ordered ? 'Write all the required items in the correct order.' : 'Write all the items you can remember.',
+                        timeline: 'Write the events in their correct chronological order.',
+                        info: 'Write down the important facts, headings and details you remember.',
+                        graph: 'Describe the model diagram from memory. Include its labels, axes, shapes, relationships and any important notes.'
+                    }[type] || 'Write everything important you remember.';
+                    const placeholder = type === 'graph' ? 'Describe the diagram from memory…' : 'Type your answer from memory…';
                     return `<div class="flashcard-stage">
         ${header(`Smart Test${sess.round>1?` — Round ${sess.round}`:''}`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
+        <p class="small" style="margin-bottom:6px">${escape(typeName)} card</p>
         <div class="flashcard-face" style="cursor:default"><span>${escape(card.front)}</span></div>
-        <textarea id="flashcard-smart-answer" placeholder="Type the full definition — hit the key points and terminology." style="margin-top:14px;min-height:110px">${escape(answer)}</textarea>
+        <p class="muted" style="margin-top:12px;margin-bottom:6px">${escape(instruction)}</p>
+        <textarea id="flashcard-smart-answer" placeholder="${escape(placeholder)}" style="margin-top:8px;min-height:130px">${escape(answer)}</textarea>
         <div class="flashcard-nav">
           <span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span>
           <button type="button" class="button primary" data-action="flashcard-smart-next">${sess.index===sess.queue.length-1?'Finish & Grade':'Next ›'}</button>
         </div>
-        </div>`; }
-                if (sess.phase === 'grading') return `<div class="flashcard-stage">${header('Smart Test', 'Grading your answers…', '')}<p class="empty">Checking your answers against the marking scheme…</p></div>`;
+        </div>`;
+                }
+                if (sess.phase === 'grading') return `<div class="flashcard-stage">${header('Smart Test', 'Grading your answers…', '')}<p class="empty">Checking all card types against their expected answers…</p></div>`;
                 const verdictLabel = { green: 'Nailed it', yellow: 'Close — missing key points', red: 'Off the mark' };
-                const verdictPill = (v) => `<span class="pill ${v==='green'?'good':v==='yellow'?'warn':'bad'}">${verdictLabel[v]||v}</span>`;
-                const row = (r) => `<div class="flashcard-verdict-row">${verdictPill(r.verdict)}<div><strong>${escape(r.front)}</strong><div class="small" style="margin-top:2px">${escape(r.feedback||'')}</div></div></div>`;
+                const verdictPill = v => `<span class="pill ${v==='green'?'good':v==='yellow'?'warn':'bad'}">${verdictLabel[v]||v}</span>`;
+                const row = r => `<div class="flashcard-verdict-row">${verdictPill(r.verdict)}<div><strong>${escape(r.front)}</strong><div class="small" style="margin-top:2px">${escape(FC_TYPES[r.type]?.short || 'Term')} · ${escape(r.feedback||'')}</div></div></div>`;
                 const remaining = sess.results.filter(r => r.verdict !== 'green'), allGreen = remaining.length === 0;
-                const counts = { green: sess.results.filter(r => r.verdict === 'green').length, yellow: sess.results.filter(r => r.verdict === 'yellow').length, red: sess.results.filter(r => r.verdict === 'red').length };
+                const counts = {
+                    green: sess.results.filter(r => r.verdict === 'green').length,
+                    yellow: sess.results.filter(r => r.verdict === 'yellow').length,
+                    red: sess.results.filter(r => r.verdict === 'red').length
+                };
                 return `<div class="flashcard-stage">
         ${header(`Round ${sess.round} results`, deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}
         <p class="small">${counts.green} green · ${counts.yellow} yellow · ${counts.red} red</p>
         <div class="list" style="margin-top:10px;text-align:left">${sess.results.map(row).join('')}</div>
         ${allGreen?`<div class="alert success" style="margin-top:16px">🎉 All green — every card learned this round!</div><button type="button" class="button primary" style="margin-top:10px" data-action="flashcard-exit-session">Done</button>`:`<button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-smart-retry">Retry the ${remaining.length} yellow/red card${remaining.length===1?'':'s'}</button>`}
-        </div>`; }
+        </div>`;
+            }
+
+
 
             function renderMcqTestSession(sess) { const deck = flashcardDeck(sess.deckId);
                 if (sess.phase === 'generating') return `<div class="flashcard-stage">${header('Multiple Choice Test', deck?escape(deck.topic):'', `<button type="button" class="button ghost" data-action="flashcard-exit-session">✕ Exit</button>`)}<p class="empty">Generating a tricky set of options for the whole deck…</p></div>`;
@@ -17344,26 +17423,33 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
         </div>
         </div>`; }
 
-            function flashcardTestChoiceModal(deckId) { const deck = flashcardDeck(deckId);
+            function flashcardTestChoiceModal(deckId) {
+                const deck = flashcardDeck(deckId);
                 if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
-                const hasStruct = fcStructCards(deck).length > 0, termOnlyCount = fcTermCards(deck).length;
-                const structOpt = hasStruct ? `<button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-struct-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧱 Card-type test${termOnlyCount ? '' : ' (recommended)'}</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Each list, timeline and info card is tested the way it's built: fill in the boxes, put events in order, or recall the headings.</div></div></button>` : '';
-                if (hasStruct && !termOnlyCount) return modalShell(`Test: ${escape(deck.topic)}`, `<div class="list">${structOpt}</div>`, `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true);
+                const hasStruct = fcStructCards(deck).length > 0;
+                const termCount = fcTermCards(deck).length;
+                const structOpt = hasStruct ? `<button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-struct-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧱 Card-type test</strong><div class="small" style="margin-top:2px;font-weight:400">Practise each structured card using its dedicated format, including lists, timelines, info cards and drawing-based graph tests.</div></div></button>` : '';
                 const opt = (action, emoji, title, desc) => `<button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="${action}" data-deck="${deck.id}"><div style="text-align:left"><strong>${emoji} ${title}</strong><div class="small" style="margin-top:2px;font-weight:400">${desc}</div></div></button>`;
+                const termOptions = termCount ? `
+            <button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-mcq-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🔤 Multiple Choice</strong><div class="small" style="margin-top:2px;font-weight:400">Pick the right definition from 4 close, tricky options. Term cards only.</div></div></button>
+            ${termCount>=2?opt('flashcard-start-tf', '✅', 'True / False', 'Quick-fire definition questions. Term cards only.'):''}
+            ${opt('flashcard-start-cloze', '✏️', 'Fill in the Blank', 'A key word is blanked out of each definition. Term cards only.')}
+            ${termCount>=4?opt('flashcard-start-match','🧩','Match', 'Pair terms to their definitions against the clock.'):''}
+            ${termCount>=4?opt('flashcard-start-gravity','☄️','Gravity', "Type the term before its definition lands. Limited lives."):''}
+            ${opt('flashcard-start-listening', '🔊', 'Listening', 'Hear each term read aloud, then answer. Term cards only.')}` : '';
                 return modalShell(`Test: ${escape(deck.topic)}`,
-                    `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test is significantly more effective.</strong> Typing out the answer forces real recall, and it's graded against exam marking-scheme standards — that's what actually commits things to long-term memory. Multiple choice can feel good because recognising an answer is easy, but recognising isn't the same as knowing — it doesn't build the same memory.</div>
-          <div class="list">${structOpt}
-            <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧠 Smart Test (recommended)</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Type the definition for each card. Graded green/yellow/red by AI against a marking scheme — repeat the yellow/red ones until you've got them all.</div></div></button>
-            <button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-mcq-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🔤 Multiple Choice</strong><div class="small" style="margin-top:2px;font-weight:400">Pick the right definition from 4 close, tricky options. Quicker, but less effective for memory.</div></div></button>
-            ${opt('flashcard-start-tf', '✅', 'True / False', 'Quick-fire — is the definition shown actually correct for this term?')}
-            ${opt('flashcard-start-cloze', '✏️', 'Fill in the Blank', 'A key word is blanked out of each definition — type the missing word.')}
-            ${deck.cards.length>=4?opt('flashcard-start-match','🧩','Match', 'Pair every term to its definition against the clock.'):''}
-            ${deck.cards.length>=4?opt('flashcard-start-gravity','☄️','Gravity', "A definition falls in — type the term before it lands. Limited lives."):''}
-            ${opt('flashcard-start-listening', '🔊', 'Listening', 'Hear the term read aloud, answer, then self-check against the definition.')}
+                    `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test covers every card type.</strong> Type your answers from memory and AI grades them against each card's own answer format. Lists, timelines, info cards and graph prompts are all included.</div>
+          <div class="list">
+            ${structOpt}
+            <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧠 Smart Test (recommended)</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Test every card in this deck, with AI grading tailored to its type. Retry yellow/red answers until you've learned them.</div></div></button>
+            ${termOptions}
             ${deck.diagram&&deck.diagram.points.length?opt('flashcard-start-diagram','🖼','Diagram Labeling', 'Identify what each numbered point on your diagram is.'):''}
-            ${deck.cards.length>=3?opt('flashcard-start-examsim','⏱','Exam Simulation', `Timed mixed round (~${Math.round(Math.max(120,deck.cards.length*25)/60)} min) — true/false, fill-in-blank, and recall under the clock.`):''}
+            ${termCount>=3?opt('flashcard-start-examsim','⏱','Exam Simulation', `Timed mixed round (~${Math.round(Math.max(120,termCount*25)/60)} min) using term cards.`):''}
           </div>`,
-                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true); }
+                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true);
+            }
+
+
 
             // ---- Flashcards: per-card SRS (SM-2-lite) + Memory Score --------------------------------
             // Additive fields on card objects (card.srs, card.known) — rides the existing whole-blob
@@ -23565,7 +23651,7 @@ If the user asks about how to study or study methods generally, answer from your
                     const card = s.queue[s.index]; s.answers[card.id] = document.getElementById('flashcard-smart-answer')?.value || '';
                     if (s.index < s.queue.length - 1) { s.index++; render(); } else runSmartTestGradeRound(); }
                 else if (a === 'flashcard-smart-retry') { const s = flashcardStudySession; if (!s) return;
-                    const remaining = s.results.filter(r => r.verdict !== 'green').map(r => ({ id: r.id, front: r.front, back: r.back }));
+                    const remaining = s.results.filter(r => r.verdict !== 'green').map(r => ({ id: r.id, front: r.front, back: r.back, type: r.type || 'term', data: r.data || null }));
                     flashcardStudySession = { mode: 'smart-test', deckId: s.deckId, round: s.round + 1, queue: fcOrd(flashcardDeck(s.deckId), remaining), index: 0, answers: {}, phase: 'answering', results: null };
                     render(); }
                 else if (a === 'flashcard-mcq-answer') { const s = flashcardStudySession; if (!s || s.phase !== 'active') return;
