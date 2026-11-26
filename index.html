@@ -4737,20 +4737,23 @@
         body.dark .notes-workspace { background:#171824; color:#f4f4fa; }
         .notes-workspace * { box-sizing:border-box; }
         .notes-workspace button,.notes-workspace input,.notes-workspace select { font:inherit; }
-        .notes-workspace-top { min-height:58px; display:flex; align-items:center; gap:10px; padding:9px 15px; background:#fff; border-bottom:1px solid #dedfe8; flex:none; z-index:5; }
+        .notes-workspace-top { min-height:62px; display:flex; align-items:center; gap:10px; padding:9px 16px; background:#fff; border-bottom:1px solid #dedfe8; flex:none; z-index:5; }
         body.dark .notes-workspace-top,.dark .notes-workspace-top { background:#222335; border-color:#393a50; }
-        .notes-workspace-title-wrap { min-width:160px; flex:1; display:flex; align-items:center; gap:10px; }
+        .notes-workspace-title-wrap { min-width:130px; flex:1 1 260px; display:flex; align-items:center; gap:10px; }
         .notes-workspace-title { min-width:80px; width:min(430px,100%); border:0; outline:0; background:transparent; color:inherit; font-size:17px!important; font-weight:800; letter-spacing:-.02em; padding:5px 2px; }
-        .notes-workspace-top select { max-width:180px; border:1px solid #dfe1ea; border-radius:8px; padding:7px 8px; background:#fff; color:#222238; }
+        .notes-workspace-top select { max-width:155px; min-width:110px; border:1px solid #dfe1ea; border-radius:8px; padding:7px 9px; background:#fff; color:#222238; font-size:12px; }
         body.dark .notes-workspace-top select,.dark .notes-workspace-top select { background:#292a3d; color:#f3f3fa; border-color:#484960; }
         .notes-save-state { font-size:11px; color:#85869a; white-space:nowrap; }
-        .notes-workspace-close { border:1px solid #dfe1ea; background:#fff; color:#303147; border-radius:9px; padding:8px 11px; cursor:pointer; font-weight:700; }
+        .notes-workspace-close { border:1px solid #dfe1ea; background:#fff; color:#303147; border-radius:9px; padding:8px 11px; cursor:pointer; font-weight:700; white-space:nowrap; }
+        .notes-workspace-top .notes-workspace-close[data-notes-action="toggle-side"] { flex:0 0 auto; width:36px; height:36px; padding:0; font-size:17px; }
+        .notes-top-actions { display:flex; align-items:center; gap:7px; flex:0 0 auto; }
+        .notes-top-meta { display:flex; align-items:center; gap:7px; min-width:0; }
         body.dark .notes-workspace-close,.dark .notes-workspace-close { background:#292a3d; border-color:#484960; color:#f3f3fa; }
-        .notes-workspace-body { flex:1; min-height:0; display:grid; grid-template-columns:245px minmax(0,1fr); }
-        .notes-workspace.is-sidebar-collapsed .notes-workspace-body { grid-template-columns:0 minmax(0,1fr); }
-        .notes-workspace-side { min-width:0; overflow:auto; background:#f8f8fb; border-right:1px solid #dedfe8; padding:13px 10px; }
+        .notes-workspace-body { flex:1; min-height:0; min-width:0; display:flex; overflow:hidden; }
+        .notes-workspace.is-sidebar-collapsed .notes-workspace-body { display:flex; }
+        .notes-workspace-side { flex:0 0 245px; width:245px; min-width:0; overflow:auto; background:#f8f8fb; border-right:1px solid #dedfe8; padding:13px 10px; }
         body.dark .notes-workspace-side,.dark .notes-workspace-side { background:#202132; border-color:#393a50; }
-        .notes-workspace.is-sidebar-collapsed .notes-workspace-side { display:none; }
+        .notes-workspace.is-sidebar-collapsed .notes-workspace-side { display:none; flex-basis:0; width:0; padding:0; border:0; }
         .notes-side-heading { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 7px 10px; font-size:11px; font-weight:800; color:#77798d; text-transform:uppercase; letter-spacing:.06em; }
         .notes-side-section { margin:10px 0 5px; padding:5px 8px; color:#85869a; font-size:11px; font-weight:800; }
         .notes-side-item { width:100%; display:flex; align-items:center; gap:8px; border:0; background:transparent; color:inherit; border-radius:8px; text-align:left; padding:8px; margin:1px 0; cursor:pointer; font-size:12px; }
@@ -4763,35 +4766,42 @@
         body.dark .notes-side-create,.dark .notes-side-create { border-color:#393a50; }
         .notes-side-create button { width:100%; text-align:left; border:0; border-radius:8px; background:transparent; color:inherit; padding:8px; cursor:pointer; font-size:12px; }
         .notes-side-create button:hover { background:#eceef5; }
-        .notes-workspace-main { min-width:0; min-height:0; margin-left:0!important; display:flex; flex-direction:column; overflow:hidden; background:#eef0f5; }
+        .notes-workspace-main { flex:1 1 auto; width:0; min-width:0; min-height:0; margin:0!important; display:flex; flex-direction:column; overflow:hidden; background:#eef0f5; }
         body.dark .notes-workspace-main,.dark .notes-workspace-main { background:#171824; }
-        .notes-toolbar { flex:none; display:flex; align-items:center; flex-wrap:wrap; gap:5px; padding:8px 12px; background:#fff; border-bottom:1px solid #dedfe8; z-index:4; }
+        .notes-toolbar { flex:none; display:flex; align-items:center; flex-wrap:nowrap; gap:7px; padding:8px 12px; background:#fff; border-bottom:1px solid #dedfe8; z-index:4; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; }
+        .notes-tool-group { display:inline-flex; align-items:center; gap:5px; padding-right:8px; margin-right:1px; border-right:1px solid #e6e7ee; flex:0 0 auto; }
+        .notes-tool-group:last-child { border-right:0; }
         body.dark .notes-toolbar,.dark .notes-toolbar { background:#222335; border-color:#393a50; }
-        .notes-toolbar button { min-width:31px; min-height:30px; border:1px solid #e0e1e9; border-radius:7px; background:#fff; color:#34354b; padding:5px 8px; cursor:pointer; font-size:12px; }
+        .notes-toolbar button { min-width:32px; min-height:32px; border:1px solid #e0e1e9; border-radius:8px; background:#fff; color:#34354b; padding:6px 9px; cursor:pointer; font-size:12px; white-space:nowrap; }
         .notes-toolbar button:hover,.notes-toolbar button.active { background:#edf2ff; border-color:#b9c9ff; color:#2456d7; }
         .notes-toolbar select,.notes-toolbar input[type=color],.notes-toolbar input[type=range] { height:30px; border:1px solid #e0e1e9; border-radius:7px; background:#fff; color:#34354b; padding:3px 6px; font-size:12px; }
         .notes-toolbar input[type=color] { width:35px; padding:2px; }
         .notes-toolbar-sep { width:1px; height:24px; background:#e0e1e9; margin:0 3px; }
         .notes-editor-scroll { flex:1; min-height:0; overflow:auto; padding:26px 26px 60px; overscroll-behavior:contain; }
-        .notes-paper { position:relative; width:min(100%,1050px); min-height:calc(100vh - 160px); margin:0 auto; padding:70px 82px 100px; background:#fff; color:#202235; box-shadow:0 3px 22px rgba(28,36,68,.12); font:16px/1.75 Aptos,Calibri,"Segoe UI",sans-serif; outline:0; overflow-wrap:anywhere; }
-        .notes-paper.lined { background-image:repeating-linear-gradient(to bottom,#fff 0,#fff 30px,#dce5f2 31px); background-position:0 8px; }
-        .notes-paper:focus { outline:0; }
-        .notes-paper h1 { font-size:30px; margin:0 0 16px; }
-        .notes-paper h2 { font-size:24px; margin:22px 0 10px; }
-        .notes-paper h3 { font-size:19px; margin:18px 0 8px; }
-        .notes-paper p { margin:0 0 10px; }
+        .notes-paper { position:relative; width:min(100%,920px); min-height:1120px; margin:0 auto; padding:72px 82px 110px; background-color:#fff; color:#202235; box-shadow:0 3px 22px rgba(28,36,68,.12); font:16px/32px Aptos,Calibri,"Segoe UI",sans-serif; outline:0!important; overflow-wrap:anywhere; }
+        .notes-paper:focus,.notes-paper:focus-visible { outline:0!important; box-shadow:0 3px 22px rgba(28,36,68,.12); }
+        .notes-paper.lined { background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 31px,#dce5f2 31px,#dce5f2 32px); background-position:0 72px; background-size:100% 32px; background-repeat:repeat-y; }
+        .notes-document-content { display:block; min-height:930px; outline:0!important; border:0!important; box-shadow:none!important; font:16px/32px Aptos,Calibri,"Segoe UI",sans-serif; overflow-wrap:anywhere; }
+        .notes-document-content:focus,.notes-document-content:focus-visible,.notes-red-margin:focus,.notes-red-margin:focus-visible { outline:0!important; box-shadow:none!important; }
+        .notes-document-content > * { margin-block:0!important; line-height:32px!important; }
+        .notes-paper h1,.notes-document-content h1 { font-size:28px; line-height:32px!important; margin:0!important; }
+        .notes-paper h2,.notes-document-content h2 { font-size:23px; line-height:32px!important; margin:0!important; }
+        .notes-paper h3,.notes-document-content h3 { font-size:18px; line-height:32px!important; margin:0!important; }
+        .notes-paper p,.notes-document-content p { margin:0!important; min-height:32px; line-height:32px!important; }
+        .notes-document-content li { min-height:32px; line-height:32px!important; }
         .notes-paper table { border-collapse:collapse; width:100%; margin:12px 0; }
         .notes-paper td,.notes-paper th { border:1px solid #cfd3df; padding:7px 9px; min-width:60px; }
         .notes-paper img,.notes-block-content img { max-width:100%; height:auto; border-radius:4px; }
         .notes-paper a { color:#2456d7; text-decoration:underline; }
-        .notes-paper.margin-on { padding-left:140px; }
-        .notes-paper.margin-on:before { content:""; position:absolute; top:0; bottom:0; left:112px; width:2px; background:#e88a8a; pointer-events:none; }
-        .notes-red-margin { position:absolute; z-index:1; left:20px; top:38px; bottom:38px; width:76px; padding:4px 7px; color:#8a4242; font-size:12px; line-height:1.55; outline:0; overflow:auto; }
+        .notes-paper.margin-on { padding-left:142px; }
+        .notes-paper.margin-on:before { content:""; position:absolute; top:0; bottom:0; left:112px; width:1px; background:#e88a8a; pointer-events:none; }
+        .notes-red-margin { position:absolute; z-index:1; left:20px; top:72px; bottom:60px; width:76px; padding:0 7px; color:#8a4242; font-size:12px; line-height:32px; outline:0!important; border:0!important; overflow:auto; }
         .notes-red-margin:empty:before { content:"Margin"; color:#c48a8a; }
         .notes-paper:not(.margin-on) .notes-red-margin { display:none; }
-        .notes-paper.lined .notes-red-margin { background:repeating-linear-gradient(to bottom,transparent 0,transparent 23px,#f2caca 24px); }
-        .notes-editor-scroll.whiteboard-scroll,.notes-editor-scroll.math-scroll { padding:18px; }
-        .notes-infinite-canvas { position:relative; width:2200px; height:1450px; margin:0 auto; background:#fff; box-shadow:0 2px 20px rgba(28,36,68,.12); overflow:hidden; }
+        .notes-paper.lined .notes-red-margin { background:repeating-linear-gradient(to bottom,transparent 0,transparent 31px,#f2caca 31px,#f2caca 32px); }
+        .notes-editor-scroll.whiteboard-scroll,.notes-editor-scroll.math-scroll { display:flex; padding:0; overflow:hidden; }
+        .notes-canvas-host { flex:1; min-width:0; min-height:0; width:100%; height:100%; overflow:hidden; background:#eef0f5; }
+        body.dark .notes-canvas-host { background:#171824; }
         .notes-board-layer { position:absolute; inset:0; z-index:0; pointer-events:none; }
         .notes-board-layer svg { display:block; width:100%; height:100%; }
         .notes-block-layer { position:absolute; inset:0; z-index:2; pointer-events:none; }
@@ -4809,6 +4819,60 @@
         .notes-math-page .notes-block-layer { z-index:2; }
         .notes-ink-canvas.eraser-cursor { cursor:cell; }
         .notes-workspace .notes-save-warning { color:#bd3f53; }
+
+        /* Subject Notes workspace refinements */
+        .notes-workspace-top { flex-wrap:wrap; }
+        .notes-workspace-top .notes-save-state { margin-left:2px; }
+        .notes-workspace-top [data-notes-action="delete-note"] { color:#a34c5b; }
+        .notes-workspace-top [data-notes-action="close-workspace"] { background:var(--primary); border-color:var(--primary); color:#fff; padding-left:15px; padding-right:15px; }
+        .notes-toolbar select { flex:0 0 auto; }
+        .notes-document-content img { max-width:100%; height:auto; }
+        .notes-document-content ul,.notes-document-content ol { padding-left:28px; margin:0; }
+        .notes-document-content blockquote { margin:8px 0; padding-left:14px; border-left:3px solid #c7d2e8; color:#555d70; }
+        .notes-document-content pre { white-space:pre-wrap; font-family:ui-monospace,monospace; line-height:24px; }
+        .notes-document-content table { background:rgba(255,255,255,.82); }
+        .notes-document-content:focus { outline:none!important; }
+        .notes-canvas-host .wb-overlay.wb-notes-embedded { position:relative; inset:auto; z-index:1; width:100%; height:100%; min-height:0; flex:1 1 auto; overflow:hidden; background:transparent; }
+        .wb-notes-embedded .wb-top { padding:7px 10px; gap:6px; flex-wrap:nowrap; min-height:44px; overflow-x:auto; }
+        .wb-notes-embedded .wb-top strong,.wb-notes-embedded .wb-hint { display:none; }
+        .wb-notes-embedded .wb-top [data-wb="cancel"],.wb-notes-embedded .wb-top [data-wb="done"] { display:none; }
+        .wb-notes-embedded .wb-main { flex:1 1 auto; min-height:0; min-width:0; }
+        .wb-notes-embedded .wb-tools { flex:0 0 54px; padding:7px 6px; }
+        .wb-notes-embedded .wb-tool { width:40px; height:37px; flex:0 0 37px; }
+        .wb-notes-embedded .wb-stage { min-width:0; min-height:0; padding:8px; align-items:stretch; justify-content:stretch; }
+        .wb-notes-embedded .wb-svg { width:100%; height:100%; max-height:none; aspect-ratio:auto; border-radius:7px; object-fit:contain; }
+        .wb-notes-embedded .wb-style { flex:0 0 auto; padding:6px 9px; gap:7px; max-height:66px; overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; }
+        .wb-notes-embedded .wb-style .group { flex:0 0 auto; }
+        .wb-notes-embedded .wb-mini { white-space:nowrap; }
+        .wb-notes-embedded .wb-text { max-width:calc(100% - 24px); }
+        .wb-notes-embedded.wb-notes-math .wb-svg { background:#fff; }
+        .notes-crop-overlay { position:fixed; inset:0; z-index:9000; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(14,18,32,.78); }
+        .notes-crop-dialog { width:min(1100px,100%); max-height:96vh; display:flex; flex-direction:column; gap:12px; padding:14px; border-radius:16px; background:#fff; color:#202235; box-shadow:0 24px 80px #0006; }
+        .notes-crop-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .notes-crop-stage-wrap { min-height:120px; max-height:78vh; overflow:auto; display:grid; place-items:center; background:#e8ebf2; border-radius:10px; padding:8px; }
+        .notes-crop-stage { position:relative; display:inline-block; max-width:100%; cursor:crosshair; touch-action:none; user-select:none; }
+        .notes-crop-stage img { display:block; max-width:min(90vw,1040px); max-height:72vh; width:auto; height:auto; pointer-events:none; }
+        .notes-crop-selection { position:absolute; border:2px solid #2563eb; background:rgba(37,99,235,.12); box-shadow:0 0 0 9999px rgba(18,24,40,.16); display:none; pointer-events:none; }
+        .notes-crop-actions { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+        .notes-crop-actions .small { color:#667085; }
+        @media (max-width:760px) {
+            .notes-workspace-top { gap:7px; padding:8px; }
+            .notes-workspace-title-wrap { flex:1 1 180px; }
+            .notes-workspace-top select { max-width:120px; min-width:95px; }
+            .notes-top-meta { order:3; flex:1 1 100%; }
+            .notes-workspace-top .notes-save-state { display:none; }
+            .notes-workspace-side { flex-basis:210px; width:210px; }
+            .notes-paper { width:100%; min-height:1000px; padding:52px 30px 80px; }
+            .notes-paper.margin-on { padding-left:105px; }
+            .notes-paper.margin-on:before { left:86px; }
+            .notes-red-margin { left:12px; width:66px; top:52px; }
+            .notes-editor-scroll { padding:12px; }
+            .wb-notes-embedded .wb-tools { flex:0 0 auto; flex-direction:row; overflow-x:auto; overflow-y:hidden; border-right:0; border-bottom:1px solid var(--line); }
+            .wb-notes-embedded .wb-main { flex-direction:column; }
+            .wb-notes-embedded .wb-style { max-height:58px; }
+            .wb-notes-embedded .wb-svg { min-height:240px; }
+        }
+
         body.notes-workspace-open { overflow:hidden; }
         @media print {
             body * { visibility:hidden!important; }
@@ -12532,7 +12596,7 @@ ${pointsSvg}
                 }).join('');
             }
             function mathHelperMessageHtml(msg) {
-                if (msg.role === 'user') return `<article class="mh-message user"><div class="mh-message-head"><span>You</span></div><div class="mh-message-body">${mathHelperSafeText(msg.text)}</div></article>`;
+                if (msg.role === 'user') return `<article class="mh-message user"><div class="mh-message-head"><span>You</span></div><div class="mh-message-body">${mathHelperSafeText(msg.text)}${msg.imageDataUrl ? `<img class="mh-user-image" src="${escape(msg.imageDataUrl)}" alt="Selected maths question" style="display:block;max-width:100%;max-height:420px;object-fit:contain;border-radius:10px;margin-top:10px">` : ''}</div></article>`;
                 const r=msg.response||{}, summary=r.summary||r.text||r.explanation||'', answer=r.finalAnswer||r.answer||r.result||'';
                 const hasSteps=Array.isArray(r.steps)&&r.steps.length;
                 return `<article class="mh-message assistant"><div class="mh-message-head"><span>∑ Maths Helper</span><span>${escape(MATH_HELPER_MODE_LABELS[msg.mode||mathHelperMode]||'')}</span></div><div class="mh-message-body">${summary?mathHelperSafeText(summary):''}${answer?`<div class="mh-final">${mathHelperSafeText(String(answer))}</div>`:''}${hasSteps?`<div class="mh-steps">${mathHelperRenderSteps(msg)}</div>`:''}${r.note?`<p class="mh-reference-note">${mathHelperSafeText(r.note)}</p>`:''}</div></article>`;
@@ -12847,7 +12911,7 @@ ${pointsSvg}
                 // remain visible in the chat UI, but are not resent indefinitely to the API.
                 const recent=mathHelperMessages.slice(-5);
                 const compact=recent.map(m=>{
-                    if(m.role==='user') return {role:'user',parts:[{text:String(m.text||'').slice(0,2600)}]};
+                    if(m.role==='user') { const parts=[{text:String(m.text||'').slice(0,2600)}]; if(m.imagePayload?.data) parts.push({inlineData:{mimeType:m.imagePayload.mimeType||'image/jpeg',data:m.imagePayload.data}}); return {role:'user',parts}; }
                     const r=m.response||{};
                     const summary={
                         summary:String(r.summary||'').slice(0,350),
@@ -12866,13 +12930,13 @@ ${pointsSvg}
                 while(compact.length>1 && total>10500){const removed=compact.shift();total-=(removed.parts?.[0]?.text||'').length;}
                 return compact;
             }
-            async function mathHelperSend(overrideText, stepContext) {
+            async function mathHelperSend(overrideText, stepContext, imagePayload) {
                 if (mathHelperLoading) return;
                 const textValue=String(overrideText!==undefined?overrideText:(document.getElementById('mh-composer')?.value||mathHelperComposer)).trim();
-                if (!textValue) { toast('Type a question first.'); return; }
+                if (!textValue && !imagePayload) { toast('Type a question or attach an image first.'); return; }
                 if (!currentUser) { toast('Sign in with Google to use the AI Maths Helper.'); return; }
                 mathHelperComposer='';
-                const userMsg={id:uid(),role:'user',text:textValue,mode:mathHelperMode};
+                const userMsg={id:uid(),role:'user',text:textValue,mode:mathHelperMode,imagePayload:imagePayload||null,imageDataUrl:imagePayload?.dataUrl||''};
                 mathHelperMessages.push(userMsg);
                 const requestId=++mathHelperCurrentRequestId;
                 mathHelperLoading=true; mathHelperLoadingDetail='Checking the relevant exam guidance and marking schemes…'; render();
@@ -12900,7 +12964,8 @@ ${pointsSvg}
                         // Retry an oversized request once without formula images or chat history.
                         if(!/request too large|payload too large|body.{0,20}too large|413|maximum.{0,20}(size|length)|content.{0,20}too long/i.test(String(firstError?.message||''))) throw firstError;
                         const currentQuestion=String(textValue).slice(0,12000);
-                        data=await aiInvoke({contents:[{role:'user',parts:[{text:currentQuestion}]}],systemInstruction:{parts:[{text:buildPrompt(String(refs).slice(0,2200))}]},preferProvider:'quality'});
+                        const retryParts=[{text:currentQuestion}]; if(imagePayload?.data) retryParts.push({inlineData:{mimeType:imagePayload.mimeType||'image/jpeg',data:imagePayload.data}});
+                        data=await aiInvoke({contents:[{role:'user',parts:retryParts}],systemInstruction:{parts:[{text:buildPrompt(String(refs).slice(0,2200))}]},preferProvider:'quality'});
                     }
                     const response=mathHelperExtractResponse(data);
                     response.steps=Array.isArray(response.steps)?response.steps:[];
@@ -16414,7 +16479,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             // editor, the read-only card faces, and the PNG that is sent to the AI for marking.
             const WB_W = 1000, WB_H = 640;
             const WB_COLORS = ['#1f2937', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#6b7280'];
-            const WB_BOX = ['rect', 'oval', 'rhombus', 'triangle', 'blockarrow'], WB_LINE = ['line', 'elbow', 'curve'];
+            const WB_BOX = ['rect', 'oval', 'rhombus', 'triangle', 'blockarrow', 'image'], WB_LINE = ['line', 'elbow', 'curve'];
             const WB_FONT = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
             let wbActive = null;
             function wbClone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -16447,7 +16512,8 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const dash = s.dash === 'dashed' ? `stroke-dasharray="${sw * 3.5} ${sw * 2.5}"` : s.dash === 'dotted' ? `stroke-dasharray="0.1 ${sw * 2.4}" stroke-linecap="round"` : '';
                 const stroke = `stroke="${col}" stroke-width="${sw}" stroke-linejoin="round" ${dash}`;
                 if (WB_BOX.includes(s.t)) { const { x, y, w, h } = s, fill = s.fill === 2 ? `fill="${col}"` : s.fill === 1 ? `fill="${col}" fill-opacity="0.2"` : 'fill="#ffffff" fill-opacity="0.01"';
-                    const shape = s.t === 'rect' ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" ${fill} ${stroke}/>`
+                    const shape = s.t === 'image' ? `<image href="${escape(s.src || '')}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/>`
+                        : s.t === 'rect' ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" ${fill} ${stroke}/>`
                         : s.t === 'oval' ? `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" ${fill} ${stroke}/>`
                         : s.t === 'rhombus' ? `<polygon points="${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}" ${fill} ${stroke}/>`
                         : s.t === 'triangle' ? `<polygon points="${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}" ${fill} ${stroke}/>`
@@ -16467,17 +16533,19 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
 
             // opts: { title, hint, board, onDone(board) }
             function openWhiteboard(opts) { closeWhiteboard();
+                opts = opts || {};
+                const canvasW = Math.max(100, Number(opts.canvasWidth) || WB_W), canvasH = Math.max(100, Number(opts.canvasHeight) || WB_H);
                 const st = { board: wbClone(opts.board && Array.isArray(opts.board.shapes) ? opts.board : { shapes: [] }), tool: 'select', sel: null, undo: [], redo: [], drag: null, editing: null, snap: true, lastClick: null, swPending: false,
-                    panMode: false, view: { x: 0, y: 0, w: WB_W, h: WB_H }, style: { color: WB_COLORS[0], fill: 0, sw: 3, dash: 'solid', fs: 20 } };
-                const root = document.createElement('div'); root.className = 'wb-overlay'; root.id = 'wb-overlay'; if (opts.graphMode) root.classList.add('wb-graph-mode');
+                    panMode: false, view: { x: 0, y: 0, w: canvasW, h: canvasH }, style: { color: WB_COLORS[0], fill: 0, sw: 3, dash: 'solid', fs: 20 } };
+                const root = document.createElement('div'); root.className = 'wb-overlay'; root.id = 'wb-overlay'; if (opts.graphMode) root.classList.add('wb-graph-mode'); if (opts.embedded) root.classList.add('wb-notes-embedded'); if (opts.mathMode) root.classList.add('wb-notes-math');
                 const tools = [['select', '↖', 'Select / move (V)'], ['rect', '▭', 'Rectangle (R)'], ['oval', '◯', 'Oval (O)'], ['rhombus', '◇', 'Rhombus (D)'], ['triangle', '△', 'Triangle (G)'], ['blockarrow', '⇨', 'Block arrow (B)'],
-                    ['line', '╱', 'Line (L)'], ['arrow', '↗', 'Arrow (A)'], ['elbow', '↱', 'Elbow arrow (E)'], ['curve', '⌒', 'Curved line (C)'], ['pen', '✎', 'Freehand (P)'], ['text', 'T', 'Text box (T)']];
+                    ['line', '╱', 'Line (L)'], ['arrow', '↗', 'Arrow (A)'], ['elbow', '↱', 'Elbow arrow (E)'], ['curve', '⌒', 'Curved line (C)'], ['pen', '✎', 'Freehand (P)'], ['text', 'T', 'Text box (T)'], ['erase', '⌫', 'Erase a shape (X)']];
                 root.innerHTML = `<div class="wb-top"><strong>${escape(opts.title || 'Whiteboard')}</strong><span class="wb-hint">${escape(opts.hint || 'Double-click a shape to type · Delete removes · Ctrl+Z undoes · Use the zoom controls or scroll to zoom')}</span><span class="wb-spacer"></span>
                     <button type="button" class="wb-mini" data-wb="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button type="button" class="wb-mini" data-wb="redo" title="Redo">↷ Redo</button><button type="button" class="wb-mini" data-wb="clear">Clear</button>
                     <span class="wb-zoom-group"><button type="button" class="wb-mini" data-wb="zoom-out" title="Zoom out">−</button><span class="wb-zoom-label" data-wb-zoom-label>100%</span><button type="button" class="wb-mini" data-wb="zoom-in" title="Zoom in">＋</button><button type="button" class="wb-mini" data-wb="fit" title="Fit drawing to screen">Fit</button><button type="button" class="wb-mini" data-wb="reset-zoom" title="Reset zoom">Reset</button><button type="button" class="wb-mini" data-wb="pan" title="Toggle pan mode">Pan</button></span>
-                    <button type="button" class="button ghost" data-wb="cancel">Cancel</button><button type="button" class="button primary" data-wb="done">Done</button></div>
+                    ${opts.onAskAI ? `<button type="button" class="wb-mini" data-wb="ask-ai" title="Select part of the screen and ask the Maths Helper">▣ Ask AI about area</button>` : ''}<button type="button" class="button ghost" data-wb="cancel">Cancel</button><button type="button" class="button primary" data-wb="done">Done</button></div>
                   <div class="wb-main"><div class="wb-tools">${tools.map(t => `<button type="button" class="wb-tool" data-wb-tool="${t[0]}" title="${t[2]}" aria-label="${t[2]}">${t[1]}</button>`).join('')}</div>
-                    <div class="wb-stage"><svg class="wb-svg" viewBox="0 0 ${WB_W} ${WB_H}" xmlns="http://www.w3.org/2000/svg"></svg><textarea class="wb-text" rows="1" aria-label="Shape text" placeholder="Type here…"></textarea></div>
+                    <div class="wb-stage"><svg class="wb-svg" viewBox="0 0 ${canvasW} ${canvasH}" xmlns="http://www.w3.org/2000/svg"></svg><textarea class="wb-text" rows="1" aria-label="Shape text" placeholder="Type here…"></textarea></div>
                     ${opts.allowDescription ? `<aside class="wb-description-panel"><label class="wb-description-toggle"><input type="checkbox" data-wb-description-toggle ${opts.descriptionEnabled ? 'checked' : ''}> <span>Add explanation beside the graph</span></label><p class="small">This explanation appears beside the model diagram when the flashcard answer is shown.</p><textarea class="wb-description-input" data-wb-description ${opts.descriptionEnabled ? '' : 'hidden'} placeholder="Explain what the diagram shows, how to read it and the key points the student should mention…">${escape(opts.descriptionText || '')}</textarea></aside>` : ''}</div>
                   <div class="wb-style">
                     <div class="group" title="Colour">${WB_COLORS.map(c => `<button type="button" class="wb-swatch" data-wb-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
@@ -16489,20 +16557,21 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     <div class="group"><button type="button" class="wb-mini" data-wb="axes" title="Add x and y axes">＋ Axes</button><button type="button" class="wb-mini" data-wb="snap" title="Snap to grid">Snap: on</button></div>
                     <div class="group"><button type="button" class="wb-mini" data-wb="dup">Duplicate</button><button type="button" class="wb-mini" data-wb="front">To front</button><button type="button" class="wb-mini" data-wb="back">To back</button><button type="button" class="wb-mini" data-wb="del">🗑 Delete</button></div>
                   </div>`;
-                document.body.appendChild(root);
+                if (opts.mount && opts.mount.appendChild) opts.mount.appendChild(root); else document.body.appendChild(root);
                 const svg = root.querySelector('.wb-svg'), ta = root.querySelector('.wb-text'), stage = root.querySelector('.wb-stage');
                 const cur = () => st.board.shapes.find(s => s.id === st.sel) || null;
+                const addImage = (src) => { const img = new Image(); img.onload = () => { if (!root.isConnected) return; const maxW = Math.min(760, canvasW * .42), maxH = Math.min(560, canvasH * .42), scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight), w = Math.max(50, img.naturalWidth * scale), h = Math.max(50, img.naturalHeight * scale), id = wbId(); pushUndo(); st.board.shapes.push({ id, t: 'image', src, x: st.view.x + (st.view.w - w) / 2, y: st.view.y + (st.view.h - h) / 2, w, h, color: '#ffffff', fill: 0 }); st.sel = id; draw(); }; img.onerror = () => toast('Could not insert that image.'); img.src = src; };
                 const snapV = (v) => st.snap ? Math.round(v / 10) * 10 : v, snapP = (p) => ({ x: snapV(p.x), y: snapV(p.y) });
                 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-                const pt = (e) => { const r = svg.getBoundingClientRect(); return { x: st.view.x + (e.clientX - r.left) / (r.width || WB_W) * st.view.w, y: st.view.y + (e.clientY - r.top) / (r.height || WB_H) * st.view.h }; };
-                const setView = (v) => { st.view = v; st.view.h = st.view.w * WB_H / WB_W; };
-                const zoomAt = (factor, clientX, clientY) => { const r = svg.getBoundingClientRect(), cx = clientX == null ? r.left + r.width / 2 : clientX, cy = clientY == null ? r.top + r.height / 2 : clientY;
-                    const ax = st.view.x + clamp((cx - r.left) / (r.width || 1), 0, 1) * st.view.w, ay = st.view.y + clamp((cy - r.top) / (r.height || 1), 0, 1) * st.view.h;
-                    const nw = clamp(st.view.w * factor, WB_W / 4, WB_W * 2), nh = nw * WB_H / WB_W, rx = (ax - st.view.x) / st.view.w, ry = (ay - st.view.y) / st.view.h;
+                const pt = (e) => { try { const matrix = svg.getScreenCTM(); if (matrix) { const point = svg.createSVGPoint(); point.x = e.clientX; point.y = e.clientY; const local = point.matrixTransform(matrix.inverse()); return { x: local.x, y: local.y }; } } catch {} const r = svg.getBoundingClientRect(); return { x: st.view.x + (e.clientX - r.left) / (r.width || canvasW) * st.view.w, y: st.view.y + (e.clientY - r.top) / (r.height || canvasH) * st.view.h }; };
+                const setView = (v) => { st.view = v; st.view.h = st.view.w * canvasH / canvasW; };
+                const zoomAt = (factor, clientX, clientY) => { const r = svg.getBoundingClientRect(), cx = clientX == null ? r.left + r.width / 2 : clientX, cy = clientY == null ? r.top + r.height / 2 : clientY, anchor = pt({ clientX: cx, clientY: cy });
+                    const ax = anchor.x, ay = anchor.y;
+                    const nw = clamp(st.view.w * factor, canvasW / 4, canvasW * 2), nh = nw * canvasH / canvasW, rx = (ax - st.view.x) / st.view.w, ry = (ay - st.view.y) / st.view.h;
                     setView({ x: ax - rx * nw, y: ay - ry * nh, w: nw, h: nh }); draw(); };
-                const resetView = () => { setView({ x: 0, y: 0, w: WB_W, h: WB_H }); draw(); };
+                const resetView = () => { setView({ x: 0, y: 0, w: canvasW, h: canvasH }); draw(); };
                 const fitView = () => { if (!st.board.shapes.length) { resetView(); return; } const boxes = st.board.shapes.map(wbBBox), minX = Math.min(...boxes.map(b => b.x)), minY = Math.min(...boxes.map(b => b.y)), maxX = Math.max(...boxes.map(b => b.x + b.w)), maxY = Math.max(...boxes.map(b => b.y + b.h));
-                    const w = Math.max(100, maxX - minX + 100), h = Math.max(100, maxY - minY + 100), vw = clamp(Math.max(w, h * WB_W / WB_H), WB_W / 4, WB_W * 2), vh = vw * WB_H / WB_W;
+                    const w = Math.max(100, maxX - minX + 100), h = Math.max(100, maxY - minY + 100), vw = clamp(Math.max(w, h * canvasW / canvasH), canvasW / 4, canvasW * 2), vh = vw * canvasH / canvasW;
                     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2; setView({ x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh }); draw(); };
                 const pushUndo = () => { st.undo.push(JSON.stringify(st.board.shapes)); if (st.undo.length > 60) st.undo.shift(); st.redo = []; };
                 const selUi = () => { const s = cur(); if (!s) return '';
@@ -16519,13 +16588,17 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     root.querySelector('[data-wb="snap"]').textContent = 'Snap: ' + (st.snap ? 'on' : 'off');
                     const sw = root.querySelector('[data-wb-sw]'); sw.value = (s && s.sw) || st0.sw;
                     root.querySelector('[data-wb="h1"]').classList.toggle('active', !!(s && s.h1)); root.querySelector('[data-wb="h2"]').classList.toggle('active', !!(s && s.h2));
-                    const zoomLabel = root.querySelector('[data-wb-zoom-label]'); if (zoomLabel) zoomLabel.textContent = Math.round(WB_W / st.view.w * 100) + '%';
+                    const zoomLabel = root.querySelector('[data-wb-zoom-label]'); if (zoomLabel) zoomLabel.textContent = Math.round(canvasW / st.view.w * 100) + '%';
                     const panBtn = root.querySelector('[data-wb="pan"]'); if (panBtn) panBtn.classList.toggle('active', st.panMode); stage.classList.toggle('pan-mode', st.panMode); };
-                const draw = () => { const grid = st.snap ? `<defs><pattern id="wbg" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#d1d5db"/></pattern></defs><rect width="${WB_W}" height="${WB_H}" fill="url(#wbg)" pointer-events="none"/>` : '';
+                const draw = () => { const grid = opts.mathMode
+                        ? `<defs><pattern id="wb-math-grid" width="${Number(opts.gridSize) || 28}" height="${Number(opts.gridSize) || 28}" patternUnits="userSpaceOnUse"><path d="M ${Number(opts.gridSize) || 28} 0 L 0 0 0 ${Number(opts.gridSize) || 28}" fill="none" stroke="#d7e2f0" stroke-width="1"/></pattern><pattern id="wb-math-major" width="${(Number(opts.gridSize) || 28) * 5}" height="${(Number(opts.gridSize) || 28) * 5}" patternUnits="userSpaceOnUse"><path d="M ${(Number(opts.gridSize) || 28) * 5} 0 L 0 0 0 ${(Number(opts.gridSize) || 28) * 5}" fill="none" stroke="#b8cce4" stroke-width="1.3"/></pattern></defs><rect width="${canvasW}" height="${canvasH}" fill="#fff"/><rect width="${canvasW}" height="${canvasH}" fill="url(#wb-math-grid)"/><rect width="${canvasW}" height="${canvasH}" fill="url(#wb-math-major)" pointer-events="none"/>`
+                        : (st.snap ? `<defs><pattern id="wbg" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#d1d5db"/></pattern></defs><rect width="${canvasW}" height="${canvasH}" fill="url(#wbg)" pointer-events="none"/>` : '');
                     svg.setAttribute('viewBox', `${st.view.x} ${st.view.y} ${st.view.w} ${st.view.h}`);
-                    svg.innerHTML = `<rect width="${WB_W}" height="${WB_H}" fill="#ffffff"/>${grid}${st.board.shapes.map(wbShapeSvg).join('')}${selUi()}`; sync(); };
+                    svg.innerHTML = `${opts.mathMode ? '' : `<rect width="${canvasW}" height="${canvasH}" fill="#ffffff"/>`}${grid}${st.board.shapes.map(wbShapeSvg).join('')}${selUi()}`; sync();
+                    if (typeof opts.onChange === 'function') { try { opts.onChange(wbClone(st.board)); } catch (err) { console.warn('Notes board change callback failed', err); } }
+                };
                 const startTextEdit = (id) => { const s = st.board.shapes.find(x => x.id === id); if (!s || !(WB_BOX.includes(s.t) || s.t === 'text')) return;
-                    st.editing = id; const r = svg.getBoundingClientRect(), kx = (r.width || WB_W) / st.view.w, ky = (r.height || WB_H) / st.view.h, stageR = stage.getBoundingClientRect(); let x, y, w;
+                    st.editing = id; const r = svg.getBoundingClientRect(), kx = (r.width || canvasW) / st.view.w, ky = (r.height || canvasH) / st.view.h, stageR = stage.getBoundingClientRect(); let x, y, w;
                     if (s.t === 'text') { const z = wbTextSize(s); x = s.x; y = s.y; w = Math.max(180, z.w); } else { w = Math.max(s.w, 180); x = s.x + s.w / 2 - w / 2; y = s.y + s.h / 2 - 18; }
                     const left = r.left - stageR.left + (x - st.view.x) * kx, top = r.top - stageR.top + (y - st.view.y) * ky;
                     ta.value = s.text || ''; ta.style.display = 'block'; ta.style.left = left + 'px'; ta.style.top = top + 'px'; ta.style.width = Math.max(120, Math.min(w * kx, stageR.width - left - 12)) + 'px';
@@ -16544,9 +16617,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     else if (s.t === 'pen') s.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]); };
                 svg.addEventListener('pointerdown', e => { if (e.button !== 0 && e.button !== 1) return; if (st.editing) commitText();
                     try { svg.setPointerCapture && svg.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events have no active pointer */ }
-                    if (st.panMode || e.button === 1) { st.drag = { kind: 'pan', startClient: { x: e.clientX, y: e.clientY }, origView: { ...st.view } }; e.preventDefault(); return; }
+                    if (st.panMode || e.button === 1) { let unitX = st.view.w / (svg.getBoundingClientRect().width || 1), unitY = st.view.h / (svg.getBoundingClientRect().height || 1); try { const inverse = svg.getScreenCTM()?.inverse(); if (inverse) { unitX = Math.hypot(inverse.a, inverse.b); unitY = Math.hypot(inverse.c, inverse.d); } } catch {} st.drag = { kind: 'pan', startClient: { x: e.clientX, y: e.clientY }, origView: { ...st.view }, unitX, unitY }; e.preventDefault(); return; }
                     const p = pt(e), hnd = e.target.closest && e.target.closest('[data-wb-h]'), hit = e.target.closest && e.target.closest('[data-wb-id]');
                     if (hnd && cur()) { pushUndo(); st.drag = { kind: 'handle', h: hnd.dataset.wbH, orig: wbClone(cur()), start: p }; return; }
+                    if (st.tool === 'erase') { if (hit) { pushUndo(); st.board.shapes = st.board.shapes.filter(x => x.id !== hit.dataset.wbId); if (st.sel === hit.dataset.wbId) st.sel = null; draw(); } return; }
                     if (st.tool === 'select') {
                         if (hit) { const id = hit.dataset.wbId, now = Date.now();
                             if (st.lastClick && st.lastClick.id === id && now - st.lastClick.t < 380) { st.lastClick = null; st.sel = id; draw(); startTextEdit(id); return; }
@@ -16560,7 +16634,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     else s = Object.assign(base, { t: st.tool === 'arrow' ? 'line' : st.tool, x1: sp.x, y1: sp.y, x2: sp.x, y2: sp.y, h1: false, h2: st.tool === 'arrow' || st.tool === 'elbow' });
                     st.board.shapes.push(s); st.sel = id; st.drag = { kind: 'create', id, start: sp }; draw(); });
                 svg.addEventListener('pointermove', e => { const d = st.drag; if (!d) return;
-                    if (d.kind === 'pan') { const r = svg.getBoundingClientRect(), dx = (e.clientX - d.startClient.x) / (r.width || 1) * d.origView.w, dy = (e.clientY - d.startClient.y) / (r.height || 1) * d.origView.h;
+                    if (d.kind === 'pan') { const dx = (e.clientX - d.startClient.x) * d.unitX, dy = (e.clientY - d.startClient.y) * d.unitY;
                         setView({ x: d.origView.x - dx, y: d.origView.y - dy, w: d.origView.w, h: d.origView.h }); draw(); return; }
                     const p = pt(e), s = cur(); if (!s) return;
                     if (d.kind === 'create') { const q = snapP(p);
@@ -16611,7 +16685,8 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     else if (a === 'front' && s) { pushUndo(); st.board.shapes = st.board.shapes.filter(x => x.id !== s.id).concat(s); draw(); }
                     else if (a === 'back' && s) { pushUndo(); st.board.shapes = [s].concat(st.board.shapes.filter(x => x.id !== s.id)); draw(); }
                     else if (a === 'axes') { pushUndo(); const base = { color: st.style.color, sw: Math.max(3, st.style.sw), dash: 'solid', h1: false, h2: true };
-                        st.board.shapes.push(Object.assign({ id: wbId(), t: 'line', x1: 140, y1: 540, x2: 140, y2: 70 }, base), Object.assign({ id: wbId(), t: 'line', x1: 140, y1: 540, x2: 900, y2: 540 }, base)); draw(); } });
+                        const ox = Math.round(canvasW * .12), oy = Math.round(canvasH * .84); st.board.shapes.push(Object.assign({ id: wbId(), t: 'line', x1: ox, y1: oy, x2: ox, y2: Math.round(canvasH * .12) }, base), Object.assign({ id: wbId(), t: 'line', x1: ox, y1: oy, x2: Math.round(canvasW * .9), y2: oy }, base)); draw(); }
+                    else if (a === 'ask-ai' && typeof opts.onAskAI === 'function') opts.onAskAI(); });
                 root.addEventListener('input', e => { const r = e.target.closest('[data-wb-sw]'); if (!r) return; const v = Number(r.value); st.style.sw = v; const s = cur();
                     if (s) { if (!st.swPending) { pushUndo(); st.swPending = true; } s.sw = v; } draw(); });
                 root.addEventListener('change', e => { if (e.target.closest('[data-wb-sw]')) st.swPending = false; const toggle = e.target.closest('[data-wb-description-toggle]'); if (toggle) { const field = root.querySelector('[data-wb-description]'); if (field) { field.hidden = !toggle.checked; if (toggle.checked) field.focus(); } } });
@@ -16626,10 +16701,10 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     if (k === '+' || k === '=') { e.preventDefault(); zoomAt(0.8); return; } if (k === '-') { e.preventDefault(); zoomAt(1.25); return; }
                     if (k === 'escape') { e.preventDefault(); st.tool = 'select'; st.panMode = false; st.sel = null; draw(); return; }
                     if (k.startsWith('arrow') && cur()) { e.preventDefault(); pushUndo(); const n = e.shiftKey ? 10 : 1, s = cur(); applyMove(s, wbClone(s), k === 'arrowleft' ? -n : k === 'arrowright' ? n : 0, k === 'arrowup' ? -n : k === 'arrowdown' ? n : 0); draw(); return; }
-                    const map = { v: 'select', r: 'rect', o: 'oval', d: 'rhombus', g: 'triangle', b: 'blockarrow', l: 'line', a: 'arrow', e: 'elbow', c: 'curve', p: 'pen', t: 'text' };
+                    const map = { v: 'select', r: 'rect', o: 'oval', d: 'rhombus', g: 'triangle', b: 'blockarrow', l: 'line', a: 'arrow', e: 'elbow', c: 'curve', p: 'pen', t: 'text', x: 'erase' };
                     if (map[k]) { st.tool = map[k]; if (st.tool !== 'select') st.sel = null; draw(); } };
                 document.addEventListener('keydown', onKey);
-                wbActive = { root, st, onKey, api: { draw, finish, startTextEdit, undo, redo, del, dup } };
+                wbActive = { root, st, onKey, api: { draw, finish, startTextEdit, undo, redo, del, dup, addImage } };
                 draw(); return wbActive; }
 
             function fcRowFromCard(card) { const row = { id: card.id, type: card.type && FC_TYPES[card.type] ? card.type : 'term', front: card.front, back: card.back, text: '', ordered: false, board: null, secKey: fcCardKey(card) }, d = card.data;
@@ -24255,7 +24330,7 @@ If the user asks about how to study or study methods generally, answer from your
                 const now = Date.now();
                 return { id: uid(), subjectId, sectionId: section.id, title: type === 'maths' ? 'Maths notes' : type === 'whiteboard' ? 'Whiteboard notes' : 'Untitled document', type,
                     html: '', marginHtml: '', pageStyle: 'blank', marginEnabled: false,
-                    board: { shapes: [] }, blocks: type === 'document' ? [] : [{ id: uid(), x: 100, y: 90, w: 620, h: 240, html: '' }], ink: [], gridSize: 24, createdAt: now, updatedAt: now };
+                    board: { shapes: [] }, blocks: [], ink: [], gridSize: 28, createdAt: now, updatedAt: now };
             }
             function notesCreate(subjectId, type, sectionId, open = true) {
                 if (!subject(subjectId)) return;
@@ -24328,60 +24403,99 @@ If the user asks about how to study or study methods generally, answer from your
             function notesDocToolbar(note) {
                 const command = (cmd, label, title) => `<button type="button" data-notes-action="doc-command" data-command="${cmd}" title="${title || label}">${label}</button>`;
                 return `<div class="notes-toolbar" role="toolbar" aria-label="Document formatting">
-                    <select data-notes-action="doc-select" data-command="fontName" aria-label="Font"><option value="Aptos">Aptos</option><option value="Arial">Arial</option><option value="Calibri">Calibri</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="Verdana">Verdana</option></select>
-                    <select data-notes-action="doc-select" data-command="fontSize" aria-label="Font size"><option value="2">10</option><option value="3" selected>12</option><option value="4">14</option><option value="5">18</option><option value="6">24</option><option value="7">36</option></select>
-                    <select data-notes-action="doc-select" data-command="formatBlock" aria-label="Paragraph style"><option value="p">Normal</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option><option value="blockquote">Quote</option><option value="pre">Code block</option></select>
-                    <span class="notes-toolbar-sep"></span>${command('bold','B','Bold')}${command('italic','I','Italic')}${command('underline','U','Underline')}${command('strikeThrough','S̶','Strikethrough')}${command('subscript','x₂','Subscript')}${command('superscript','x²','Superscript')}
-                    <input type="color" value="#202235" data-notes-action="doc-colour" data-command="foreColor" title="Text colour" aria-label="Text colour"><input type="color" value="#fff2a8" data-notes-action="doc-colour" data-command="hiliteColor" title="Highlight colour" aria-label="Highlight colour">
-                    <span class="notes-toolbar-sep"></span>${command('justifyLeft','≡','Align left')}${command('justifyCenter','☷','Centre')}${command('justifyRight','☰','Align right')}${command('justifyFull','▤','Justify')}
-                    <span class="notes-toolbar-sep"></span>${command('insertUnorderedList','• List','Bulleted list')}${command('insertOrderedList','1. List','Numbered list')}${command('outdent','⇤','Decrease indent')}${command('indent','⇥','Increase indent')}
-                    <span class="notes-toolbar-sep"></span>${command('undo','↶','Undo')}${command('redo','↷','Redo')}${command('insertHorizontalRule','―','Horizontal line')}
-                    <button type="button" data-notes-action="doc-link">Link</button><button type="button" data-notes-action="doc-table">Table</button><button type="button" data-notes-action="doc-checklist">☑ Checklist</button><button type="button" data-notes-action="doc-image">＋ Image</button><button type="button" data-notes-action="doc-print">Print</button>
-                    <span class="notes-toolbar-sep"></span><button type="button" data-notes-action="doc-page-style" data-style="blank" class="${note.pageStyle !== 'lined' ? 'active' : ''}">Blank</button><button type="button" data-notes-action="doc-page-style" data-style="lined" class="${note.pageStyle === 'lined' ? 'active' : ''}">Lined</button><button type="button" data-notes-action="doc-margin-toggle" class="${note.marginEnabled ? 'active' : ''}">Red margin ${note.marginEnabled ? 'On' : 'Off'}</button>
+                    <div class="notes-tool-group"><select data-notes-action="doc-select" data-command="fontName" aria-label="Font"><option value="Aptos">Aptos</option><option value="Arial">Arial</option><option value="Calibri">Calibri</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="Verdana">Verdana</option></select><select data-notes-action="doc-select" data-command="fontSize" aria-label="Font size"><option value="2">10</option><option value="3" selected>12</option><option value="4">14</option><option value="5">18</option><option value="6">24</option><option value="7">36</option></select><select data-notes-action="doc-select" data-command="formatBlock" aria-label="Paragraph style"><option value="p">Normal</option><option value="h1">Title</option><option value="h2">Heading 1</option><option value="h3">Heading 2</option><option value="blockquote">Quote</option><option value="pre">Code</option></select></div>
+                    <div class="notes-tool-group">${command('bold','<b>B</b>','Bold')}${command('italic','<i>I</i>','Italic')}${command('underline','<u>U</u>','Underline')}${command('strikeThrough','S̶','Strikethrough')}${command('subscript','x₂','Subscript')}${command('superscript','x²','Superscript')}</div>
+                    <div class="notes-tool-group"><input type="color" value="#202235" data-notes-action="doc-colour" data-command="foreColor" title="Text colour" aria-label="Text colour"><input type="color" value="#fff2a8" data-notes-action="doc-colour" data-command="hiliteColor" title="Highlight colour" aria-label="Highlight colour"></div>
+                    <div class="notes-tool-group">${command('justifyLeft','≡','Align left')}${command('justifyCenter','☷','Centre')}${command('justifyRight','☰','Align right')}${command('justifyFull','▤','Justify')}</div>
+                    <div class="notes-tool-group">${command('insertUnorderedList','• List','Bulleted list')}${command('insertOrderedList','1. List','Numbered list')}${command('outdent','⇤','Decrease indent')}${command('indent','⇥','Increase indent')}</div>
+                    <div class="notes-tool-group">${command('undo','↶','Undo')}${command('redo','↷','Redo')}${command('insertHorizontalRule','―','Horizontal line')}<button type="button" data-notes-action="doc-link">Link</button><button type="button" data-notes-action="doc-table">Table</button><button type="button" data-notes-action="doc-checklist">☑</button><button type="button" data-notes-action="doc-image">＋ Image</button><button type="button" data-notes-action="doc-print">Print</button></div>
+                    <div class="notes-tool-group"><button type="button" data-notes-action="doc-page-style" data-style="blank" class="${note.pageStyle !== 'lined' ? 'active' : ''}">Blank page</button><button type="button" data-notes-action="doc-page-style" data-style="lined" class="${note.pageStyle === 'lined' ? 'active' : ''}">Ruled</button><button type="button" data-notes-action="doc-margin-toggle" class="${note.marginEnabled ? 'active' : ''}">Red margin</button></div>
                 </div>`;
             }
             function notesTextToolbar() {
-                return `<div class="notes-toolbar" role="toolbar" aria-label="Whiteboard text tools"><button type="button" data-notes-action="add-block">＋ Text box</button><button type="button" data-notes-action="text-image">＋ Image</button><span class="notes-toolbar-sep"></span><button type="button" data-notes-action="text-command" data-command="bold"><b>B</b></button><button type="button" data-notes-action="text-command" data-command="italic"><i>I</i></button><button type="button" data-notes-action="text-command" data-command="underline"><u>U</u></button><button type="button" data-notes-action="text-command" data-command="insertUnorderedList">• List</button><input type="color" value="#202235" data-notes-action="text-colour" title="Text colour"><button type="button" data-notes-action="text-size" data-size="18">A−</button><button type="button" data-notes-action="text-size" data-size="26">A</button><button type="button" data-notes-action="text-size" data-size="36">A＋</button><span class="notes-toolbar-sep"></span><button type="button" data-notes-action="open-drawing">✎ Drawing &amp; shapes</button><button type="button" data-notes-action="clear-drawing">Clear drawing</button><button type="button" data-notes-action="delete-block">Delete selected text box</button></div>`;
+                return `<div class="notes-toolbar" role="toolbar" aria-label="Whiteboard tools"><span class="small">Use the canvas tools to draw, add text, shapes and diagrams. Scroll or use the zoom controls to navigate.</span><div class="notes-tool-group"><button type="button" data-notes-action="canvas-image">＋ Image</button></div></div>`;
             }
             function notesMathToolbar(note) {
-                const colours = ['#202235','#2563eb','#dc2626','#16a34a','#d97706','#7c3aed','#0891b2','#ec4899'];
-                return `<div class="notes-toolbar" role="toolbar" aria-label="Maths tools"><button type="button" data-notes-action="math-tool" data-tool="pen" class="${notesMathTool === 'pen' ? 'active' : ''}">✎ Pen</button><button type="button" data-notes-action="math-tool" data-tool="erase" class="${notesMathTool === 'erase' ? 'active' : ''}">⌫ Eraser</button><span class="notes-toolbar-sep"></span>${colours.map(c => `<button type="button" data-notes-action="math-colour" data-colour="${c}" title="Pen colour" style="min-width:20px;width:20px;height:20px;padding:0;border-radius:50%;background:${c};border:1px solid #afb2c1"></button>`).join('')}<span class="small" style="color:#77798d">Width</span><input type="range" min="1" max="18" value="${notesPenWidth}" data-notes-action="math-width" style="width:82px"><button type="button" data-notes-action="math-undo">↶ Undo ink</button><button type="button" data-notes-action="math-clear">Clear ink</button><span class="notes-toolbar-sep"></span><button type="button" data-notes-action="add-block">＋ Text box</button><button type="button" data-notes-action="math-equation">∑ Equation</button><button type="button" data-notes-action="math-symbol" data-symbol="√">√</button><button type="button" data-notes-action="math-symbol" data-symbol="π">π</button><button type="button" data-notes-action="math-symbol" data-symbol="±">±</button><button type="button" data-notes-action="math-symbol" data-symbol="≤">≤</button><button type="button" data-notes-action="math-symbol" data-symbol="≥">≥</button><button type="button" data-notes-action="math-symbol" data-symbol="≠">≠</button><button type="button" data-notes-action="math-symbol" data-symbol="∞">∞</button><button type="button" data-notes-action="math-symbol" data-symbol="∑">∑</button><button type="button" data-notes-action="math-symbol" data-symbol="∫">∫</button><span class="notes-toolbar-sep"></span><button type="button" data-notes-action="open-drawing">Graph &amp; geometry tools</button><select data-notes-action="math-grid-size" aria-label="Grid size"><option value="18" ${note.gridSize===18?'selected':''}>Fine grid</option><option value="24" ${!note.gridSize||note.gridSize===24?'selected':''}>Normal grid</option><option value="36" ${note.gridSize===36?'selected':''}>Wide grid</option></select></div>`;
+                return `<div class="notes-toolbar" role="toolbar" aria-label="Maths workspace tools"><span class="small">Squared paper · Draw graphs and workings, add shapes and labels, or select part of your screen to ask the Maths Helper.</span><div class="notes-tool-group"><label class="small" for="notes-math-grid-size">Grid</label><select id="notes-math-grid-size" data-notes-action="math-grid-size" aria-label="Maths grid size"><option value="18" ${Number(note.gridSize) === 18 ? 'selected' : ''}>Fine</option><option value="28" ${!note.gridSize || Number(note.gridSize) === 28 ? 'selected' : ''}>Normal</option><option value="40" ${Number(note.gridSize) === 40 ? 'selected' : ''}>Wide</option></select><button type="button" data-notes-action="canvas-image">＋ Image</button></div></div>`;
             }
             function notesBlockHtml(block) {
                 const x = Number(block.x) || 100, y = Number(block.y) || 100, w = Math.max(140, Number(block.w) || 440), h = Math.max(85, Number(block.h) || 170);
                 return `<div class="notes-text-block" data-notes-block="${block.id}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><div class="notes-block-handle" data-notes-block-handle="${block.id}"><span>TEXT BOX · DRAG TO MOVE</span><button type="button" data-notes-action="remove-block" data-block="${block.id}" title="Remove text box">×</button></div><div class="notes-block-content" contenteditable="true" spellcheck="true" data-notes-editable="block" data-block="${block.id}">${notesSanitizeHtml(block.html || '')}</div></div>`;
             }
             function notesWorkspaceHtml(note) {
-                const s = subject(note.subjectId), sections = notesEnsureSection(note.subjectId), blocks = Array.isArray(note.blocks) ? note.blocks : [];
+                const s = subject(note.subjectId), sections = notesEnsureSection(note.subjectId);
                 const sectionOptions = sections.map(x => `<option value="${x.id}" ${x.id === note.sectionId ? 'selected' : ''}>${escape(x.name)}</option>`).join('');
                 const editorToolbar = note.type === 'document' ? notesDocToolbar(note) : note.type === 'maths' ? notesMathToolbar(note) : notesTextToolbar();
                 let editor = '';
                 if (note.type === 'document') {
-                    editor = `<div class="notes-editor-scroll"><div class="notes-paper ${note.pageStyle === 'lined' ? 'lined' : ''} ${note.marginEnabled ? 'margin-on' : ''}">${note.marginEnabled ? `<div class="notes-red-margin" contenteditable="true" spellcheck="true" data-notes-editable="margin">${notesSanitizeHtml(note.marginHtml || '')}</div>` : ''}<div contenteditable="true" spellcheck="true" data-notes-editable="document" aria-label="Document page">${notesSanitizeHtml(note.html || '')}</div></div></div>`;
-                } else if (note.type === 'whiteboard') {
-                    const svg = wbBoardSvg(note.board || { shapes: [] }, { attrs: 'width="2200" height="1408"' });
-                    editor = `<div class="notes-editor-scroll whiteboard-scroll"><div class="notes-infinite-canvas"><div class="notes-board-layer">${svg}</div><div class="notes-block-layer">${blocks.map(notesBlockHtml).join('')}</div></div></div>`;
+                    editor = `<div class="notes-editor-scroll"><div class="notes-paper ${note.pageStyle === 'lined' ? 'lined' : ''} ${note.marginEnabled ? 'margin-on' : ''}">${note.marginEnabled ? `<div class="notes-red-margin" contenteditable="true" spellcheck="true" data-notes-editable="margin">${notesSanitizeHtml(note.marginHtml || '')}</div>` : ''}<div class="notes-document-content" contenteditable="true" spellcheck="true" data-notes-editable="document" aria-label="Document page">${notesSanitizeHtml(note.html || '')}</div></div></div>`;
                 } else {
-                    editor = `<div class="notes-editor-scroll math-scroll"><div class="notes-math-page" style="--notes-grid-size:${Number(note.gridSize) || 24}px"><canvas class="notes-ink-canvas" width="2200" height="1600" aria-label="Maths pen layer"></canvas><div class="notes-block-layer">${blocks.map(notesBlockHtml).join('')}</div></div></div>`;
+                    editor = `<div class="notes-editor-scroll ${note.type === 'maths' ? 'math-scroll' : 'whiteboard-scroll'}"><div class="notes-canvas-host ${note.type === 'maths' ? 'math' : 'whiteboard'}" id="notes-canvas-mount" aria-label="${note.type === 'maths' ? 'Maths notes canvas' : 'Whiteboard canvas'}"></div></div>`;
                 }
                 return `<div class="notes-workspace ${notesWorkspaceSidebarCollapsed ? 'is-sidebar-collapsed' : ''}" id="notes-workspace" data-note="${note.id}" data-type="${note.type}">
-                    <div class="notes-workspace-top"><button type="button" class="notes-workspace-close" data-notes-action="toggle-side" title="Show or hide notebook">☰</button><div class="notes-workspace-title-wrap"><input class="notes-workspace-title" type="text" maxlength="120" value="${escape(note.title || '')}" data-notes-title placeholder="Untitled note"><span class="notes-save-state" data-notes-save-state>Saved</span></div><span class="small" style="white-space:nowrap;color:var(--muted)">${escape(s ? s.name : 'Subject')}</span><select data-notes-action="workspace-section" aria-label="Move note to section">${sectionOptions}</select><select data-notes-action="workspace-type" aria-label="Note type"><option value="document" ${note.type === 'document' ? 'selected' : ''}>Document</option><option value="whiteboard" ${note.type === 'whiteboard' ? 'selected' : ''}>Whiteboard</option><option value="maths" ${note.type === 'maths' ? 'selected' : ''}>Maths</option></select><button type="button" class="notes-workspace-close" data-notes-action="delete-note">Delete</button><button type="button" class="notes-workspace-close" data-notes-action="close-workspace">Done</button></div>
-                    <div class="notes-workspace-body">${notesWorkspaceSidebar(note)}<div class="notes-workspace-main">${editorToolbar}${editor}<input type="file" id="notes-image-file" accept="image/*" hidden></div></div></div>`;
+                    <div class="notes-workspace-top">
+                        <button type="button" class="notes-workspace-close" data-notes-action="toggle-side" title="Show or hide notebook" aria-label="Toggle notebook sidebar">☰</button>
+                        <div class="notes-workspace-title-wrap"><input class="notes-workspace-title" type="text" maxlength="120" value="${escape(note.title || '')}" data-notes-title placeholder="Untitled note"><span class="notes-save-state" data-notes-save-state>Saved</span></div>
+                        <div class="notes-top-meta"><span class="small" style="white-space:nowrap;color:var(--muted)">${escape(s ? s.name : 'Subject')}</span><select data-notes-action="workspace-section" aria-label="Move note to section">${sectionOptions}</select><select data-notes-action="workspace-type" aria-label="Note type"><option value="document" ${note.type === 'document' ? 'selected' : ''}>Document</option><option value="whiteboard" ${note.type === 'whiteboard' ? 'selected' : ''}>Whiteboard</option><option value="maths" ${note.type === 'maths' ? 'selected' : ''}>Maths</option></select></div>
+                        <div class="notes-top-actions"><button type="button" class="notes-workspace-close" data-notes-action="delete-note">Delete</button><button type="button" class="notes-workspace-close" data-notes-action="close-workspace">Done</button></div>
+                    </div>
+                    <div class="notes-workspace-body">${notesWorkspaceSidebar(note)}<div class="notes-workspace-main">${editorToolbar}${editor}<input type="file" id="notes-image-file" accept="image/*" hidden></div></div>
+                </div>`;
+            }
+            function notesMigrateCanvasContent(note) {
+                const width = 2200, height = note.type === 'maths' ? 1600 : 1450;
+                if (!note.board || !Array.isArray(note.board.shapes)) note.board = { shapes: [] };
+                const previousWidth = Number(note.board.canvasWidth) || 1000, previousHeight = Number(note.board.canvasHeight) || 640;
+                if (previousWidth !== width || previousHeight !== height) {
+                    const sx = width / previousWidth, sy = height / previousHeight;
+                    note.board.shapes = note.board.shapes.map(shape => {
+                        const x = { ...shape };
+                        if (['rect','oval','rhombus','triangle','blockarrow','text'].includes(x.t)) { x.x = Number(x.x || 0) * sx; x.y = Number(x.y || 0) * sy; if (x.w != null) x.w *= sx; if (x.h != null) x.h *= sy; if (x.fs != null) x.fs *= sx; }
+                        else if (['line','elbow','curve'].includes(x.t)) { x.x1 *= sx; x.x2 *= sx; x.y1 *= sy; x.y2 *= sy; if (x.cx != null) x.cx *= sx; if (x.cy != null) x.cy *= sy; }
+                        else if (x.t === 'pen' && Array.isArray(x.pts)) x.pts = x.pts.map(p => [p[0] * sx, p[1] * sy]);
+                        return x;
+                    });
+                    note.board.canvasWidth = width; note.board.canvasHeight = height;
+                }
+                if (note.type === 'maths' && Array.isArray(note.ink) && note.ink.length && !note.legacyInkImported) {
+                    note.ink.forEach(stroke => { if (!Array.isArray(stroke.points) || !stroke.points.length) return; note.board.shapes.push({ id: wbId(), t: 'pen', pts: stroke.points.map(p => [Number(p[0]) || 0, Number(p[1]) || 0]), color: stroke.color || '#202235', sw: Number(stroke.width) || 3, dash: 'solid' }); });
+                    note.legacyInkImported = true;
+                }
+                if (Array.isArray(note.blocks) && note.blocks.length && !note.legacyBlocksImported) {
+                    note.blocks.forEach(block => {
+                        const doc = new DOMParser().parseFromString(notesSanitizeHtml(block.html || ''), 'text/html');
+                        const baseX = Math.max(20, Number(block.x) || 100), baseY = Math.max(30, Number(block.y) || 100), content = (doc.body.textContent || '').trim();
+                        if (content) note.board.shapes.push({ id: wbId(), t: 'text', x: baseX, y: baseY, text: content.slice(0, 4000), color: '#202235', fs: 26 });
+                        Array.from(doc.querySelectorAll('img')).forEach((img, index) => { const src = img.getAttribute('src') || ''; if (!/^(data:image\/|https?:\/\/)/i.test(src)) return; const w = Math.max(80, Math.min(620, Number(img.getAttribute('width')) || 420)), h = Math.max(60, Math.min(480, Number(img.getAttribute('height')) || 280)); note.board.shapes.push({ id: wbId(), t: 'image', src, x: baseX, y: baseY + (content ? 80 : 0) + index * 24, w, h, color: '#ffffff', fill: 0 }); });
+                    });
+                    note.legacyBlocksImported = true;
+                }
+                note.board.canvasWidth = width; note.board.canvasHeight = height;
+                note.canvasVersion = 2;
             }
             function notesRenderWorkspace(noteId) {
                 const note = (state.subjectNotes || []).find(n => n.id === noteId); if (!note) { notesCloseWorkspace(false); return; }
+                if (typeof closeWhiteboard === 'function') closeWhiteboard();
                 notesWorkspaceId = noteId;
                 const existing = document.getElementById('notes-workspace'); if (existing) existing.remove();
                 document.body.insertAdjacentHTML('beforeend', notesWorkspaceHtml(note));
                 document.body.classList.add('notes-workspace-open');
                 notesSavedRange = null; notesActiveEditable = null; notesActiveBlockId = null;
-                if (note.type === 'maths') requestAnimationFrame(() => { notesRedrawInk(note); notesSetMathMode(); });
+                if (note.type === 'whiteboard' || note.type === 'maths') {
+                    notesMigrateCanvasContent(note);
+                    const mount = document.getElementById('notes-canvas-mount');
+                    if (mount) openWhiteboard({ title: note.title || notesTypeLabel(note.type), hint: 'Use the tools to draw, select, move, resize and label. Scroll to zoom; choose Pan to move around the larger board.', board: note.board, mount, embedded: true, canvasWidth: note.board.canvasWidth, canvasHeight: note.board.canvasHeight, mathMode: note.type === 'maths', gridSize: Number(note.gridSize) || 28,
+                        onChange: board => { note.board = board; notesSaveSoon(note); },
+                        onAskAI: note.type === 'maths' ? () => notesStartMathScreenshotCapture(note.id) : null });
+                }
                 notesAttachBlockDragging();
-                requestAnimationFrame(() => { const target = document.querySelector('#notes-workspace [data-notes-editable]'); if (target) { target.focus(); notesRememberActive(target); } });
+                if (note.type === 'document') requestAnimationFrame(() => { const target = document.querySelector('#notes-workspace [data-notes-editable="document"]'); if (target) { target.focus(); notesRememberActive(target); } });
+                if (note.canvasVersion === 2) notesSaveSoon(note);
             }
             function notesOpenWorkspace(noteId) { notesFlushSave(); notesWorkspaceSidebarCollapsed = false; notesRenderWorkspace(noteId); }
             function notesCloseWorkspace(refresh = true) {
                 notesFlushSave();
+                if (typeof closeWhiteboard === 'function') closeWhiteboard();
                 document.getElementById('notes-workspace')?.remove();
                 notesWorkspaceId = null; notesSavedRange = null; notesActiveEditable = null; notesActiveBlockId = null;
                 document.body.classList.remove('notes-workspace-open');
@@ -24436,6 +24550,17 @@ If the user asks about how to study or study methods generally, answer from your
                 notesImageToDataUrl(file).then(url => { notesInsertHtml(`<img src="${url}" alt="Pasted image" style="max-width:100%;height:auto">`); toast('Image added to note.'); })
                     .catch(err => toast(err.message || 'Could not add that image.'));
             }
+            function notesInsertCanvasImageFile(file) {
+                const targetNoteId = notesWorkspaceId;
+                notesImageToDataUrl(file).then(url => {
+                    const activeNote = notesActiveNote();
+                    if (!targetNoteId || notesWorkspaceId !== targetNoteId || activeNote?.id !== targetNoteId || !['whiteboard','maths'].includes(activeNote.type)) {
+                        toast('The note changed before the image was ready. Please add the image again.'); return;
+                    }
+                    if (wbActive?.root?.isConnected && wbActive?.api?.addImage) { wbActive.api.addImage(url); toast('Image added to canvas.'); }
+                    else toast('The drawing canvas is not available.');
+                }).catch(err => toast(err.message || 'Could not add that image.'));
+            }
             function notesAddBlock() {
                 const note = notesActiveNote(); if (!note) return;
                 if (!Array.isArray(note.blocks)) note.blocks = [];
@@ -24465,14 +24590,7 @@ If the user asks about how to study or study methods generally, answer from your
                     observer.observe(el);
                 });
             }
-            function notesOpenDrawing() {
-                const note = notesActiveNote(); if (!note) return;
-                notesFlushSave();
-                openWhiteboard({ title: note.title || 'Drawing & shapes', hint: 'Use the full drawing toolkit: select, move, resize, text, pen, shapes, arrows, axes, colours, line styles and undo.', board: note.board || { shapes: [] }, onDone: board => {
-                    note.board = board; notesSaveSoon(note);
-                    const layer = document.querySelector('#notes-workspace .notes-board-layer'); if (layer) layer.innerHTML = wbBoardSvg(board, { attrs: 'width="2200" height="1408"' });
-                } });
-            }
+            function notesOpenDrawing() { toast('The drawing tools are already available on the Notes canvas.'); }
             function notesRedrawInk(note) {
                 const canvas = document.querySelector('#notes-workspace .notes-ink-canvas'); if (!canvas || !note) return;
                 const ctx = canvas.getContext('2d'); if (!ctx) return; ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -24496,6 +24614,78 @@ If the user asks about how to study or study methods generally, answer from your
                 const finish = () => { if (!active) return; const note = notesActiveNote(); active = null; notesSaveSoon(note); };
                 canvas.addEventListener('pointerup', finish); canvas.addEventListener('pointercancel', finish);
             }
+            async function notesStartMathScreenshotCapture(noteId) {
+                if (!currentUser) { toast('Sign in with Google to use the AI Maths Helper.'); return; }
+                if (mathHelperLoading) { toast('The Maths Helper is already working on a question. Try again when it has finished.'); return; }
+                if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+                    toast('Screen capture is not available in this browser.'); return;
+                }
+                let stream = null;
+                try {
+                    stream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'monitor' }, audio: false });
+                    const video = document.createElement('video'); video.srcObject = stream; video.muted = true; video.playsInline = true;
+                    await new Promise((resolve, reject) => { video.onloadedmetadata = resolve; video.onerror = () => reject(new Error('Could not read the selected screen.')); });
+                    await video.play(); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                    if (!video.videoWidth || !video.videoHeight) throw new Error('The selected screen did not provide an image.');
+                    const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageUrl = canvas.toDataURL('image/jpeg', .88);
+                    stream.getTracks().forEach(track => track.stop()); stream = null;
+                    notesShowScreenshotCrop(imageUrl, noteId);
+                } catch (err) {
+                    if (stream) stream.getTracks().forEach(track => track.stop());
+                    const cancelled = err && (err.name === 'NotAllowedError' || err.name === 'AbortError');
+                    toast(cancelled ? 'Screen capture was cancelled.' : (err.message || 'Could not capture the screen.'));
+                }
+            }
+            function notesShowScreenshotCrop(imageUrl, noteId) {
+                document.getElementById('notes-screenshot-crop')?.remove();
+                const overlay = document.createElement('div'); overlay.className = 'notes-crop-overlay'; overlay.id = 'notes-screenshot-crop';
+                overlay.innerHTML = `<section class="notes-crop-dialog" role="dialog" aria-modal="true" aria-label="Select question area"><div class="notes-crop-head"><strong>Select the question area</strong><button type="button" class="notes-workspace-close" data-crop="cancel">Cancel</button></div><div class="notes-crop-stage-wrap"><div class="notes-crop-stage"><img alt="Captured screen to crop" draggable="false"><div class="notes-crop-selection"></div></div></div><div class="notes-crop-actions"><span class="small">Drag around the question, graph or diagram you want the Maths Helper to read.</span><button type="button" class="button primary" data-crop="send" disabled>Send to Maths Helper ↗</button></div></section>`;
+                document.body.appendChild(overlay);
+                const img = overlay.querySelector('img'), stage = overlay.querySelector('.notes-crop-stage'), box = overlay.querySelector('.notes-crop-selection'), send = overlay.querySelector('[data-crop="send"]');
+                img.src = imageUrl;
+                let start = null, selection = null;
+                stage.addEventListener('pointerdown', e => {
+                    const rect = img.getBoundingClientRect();
+                    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
+                    e.preventDefault(); stage.setPointerCapture?.(e.pointerId);
+                    start = { x: e.clientX - rect.left, y: e.clientY - rect.top }; selection = { x: start.x, y: start.y, w: 0, h: 0 };
+                    box.style.display = 'block'; box.style.left = `${start.x}px`; box.style.top = `${start.y}px`; box.style.width = '0px'; box.style.height = '0px'; send.disabled = true;
+                });
+                stage.addEventListener('pointermove', e => {
+                    if (!start) return; const rect = img.getBoundingClientRect();
+                    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left)), y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+                    selection = { x: Math.min(start.x, x), y: Math.min(start.y, y), w: Math.abs(x - start.x), h: Math.abs(y - start.y) };
+                    box.style.left = `${selection.x}px`; box.style.top = `${selection.y}px`; box.style.width = `${selection.w}px`; box.style.height = `${selection.h}px`;
+                });
+                const finish = () => { start = null; send.disabled = !(selection && selection.w >= 24 && selection.h >= 24); };
+                stage.addEventListener('pointerup', finish); stage.addEventListener('pointercancel', finish);
+                overlay.addEventListener('click', e => {
+                    const action = e.target.closest('[data-crop]')?.dataset.crop; if (!action) return;
+                    if (action === 'cancel') { overlay.remove(); return; }
+                    if (action === 'send' && selection && !send.disabled) {
+                        const rect = img.getBoundingClientRect(), sx = img.naturalWidth / rect.width, sy = img.naturalHeight / rect.height;
+                        const source = { x: Math.max(0, Math.round(selection.x * sx)), y: Math.max(0, Math.round(selection.y * sy)), w: Math.min(img.naturalWidth, Math.round(selection.w * sx)), h: Math.min(img.naturalHeight, Math.round(selection.h * sy)) };
+                        if (source.w < 1 || source.h < 1) { toast('Select a larger area.'); return; }
+                        const max = 1700, scale = Math.min(1, max / Math.max(source.w, source.h));
+                        const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(source.w * scale)); canvas.height = Math.max(1, Math.round(source.h * scale));
+                        canvas.getContext('2d').drawImage(img, source.x, source.y, source.w, source.h, 0, 0, canvas.width, canvas.height);
+                        const cropped = canvas.toDataURL('image/jpeg', .84); overlay.remove(); notesSendCropToMathHelper(noteId, cropped);
+                    }
+                });
+            }
+            function notesSendCropToMathHelper(noteId, dataUrl) {
+                const note = (state.subjectNotes || []).find(n => n.id === noteId); if (!note) { toast('That note is no longer available.'); return; }
+                if (!currentUser) { toast('Sign in with Google to use the AI Maths Helper.'); return; }
+                const subj = subject(note.subjectId); if (subj?.taxonomyId) mathHelperSetSubject(subj.taxonomyId);
+                const prompt = 'Please read the question in the attached image and solve it. Use the selected explanation mode, show the mathematical working clearly, and mention anything in the image that is unclear rather than guessing.';
+                const imagePayload = { mimeType: 'image/jpeg', data: dataUrl.split(',')[1], dataUrl, name: 'Selected maths question' };
+                notesCloseWorkspace(false);
+                toolsActiveTool = 'mathhelper'; view = 'tools'; mathHelperComposer = prompt; render();
+                requestAnimationFrame(() => mathHelperSend(prompt, null, imagePayload));
+            }
+
             function notesInsertMathField() {
                 const field = '<math-field virtual-keyboard-mode="manual" style="display:inline-block;min-width:120px;padding:3px 6px;border:1px solid #cfd5e5;border-radius:6px;background:#fff" value="x^2"></math-field>&nbsp;';
                 notesInsertHtml(field);
@@ -24509,11 +24699,12 @@ If the user asks about how to study or study methods generally, answer from your
                 if (action === 'create-workspace-note') { notesCreate(note.subjectId, button.dataset.type, note.sectionId, true); return; }
                 if (action === 'delete-note') { if (!confirm(`Delete “${note.title || 'Untitled note'}”? This cannot be undone.`)) return; state.subjectNotes = state.subjectNotes.filter(x => x.id !== note.id); notesCloseWorkspace(true); save(); return; }
                 if (action === 'workspace-section') { note.sectionId = button.value; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
-                if (action === 'workspace-type') { if (button.value === note.type) return; notesUpdateActiveHtml(); note.type = button.value; if (note.type !== 'document' && !note.blocks?.length) note.blocks = [{ id: uid(), x: 100, y: 90, w: 440, h: 170, html: note.html || '' }]; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
+                if (action === 'workspace-type') { if (button.value === note.type) return; notesUpdateActiveHtml(); note.type = button.value; if (note.type !== 'document' && note.html && note.html.trim()) { note.blocks = Array.isArray(note.blocks) ? note.blocks : []; note.blocks.push({ id: uid(), x: 100, y: 90, w: 620, h: 200, html: note.html }); note.html = ''; } notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
                 if (action === 'add-block') { notesAddBlock(); return; }
                 if (action === 'remove-block') { note.blocks = (note.blocks || []).filter(x => x.id !== button.dataset.block); if (notesActiveBlockId === button.dataset.block) notesActiveBlockId = null; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
                 if (action === 'delete-block') { if (!notesActiveBlockId) { toast('Select a text box first.'); return; } note.blocks = (note.blocks || []).filter(x => x.id !== notesActiveBlockId); notesActiveBlockId = null; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
                 if (action === 'open-drawing') { notesOpenDrawing(); return; }
+                if (action === 'canvas-image') { document.getElementById('notes-image-file')?.click(); return; }
                 if (action === 'clear-drawing') { if (!confirm('Clear the drawing layer?')) return; note.board = { shapes: [] }; const layer = document.querySelector('#notes-workspace .notes-board-layer'); if (layer) layer.innerHTML = wbBoardSvg(note.board, { attrs: 'width="2200" height="1408"' }); notesSaveSoon(note); return; }
                 if (action === 'doc-command') { notesExec(button.dataset.command); return; }
                 if (action === 'doc-link') { const url = prompt('Enter a web address:', 'https://'); if (url) notesExec('createLink', url); return; }
@@ -24568,8 +24759,8 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.dataset.notesAction === 'doc-colour') { notesExec(t.dataset.command, t.value); }
                 else if (t.dataset.notesAction === 'text-colour') { notesExec('foreColor', t.value); }
                 else if (t.dataset.notesAction === 'math-width') { notesPenWidth = Number(t.value) || 3; }
-                else if (t.dataset.notesAction === 'math-grid-size') { note.gridSize = Number(t.value) || 24; const page = document.querySelector('.notes-math-page'); if (page) page.style.setProperty('--notes-grid-size', note.gridSize + 'px'); notesSaveSoon(note); }
-                else if (t.id === 'notes-image-file') { const files = Array.from(t.files || []); t.value = ''; files.filter(f => f.type.startsWith('image/')).forEach(notesInsertImageFile); }
+                else if (t.dataset.notesAction === 'math-grid-size') { note.gridSize = Number(t.value) || 28; notesSaveSoon(note); notesRenderWorkspace(note.id); }
+                else if (t.id === 'notes-image-file') { const files = Array.from(t.files || []); t.value = ''; files.filter(f => f.type.startsWith('image/')).forEach(file => note.type === 'document' ? notesInsertImageFile(file) : notesInsertCanvasImageFile(file)); }
             });
             document.addEventListener('paste', e => {
                 const target = e.target.closest && e.target.closest('#notes-workspace [data-notes-editable]'); if (!target) return;
@@ -24581,7 +24772,7 @@ If the user asks about how to study or study methods generally, answer from your
             document.addEventListener('keydown', e => {
                 if (!notesWorkspaceId) return;
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); notesFlushSave(); }
-                else if (e.key === 'Escape' && !document.getElementById('wb-overlay')) { e.preventDefault(); notesCloseWorkspace(true); }
+                else if (e.key === 'Escape' && (!document.getElementById('wb-overlay') || document.getElementById('wb-overlay')?.classList.contains('wb-notes-embedded'))) { e.preventDefault(); notesCloseWorkspace(true); }
             });
             window.addEventListener('beforeunload', () => { if (notesWorkspaceId) notesFlushSave(); });
             document.addEventListener('visibilitychange', () => { if (document.hidden && notesWorkspaceId) notesFlushSave(); });
