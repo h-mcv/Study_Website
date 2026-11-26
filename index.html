@@ -16530,7 +16530,7 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 const ungrouped = decks.filter(d => !grouped.has(d.id));
                 const folderSection = (f) => { const fDecks = decks.filter(d => f.deckIds.includes(d.id));
                     return `<div class="card section" style="margin-bottom:12px"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px"><strong>📁 ${escape(f.name)}</strong><button type="button" class="button ghost danger" data-action="delete-flashcard-folder" data-folder="${f.id}">Delete folder</button></div><div class="class-grid">${fDecks.length?fDecks.map(tile).join(''):'<p class="empty">No decks in this folder yet — assign one from its Test/Click Through page.</p>'}</div></div>`; };
-                return `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:14px;flex-wrap:wrap"><button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${s.id}">📁 New folder</button><button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${s.id}">+ Create Flashcards</button></div>
+                return `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:14px;flex-wrap:wrap"><button type="button" class="button primary" data-action="open-flashcard-adaptive-choice" data-subject="${s.id}">🧠 Study all ${escape(s.name)}</button><button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${s.id}">📁 New folder</button><button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${s.id}">+ Create Flashcards</button></div>
         ${folders.map(folderSection).join('')}
         ${folders.length?'<p class="small" style="margin:10px 0">Ungrouped</p>':''}
         <div class="class-grid">${ungrouped.length?ungrouped.map(tile).join(''):(decks.length?'':`<p class="empty">No flashcards yet for ${escape(s.name)} — create some above.</p>`)}</div>`; }
@@ -17206,7 +17206,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                     return `<div class="card section" style="margin-bottom:14px"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px"><strong>📁 ${escape(f.name)}${fs && filterId === 'all' ? ` <span class="small">· ${escape(fs.name)}</span>` : ''}</strong><button type="button" class="button ghost danger" data-action="delete-flashcard-folder" data-folder="${f.id}">Delete folder</button></div><div class="fc-deck-grid">${fDecks.length ? fDecks.map(tile).join('') : '<p class="empty">No decks in this folder yet — assign one from its deck page.</p>'}</div></div>`; };
                 const ungrouped = decks.filter(d => !grouped.has(d.id));
                 const hasAny = state.flashcardDecks.length > 0;
-                const tools = `${filterId !== 'all' ? `<button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${filterId}">📁 New folder</button>` : ''}<button type="button" class="button ghost" data-action="open-quizlet-import" data-subject="${filterId === 'all' ? '' : filterId}">🟣 Import from Quizlet</button><button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${filterId === 'all' ? '' : filterId}">+ Create deck</button>`;
+                const tools = `${filterId !== 'all' ? `<button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${filterId}">📁 New folder</button>` : ''}<button type="button" class="button primary" data-action="open-flashcard-adaptive-choice" data-scope="all">🧠 Study all subjects</button><button type="button" class="button ghost" data-action="open-quizlet-import" data-subject="${filterId === 'all' ? '' : filterId}">🟣 Import from Quizlet</button><button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${filterId === 'all' ? '' : filterId}">+ Create deck</button>`;
                 const body = !hasAny
                     ? `<div class="fc-empty"><div class="fc-empty-emoji">🗂️</div><h2>No flashcards yet</h2><p class="muted" style="max-width:420px;margin:6px auto 18px">Make your first deck by hand, from a photo of your notes, by pasting from Quizlet, or let Sparky turn your class notes into cards.</p><button type="button" class="button primary" style="padding:12px 22px" data-action="open-flashcard-create" data-subject="">+ Create your first deck</button></div>`
                     : `<div class="field" style="margin-bottom:14px"><input type="search" id="fc-search" placeholder="Search decks and cards…" value="${escape(flashcardsSearch)}" autocomplete="off"></div>${chips}
@@ -17503,6 +17503,333 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 render();
                 runMcqGenerationForSession(deck); }
 
+
+            // ---- Flashcards: adaptive AI question practice + objective-level spaced repetition ----
+            // Question bank entries live on their owning deck, inside the existing synced study-state blob.
+            // One card can produce several independent questions; questions can also draw on multiple cards.
+            function adaptiveBankForDeck(deck) {
+                return deck && deck.aiQuiz && Array.isArray(deck.aiQuiz.questions) ? deck.aiQuiz.questions : [];
+            }
+            function adaptiveEnsureBank(deck) {
+                if (!deck.aiQuiz || !Array.isArray(deck.aiQuiz.questions)) deck.aiQuiz = { questions: [] };
+                return deck.aiQuiz.questions;
+            }
+            function adaptiveBankRecords(scopeDeckIds) {
+                const ids = new Set(scopeDeckIds || []);
+                return state.flashcardDecks.flatMap(d => adaptiveBankForDeck(d).filter(q =>
+                    Array.isArray(q.sourceRefs) && q.sourceRefs.some(r => ids.has(r.deckId))));
+            }
+            function adaptiveFindQuestion(id) {
+                for (const deck of state.flashcardDecks) {
+                    const q = adaptiveBankForDeck(deck).find(x => x.id === id);
+                    if (q) return q;
+                }
+                return null;
+            }
+            function adaptiveCardSource(deck, card) {
+                const type = card.type || 'term', source = {
+                    id: card.id, deckId: deck.id, subject: (subject(deck.subjectId) || {}).name || '',
+                    topic: deck.topic, type, front: card.front, back: card.back
+                };
+                if (card.data && ['list', 'timeline', 'info'].includes(type)) source.structured = card.data;
+                if (type === 'graph' && card.data) {
+                    source.graphNotes = card.data.notes || '';
+                    source.graphLabels = card.data.board ? wbLabels(card.data.board) : [];
+                    source.graphStructure = card.data.board ? wbDescribe(card.data.board) : '';
+                }
+                const place = fcCardPlace(deck, card);
+                if (place && place.sec) source.section = place.sec.name + (place.sub ? ' / ' + place.sub.name : '');
+                return source;
+            }
+            function adaptiveCardsForSession(sess) {
+                const decks = (sess.scopeDeckIds || []).map(flashcardDeck).filter(Boolean), out = [];
+                decks.forEach(deck => {
+                    const cards = sess.scopeKind === 'deck' && decks.length === 1 && fcScope && fcScope.deckId === deck.id
+                        ? fcScopeCards(deck) : deck.cards;
+                    cards.forEach(card => out.push({ deck, card }));
+                });
+                return out;
+            }
+            function adaptiveResolveSourceRefs(q) {
+                return (q.sourceRefs || []).map(ref => {
+                    const deck = flashcardDeck(ref.deckId), card = deck && deck.cards.find(c => c.id === ref.cardId);
+                    return deck && card ? { deck, card } : null;
+                }).filter(Boolean);
+            }
+            function adaptiveSelectSourceCards(sess, records) {
+                const now = Date.now(), seen = new Map();
+                records.forEach(q => (q.sourceRefs || []).forEach(ref => {
+                    const key = ref.deckId + ':' + ref.cardId;
+                    const x = seen.get(key) || { count: 0, weak: 0, due: 0, last: 0 };
+                    x.count++; if (q.struggling) x.weak++;
+                    if (q.lastReviewed && q.dueAt && q.dueAt <= now) x.due++;
+                    x.last = Math.max(x.last, q.lastReviewed || 0); seen.set(key, x);
+                }));
+                return adaptiveCardsForSession(sess).map(x => {
+                    const stats = seen.get(x.deck.id + ':' + x.card.id);
+                    let priority = stats ? Math.max(8, 55 - stats.count * 5) : 100;
+                    if (stats) priority += stats.weak * 65 + stats.due * 35;
+                    if (stats && stats.last) priority += Math.min(20, Math.floor((now - stats.last) / 86400000));
+                    return { deck: x.deck, card: x.card, priority };
+                }).sort((a, b) => b.priority - a.priority || Math.random() - 0.5).slice(0, 28);
+            }
+            function adaptiveQuestionModeLabel(mode) {
+                return mode === 'mcq' ? 'Multiple choice' : mode === 'short' ? 'Short answer' : 'Mixed questions';
+            }
+            function adaptiveQuestionTypeLabel(type) { return type === 'mcq' ? 'MULTIPLE CHOICE' : 'SHORT ANSWER'; }
+            async function startAdaptiveAiPractice(scopeDeckIds, scopeLabel, scopeKind, typeMode) {
+                const ids = Array.from(new Set((scopeDeckIds || []).filter(id => flashcardDeck(id))));
+                if (!ids.length) { toast('There are no flashcards in that selection yet.'); return; }
+                const decks = ids.map(flashcardDeck);
+                if (!decks.some(d => d.cards && d.cards.length)) { toast('Add some flashcards before starting a test.'); return; }
+                const mode = ['mixed', 'mcq', 'short'].includes(typeMode) ? typeMode : 'mixed';
+                closeModal();
+                const sess = {
+                    mode: 'adaptive-ai', deckId: ids[0], scopeDeckIds: ids, scopeKind: scopeKind || 'all',
+                    scopeLabel: scopeLabel || (ids.length === 1 ? decks[0].topic : 'All subjects'),
+                    typeMode: mode, phase: 'generating', queue: [], index: 0, retryQueue: [],
+                    nextBatch: null, nextBatchPromise: null, prefetching: false, stage: 'first-pass',
+                    round: 1, totalAnswered: 0, currentResult: null
+                };
+                flashcardStudySession = sess; render();
+                try {
+                    const batch = await generateAdaptiveQuestionBatch(sess, 10);
+                    if (flashcardStudySession !== sess) return;
+                    sess.queue = batch; sess.index = 0; sess.phase = 'active';
+                    render(); adaptiveMaybePrefetch(sess);
+                } catch (err) {
+                    if (flashcardStudySession !== sess) return;
+                    sess.phase = 'error'; sess.loadError = err.message || 'Could not generate questions.'; render();
+                }
+            }
+            async function generateAdaptiveQuestionBatch(sess, batchSize) {
+                const ids = sess.scopeDeckIds || [], now = Date.now(), bank = adaptiveBankRecords(ids);
+                const allowed = q => sess.typeMode === 'mixed' || q.type === sess.typeMode;
+                const due = bank.filter(q => q.lastReviewed && q.dueAt && q.dueAt <= now && allowed(q) && adaptiveResolveSourceRefs(q).length)
+                    .sort((a, b) => Number(!!b.struggling) - Number(!!a.struggling) || (a.dueAt || 0) - (b.dueAt || 0))
+                    .slice(0, Math.min(3, Math.floor(batchSize / 3)));
+                const sourceCards = adaptiveSelectSourceCards(sess, bank);
+                if (!sourceCards.length) {
+                    if (due.length) return due;
+                    throw new Error('No flashcards were found in this selection.');
+                }
+                const sourceMap = new Map(sourceCards.map(x => [x.card.id, x]));
+                const payload = {
+                    requestedNewQuestions: Math.max(4, batchSize - due.length), allowedQuestionType: sess.typeMode,
+                    sourceCards: sourceCards.map(x => adaptiveCardSource(x.deck, x.card)),
+                    alreadyAskedObjectives: bank.map(q => q.objective).filter(Boolean).slice(-100)
+                };
+                const prompt = [
+                    'You are an expert exam-question writer creating a rigorous revision quiz from provided flashcards.',
+                    'SOURCE RULE: the supplied flashcards are the ONLY source of truth. Do not add outside facts, dates, examples, terminology or assumptions. Every answer and marking point must be directly supported by the supplied cards. If a detail is ambiguous, do not test it.',
+                    'COVERAGE: generate the requested number of useful, distinct questions. Do NOT create one question per flashcard. A long info card, list, timeline or definition card can contain many separately testable facts: split these into separate questions (definition, cause, effect, example, sub-point, relationship or ordered step). You may also combine related facts from multiple cards where that tests understanding. Prefer material not tested before, then areas linked to weak or due review history. Avoid repeating any already-asked objective in the input; test a different fact or angle.',
+                    'DEPTH: vary direct recall with explanation, comparison, cause-and-effect reasoning, choosing the correct consequence, interpreting a relationship, or applying a stated rule to a new but fully self-contained situation. Application questions must not require knowledge absent from the cards. Avoid trivia, vague wording and ambiguity.',
+                    'MULTIPLE CHOICE: every MCQ must have exactly four distinct options and exactly one defensibly correct answer. Make all three distractors credible and educational: adjacent concepts, common misconceptions, a swapped detail, reversed relationship, wrong stage/order, or a plausible but incorrect interpretation of the supplied material. Keep all four options similar in length, specificity, grammar and technical detail. Never use silly throwaways, an obviously longer correct answer, "all/none of the above", or options that can be eliminated without knowing the content. The correct answer must appear verbatim as one of the four choices.',
+                    'SHORT ANSWER: ask for a focused answer that can be marked consistently. Supply a model answer, accepted alternative phrasings where useful, and a concise rubric of essential marking points. Do not demand unnecessary wording or award full marks for a vague answer.',
+                    'MIXED MODE: create a balanced mixture of MCQ and short-answer questions (roughly half each). For a single-type mode, use only that type. The input field allowedQuestionType specifies which type to use.',
+                    'Each question must target one clear learning objective, not simply copy a card front. Use sourceCardIds from the supplied source card IDs; include every card needed to support the answer and no unrelated cards. A single source card ID may appear in several questions.',
+                    'Return ONLY valid JSON with this shape: {"questions":[{"objective":"short unique description of the exact fact/skill tested","type":"mcq"|"short","question":"...","choices":["...","...","...","..."],"answer":"model answer or exact correct MCQ choice","acceptedAnswers":["..."],"rubric":["essential point 1","essential point 2"],"rationale":"brief explanation grounded in the cards","sourceCardIds":["existing card id"],"difficulty":"recall"|"application"|"analysis"}]}. For short questions, choices may be an empty array. Include no markdown or text outside the JSON.'
+                ].join('\n');
+                const result = await aiJsonOnce(prompt, [{ text: JSON.stringify(payload) }]);
+                const existing = new Set(bank.map(q => q.objectiveKey).filter(Boolean)), generated = [];
+                (Array.isArray(result.questions) ? result.questions : []).forEach(raw => {
+                    const type = raw && (raw.type === 'mcq' || raw.type === 'short') ? raw.type : '';
+                    if (!type || (sess.typeMode !== 'mixed' && type !== sess.typeMode)) return;
+                    const question = String(raw.question || '').trim();
+                    let answer = String(raw.answer || '').trim();
+                    const objective = String(raw.objective || question).trim();
+                    if (!question || !answer || !objective) return;
+                    const sourceIds = Array.isArray(raw.sourceCardIds) ? raw.sourceCardIds.map(String) : [];
+                    const refs = Array.from(new Set(sourceIds)).map(id => sourceMap.get(id)).filter(Boolean)
+                        .map(x => ({ deckId: x.deck.id, cardId: x.card.id }));
+                    if (!refs.length) return;
+                    let choices = [];
+                    if (type === 'mcq') {
+                        const rawChoices = Array.isArray(raw.choices) ? raw.choices.map(x => String(x).trim()).filter(Boolean) : [];
+                        choices = [];
+                        rawChoices.forEach(x => { if (!choices.some(y => y.toLowerCase() === x.toLowerCase())) choices.push(x); });
+                        const correctChoice = choices.find(x => x.toLowerCase() === answer.toLowerCase());
+                        if (choices.length !== 4 || !correctChoice) return;
+                        answer = correctChoice; choices = shuffle(choices);
+                    }
+                    const key = fcHash(fcNorm(objective) + '|' + refs.map(r => r.deckId + ':' + r.cardId).sort().join('|'));
+                    if (existing.has(key)) return;
+                    existing.add(key);
+                    const owner = flashcardDeck(refs[0].deckId);
+                    if (!owner) return;
+                    const record = {
+                        id: 'aq_' + key, objectiveKey: key, objective, type, question, choices, answer,
+                        acceptedAnswers: Array.isArray(raw.acceptedAnswers) ? raw.acceptedAnswers.map(x => String(x).trim()).filter(Boolean).slice(0, 8) : [],
+                        rubric: Array.isArray(raw.rubric) ? raw.rubric.map(x => String(x).trim()).filter(Boolean).slice(0, 8) : [],
+                        rationale: String(raw.rationale || '').trim(),
+                        difficulty: ['recall', 'application', 'analysis'].includes(raw.difficulty) ? raw.difficulty : 'recall',
+                        sourceRefs: refs, createdAt: now, dueAt: null, intervalDays: 0, ease: 2.5,
+                        reps: 0, streak: 0, attempts: 0, lapses: 0, struggling: false, lastReviewed: null
+                    };
+                    if (!record.rubric.length && type === 'short') record.rubric = [answer];
+                    adaptiveEnsureBank(owner).push(record); generated.push(record);
+                });
+                if (generated.length) save();
+                const batch = due.concat(generated).slice(0, batchSize);
+                if (!batch.length) throw new Error('The AI could not create enough new, source-grounded questions. Try again to generate a fresh set.');
+                return batch;
+            }
+            function adaptiveMaybePrefetch(sess) {
+                if (flashcardStudySession !== sess || sess.phase !== 'active' || sess.nextBatch || sess.nextBatchPromise) return;
+                if (sess.queue.length - sess.index - 1 > 5) return;
+                sess.prefetching = true;
+                sess.nextBatchPromise = generateAdaptiveQuestionBatch(sess, 10).then(batch => {
+                    if (flashcardStudySession === sess) { sess.nextBatch = batch; sess.prefetching = false; }
+                    return batch;
+                }).catch(err => {
+                    if (flashcardStudySession === sess) { sess.prefetchError = err.message || 'Could not prepare the next batch.'; sess.prefetching = false; }
+                    return null;
+                });
+            }
+            function adaptiveRecordOutcome(sess, question, score, feedback, missing) {
+                const q = adaptiveFindQuestion(question.id) || question, now = Date.now();
+                const value = Math.max(0, Math.min(1, Number(score) || 0)), correct = value >= 0.85;
+                q.attempts = (q.attempts || 0) + 1; q.lastReviewed = now; q.lastScore = value;
+                q.lastFeedback = String(feedback || '').slice(0, 500);
+                if (correct) {
+                    q.reps = (q.reps || 0) + 1; q.streak = (q.streak || 0) + 1;
+                    q.ease = Math.min(3.2, (q.ease || 2.5) + (value >= 0.97 ? 0.12 : 0.04));
+                    const previous = q.intervalDays || 0;
+                    q.intervalDays = q.reps === 1 ? 1 : q.reps === 2 ? 3 : Math.min(120, Math.max(7, Math.round((previous || 3) * q.ease * 1.55)));
+                    q.dueAt = now + q.intervalDays * 86400000;
+                } else {
+                    q.lapses = (q.lapses || 0) + 1; q.streak = 0; q.reps = 0;
+                    q.ease = Math.max(1.3, (q.ease || 2.5) - (value < 0.5 ? 0.2 : 0.12));
+                    q.intervalDays = 0; q.dueAt = now + (value < 0.5 ? 5 : 15) * 60000;
+                }
+                q.struggling = (q.lapses || 0) >= 2 || ((q.attempts || 0) >= 2 && (q.streak || 0) === 0);
+                adaptiveResolveSourceRefs(q).forEach(ref => scheduleCardReview(ref.card, correct ? (value >= 0.97 ? 'easy' : 'good') : (value >= 0.55 ? 'hard' : 'again')));
+                sess.totalAnswered = (sess.totalAnswered || 0) + 1;
+                if (!correct) sess.retryQueue.push(q);
+                sess.currentResult = { correct, score: value, feedback: feedback || (correct ? 'Correct.' : 'Review this one again.'), missing: Array.isArray(missing) ? missing : [] };
+                save();
+            }
+            async function gradeAdaptiveShortAnswer(question, studentAnswer) {
+                const sources = adaptiveResolveSourceRefs(question).map(ref => adaptiveCardSource(ref.deck, ref.card));
+                const prompt = [
+                    'You are marking one short-answer revision response against an answer key built ONLY from the supplied flashcards.',
+                    'Do not use outside knowledge. Accept equivalent wording, sensible paraphrases and correct examples supported by the cards. Do not require the exact model wording. Be fair about minor spelling mistakes unless they change the meaning.',
+                    'Award a score from 0 to 1 based on the essential facts in the rubric. A complete answer with all key points should score at least 0.85. Partly correct or incomplete answers should score below 0.85 so the student practises the missing learning objective again. Do not give full marks for a vague answer that misses the actual point.',
+                    'Give concise, specific feedback. List important missing points, if any. If blank or irrelevant, score 0.',
+                    'Return ONLY JSON: {"score":0.0,"feedback":"one or two specific sentences","missing":["key point not included"]}. The score must be a decimal between 0 and 1.'
+                ].join('\n');
+                const payload = {
+                    question: question.question, modelAnswer: question.answer, acceptedAnswers: question.acceptedAnswers || [],
+                    markingRubric: question.rubric || [], explanation: question.rationale || '',
+                    sourceMaterial: sources, studentAnswer: String(studentAnswer || '').trim()
+                };
+                const result = await aiJsonOnce(prompt, [{ text: JSON.stringify(payload) }]);
+                let score = Number(result.score);
+                if (!Number.isFinite(score)) throw new Error('The AI returned an invalid mark. Please submit the answer again.');
+                if (score > 1 && score <= 100) score /= 100;
+                score = Math.max(0, Math.min(1, score));
+                return { score, feedback: String(result.feedback || '').trim(),
+                    missing: Array.isArray(result.missing) ? result.missing.map(String).slice(0, 8) : [] };
+            }
+            async function submitAdaptiveShortAnswer() {
+                const sess = flashcardStudySession;
+                if (!sess || sess.mode !== 'adaptive-ai' || sess.phase !== 'active' || sess.currentResult) return;
+                const question = sess.queue[sess.index], answer = document.getElementById('flashcard-adaptive-answer')?.value || '';
+                if (!String(answer).trim()) { toast('Write an answer first.'); return; }
+                sess.phase = 'grading'; sess.pendingAnswer = answer; render();
+                try {
+                    const result = await gradeAdaptiveShortAnswer(question, answer);
+                    if (flashcardStudySession !== sess) return;
+                    sess.phase = 'active'; adaptiveRecordOutcome(sess, question, result.score, result.feedback, result.missing);
+                    render(); adaptiveMaybePrefetch(sess);
+                } catch (err) {
+                    if (flashcardStudySession !== sess) return;
+                    sess.phase = 'active'; sess.pendingAnswer = answer;
+                    toast(err.message || 'Could not mark that answer — please try again.'); render();
+                }
+            }
+            function answerAdaptiveMcq(choiceIndex) {
+                const sess = flashcardStudySession;
+                if (!sess || sess.mode !== 'adaptive-ai' || sess.phase !== 'active' || sess.currentResult) return;
+                const q = sess.queue[sess.index], selected = q.choices[Number(choiceIndex)];
+                if (selected == null) return;
+                const correct = selected === q.answer;
+                adaptiveRecordOutcome(sess, q, correct ? 1 : 0,
+                    correct ? 'Correct — you identified the right concept.' : 'Not quite. Review the distinction in the explanation.', []);
+                sess.currentResult.selected = selected; render(); adaptiveMaybePrefetch(sess);
+            }
+            async function advanceAdaptiveAiPractice() {
+                const sess = flashcardStudySession;
+                if (!sess || sess.mode !== 'adaptive-ai' || !sess.currentResult) return;
+                sess.currentResult = null; sess.pendingAnswer = '';
+                if (sess.index < sess.queue.length - 1) {
+                    sess.index++; render(); adaptiveMaybePrefetch(sess); return;
+                }
+                if (sess.retryQueue.length) {
+                    sess.queue = sess.retryQueue; sess.retryQueue = []; sess.index = 0;
+                    sess.stage = 'retry'; sess.round++; render(); adaptiveMaybePrefetch(sess); return;
+                }
+                sess.phase = 'generating'; render();
+                try {
+                    let batch = sess.nextBatch;
+                    if (!batch && sess.nextBatchPromise) batch = await sess.nextBatchPromise;
+                    sess.nextBatch = null; sess.nextBatchPromise = null; sess.prefetching = false; sess.prefetchError = '';
+                    if (!batch || !batch.length) batch = await generateAdaptiveQuestionBatch(sess, 10);
+                    if (flashcardStudySession !== sess) return;
+                    sess.queue = batch; sess.index = 0; sess.stage = 'first-pass'; sess.round++;
+                    sess.phase = 'active'; render(); adaptiveMaybePrefetch(sess);
+                } catch (err) {
+                    if (flashcardStudySession !== sess) return;
+                    sess.phase = 'error'; sess.loadError = err.message || 'Could not prepare more questions.'; render();
+                }
+            }
+            function renderAdaptiveAiSession(sess) {
+                if (sess.phase === 'generating' || sess.phase === 'grading') {
+                    const message = sess.phase === 'grading' ? 'Marking your answer against the flashcards…' : 'Building your next set of questions from your flashcards…';
+                    return '<div class="fc-wrap narrow">' + fcTopbar('Adaptive AI practice', escape(sess.scopeLabel || ''), null) +
+                        '<div class="fc-panel"><p class="empty">' + message + '</p></div></div>';
+                }
+                if (sess.phase === 'error') {
+                    return '<div class="fc-wrap narrow">' + fcTopbar('Adaptive AI practice', escape(sess.scopeLabel || ''), null) +
+                        '<div class="fc-panel"><p class="empty">' + escape(sess.loadError || 'Could not load questions.') + '</p>' +
+                        '<button type="button" class="button primary" data-action="flashcard-adaptive-reload">Try again</button></div></div>';
+                }
+                const q = sess.queue[sess.index], result = sess.currentResult, letters = ['A', 'B', 'C', 'D'];
+                if (!q) return '<div class="fc-wrap narrow">' + fcTopbar('Adaptive AI practice', escape(sess.scopeLabel || ''), null) +
+                    '<div class="fc-panel"><p class="empty">Preparing questions…</p></div></div>';
+                const stageLabel = sess.stage === 'retry' ? 'Reviewing missed questions' : (sess.typeMode === 'mixed' ? 'Mixed practice' : adaptiveQuestionModeLabel(sess.typeMode));
+                const sub = (sess.scopeLabel || 'Flashcards') + ' · ' + stageLabel + ' · ' + (sess.stage === 'retry' ? 'Retry round ' + sess.round : 'Set ' + sess.round);
+                const choices = q.type === 'mcq' ? '<div class="list" style="margin-top:16px">' + q.choices.map((choice, i) => {
+                    const selected = result && result.selected === choice;
+                    const cls = result ? (choice === q.answer ? 'correct' : selected ? 'wrong' : '') : '';
+                    return '<button type="button" class="flashcard-mcq-choice ' + cls + '" data-action="flashcard-adaptive-select" data-choice-index="' + i + '"' +
+                        (result ? ' disabled' : '') + '><strong>' + letters[i] + '.</strong> ' + escape(choice) + '</button>';
+                }).join('') + '</div>' : '';
+                let answerArea = '';
+                if (q.type === 'short' && !result) {
+                    answerArea = '<textarea id="flashcard-adaptive-answer" placeholder="Write your answer from memory…" style="margin-top:14px;min-height:120px">' +
+                        escape(sess.pendingAnswer || '') + '</textarea><button type="button" class="button primary" style="margin-top:10px" data-action="flashcard-adaptive-submit">Submit answer</button>';
+                }
+                let feedback = '';
+                if (result) {
+                    feedback = '<div class="fc-answerkey" style="margin-top:16px"><strong>' +
+                        (result.correct ? '✅ Correct' : '↻ Add this to your review') + ' · ' + Math.round(result.score * 100) + '%</strong>' +
+                        '<p style="margin:7px 0">' + escape(result.feedback || '') + '</p>' +
+                        (!result.correct || q.type === 'short' ? '<div class="small"><strong>Answer:</strong> ' + escape(q.answer) + '</div>' : '') +
+                        (result.missing && result.missing.length ? '<div class="small" style="margin-top:6px"><strong>Still to include:</strong> ' + escape(result.missing.join(' · ')) + '</div>' : '') +
+                        (q.rationale ? '<div class="small" style="margin-top:6px">' + escape(q.rationale) + '</div>' : '') +
+                        '</div><button type="button" class="button primary" style="margin-top:14px" data-action="flashcard-adaptive-next">Next question →</button>';
+                }
+                return '<div class="fc-wrap narrow">' + fcTopbar('Adaptive AI practice', escape(sub), (sess.index + 1) / sess.queue.length * 100) +
+                    '<div class="fc-panel"><div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">' +
+                    '<span class="pill neutral">' + adaptiveQuestionTypeLabel(q.type) + '</span><span class="small">' +
+                    (sess.index + 1) + ' / ' + sess.queue.length + ' · ' + (sess.totalAnswered || 0) + ' answered</span></div>' +
+                    '<h2 style="margin:18px 0 8px;line-height:1.35">' + escape(q.question) + '</h2>' +
+                    (q.difficulty && q.difficulty !== 'recall' ? '<p class="small">Tests ' + escape(q.difficulty) + '</p>' : '') +
+                    choices + answerArea + feedback +
+                    '<p class="small" style="margin-top:16px">Missed questions return automatically after this set. Correctly learned questions come back later using spaced repetition.</p></div></div>';
+            }
+
             async function runSmartTestGradeRound() {
                 const s = flashcardStudySession;
                 if (!s) return;
@@ -17692,6 +18019,7 @@ Return ONLY compact JSON: {"results":[{"id":"...","verdict":"green"|"yellow"|"re
                 return `<div class="fc-wrap narrow">${top}<div class="fc-panel">${body}<div class="row" style="justify-content:space-between;align-items:center;margin-top:18px"><span class="flashcard-progress">${sess.index + 1} / ${sess.queue.length}</span>${foot}</div></div></div>`; }
 
             function renderFlashcardSession() { const sess = flashcardStudySession;
+                if (sess.mode === 'adaptive-ai') return renderAdaptiveAiSession(sess);
                 if (sess.mode === 'clickthrough') return renderClickThroughSession(sess);
                 if (sess.mode === 'smart-test') return renderSmartTestSession(sess);
                 if (sess.mode === 'mcq-test') return renderMcqTestSession(sess);
@@ -17825,6 +18153,44 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
         </div>
         </div>`; }
 
+            function openFlashcardAdaptiveChoice(deckId, subjectId, scope) {
+                let decks = [], kind = 'all', label = 'All subjects';
+                if (deckId) {
+                    const deck = flashcardDeck(deckId);
+                    if (deck) { decks = [deck]; kind = 'deck'; label = deck.topic; }
+                } else if (subjectId) {
+                    decks = state.flashcardDecks.filter(d => d.subjectId === subjectId);
+                    kind = 'subject'; label = (subject(subjectId) || {}).name || 'This subject';
+                } else if (scope === 'all' || !subjectId) {
+                    decks = state.flashcardDecks.filter(d => d.cards && d.cards.length);
+                    kind = 'all'; label = 'All subjects';
+                }
+                decks = decks.filter(d => d && d.cards && d.cards.length);
+                if (!decks.length) { toast('There are no flashcards in that selection yet.'); return; }
+                openModal('flashcard-adaptive-choice', { scopeDeckIds: decks.map(d => d.id), scopeKind: kind, scopeLabel: label });
+            }
+
+            function flashcardAdaptiveChoiceModal() {
+                const ids = Array.isArray(modal.scopeDeckIds) ? modal.scopeDeckIds : [];
+                const label = modal.scopeLabel || 'Selected flashcards';
+                const attrs = ' data-scope-decks="' + escape(ids.join(',')) + '" data-scope-label="' + escape(label) +
+                    '" data-scope-kind="' + escape(modal.scopeKind || 'all') + '"';
+                const option = (mode, icon, title, desc) => '<button type="button" class="button" style="justify-content:flex-start;padding:15px;height:auto;white-space:normal" data-action="flashcard-start-adaptive" data-mode="' +
+                    mode + '"' + attrs + '><div style="text-align:left"><strong>' + icon + ' ' + title +
+                    '</strong><div class="small" style="margin-top:3px;font-weight:400">' + desc + '</div></div></button>';
+                const saved = adaptiveBankRecords(ids), weak = saved.filter(q => q.struggling).length;
+                const progress = saved.length ? '<p class="small">Saved AI questions: <strong>' + saved.length +
+                    '</strong> · Difficult objectives: <strong>' + weak + '</strong>. Progress is saved across devices.</p>' : '';
+                return modalShell('AI practice — ' + escape(label),
+                    '<p class="small">Questions are generated from your actual flashcards, not a generic topic summary. Dense cards can produce several independent questions. Anything you miss is automatically repeated until it is right.</p>' +
+                    progress + '<div class="list">' +
+                    option('mixed', '🧠', 'Mixed practice', 'A mixture of AI-written multiple choice and short-answer questions, including explanation and application.') +
+                    option('mcq', '🔤', 'Multiple choice', 'Four carefully matched options. Distractors target related concepts and common misunderstandings.') +
+                    option('short', '✍️', 'Short answer', 'Write answers from memory. AI marks against the flashcards and accepts equivalent wording.') +
+                    '</div>',
+                    '<button type="button" class="button ghost" data-action="close-modal">Cancel</button>', true);
+            }
+
             function flashcardTestChoiceModal(deckId) {
                 const deck = flashcardDeck(deckId);
                 if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
@@ -17841,6 +18207,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                     `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test covers every card type.</strong> Type your answers from memory and AI grades them against each card's own answer format. Lists, timelines, info cards and graph prompts are all included.</div>
           <div class="list">
             <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧠 Smart Test (recommended)</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Test every card in this deck, with AI grading tailored to its type. Retry yellow/red answers until you've learned them.</div></div></button>
+            ${opt('open-flashcard-adaptive-choice', '🧠', 'Adaptive AI Practice', 'AI-generated questions across separate facts, with automatic retries and long-term spaced repetition.')}
             ${termOptions}
             ${deck.diagram&&deck.diagram.points.length?opt('flashcard-start-diagram','🖼','Diagram Labeling', 'Identify what each numbered point on your diagram is.'):''}
             ${termCount>=3?opt('flashcard-start-examsim','⏱','Exam Simulation', `Timed mixed round (~${Math.round(Math.max(120,termCount*25)/60)} min) using term cards.`):''}
@@ -19714,7 +20081,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                     modal.kind === 'chat-invite') return layer.innerHTML = chatInviteModal(chatInviteRoomId); if (
                     modal.kind === 'chat-new-dm') return layer.innerHTML = chatNewDmModal(); if (
                     modal.kind === 'flashcard-create') return layer.innerHTML = flashcardCreateModal(); if (modal.kind === 'community-preview') return layer.innerHTML = communityPreviewModal(); if (modal.kind === 'wb-start') return layer.innerHTML = wbStartModal(); if (modal.kind === 'synonym-edit') return layer.innerHTML = synonymModal(); if (modal.kind === 'custom-timetable') return layer.innerHTML = customTimetableModal(); if (
-                    modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
+                    modal.kind === 'flashcard-adaptive-choice') return layer.innerHTML = flashcardAdaptiveChoiceModal(); if (modal.kind === 'flashcard-test-choice') return layer.innerHTML = flashcardTestChoiceModal(modal.deckId); if (
                     modal.kind === 'flashcard-diagram-editor') return layer.innerHTML = diagramEditorModal(modal.deckId); if (
                     modal.kind === 'flashcard-set-chat') return layer.innerHTML = sparkySetChatModal(modal.deckId); if (
                     modal.kind === 'duplicate-classes') return layer.innerHTML = dupClassesModal(); }
@@ -24052,6 +24419,12 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcard-delete-deck') { if (confirm('Delete this whole topic and all its flashcards?')) { deleteFlashcardDeck(b.dataset.deck); flashcardsSelectedDeckId = null; render(); } }
                 else if (a === 'flashcard-start-clickthrough') startFlashcardClickThrough(b.dataset.deck);
                 else if (a === 'open-flashcard-test-choice') openModal('flashcard-test-choice', { deckId: b.dataset.deck });
+                else if (a === 'open-flashcard-adaptive-choice') openFlashcardAdaptiveChoice(b.dataset.deck, b.dataset.subject, b.dataset.scope);
+                else if (a === 'flashcard-start-adaptive') startAdaptiveAiPractice(String(b.dataset.scopeDecks || '').split(',').filter(Boolean), b.dataset.scopeLabel, b.dataset.scopeKind, b.dataset.mode);
+                else if (a === 'flashcard-adaptive-select') answerAdaptiveMcq(b.dataset.choiceIndex);
+                else if (a === 'flashcard-adaptive-submit') submitAdaptiveShortAnswer();
+                else if (a === 'flashcard-adaptive-next') advanceAdaptiveAiPractice();
+                else if (a === 'flashcard-adaptive-reload') startAdaptiveAiPractice(flashcardStudySession?.scopeDeckIds || [], flashcardStudySession?.scopeLabel || '', flashcardStudySession?.scopeKind || 'all', flashcardStudySession?.typeMode || 'mixed');
                 else if (a === 'flashcard-start-smart-test') startFlashcardSmartTest(b.dataset.deck);
                 else if (a === 'flashcard-start-mcq-test') startFlashcardMcqTest(b.dataset.deck);
                 else if (a === 'flashcard-exit-session') exitFlashcardSession();
