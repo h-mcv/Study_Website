@@ -9461,7 +9461,6 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             document.addEventListener('dragend', fcScheduleDraftBackup, true);
             window.addEventListener('pagehide', fcPersistDraftBackupNow);
             // -------------------------------------------------------------------------------------------
-
             let flashcardCreateLoading = false; // true while the image-extraction AI call is in flight
             let flashcardCreateLoadingStage = null; // 'extracting' | 'checking' | null -- which AI pass is in flight, for the loading message
             let flashcardStudySession = null; // active click-through/smart-test/mcq-test/match/gravity/cloze/tf/listening/srs-review session — see startFlashcard*
@@ -16255,7 +16254,8 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                 }
                 if (flashcardCreateDraft) fcPersistDraftBackupNow();
                 const startFresh = () => {
-                    flashcardCreateDraft = { mode: mode || 'manual', subjectId, topic: '', cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }],
+                    flashcardCreateDraft = { mode: mode || 'manual', subjectId, topic: '', sections: [],
+                        cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }],
                         images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null,
                         _backupId: String(subjectId) + ':' + Date.now() + ':' + Math.random().toString(36).slice(2) };
                     openModal('flashcard-create');
