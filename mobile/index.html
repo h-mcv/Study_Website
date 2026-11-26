@@ -9370,6 +9370,97 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             // survive a reload.
             let flashcardsSelectedDeckId = null; // null = showing that subject's topic/deck list
             let flashcardCreateDraft = null; // { mode: 'manual'|'image', subjectId, topic, cards: [{front,back}], images: [{mimeType,data,dataUrl,name}], reviewCards: [{front,back,include}]|null }
+            // ---- Flashcard draft autosave and recovery -----------------------------------------------
+            const FC_DRAFT_BACKUP_DB = 'studyWebsiteFlashcardDrafts';
+            let fcDraftBackupDbPromise = null;
+            let fcDraftBackupTimer = null;
+            function fcOpenDraftBackupDb() {
+                if (!window.indexedDB) return Promise.reject(new Error('IndexedDB unavailable'));
+                if (!fcDraftBackupDbPromise) fcDraftBackupDbPromise = new Promise((resolve, reject) => {
+                    const req = window.indexedDB.open(FC_DRAFT_BACKUP_DB, 1);
+                    req.onupgradeneeded = () => {
+                        const db = req.result;
+                        if (!db.objectStoreNames.contains('drafts')) {
+                            const store = db.createObjectStore('drafts', { keyPath: '_backupId' });
+                            store.createIndex('subjectId', 'subjectId', { unique: false });
+                        }
+                    };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error || new Error('Could not open draft backup'));
+                });
+                return fcDraftBackupDbPromise;
+            }
+            function fcScheduleDraftBackup() {
+                if (!flashcardCreateDraft) return;
+                clearTimeout(fcDraftBackupTimer);
+                fcDraftBackupTimer = setTimeout(fcPersistDraftBackupNow, 350);
+            }
+            function fcPersistDraftBackupNow() {
+                const draft = flashcardCreateDraft;
+                if (!draft || !draft.subjectId) return;
+                try {
+                    if (!draft._backupId) draft._backupId = String(draft.subjectId) + ':' + Date.now() + ':' + Math.random().toString(36).slice(2);
+                    const snapshot = JSON.parse(JSON.stringify(draft));
+                    snapshot._backupSavedAt = Date.now();
+                    fcOpenDraftBackupDb().then(db => new Promise((resolve, reject) => {
+                        const tx = db.transaction('drafts', 'readwrite');
+                        tx.objectStore('drafts').put(snapshot);
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error || new Error('Could not save draft backup'));
+                        tx.onabort = () => reject(tx.error || new Error('Draft backup was interrupted'));
+                    })).catch(() => {
+                        try { localStorage.setItem('fc-draft-backup:' + snapshot._backupId, JSON.stringify(snapshot)); }
+                        catch (err) { console.warn('Flashcard draft backup could not be saved.', err); }
+                    });
+                } catch (err) { console.warn('Flashcard draft backup could not be prepared.', err); }
+            }
+            function fcReadLocalDraftBackups(subjectId) {
+                try {
+                    const prefix = 'fc-draft-backup:', found = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (!key || !key.startsWith(prefix)) continue;
+                        const item = JSON.parse(localStorage.getItem(key) || 'null');
+                        if (item && String(item.subjectId) === String(subjectId)) found.push(item);
+                    }
+                    return found;
+                } catch (err) { return []; }
+            }
+            function fcLoadDraftBackup(subjectId) {
+                return fcOpenDraftBackupDb().then(db => new Promise((resolve, reject) => {
+                    const tx = db.transaction('drafts', 'readonly');
+                    const req = tx.objectStore('drafts').index('subjectId').getAll(String(subjectId));
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error || new Error('Could not read draft backup'));
+                })).catch(() => []).then(drafts => {
+                    const all = [...drafts, ...fcReadLocalDraftBackups(subjectId)];
+                    all.sort((a, b) => (b._backupSavedAt || 0) - (a._backupSavedAt || 0));
+                    return all[0] || null;
+                });
+            }
+            function fcClearDraftBackups(subjectId) {
+                if (!subjectId) return;
+                try {
+                    fcOpenDraftBackupDb().then(db => new Promise(resolve => {
+                        const tx = db.transaction('drafts', 'readwrite');
+                        const store = tx.objectStore('drafts');
+                        const req = store.index('subjectId').getAllKeys(String(subjectId));
+                        req.onsuccess = () => (req.result || []).forEach(key => store.delete(key));
+                        tx.oncomplete = resolve;
+                        tx.onerror = resolve;
+                    })).catch(() => {});
+                } catch (err) {}
+                fcReadLocalDraftBackups(subjectId).forEach(item => {
+                    try { localStorage.removeItem('fc-draft-backup:' + item._backupId); } catch (err) {}
+                });
+            }
+            document.addEventListener('input', fcScheduleDraftBackup, true);
+            document.addEventListener('change', fcScheduleDraftBackup, true);
+            document.addEventListener('click', fcScheduleDraftBackup, true);
+            document.addEventListener('pointerup', fcScheduleDraftBackup, true);
+            document.addEventListener('dragend', fcScheduleDraftBackup, true);
+            window.addEventListener('pagehide', fcPersistDraftBackupNow);
+            // -------------------------------------------------------------------------------------------
             let flashcardCreateLoading = false; // true while the image-extraction AI call is in flight
             let flashcardCreateLoadingStage = null; // 'extracting' | 'checking' | null -- which AI pass is in flight, for the loading message
             let flashcardStudySession = null; // active click-through/smart-test/mcq-test/match/gravity/cloze/tf/listening/srs-review session — see startFlashcard*
@@ -16156,9 +16247,27 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
 
             function openFlashcardCreateModal(subjectId, mode) {
                 if (!subjectId || !subject(subjectId)) subjectId = (state.subjects.find(x => x.active !== false) || {}).id;
-                flashcardCreateDraft = { mode: mode || 'manual',
-                    subjectId, topic: '', cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
-                openModal('flashcard-create'); }
+                if (!subjectId) { toast('Choose a subject first.'); return; }
+                if (flashcardCreateDraft && String(flashcardCreateDraft.subjectId) === String(subjectId)) {
+                    openModal('flashcard-create');
+                    return;
+                }
+                if (flashcardCreateDraft) fcPersistDraftBackupNow();
+                const startFresh = () => {
+                    flashcardCreateDraft = { mode: mode || 'manual', subjectId, topic: '', sections: [],
+                        cards: [{ front: '', back: '' }, { front: '', back: '' }, { front: '', back: '' }],
+                        images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null,
+                        _backupId: String(subjectId) + ':' + Date.now() + ':' + Math.random().toString(36).slice(2) };
+                    openModal('flashcard-create');
+                };
+                fcLoadDraftBackup(subjectId).then(saved => {
+                    if (saved && window.confirm('An unfinished flashcard draft for this subject was recovered. Restore it? Choose Cancel to start a new draft; the backup will be kept until a deck is saved.')) {
+                        flashcardCreateDraft = saved;
+                        openModal('flashcard-create');
+                        toast('Recovered your unfinished flashcard draft.');
+                    } else startFresh();
+                }).catch(startFresh);
+            }
 
             // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
             // top-level nav item -- so subject comes from the subject page's own context, never a
@@ -16473,7 +16582,7 @@ function renderFlashcardDeckDetail() {
                 deck.cards = out; deck.topic = topic;
                 if (deck.subjectId !== d.subjectId) { deck.subjectId = d.subjectId; (state.flashcardFolders || []).forEach(f => { f.deckIds = f.deckIds.filter(id => id !== deck.id); }); if (flashcardsFilterSubject !== 'all') flashcardsFilterSubject = d.subjectId; }
                 if (fcScope && fcScope.deckId === deck.id && !fcScopeCards(deck).length) fcScope = null;
-                save(); toast('Deck updated.'); flashcardCreateDraft = null; closeModal(); render(); }
+                save(); toast('Deck updated.'); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
 
             function openFlashcardEditModal(deckId, cardId) { const deck = flashcardDeck(deckId), card = deck && deck.cards.find(c => c.id === cardId); if (!card) return;
                 flashcardCreateDraft = { mode: 'edit', editing: { deckId, cardId }, subjectId: deck.subjectId, topic: deck.topic, cards: [fcRowFromCard(card)], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
@@ -16483,7 +16592,7 @@ function renderFlashcardDeckDetail() {
                 card.front = r.card.front; card.back = r.card.back;
                 if (r.card.type === 'term') { delete card.type; delete card.data; } else { card.type = r.card.type; card.data = r.card.data; }
                 fcApplyPlace(deck, card, d.cards[0].secKey);
-                save(); toast('Card updated.'); flashcardCreateDraft = null; closeModal(); render(); }
+                save(); toast('Card updated.'); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
 
             // ---- Flashcards: card types ------------------------------------------------------------------------
             // Every card keeps plain `front` / `back` text (so Click Through, spaced repetition, search, Sparky and the
@@ -16956,7 +17065,7 @@ function renderFlashcardDeckDetail() {
                 const topic = d.topic.trim();
                 addFlashcardsToDeck(d.subjectId, topic, chosen);
                 toast(`Added ${chosen.length} flashcard${chosen.length===1?'':'s'} to "${topic}".`);
-                flashcardCreateDraft = null;
+                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
                 closeModal(); render(); }
             function cancelMagicNotes() { if (flashcardCreateDraft) flashcardCreateDraft.magicResult = null; renderModal(); }
 
@@ -16980,7 +17089,7 @@ function renderFlashcardDeckDetail() {
                 if (!cards.length) { toast('No cards detected — check the format.'); return; }
                 addFlashcardsToDeck(d.subjectId, topic, cards);
                 toast(`Imported ${cards.length} flashcard${cards.length===1?'':'s'} into "${topic}".`);
-                flashcardCreateDraft = null;
+                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
                 closeModal(); render(); }
 
             function saveManualFlashcards() { const d = flashcardCreateDraft; if (!d) return;
@@ -16992,7 +17101,7 @@ function renderFlashcardDeckDetail() {
                 if (!cards.length) { toast('Add at least one complete card.'); return; }
                 addFlashcardsToDeck(d.subjectId, topic, cards);
                 toast(`Added ${cards.length} flashcard${cards.length === 1 ? '' : 's'} to "${topic}".`);
-                flashcardCreateDraft = null;
+                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
                 closeModal(); render(); }
 
             async function runInfoCardExtract() { const d = flashcardCreateDraft; if (!d) return;
@@ -17012,7 +17121,7 @@ function renderFlashcardDeckDetail() {
                 const cards = []; d.infoReview.filter(x => x.include).forEach(x => { const r = fcBuildCard({ type: 'info', front: x.title, text: x.text }); if (r && r.card) cards.push(r.card); });
                 if (!cards.length) { toast('Nothing ticked (or the text had no points).'); return; }
                 const topic = (d.topic || '').trim(); addFlashcardsToDeck(d.subjectId, topic, cards);
-                toast(`Added ${cards.length} info card${cards.length === 1 ? '' : 's'} to "${topic}".`); flashcardCreateDraft = null; closeModal(); render(); }
+                toast(`Added ${cards.length} info card${cards.length === 1 ? '' : 's'} to "${topic}".`); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
 
             async function runFlashcardExtract() { const d = flashcardCreateDraft; if (!d) return;
                 const topic = (d.topic || '').trim();
@@ -17091,7 +17200,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 const topic = d.topic.trim();
                 addFlashcardsToDeck(d.subjectId, topic, chosen);
                 toast(`Added ${chosen.length} flashcard${chosen.length===1?'':'s'} to "${topic}".`);
-                flashcardCreateDraft = null;
+                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
                 closeModal(); render(); }
             function cancelFlashcardReview() { if (flashcardCreateDraft) flashcardCreateDraft.reviewCards = null; renderModal(); }
 
@@ -19270,7 +19379,8 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 layer.innerHTML = '';
                 if (mascotTour) positionMascotWidget(currentMascotStep()); }
 
-            function renderModal() { if (openPicker) closePicker(); const layer = document.getElementById('modal-layer');
+            function renderModal() {
+                if (modal && modal.kind === 'flashcard-create') fcScheduleDraftBackup(); if (openPicker) closePicker(); const layer = document.getElementById('modal-layer');
                 layer.classList.add('open');
                 layer.setAttribute('aria-hidden', 'false'); if (!modal) return; if (modal.kind === 'onboarding')
                     return layer.innerHTML = onboardingModal(); if (modal.kind === 'year-rollover') return layer
