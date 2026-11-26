@@ -8892,7 +8892,7 @@ ${numbered}`;
         <div class="exam-year-list">
             ${[...byYear.entries()].map(([year, list]) => `<div class="exam-year-group"><h3>${year}</h3>${list.map(entry => {
                 const scheme = examPaperMarkingSchemeEntry(entry);
-                return `<div class="exam-paper-row"><span>${escape(entry.label)}</span><div class="row">${scheme ? `<button type="button" class="button ghost" data-action="examp-open-paper" data-file="${escape(scheme.file)}">Open marking scheme</button>` : ''}<button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(entry.file)}">Open</button></div></div>`;
+                return `<div class="exam-paper-row"><span>${escape(entry.label)}</span><div class="row">${scheme ? `<button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(scheme.file)}" style="background:#089e35;border-color:#089e35;box-shadow:0 8px 16px rgba(8,158,53,.2)">Open marking scheme</button>` : ''}<button type="button" class="button primary" data-action="examp-open-paper" data-file="${escape(entry.file)}">Open</button></div></div>`;
             }).join('')}</div>`).join('')}
         </div>
         </div>`);
