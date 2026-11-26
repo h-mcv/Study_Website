@@ -4711,7 +4711,118 @@
             min-height: 480px;
         }
         
-</style>
+        /* --- Subject Notes: full-screen notebook workspace ---------------------------------------------- */
+        .notes-hub { display:grid; grid-template-columns:250px minmax(0,1fr); gap:18px; align-items:start; }
+        .notes-hub-side,.notes-hub-main { min-width:0; }
+        .notes-hub-side { border:1px solid var(--line); background:var(--surface); border-radius:14px; padding:13px; }
+        .notes-hub-side-head,.notes-list-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .notes-hub-side-head { margin-bottom:10px; }
+        .notes-section-list { display:grid; gap:5px; }
+        .notes-section-row { display:flex; align-items:center; gap:4px; min-width:0; }
+        .notes-section-pick { flex:1; min-width:0; border:0; background:transparent; color:var(--text); text-align:left; border-radius:8px; padding:9px 10px; font-size:13px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .notes-section-pick.active { color:var(--primary); background:var(--primary-soft); font-weight:750; }
+        .notes-section-count { color:var(--muted); font-size:11px; flex:none; }
+        .notes-icon-button { border:0; background:transparent; color:var(--muted); border-radius:7px; padding:5px 7px; cursor:pointer; }
+        .notes-icon-button:hover { background:var(--surface-2); color:var(--text); }
+        .notes-list-head { margin:2px 0 14px; flex-wrap:wrap; }
+        .notes-list-head h2 { margin:0; }
+        .notes-create-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+        .notes-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:11px; }
+        .notes-list-card { position:relative; min-height:126px; border:1px solid var(--line); border-radius:13px; background:var(--surface); padding:14px; text-align:left; color:var(--text); cursor:pointer; display:flex; flex-direction:column; gap:9px; transition:border-color .12s,transform .12s; }
+        .notes-list-card:hover { border-color:var(--primary); transform:translateY(-1px); }
+        .notes-list-card strong { font-size:14px; overflow-wrap:anywhere; }
+        .notes-list-card .notes-card-meta { display:flex; align-items:center; gap:7px; margin-top:auto; color:var(--muted); font-size:11px; }
+        .notes-card-type { display:inline-flex; align-items:center; gap:6px; color:var(--primary); font-weight:750; font-size:11px; }
+        .notes-workspace { position:fixed; inset:0; z-index:4200; display:flex; flex-direction:column; min-width:320px; background:#eef0f5; color:#202235; font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+        body.dark .notes-workspace { background:#171824; color:#f4f4fa; }
+        .notes-workspace * { box-sizing:border-box; }
+        .notes-workspace button,.notes-workspace input,.notes-workspace select { font:inherit; }
+        .notes-workspace-top { min-height:58px; display:flex; align-items:center; gap:10px; padding:9px 15px; background:#fff; border-bottom:1px solid #dedfe8; flex:none; z-index:5; }
+        body.dark .notes-workspace-top,.dark .notes-workspace-top { background:#222335; border-color:#393a50; }
+        .notes-workspace-title-wrap { min-width:160px; flex:1; display:flex; align-items:center; gap:10px; }
+        .notes-workspace-title { min-width:80px; width:min(430px,100%); border:0; outline:0; background:transparent; color:inherit; font-size:17px!important; font-weight:800; letter-spacing:-.02em; padding:5px 2px; }
+        .notes-workspace-top select { max-width:180px; border:1px solid #dfe1ea; border-radius:8px; padding:7px 8px; background:#fff; color:#222238; }
+        body.dark .notes-workspace-top select,.dark .notes-workspace-top select { background:#292a3d; color:#f3f3fa; border-color:#484960; }
+        .notes-save-state { font-size:11px; color:#85869a; white-space:nowrap; }
+        .notes-workspace-close { border:1px solid #dfe1ea; background:#fff; color:#303147; border-radius:9px; padding:8px 11px; cursor:pointer; font-weight:700; }
+        body.dark .notes-workspace-close,.dark .notes-workspace-close { background:#292a3d; border-color:#484960; color:#f3f3fa; }
+        .notes-workspace-body { flex:1; min-height:0; display:grid; grid-template-columns:245px minmax(0,1fr); }
+        .notes-workspace.is-sidebar-collapsed .notes-workspace-body { grid-template-columns:0 minmax(0,1fr); }
+        .notes-workspace-side { min-width:0; overflow:auto; background:#f8f8fb; border-right:1px solid #dedfe8; padding:13px 10px; }
+        body.dark .notes-workspace-side,.dark .notes-workspace-side { background:#202132; border-color:#393a50; }
+        .notes-workspace.is-sidebar-collapsed .notes-workspace-side { display:none; }
+        .notes-side-heading { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 7px 10px; font-size:11px; font-weight:800; color:#77798d; text-transform:uppercase; letter-spacing:.06em; }
+        .notes-side-section { margin:10px 0 5px; padding:5px 8px; color:#85869a; font-size:11px; font-weight:800; }
+        .notes-side-item { width:100%; display:flex; align-items:center; gap:8px; border:0; background:transparent; color:inherit; border-radius:8px; text-align:left; padding:8px; margin:1px 0; cursor:pointer; font-size:12px; }
+        .notes-side-item:hover { background:#eceef5; }
+        .notes-side-item.active { background:#e8efff; color:#2456d7; font-weight:750; }
+        body.dark .notes-side-item:hover,.dark .notes-side-item:hover { background:#2c2d42; }
+        body.dark .notes-side-item.active,.dark .notes-side-item.active { background:#23365e; color:#a9c2ff; }
+        .notes-side-item span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .notes-side-create { display:grid; gap:5px; margin-top:14px; padding:10px 6px; border-top:1px solid #dedfe8; }
+        body.dark .notes-side-create,.dark .notes-side-create { border-color:#393a50; }
+        .notes-side-create button { width:100%; text-align:left; border:0; border-radius:8px; background:transparent; color:inherit; padding:8px; cursor:pointer; font-size:12px; }
+        .notes-side-create button:hover { background:#eceef5; }
+        .notes-workspace-main { min-width:0; min-height:0; margin-left:0!important; display:flex; flex-direction:column; overflow:hidden; background:#eef0f5; }
+        body.dark .notes-workspace-main,.dark .notes-workspace-main { background:#171824; }
+        .notes-toolbar { flex:none; display:flex; align-items:center; flex-wrap:wrap; gap:5px; padding:8px 12px; background:#fff; border-bottom:1px solid #dedfe8; z-index:4; }
+        body.dark .notes-toolbar,.dark .notes-toolbar { background:#222335; border-color:#393a50; }
+        .notes-toolbar button { min-width:31px; min-height:30px; border:1px solid #e0e1e9; border-radius:7px; background:#fff; color:#34354b; padding:5px 8px; cursor:pointer; font-size:12px; }
+        .notes-toolbar button:hover,.notes-toolbar button.active { background:#edf2ff; border-color:#b9c9ff; color:#2456d7; }
+        .notes-toolbar select,.notes-toolbar input[type=color],.notes-toolbar input[type=range] { height:30px; border:1px solid #e0e1e9; border-radius:7px; background:#fff; color:#34354b; padding:3px 6px; font-size:12px; }
+        .notes-toolbar input[type=color] { width:35px; padding:2px; }
+        .notes-toolbar-sep { width:1px; height:24px; background:#e0e1e9; margin:0 3px; }
+        .notes-editor-scroll { flex:1; min-height:0; overflow:auto; padding:26px 26px 60px; overscroll-behavior:contain; }
+        .notes-paper { position:relative; width:min(100%,1050px); min-height:calc(100vh - 160px); margin:0 auto; padding:70px 82px 100px; background:#fff; color:#202235; box-shadow:0 3px 22px rgba(28,36,68,.12); font:16px/1.75 Aptos,Calibri,"Segoe UI",sans-serif; outline:0; overflow-wrap:anywhere; }
+        .notes-paper.lined { background-image:repeating-linear-gradient(to bottom,#fff 0,#fff 30px,#dce5f2 31px); background-position:0 8px; }
+        .notes-paper:focus { outline:0; }
+        .notes-paper h1 { font-size:30px; margin:0 0 16px; }
+        .notes-paper h2 { font-size:24px; margin:22px 0 10px; }
+        .notes-paper h3 { font-size:19px; margin:18px 0 8px; }
+        .notes-paper p { margin:0 0 10px; }
+        .notes-paper table { border-collapse:collapse; width:100%; margin:12px 0; }
+        .notes-paper td,.notes-paper th { border:1px solid #cfd3df; padding:7px 9px; min-width:60px; }
+        .notes-paper img,.notes-block-content img { max-width:100%; height:auto; border-radius:4px; }
+        .notes-paper a { color:#2456d7; text-decoration:underline; }
+        .notes-paper.margin-on { padding-left:140px; }
+        .notes-paper.margin-on:before { content:""; position:absolute; top:0; bottom:0; left:112px; width:2px; background:#e88a8a; pointer-events:none; }
+        .notes-red-margin { position:absolute; z-index:1; left:20px; top:38px; bottom:38px; width:76px; padding:4px 7px; color:#8a4242; font-size:12px; line-height:1.55; outline:0; overflow:auto; }
+        .notes-red-margin:empty:before { content:"Margin"; color:#c48a8a; }
+        .notes-paper:not(.margin-on) .notes-red-margin { display:none; }
+        .notes-paper.lined .notes-red-margin { background:repeating-linear-gradient(to bottom,transparent 0,transparent 23px,#f2caca 24px); }
+        .notes-editor-scroll.whiteboard-scroll,.notes-editor-scroll.math-scroll { padding:18px; }
+        .notes-infinite-canvas { position:relative; width:2200px; height:1450px; margin:0 auto; background:#fff; box-shadow:0 2px 20px rgba(28,36,68,.12); overflow:hidden; }
+        .notes-board-layer { position:absolute; inset:0; z-index:0; pointer-events:none; }
+        .notes-board-layer svg { display:block; width:100%; height:100%; }
+        .notes-block-layer { position:absolute; inset:0; z-index:2; pointer-events:none; }
+        .notes-text-block { position:absolute; pointer-events:auto; min-width:140px; min-height:85px; width:440px; height:170px; resize:both; overflow:auto; border:1px solid transparent; border-radius:7px; background:rgba(255,255,255,.92); box-shadow:0 1px 6px rgba(25,35,65,.07); }
+        .notes-text-block:focus-within { border-color:#9bb5ff; box-shadow:0 0 0 2px rgba(46,99,246,.1); }
+        .notes-block-handle { height:23px; display:flex; align-items:center; justify-content:space-between; gap:6px; padding:1px 5px 1px 9px; background:rgba(240,243,250,.94); color:#85869a; font-size:10px; font-weight:750; cursor:move; user-select:none; touch-action:none; }
+        .notes-block-handle button { border:0; background:transparent; color:#8c8da0; cursor:pointer; padding:0 4px; font-size:13px; }
+        .notes-block-content { min-height:calc(100% - 23px); height:calc(100% - 23px); padding:9px 11px; outline:0; overflow:auto; color:#202235; font:16px/1.5 Aptos,Calibri,"Segoe UI",sans-serif; overflow-wrap:anywhere; }
+        .notes-block-content:empty:before { content:"Click here and start typing…"; color:#a3a5b4; }
+        .notes-block-content h1,.notes-block-content h2,.notes-block-content h3 { margin:4px 0 8px; }
+        .notes-block-content p { margin:0 0 7px; }
+        .notes-block-content math-field { display:inline-block; min-width:30px; padding:2px 4px; border:1px solid #dfe3ef; border-radius:5px; background:#f8f9fd; }
+        .notes-math-page { position:relative; width:2200px; height:1600px; margin:0 auto; overflow:hidden; background-color:#fff; background-image:linear-gradient(to right,#dce5f2 1px,transparent 1px),linear-gradient(to bottom,#dce5f2 1px,transparent 1px); background-size:var(--notes-grid-size,24px) var(--notes-grid-size,24px); box-shadow:0 2px 20px rgba(28,36,68,.12); }
+        .notes-ink-canvas { position:absolute; inset:0; z-index:1; width:2200px; height:1600px; touch-action:none; }
+        .notes-math-page .notes-block-layer { z-index:2; }
+        .notes-ink-canvas.eraser-cursor { cursor:cell; }
+        .notes-workspace .notes-save-warning { color:#bd3f53; }
+        body.notes-workspace-open { overflow:hidden; }
+        @media print {
+            body * { visibility:hidden!important; }
+            #notes-workspace,#notes-workspace .notes-workspace-main,#notes-workspace .notes-editor-scroll,#notes-workspace .notes-paper,#notes-workspace .notes-paper * { visibility:visible!important; }
+            #notes-workspace { position:static!important; overflow:visible!important; background:#fff!important; }
+            #notes-workspace .notes-workspace-top,#notes-workspace .notes-workspace-side,#notes-workspace .notes-toolbar { display:none!important; }
+            #notes-workspace .notes-workspace-body,#notes-workspace .notes-workspace-main,#notes-workspace .notes-editor-scroll { display:block!important; overflow:visible!important; padding:0!important; }
+            #notes-workspace .notes-paper { width:100%!important; min-height:0!important; margin:0!important; box-shadow:none!important; page-break-after:always; }
+        }
+        @media (max-width:900px) { .notes-hub { grid-template-columns:1fr; } .notes-hub-side { padding:10px; } .notes-section-list { display:flex; flex-wrap:wrap; } .notes-section-row { max-width:220px; } }
+        @media (max-width:700px) { .notes-workspace-top { gap:6px; padding:8px; flex-wrap:wrap; } .notes-workspace-title-wrap { order:1; flex-basis:100%; } .notes-workspace-body { grid-template-columns:190px minmax(0,1fr); } .notes-workspace-top select { max-width:125px; } .notes-editor-scroll { padding:12px; } .notes-paper { padding:42px 28px; } .notes-paper.margin-on { padding-left:110px; } .notes-paper.margin-on:before { left:88px; } .notes-red-margin { width:58px; left:15px; } }
+
+
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script>
@@ -8661,6 +8772,8 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 topics: [],
                 reminders: [],
                 classTopics: [], // what's currently/previously been covered in each class — see section on the Classes page
+                subjectNoteSections: [], // OneNote-style groups within each subject's notebook
+                subjectNotes: [], // Individual subject notes and their content
                 pastPapers: [], // { id, subjectId, year, result } — one entry per past exam a user has logged a result for
                 studySessionLog: [], // { id, date, overallRating, itemCount, isSupervised } — one entry per finished Study Mode session
                 studyPlans: {},
@@ -8906,7 +9019,10 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     subjects, events, exams: Array.isArray(saved.exams) ? saved.exams : [],
                     topics: Array.isArray(saved.topics) ? saved.topics : [], reminders: Array.isArray(saved
                         .reminders) ? saved.reminders : [], classTopics: Array.isArray(saved.classTopics) ? saved
-                        .classTopics : [], studyPlans: saved.studyPlans && typeof saved.studyPlans === 'object' ?
+                        .classTopics : [],
+                    subjectNoteSections: Array.isArray(saved.subjectNoteSections) ? saved.subjectNoteSections : [],
+                    subjectNotes: Array.isArray(saved.subjectNotes) ? saved.subjectNotes : [],
+                    studyPlans: saved.studyPlans && typeof saved.studyPlans === 'object' ?
                         saved.studyPlans : {}, coins: typeof saved.coins === 'number' ? saved.coins : 0,
                     unlockedExpressions: Array.isArray(saved.unlockedExpressions) ? saved.unlockedExpressions : [],
                     unlockedColors: Array.isArray(saved.unlockedColors) ? saved.unlockedColors : ['classic'],
@@ -15381,7 +15497,9 @@ ${pointsSvg}
                     `<div class="topic-row">${topicLabelSpan(t)}<div class="row">${[['good','🟢'],['ok','🟡'],['bad','🔴']].map(([id,emoji])=>`<button type="button" class="topic-rating-btn" data-action="classtopic-rate" data-topic="${t.id}" data-rating="${id}" aria-label="${id}" style="opacity:${t.rating===id?'1':'.3'}">${emoji}</button>`).join('')}<button class="button ghost" data-action="classtopic-back-to-learning" data-topic="${t.id}" aria-label="Being reviewed in class again" title="Being reviewed in class again">↩</button><button class="button ghost danger" data-action="classtopic-delete" data-topic="${t.id}" aria-label="Delete" title="Delete">🗑</button></div></div>`;
 
                 let content;
-                if (section === 'topics') { content =
+                if (section === 'notes') {
+                    content = renderSubjectNotes(s);
+                } else if (section === 'topics') { content =
                     `<h3>Currently learning in class</h3><div class="list">${learning.length?learning.map(learningRow).join(''):'<p class="empty">Nothing added yet.</p>'}</div><div class="form-grid" style="margin-top:10px"><input type="text" id="classtopic-add-input" placeholder="e.g. Algebra 2" class="field span-2"><button type="button" class="button primary span-2" data-action="classtopic-add" data-subject="${s.id}">+ Add topic</button></div>
           ${paused.length?`<div style="margin-top:20px"><h3>Paused</h3><div class="list">${paused.map(pausedRow).join('')}</div></div>`:''}
           <div style="margin-top:20px"><h3>Already learnt</h3><div class="list">${done.length?done.map(doneRow).join(''):'<p class="empty">Nothing completed yet.</p>'}</div></div>`;
@@ -15417,7 +15535,7 @@ ${pointsSvg}
         <button type="button" class="subject-page-back" data-action="nav-classes">← Back to Classes</button>
         ${header(escape(s.name), `${CATEGORY_LABELS[s.category]||'Other'}${s.examSubject===false?' · not an exam subject':''}`,'')}
         <div class="subject-page-layout">
-          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('pastpapers','Past Papers')}<button type="button" data-action="open-flashcards-for-subject" data-subject="${s.id}">Flashcards ↗</button>${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}${hasFormulaBook?navBtn('formulas','Formula Book'):''}</div>
+          <div class="subject-page-nav">${navBtn('overview','Overview')}${navBtn('topics','Topics')}${navBtn('notes','Notes')}${navBtn('pastpapers','Past Papers')}<button type="button" data-action="open-flashcards-for-subject" data-subject="${s.id}">Flashcards ↗</button>${isLang?navBtn('wordbank','Word Bank'):''}${isLang?navBtn('essaymarking','Essay Marking'):''}${hasFormulaBook?navBtn('formulas','Formula Book'):''}</div>
           <div>${content}</div>
         </div>
         </div>`); }
@@ -24077,6 +24195,398 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (t.id === 'flashcard-paste-text') { if (!flashcardCreateDraft) return; const pos = t.selectionStart;
                     flashcardCreateDraft.pasteText = t.value; renderModal();
                     const el = document.getElementById('flashcard-paste-text'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} } } });
+
+            // ---- Subject Notes ---------------------------------------------------------------------------
+            // Notes belong to a subject, not a timetable event. Sections act as OneNote-style groups.
+            let notesWorkspaceId = null;
+            let notesSelectedSectionId = null;
+            let notesWorkspaceSidebarCollapsed = false;
+            let notesSaveTimer = null;
+            let notesSavedRange = null;
+            let notesActiveEditable = null;
+            let notesActiveBlockId = null;
+            let notesMathTool = 'pen';
+            let notesPenColor = '#202235';
+            let notesPenWidth = 3;
+            let notesMathRedo = [];
+
+            function subjectNoteSectionsFor(subjectId) {
+                return (state.subjectNoteSections || []).filter(x => x.subjectId === subjectId)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0));
+            }
+            function subjectNotesFor(subjectId) {
+                return (state.subjectNotes || []).filter(x => x.subjectId === subjectId)
+                    .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+            }
+            function notesEnsureSection(subjectId) {
+                let sections = subjectNoteSectionsFor(subjectId);
+                if (!sections.length) {
+                    const section = { id: uid(), subjectId, name: 'General', order: 0, createdAt: Date.now() };
+                    state.subjectNoteSections.push(section); save(); sections = [section];
+                }
+                return sections;
+            }
+            function notesSectionFor(note) {
+                return (state.subjectNoteSections || []).find(x => x.id === note.sectionId && x.subjectId === note.subjectId) || null;
+            }
+            function notesTypeLabel(type) { return type === 'whiteboard' ? 'Whiteboard' : type === 'maths' ? 'Maths page' : 'Document'; }
+            function notesTypeIcon(type) { return type === 'whiteboard' ? '▧' : type === 'maths' ? '∑' : '▤'; }
+            function notesDate(value) {
+                if (!value) return 'Just created';
+                try { return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); }
+                catch { return 'Recently edited'; }
+            }
+            function renderSubjectNotes(s) {
+                const sections = notesEnsureSection(s.id);
+                if (!notesSelectedSectionId || !sections.some(x => x.id === notesSelectedSectionId)) notesSelectedSectionId = sections[0].id;
+                const active = sections.find(x => x.id === notesSelectedSectionId) || sections[0];
+                const notes = subjectNotesFor(s.id).filter(n => n.sectionId === active.id);
+                const allNotes = subjectNotesFor(s.id);
+                const sectionRows = sections.map(section => {
+                    const count = allNotes.filter(n => n.sectionId === section.id).length;
+                    return `<div class="notes-section-row"><button type="button" class="notes-section-pick ${section.id === active.id ? 'active' : ''}" data-notes-action="section-select" data-section="${section.id}">▸ ${escape(section.name)} <span class="notes-section-count">${count}</span></button><button type="button" class="notes-icon-button" data-notes-action="section-menu" data-section="${section.id}" title="Rename or delete section">···</button></div>`;
+                }).join('');
+                const cards = notes.map(note => `<button type="button" class="notes-list-card" data-notes-action="open-note" data-note="${note.id}"><span class="notes-card-type">${notesTypeIcon(note.type)} ${notesTypeLabel(note.type)}</span><strong>${escape(note.title || 'Untitled note')}</strong><span class="notes-card-meta"><span>Edited ${notesDate(note.updatedAt || note.createdAt)}</span><span>·</span><span>${(note.type === 'whiteboard' || note.type === 'maths') ? `${(note.blocks || []).length} text box${(note.blocks || []).length === 1 ? '' : 'es'}` : 'Document'}</span></span></button>`).join('');
+                return `<div class="notes-hub"><aside class="notes-hub-side"><div class="notes-hub-side-head"><strong>Notebook sections</strong><button type="button" class="button ghost icon" data-notes-action="add-section" data-subject="${s.id}" title="Add section">＋</button></div><div class="notes-section-list">${sectionRows}</div><p class="small" style="margin:12px 4px 2px">Group notes by chapter, topic or unit.</p></aside><section class="notes-hub-main"><div class="notes-list-head"><div><h2>${escape(active.name)}</h2><span class="small">${notes.length} note${notes.length === 1 ? '' : 's'} in ${escape(s.name)}</span></div></div><div class="notes-create-row"><button type="button" class="button primary" data-notes-action="create-note" data-subject="${s.id}" data-type="document">＋ Document</button><button type="button" class="button" data-notes-action="create-note" data-subject="${s.id}" data-type="whiteboard">＋ Whiteboard</button><button type="button" class="button" data-notes-action="create-note" data-subject="${s.id}" data-type="maths">＋ Maths page</button></div><div class="notes-list">${cards || '<div class="card section" style="grid-column:1/-1"><p class="empty">No notes in this section yet. Create a document, whiteboard or maths page to get started.</p></div>'}</div></section></div>`;
+            }
+            function notesNewObject(subjectId, type, sectionId) {
+                const sections = notesEnsureSection(subjectId);
+                const section = sections.find(x => x.id === sectionId) || sections[0];
+                const now = Date.now();
+                return { id: uid(), subjectId, sectionId: section.id, title: type === 'maths' ? 'Maths notes' : type === 'whiteboard' ? 'Whiteboard notes' : 'Untitled document', type,
+                    html: '', marginHtml: '', pageStyle: 'blank', marginEnabled: false,
+                    board: { shapes: [] }, blocks: type === 'document' ? [] : [{ id: uid(), x: 100, y: 90, w: 620, h: 240, html: '' }], ink: [], gridSize: 24, createdAt: now, updatedAt: now };
+            }
+            function notesCreate(subjectId, type, sectionId, open = true) {
+                if (!subject(subjectId)) return;
+                const note = notesNewObject(subjectId, ['document','whiteboard','maths'].includes(type) ? type : 'document', sectionId || notesSelectedSectionId);
+                state.subjectNotes.push(note); notesSelectedSectionId = note.sectionId; save();
+                if (open) notesOpenWorkspace(note.id); else render();
+            }
+            function notesRenameSection(sectionId) {
+                const section = state.subjectNoteSections.find(x => x.id === sectionId); if (!section) return;
+                const name = prompt('Rename section:', section.name);
+                if (name == null || !name.trim()) return;
+                section.name = name.trim().slice(0, 70); save(); render();
+            }
+            function notesDeleteSection(sectionId) {
+                const section = state.subjectNoteSections.find(x => x.id === sectionId); if (!section) return;
+                const sections = subjectNoteSectionsFor(section.subjectId);
+                if (sections.length <= 1) { toast('A subject must keep at least one notes section.'); return; }
+                if (!confirm(`Delete the section “${section.name}”? Its notes will be moved to another section.`)) return;
+                const target = sections.find(x => x.id !== sectionId);
+                (state.subjectNotes || []).filter(n => n.sectionId === sectionId).forEach(n => { n.sectionId = target.id; n.updatedAt = Date.now(); });
+                state.subjectNoteSections = state.subjectNoteSections.filter(x => x.id !== sectionId);
+                if (notesSelectedSectionId === sectionId) notesSelectedSectionId = target.id;
+                save(); render();
+            }
+            function notesSanitizeHtml(raw) {
+                const parser = new DOMParser(), doc = parser.parseFromString(String(raw || ''), 'text/html');
+                doc.querySelectorAll('script,style,iframe,object,embed,form,meta,link,video,audio').forEach(el => el.remove());
+                const allowed = new Set(['P','DIV','SPAN','BR','HR','H1','H2','H3','H4','H5','H6','B','STRONG','I','EM','U','S','SUB','SUP','FONT','UL','OL','LI','BLOCKQUOTE','PRE','CODE','A','IMG','TABLE','THEAD','TBODY','TR','TD','TH','MATH-FIELD']);
+                const styles = new Set(['color','background-color','font-size','font-family','font-weight','font-style','text-decoration','text-align','width','height','max-width','border','border-color','border-width','border-style','padding','margin']);
+                [...doc.body.querySelectorAll('*')].forEach(el => {
+                    if (!allowed.has(el.tagName)) { el.replaceWith(...el.childNodes); return; }
+                    [...el.attributes].forEach(attr => {
+                        const name = attr.name.toLowerCase();
+                        if (name.startsWith('on') || name === 'srcset' || name === 'contenteditable' || name === 'id') { el.removeAttribute(attr.name); return; }
+                        if (name === 'style') {
+                            const clean = [];
+                            String(attr.value).split(';').forEach(pair => { const i = pair.indexOf(':'); if (i < 0) return; const k = pair.slice(0,i).trim().toLowerCase(), v = pair.slice(i+1).trim();
+                                if (styles.has(k) && v && !/url\s*\(|expression|javascript/i.test(v)) clean.push(`${k}:${v}`); });
+                            if (clean.length) el.setAttribute('style', clean.join(';')); else el.removeAttribute('style');
+                            return;
+                        }
+                        const ok = (el.tagName === 'A' && ['href','target','rel'].includes(name)) || (el.tagName === 'IMG' && ['src','alt','width','height'].includes(name)) || (el.tagName === 'MATH-FIELD' && ['virtual-keyboard-mode','value'].includes(name)) || (name === 'class' && el.tagName === 'MATH-FIELD');
+                        if (!ok) el.removeAttribute(attr.name);
+                    });
+                    if (el.tagName === 'A') { const href = el.getAttribute('href') || ''; if (!/^(https?:|mailto:|#)/i.test(href)) el.removeAttribute('href'); el.setAttribute('rel','noopener noreferrer'); }
+                    if (el.tagName === 'IMG') { const src = el.getAttribute('src') || ''; if (!/^(data:image\/|blob:|https?:\/\/)/i.test(src)) el.remove(); else { el.setAttribute('loading','lazy'); el.style.maxWidth = '100%'; } }
+                });
+                return doc.body.innerHTML;
+            }
+            function notesActiveNote() { return (state.subjectNotes || []).find(n => n.id === notesWorkspaceId) || null; }
+            function notesSaveSoon(note) {
+                if (!note) return;
+                note.updatedAt = Date.now();
+                const status = document.querySelector('#notes-workspace [data-notes-save-state]'); if (status) { status.textContent = 'Saving…'; status.classList.remove('notes-save-warning'); }
+                clearTimeout(notesSaveTimer);
+                notesSaveTimer = setTimeout(() => {
+                    try { save(); const el = document.querySelector('#notes-workspace [data-notes-save-state]'); if (el) el.textContent = 'Saved'; }
+                    catch (err) { const el = document.querySelector('#notes-workspace [data-notes-save-state]'); if (el) { el.textContent = 'Could not save'; el.classList.add('notes-save-warning'); } console.error('Subject note save failed', err); }
+                }, 750);
+            }
+            function notesFlushSave() {
+                clearTimeout(notesSaveTimer); notesSaveTimer = null;
+                try { save(); const el = document.querySelector('#notes-workspace [data-notes-save-state]'); if (el) el.textContent = 'Saved'; }
+                catch (err) { console.error('Subject note save failed', err); toast('Could not save the note. Check available storage.'); }
+            }
+            function notesWorkspaceSidebar(note) {
+                const sections = subjectNoteSectionsFor(note.subjectId), notes = subjectNotesFor(note.subjectId);
+                return `<aside class="notes-workspace-side"><div class="notes-side-heading"><span>Notebook</span><button class="notes-icon-button" data-notes-action="toggle-side" title="Hide notebook panel">‹</button></div>${sections.map(section => `<div class="notes-side-section">${escape(section.name)}</div>${notes.filter(n => n.sectionId === section.id).map(n => `<button type="button" class="notes-side-item ${n.id === note.id ? 'active' : ''}" data-notes-action="open-note" data-note="${n.id}"><b>${notesTypeIcon(n.type)}</b><span>${escape(n.title || 'Untitled note')}</span></button>`).join('')}`).join('')}<div class="notes-side-create"><button type="button" data-notes-action="create-workspace-note" data-type="document">＋ New document</button><button type="button" data-notes-action="create-workspace-note" data-type="whiteboard">＋ New whiteboard</button><button type="button" data-notes-action="create-workspace-note" data-type="maths">＋ New maths page</button></div></aside>`;
+            }
+            function notesDocToolbar(note) {
+                const command = (cmd, label, title) => `<button type="button" data-notes-action="doc-command" data-command="${cmd}" title="${title || label}">${label}</button>`;
+                return `<div class="notes-toolbar" role="toolbar" aria-label="Document formatting">
+                    <select data-notes-action="doc-select" data-command="fontName" aria-label="Font"><option value="Aptos">Aptos</option><option value="Arial">Arial</option><option value="Calibri">Calibri</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="Verdana">Verdana</option></select>
+                    <select data-notes-action="doc-select" data-command="fontSize" aria-label="Font size"><option value="2">10</option><option value="3" selected>12</option><option value="4">14</option><option value="5">18</option><option value="6">24</option><option value="7">36</option></select>
+                    <select data-notes-action="doc-select" data-command="formatBlock" aria-label="Paragraph style"><option value="p">Normal</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option><option value="blockquote">Quote</option><option value="pre">Code block</option></select>
+                    <span class="notes-toolbar-sep"></span>${command('bold','B','Bold')}${command('italic','I','Italic')}${command('underline','U','Underline')}${command('strikeThrough','S̶','Strikethrough')}${command('subscript','x₂','Subscript')}${command('superscript','x²','Superscript')}
+                    <input type="color" value="#202235" data-notes-action="doc-colour" data-command="foreColor" title="Text colour" aria-label="Text colour"><input type="color" value="#fff2a8" data-notes-action="doc-colour" data-command="hiliteColor" title="Highlight colour" aria-label="Highlight colour">
+                    <span class="notes-toolbar-sep"></span>${command('justifyLeft','≡','Align left')}${command('justifyCenter','☷','Centre')}${command('justifyRight','☰','Align right')}${command('justifyFull','▤','Justify')}
+                    <span class="notes-toolbar-sep"></span>${command('insertUnorderedList','• List','Bulleted list')}${command('insertOrderedList','1. List','Numbered list')}${command('outdent','⇤','Decrease indent')}${command('indent','⇥','Increase indent')}
+                    <span class="notes-toolbar-sep"></span>${command('undo','↶','Undo')}${command('redo','↷','Redo')}${command('insertHorizontalRule','―','Horizontal line')}
+                    <button type="button" data-notes-action="doc-link">Link</button><button type="button" data-notes-action="doc-table">Table</button><button type="button" data-notes-action="doc-checklist">☑ Checklist</button><button type="button" data-notes-action="doc-image">＋ Image</button><button type="button" data-notes-action="doc-print">Print</button>
+                    <span class="notes-toolbar-sep"></span><button type="button" data-notes-action="doc-page-style" data-style="blank" class="${note.pageStyle !== 'lined' ? 'active' : ''}">Blank</button><button type="button" data-notes-action="doc-page-style" data-style="lined" class="${note.pageStyle === 'lined' ? 'active' : ''}">Lined</button><button type="button" data-notes-action="doc-margin-toggle" class="${note.marginEnabled ? 'active' : ''}">Red margin ${note.marginEnabled ? 'On' : 'Off'}</button>
+                </div>`;
+            }
+            function notesTextToolbar() {
+                return `<div class="notes-toolbar" role="toolbar" aria-label="Whiteboard text tools"><button type="button" data-notes-action="add-block">＋ Text box</button><button type="button" data-notes-action="text-image">＋ Image</button><span class="notes-toolbar-sep"></span><button type="button" data-notes-action="text-command" data-command="bold"><b>B</b></button><button type="button" data-notes-action="text-command" data-command="italic"><i>I</i></button><button type="button" data-notes-action="text-command" data-command="underline"><u>U</u></button><button type="button" data-notes-action="text-command" data-command="insertUnorderedList">• List</button><input type="color" value="#202235" data-notes-action="text-colour" title="Text colour"><button type="button" data-notes-action="text-size" data-size="18">A−</button><button type="button" data-notes-action="text-size" data-size="26">A</button><button type="button" data-notes-action="text-size" data-size="36">A＋</button><span class="notes-toolbar-sep"></span><button type="button" data-notes-action="open-drawing">✎ Drawing &amp; shapes</button><button type="button" data-notes-action="clear-drawing">Clear drawing</button><button type="button" data-notes-action="delete-block">Delete selected text box</button></div>`;
+            }
+            function notesMathToolbar(note) {
+                const colours = ['#202235','#2563eb','#dc2626','#16a34a','#d97706','#7c3aed','#0891b2','#ec4899'];
+                return `<div class="notes-toolbar" role="toolbar" aria-label="Maths tools"><button type="button" data-notes-action="math-tool" data-tool="pen" class="${notesMathTool === 'pen' ? 'active' : ''}">✎ Pen</button><button type="button" data-notes-action="math-tool" data-tool="erase" class="${notesMathTool === 'erase' ? 'active' : ''}">⌫ Eraser</button><span class="notes-toolbar-sep"></span>${colours.map(c => `<button type="button" data-notes-action="math-colour" data-colour="${c}" title="Pen colour" style="min-width:20px;width:20px;height:20px;padding:0;border-radius:50%;background:${c};border:1px solid #afb2c1"></button>`).join('')}<span class="small" style="color:#77798d">Width</span><input type="range" min="1" max="18" value="${notesPenWidth}" data-notes-action="math-width" style="width:82px"><button type="button" data-notes-action="math-undo">↶ Undo ink</button><button type="button" data-notes-action="math-clear">Clear ink</button><span class="notes-toolbar-sep"></span><button type="button" data-notes-action="add-block">＋ Text box</button><button type="button" data-notes-action="math-equation">∑ Equation</button><button type="button" data-notes-action="math-symbol" data-symbol="√">√</button><button type="button" data-notes-action="math-symbol" data-symbol="π">π</button><button type="button" data-notes-action="math-symbol" data-symbol="±">±</button><button type="button" data-notes-action="math-symbol" data-symbol="≤">≤</button><button type="button" data-notes-action="math-symbol" data-symbol="≥">≥</button><button type="button" data-notes-action="math-symbol" data-symbol="≠">≠</button><button type="button" data-notes-action="math-symbol" data-symbol="∞">∞</button><button type="button" data-notes-action="math-symbol" data-symbol="∑">∑</button><button type="button" data-notes-action="math-symbol" data-symbol="∫">∫</button><span class="notes-toolbar-sep"></span><button type="button" data-notes-action="open-drawing">Graph &amp; geometry tools</button><select data-notes-action="math-grid-size" aria-label="Grid size"><option value="18" ${note.gridSize===18?'selected':''}>Fine grid</option><option value="24" ${!note.gridSize||note.gridSize===24?'selected':''}>Normal grid</option><option value="36" ${note.gridSize===36?'selected':''}>Wide grid</option></select></div>`;
+            }
+            function notesBlockHtml(block) {
+                const x = Number(block.x) || 100, y = Number(block.y) || 100, w = Math.max(140, Number(block.w) || 440), h = Math.max(85, Number(block.h) || 170);
+                return `<div class="notes-text-block" data-notes-block="${block.id}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><div class="notes-block-handle" data-notes-block-handle="${block.id}"><span>TEXT BOX · DRAG TO MOVE</span><button type="button" data-notes-action="remove-block" data-block="${block.id}" title="Remove text box">×</button></div><div class="notes-block-content" contenteditable="true" spellcheck="true" data-notes-editable="block" data-block="${block.id}">${notesSanitizeHtml(block.html || '')}</div></div>`;
+            }
+            function notesWorkspaceHtml(note) {
+                const s = subject(note.subjectId), sections = notesEnsureSection(note.subjectId), blocks = Array.isArray(note.blocks) ? note.blocks : [];
+                const sectionOptions = sections.map(x => `<option value="${x.id}" ${x.id === note.sectionId ? 'selected' : ''}>${escape(x.name)}</option>`).join('');
+                const editorToolbar = note.type === 'document' ? notesDocToolbar(note) : note.type === 'maths' ? notesMathToolbar(note) : notesTextToolbar();
+                let editor = '';
+                if (note.type === 'document') {
+                    editor = `<div class="notes-editor-scroll"><div class="notes-paper ${note.pageStyle === 'lined' ? 'lined' : ''} ${note.marginEnabled ? 'margin-on' : ''}">${note.marginEnabled ? `<div class="notes-red-margin" contenteditable="true" spellcheck="true" data-notes-editable="margin">${notesSanitizeHtml(note.marginHtml || '')}</div>` : ''}<div contenteditable="true" spellcheck="true" data-notes-editable="document" aria-label="Document page">${notesSanitizeHtml(note.html || '')}</div></div></div>`;
+                } else if (note.type === 'whiteboard') {
+                    const svg = wbBoardSvg(note.board || { shapes: [] }, { attrs: 'width="2200" height="1408"' });
+                    editor = `<div class="notes-editor-scroll whiteboard-scroll"><div class="notes-infinite-canvas"><div class="notes-board-layer">${svg}</div><div class="notes-block-layer">${blocks.map(notesBlockHtml).join('')}</div></div></div>`;
+                } else {
+                    editor = `<div class="notes-editor-scroll math-scroll"><div class="notes-math-page" style="--notes-grid-size:${Number(note.gridSize) || 24}px"><canvas class="notes-ink-canvas" width="2200" height="1600" aria-label="Maths pen layer"></canvas><div class="notes-block-layer">${blocks.map(notesBlockHtml).join('')}</div></div></div>`;
+                }
+                return `<div class="notes-workspace ${notesWorkspaceSidebarCollapsed ? 'is-sidebar-collapsed' : ''}" id="notes-workspace" data-note="${note.id}" data-type="${note.type}">
+                    <div class="notes-workspace-top"><button type="button" class="notes-workspace-close" data-notes-action="toggle-side" title="Show or hide notebook">☰</button><div class="notes-workspace-title-wrap"><input class="notes-workspace-title" type="text" maxlength="120" value="${escape(note.title || '')}" data-notes-title placeholder="Untitled note"><span class="notes-save-state" data-notes-save-state>Saved</span></div><span class="small" style="white-space:nowrap;color:var(--muted)">${escape(s ? s.name : 'Subject')}</span><select data-notes-action="workspace-section" aria-label="Move note to section">${sectionOptions}</select><select data-notes-action="workspace-type" aria-label="Note type"><option value="document" ${note.type === 'document' ? 'selected' : ''}>Document</option><option value="whiteboard" ${note.type === 'whiteboard' ? 'selected' : ''}>Whiteboard</option><option value="maths" ${note.type === 'maths' ? 'selected' : ''}>Maths</option></select><button type="button" class="notes-workspace-close" data-notes-action="delete-note">Delete</button><button type="button" class="notes-workspace-close" data-notes-action="close-workspace">Done</button></div>
+                    <div class="notes-workspace-body">${notesWorkspaceSidebar(note)}<div class="notes-workspace-main">${editorToolbar}${editor}<input type="file" id="notes-image-file" accept="image/*" hidden></div></div></div>`;
+            }
+            function notesRenderWorkspace(noteId) {
+                const note = (state.subjectNotes || []).find(n => n.id === noteId); if (!note) { notesCloseWorkspace(false); return; }
+                notesWorkspaceId = noteId;
+                const existing = document.getElementById('notes-workspace'); if (existing) existing.remove();
+                document.body.insertAdjacentHTML('beforeend', notesWorkspaceHtml(note));
+                document.body.classList.add('notes-workspace-open');
+                notesSavedRange = null; notesActiveEditable = null; notesActiveBlockId = null;
+                if (note.type === 'maths') requestAnimationFrame(() => { notesRedrawInk(note); notesSetMathMode(); });
+                notesAttachBlockDragging();
+                requestAnimationFrame(() => { const target = document.querySelector('#notes-workspace [data-notes-editable]'); if (target) { target.focus(); notesRememberActive(target); } });
+            }
+            function notesOpenWorkspace(noteId) { notesFlushSave(); notesWorkspaceSidebarCollapsed = false; notesRenderWorkspace(noteId); }
+            function notesCloseWorkspace(refresh = true) {
+                notesFlushSave();
+                document.getElementById('notes-workspace')?.remove();
+                notesWorkspaceId = null; notesSavedRange = null; notesActiveEditable = null; notesActiveBlockId = null;
+                document.body.classList.remove('notes-workspace-open');
+                if (refresh) render();
+            }
+            function notesCaptureRange() {
+                const sel = window.getSelection(); if (!sel || !sel.rangeCount) return;
+                const range = sel.getRangeAt(0), root = document.getElementById('notes-workspace');
+                if (root && root.contains(range.commonAncestorContainer)) notesSavedRange = range.cloneRange();
+            }
+            function notesRestoreRange() {
+                if (!notesSavedRange) return false;
+                try { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(notesSavedRange); return true; } catch { return false; }
+            }
+            function notesRememberActive(editable) { notesActiveEditable = editable; const block = editable && editable.closest('[data-notes-block]'); if (block) notesActiveBlockId = block.dataset.notesBlock; }
+            function notesFocusEditable() {
+                if (notesActiveEditable && document.body.contains(notesActiveEditable)) { notesActiveEditable.focus(); notesRestoreRange(); return notesActiveEditable; }
+                const root = document.getElementById('notes-workspace'); const target = root && root.querySelector('[data-notes-editable]');
+                if (target) { target.focus(); notesRememberActive(target); }
+                return target;
+            }
+            function notesUpdateActiveHtml() {
+                const note = notesActiveNote(); if (!note || !notesActiveEditable) return;
+                const target = notesActiveEditable, kind = target.dataset.notesEditable;
+                if (kind === 'document') note.html = target.innerHTML;
+                else if (kind === 'margin') note.marginHtml = target.innerHTML;
+                else if (kind === 'block') { const block = (note.blocks || []).find(x => x.id === target.dataset.block); if (block) block.html = target.innerHTML; }
+                notesSaveSoon(note);
+            }
+            function notesExec(command, value) {
+                const target = notesFocusEditable(); if (!target) return;
+                try { document.execCommand(command, false, value == null ? null : value); } catch (err) { console.warn('Formatting command unavailable:', command, err); }
+                notesCaptureRange(); notesUpdateActiveHtml();
+            }
+            function notesInsertHtml(html) {
+                const target = notesFocusEditable(); if (!target) return;
+                notesRestoreRange();
+                try { document.execCommand('insertHTML', false, html); } catch { target.insertAdjacentHTML('beforeend', html); }
+                notesCaptureRange(); notesUpdateActiveHtml();
+            }
+            function notesImageToDataUrl(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader(); reader.onerror = () => reject(new Error('Could not read the image.'));
+                    reader.onload = () => { const img = new Image(); img.onerror = () => reject(new Error('Could not open the image.'));
+                        img.onload = () => { const max = 1800, scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+                            const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); resolve(canvas.toDataURL('image/jpeg', .84)); };
+                        img.src = reader.result; }; reader.readAsDataURL(file);
+                });
+            }
+            function notesInsertImageFile(file) {
+                notesCaptureRange();
+                notesImageToDataUrl(file).then(url => { notesInsertHtml(`<img src="${url}" alt="Pasted image" style="max-width:100%;height:auto">`); toast('Image added to note.'); })
+                    .catch(err => toast(err.message || 'Could not add that image.'));
+            }
+            function notesAddBlock() {
+                const note = notesActiveNote(); if (!note) return;
+                if (!Array.isArray(note.blocks)) note.blocks = [];
+                const i = note.blocks.length;
+                const block = { id: uid(), x: 100 + (i % 5) * 55, y: 90 + Math.floor(i / 5) * 45, w: 440, h: 170, html: '' };
+                note.blocks.push(block); notesSaveSoon(note); notesRenderWorkspace(note.id);
+                requestAnimationFrame(() => { const el = document.querySelector(`[data-notes-editable="block"][data-block="${block.id}"]`); if (el) { el.focus(); notesRememberActive(el); } });
+            }
+            function notesAttachBlockDragging() {
+                const root = document.getElementById('notes-workspace'); if (!root) return;
+                const canvas = root.querySelector('.notes-infinite-canvas,.notes-math-page'); if (!canvas) return;
+                let drag = null;
+                canvas.addEventListener('pointerdown', e => {
+                    const handle = e.target.closest('[data-notes-block-handle]'); if (!handle || e.target.closest('[data-notes-action]')) return;
+                    const id = handle.dataset.notesBlockHandle, block = (notesActiveNote()?.blocks || []).find(x => x.id === id); if (!block) return;
+                    e.preventDefault(); drag = { id, sx: e.clientX, sy: e.clientY, x: block.x, y: block.y }; handle.setPointerCapture?.(e.pointerId);
+                });
+                canvas.addEventListener('pointermove', e => { if (!drag) return; const block = (notesActiveNote()?.blocks || []).find(x => x.id === drag.id), el = canvas.querySelector(`[data-notes-block="${drag.id}"]`); if (!block || !el) return;
+                    const dx = (e.clientX - drag.sx) * (canvas.clientWidth ? 2200 / canvas.clientWidth : 1), dy = (e.clientY - drag.sy) * (canvas.clientHeight ? (canvas.classList.contains('notes-math-page') ? 1600 : 1450) / canvas.clientHeight : 1);
+                    block.x = Math.max(0, Math.min(2050, Math.round(drag.x + dx))); block.y = Math.max(0, Math.min(1350, Math.round(drag.y + dy))); el.style.left = block.x + 'px'; el.style.top = block.y + 'px';
+                });
+                const end = () => { if (!drag) return; const note = notesActiveNote(); drag = null; notesSaveSoon(note); };
+                canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
+                root.querySelectorAll('[data-notes-block]').forEach(el => {
+                    if (typeof ResizeObserver === 'undefined') return;
+                    let timer = null; const observer = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { const note = notesActiveNote(), block = (note?.blocks || []).find(x => x.id === el.dataset.notesBlock); if (!block) return; block.w = Math.round(el.offsetWidth); block.h = Math.round(el.offsetHeight); notesSaveSoon(note); }, 180); });
+                    observer.observe(el);
+                });
+            }
+            function notesOpenDrawing() {
+                const note = notesActiveNote(); if (!note) return;
+                notesFlushSave();
+                openWhiteboard({ title: note.title || 'Drawing & shapes', hint: 'Use the full drawing toolkit: select, move, resize, text, pen, shapes, arrows, axes, colours, line styles and undo.', board: note.board || { shapes: [] }, onDone: board => {
+                    note.board = board; notesSaveSoon(note);
+                    const layer = document.querySelector('#notes-workspace .notes-board-layer'); if (layer) layer.innerHTML = wbBoardSvg(board, { attrs: 'width="2200" height="1408"' });
+                } });
+            }
+            function notesRedrawInk(note) {
+                const canvas = document.querySelector('#notes-workspace .notes-ink-canvas'); if (!canvas || !note) return;
+                const ctx = canvas.getContext('2d'); if (!ctx) return; ctx.clearRect(0,0,canvas.width,canvas.height);
+                (note.ink || []).forEach(stroke => { if (!stroke.points || !stroke.points.length) return;
+                    ctx.save(); ctx.globalCompositeOperation = stroke.erase ? 'destination-out' : 'source-over'; ctx.strokeStyle = stroke.color || '#202235'; ctx.lineWidth = Number(stroke.width) || 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    ctx.beginPath(); ctx.moveTo(stroke.points[0][0], stroke.points[0][1]); stroke.points.slice(1).forEach(p => ctx.lineTo(p[0],p[1]));
+                    if (stroke.points.length === 1) { ctx.lineTo(stroke.points[0][0] + .1, stroke.points[0][1] + .1); } ctx.stroke(); ctx.restore();
+                });
+            }
+            function notesSetMathMode() {
+                const canvas = document.querySelector('#notes-workspace .notes-ink-canvas'); if (!canvas) return;
+                canvas.style.pointerEvents = (notesMathTool === 'pen' || notesMathTool === 'erase') ? 'auto' : 'none';
+                canvas.style.cursor = notesMathTool === 'erase' ? 'cell' : notesMathTool === 'pen' ? 'crosshair' : 'default';
+                const root = document.getElementById('notes-workspace'); if (root) root.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === notesMathTool));
+                if (canvas.dataset.notesInkBound === '1') return; canvas.dataset.notesInkBound = '1';
+                let active = null;
+                const point = e => { const r = canvas.getBoundingClientRect(); return [Math.max(0,Math.min(canvas.width,(e.clientX-r.left)*canvas.width/(r.width||1))), Math.max(0,Math.min(canvas.height,(e.clientY-r.top)*canvas.height/(r.height||1)))]; };
+                canvas.addEventListener('pointerdown', e => { if (!['pen','erase'].includes(notesMathTool)) return; const note = notesActiveNote(); if (!note) return; e.preventDefault(); canvas.setPointerCapture?.(e.pointerId); if (!Array.isArray(note.ink)) note.ink = [];
+                    active = { color: notesPenColor, width: notesPenWidth, erase: notesMathTool === 'erase', points: [point(e)] }; note.ink.push(active); notesRedrawInk(note); });
+                canvas.addEventListener('pointermove', e => { if (!active) return; const p = point(e), last = active.points[active.points.length-1]; if (Math.hypot(p[0]-last[0],p[1]-last[1]) > 1) active.points.push(p); const note = notesActiveNote(); if (note) notesRedrawInk(note); });
+                const finish = () => { if (!active) return; const note = notesActiveNote(); active = null; notesSaveSoon(note); };
+                canvas.addEventListener('pointerup', finish); canvas.addEventListener('pointercancel', finish);
+            }
+            function notesInsertMathField() {
+                const field = '<math-field virtual-keyboard-mode="manual" style="display:inline-block;min-width:120px;padding:3px 6px;border:1px solid #cfd5e5;border-radius:6px;background:#fff" value="x^2"></math-field>&nbsp;';
+                notesInsertHtml(field);
+            }
+            function notesHandleWorkspaceAction(button) {
+                const action = button.dataset.notesAction, note = notesActiveNote();
+                if (action === 'toggle-side') { notesWorkspaceSidebarCollapsed = !notesWorkspaceSidebarCollapsed; document.getElementById('notes-workspace')?.classList.toggle('is-sidebar-collapsed', notesWorkspaceSidebarCollapsed); return; }
+                if (action === 'close-workspace') { notesCloseWorkspace(true); return; }
+                if (!note) return;
+                if (action === 'open-note') { notesFlushSave(); notesRenderWorkspace(button.dataset.note); return; }
+                if (action === 'create-workspace-note') { notesCreate(note.subjectId, button.dataset.type, note.sectionId, true); return; }
+                if (action === 'delete-note') { if (!confirm(`Delete “${note.title || 'Untitled note'}”? This cannot be undone.`)) return; state.subjectNotes = state.subjectNotes.filter(x => x.id !== note.id); notesCloseWorkspace(true); save(); return; }
+                if (action === 'workspace-section') { note.sectionId = button.value; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
+                if (action === 'workspace-type') { if (button.value === note.type) return; notesUpdateActiveHtml(); note.type = button.value; if (note.type !== 'document' && !note.blocks?.length) note.blocks = [{ id: uid(), x: 100, y: 90, w: 440, h: 170, html: note.html || '' }]; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
+                if (action === 'add-block') { notesAddBlock(); return; }
+                if (action === 'remove-block') { note.blocks = (note.blocks || []).filter(x => x.id !== button.dataset.block); if (notesActiveBlockId === button.dataset.block) notesActiveBlockId = null; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
+                if (action === 'delete-block') { if (!notesActiveBlockId) { toast('Select a text box first.'); return; } note.blocks = (note.blocks || []).filter(x => x.id !== notesActiveBlockId); notesActiveBlockId = null; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
+                if (action === 'open-drawing') { notesOpenDrawing(); return; }
+                if (action === 'clear-drawing') { if (!confirm('Clear the drawing layer?')) return; note.board = { shapes: [] }; const layer = document.querySelector('#notes-workspace .notes-board-layer'); if (layer) layer.innerHTML = wbBoardSvg(note.board, { attrs: 'width="2200" height="1408"' }); notesSaveSoon(note); return; }
+                if (action === 'doc-command') { notesExec(button.dataset.command); return; }
+                if (action === 'doc-link') { const url = prompt('Enter a web address:', 'https://'); if (url) notesExec('createLink', url); return; }
+                if (action === 'doc-table') { notesInsertHtml('<table><tbody><tr><td> </td><td> </td></tr><tr><td> </td><td> </td></tr></tbody></table><p></p>'); return; }
+                if (action === 'doc-checklist') { notesInsertHtml('<ul><li>☐ </li><li>☐ </li></ul><p></p>'); return; }
+                if (action === 'doc-image') { notesCaptureRange(); document.getElementById('notes-image-file')?.click(); return; }
+                if (action === 'doc-print') { window.print(); return; }
+                if (action === 'doc-page-style') { note.pageStyle = button.dataset.style; notesSaveSoon(note); const paper = document.querySelector('.notes-paper'); if (paper) paper.classList.toggle('lined', note.pageStyle === 'lined'); document.querySelectorAll('[data-notes-action="doc-page-style"]').forEach(x => x.classList.toggle('active', x.dataset.style === note.pageStyle)); return; }
+                if (action === 'doc-margin-toggle') { note.marginEnabled = !note.marginEnabled; const html = document.querySelector('[data-notes-editable="document"]'); if (html) note.html = html.innerHTML; notesSaveSoon(note); notesRenderWorkspace(note.id); return; }
+                if (action === 'text-command') { notesExec(button.dataset.command); return; }
+                if (action === 'text-image') { notesCaptureRange(); document.getElementById('notes-image-file')?.click(); return; }
+                if (action === 'text-colour') { notesExec('foreColor', button.value); return; }
+                if (action === 'text-size') { const target = notesFocusEditable(); if (target) { target.style.fontSize = button.dataset.size + 'px'; notesUpdateActiveHtml(); } return; }
+                if (action === 'math-tool') { notesMathTool = button.dataset.tool; notesSetMathMode(); return; }
+                if (action === 'math-colour') { notesPenColor = button.dataset.colour; notesMathTool = 'pen'; notesSetMathMode(); return; }
+                if (action === 'math-undo') { note.ink = (note.ink || []).slice(0,-1); notesMathRedo = []; notesRedrawInk(note); notesSaveSoon(note); return; }
+                if (action === 'math-clear') { if (!confirm('Clear all pen marks on this maths page?')) return; note.ink = []; notesMathRedo = []; notesRedrawInk(note); notesSaveSoon(note); return; }
+                if (action === 'math-equation') { notesInsertMathField(); return; }
+                if (action === 'math-symbol') { notesInsertHtml(escape(button.dataset.symbol)); return; }
+            }
+
+            // Notebook library actions are separated from the app's normal data-action router.
+            document.addEventListener('click', e => {
+                const b = e.target.closest('[data-notes-action]'); if (!b || b.matches('select,input')) return;
+                const action = b.dataset.notesAction;
+                if (action === 'section-select') { notesSelectedSectionId = b.dataset.section; render(); return; }
+                if (action === 'section-menu') { const section = state.subjectNoteSections.find(x => x.id === b.dataset.section); if (!section) return; const choice = prompt(`Section: ${section.name}\nType R to rename or D to delete:`, 'R'); if (choice && choice.toLowerCase() === 'r') notesRenameSection(section.id); else if (choice && choice.toLowerCase() === 'd') notesDeleteSection(section.id); return; }
+                if (action === 'add-section') { const name = prompt('New section name:'); if (!name || !name.trim()) return; const sections = subjectNoteSectionsFor(b.dataset.subject); const section = { id: uid(), subjectId: b.dataset.subject, name: name.trim().slice(0,70), order: sections.length, createdAt: Date.now() }; state.subjectNoteSections.push(section); notesSelectedSectionId = section.id; save(); render(); return; }
+                if (action === 'create-note') { notesCreate(b.dataset.subject, b.dataset.type, notesSelectedSectionId, true); return; }
+                if (action === 'open-note') { if (notesWorkspaceId) notesFlushSave(); notesOpenWorkspace(b.dataset.note); return; }
+                notesHandleWorkspaceAction(b);
+            });
+            document.addEventListener('mousedown', e => { if (e.target.closest('#notes-workspace [data-notes-action="doc-command"],#notes-workspace [data-notes-action="text-command"]')) e.preventDefault(); });
+            document.addEventListener('focusin', e => { const editable = e.target.closest && e.target.closest('#notes-workspace [data-notes-editable]'); if (editable) notesRememberActive(editable); });
+            document.addEventListener('selectionchange', notesCaptureRange);
+            document.addEventListener('input', e => {
+                const t = e.target; if (!t.closest || !t.closest('#notes-workspace')) return;
+                const note = notesActiveNote(); if (!note) return;
+                if (t.matches('[data-notes-title]')) { note.title = t.value; const active = document.querySelector('#notes-workspace [data-notes-save-state]'); if (active) active.textContent = 'Saving…'; notesSaveSoon(note); }
+                else if (t.matches('[data-notes-editable]')) { notesRememberActive(t); notesUpdateActiveHtml(); }
+                else if (t.tagName === 'MATH-FIELD' || t.closest('math-field')) {
+                    const field = t.tagName === 'MATH-FIELD' ? t : t.closest('math-field');
+                    try { const latex = typeof field.getValue === 'function' ? field.getValue('latex') : field.value; if (latex != null) field.setAttribute('value', String(latex)); } catch {}
+                    const editable = field.closest('[data-notes-editable]'); if (editable) { notesRememberActive(editable); notesUpdateActiveHtml(); }
+                }
+            });
+            document.addEventListener('change', e => {
+                const t = e.target; if (!t.closest || !t.closest('#notes-workspace')) return;
+                const note = notesActiveNote(); if (!note) return;
+                if (t.dataset.notesAction === 'workspace-section' || t.dataset.notesAction === 'workspace-type') { notesHandleWorkspaceAction(t); }
+                else if (t.dataset.notesAction === 'doc-select') { notesExec(t.dataset.command, t.value); }
+                else if (t.dataset.notesAction === 'doc-colour') { notesExec(t.dataset.command, t.value); }
+                else if (t.dataset.notesAction === 'text-colour') { notesExec('foreColor', t.value); }
+                else if (t.dataset.notesAction === 'math-width') { notesPenWidth = Number(t.value) || 3; }
+                else if (t.dataset.notesAction === 'math-grid-size') { note.gridSize = Number(t.value) || 24; const page = document.querySelector('.notes-math-page'); if (page) page.style.setProperty('--notes-grid-size', note.gridSize + 'px'); notesSaveSoon(note); }
+                else if (t.id === 'notes-image-file') { const files = Array.from(t.files || []); t.value = ''; files.filter(f => f.type.startsWith('image/')).forEach(notesInsertImageFile); }
+            });
+            document.addEventListener('paste', e => {
+                const target = e.target.closest && e.target.closest('#notes-workspace [data-notes-editable]'); if (!target) return;
+                const items = Array.from(e.clipboardData?.items || []), images = items.filter(x => x.kind === 'file' && x.type.startsWith('image/')).map(x => x.getAsFile()).filter(Boolean);
+                if (images.length) { e.preventDefault(); images.forEach(notesInsertImageFile); return; }
+                const html = e.clipboardData?.getData('text/html');
+                if (html) { e.preventDefault(); notesInsertHtml(notesSanitizeHtml(html)); }
+            });
+            document.addEventListener('keydown', e => {
+                if (!notesWorkspaceId) return;
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); notesFlushSave(); }
+                else if (e.key === 'Escape' && !document.getElementById('wb-overlay')) { e.preventDefault(); notesCloseWorkspace(true); }
+            });
+            window.addEventListener('beforeunload', () => { if (notesWorkspaceId) notesFlushSave(); });
+            document.addEventListener('visibilitychange', () => { if (document.hidden && notesWorkspaceId) notesFlushSave(); });
+
+
 
             render();
             handleSpotifyCallback();
