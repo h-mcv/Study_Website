@@ -17407,8 +17407,15 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 });
                 if (generated.length) save();
                 const batch = due.concat(generated).slice(0, batchSize);
-                if (!batch.length) throw new Error('The AI could not create enough new, source-grounded questions. Try again to generate a fresh set.');
-                return batch;
+                if (batch.length) return batch;
+                // When a small deck has no unseen objectives left, keep the session endless by revisiting
+                // the saved question bank in SRS priority order rather than failing to generate "new" content.
+                const revisit = bank.filter(q => allowed(q) && adaptiveResolveSourceRefs(q).length)
+                    .sort((a, b) => Number(!!b.struggling) - Number(!!a.struggling) ||
+                        (a.dueAt || 0) - (b.dueAt || 0) || (a.lastReviewed || 0) - (b.lastReviewed || 0))
+                    .slice(0, batchSize);
+                if (revisit.length) return revisit;
+                throw new Error('The AI could not create enough source-grounded questions. Try again to generate a fresh set.');
             }
             function adaptiveMaybePrefetch(sess) {
                 if (flashcardStudySession !== sess || sess.phase !== 'active' || sess.nextBatch || sess.nextBatchPromise) return;
