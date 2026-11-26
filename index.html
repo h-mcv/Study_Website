@@ -8937,6 +8937,98 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             // survive a reload.
             let flashcardsSelectedDeckId = null; // null = showing that subject's topic/deck list
             let flashcardCreateDraft = null; // { mode: 'manual'|'image', subjectId, topic, cards: [{front,back}], images: [{mimeType,data,dataUrl,name}], reviewCards: [{front,back,include}]|null }
+            // ---- Flashcard draft autosave and recovery -----------------------------------------------
+            const FC_DRAFT_BACKUP_DB = 'studyWebsiteFlashcardDrafts';
+            let fcDraftBackupDbPromise = null;
+            let fcDraftBackupTimer = null;
+            function fcOpenDraftBackupDb() {
+                if (!window.indexedDB) return Promise.reject(new Error('IndexedDB unavailable'));
+                if (!fcDraftBackupDbPromise) fcDraftBackupDbPromise = new Promise((resolve, reject) => {
+                    const req = window.indexedDB.open(FC_DRAFT_BACKUP_DB, 1);
+                    req.onupgradeneeded = () => {
+                        const db = req.result;
+                        if (!db.objectStoreNames.contains('drafts')) {
+                            const store = db.createObjectStore('drafts', { keyPath: '_backupId' });
+                            store.createIndex('subjectId', 'subjectId', { unique: false });
+                        }
+                    };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error || new Error('Could not open draft backup'));
+                });
+                return fcDraftBackupDbPromise;
+            }
+            function fcScheduleDraftBackup() {
+                if (!flashcardCreateDraft) return;
+                clearTimeout(fcDraftBackupTimer);
+                fcDraftBackupTimer = setTimeout(fcPersistDraftBackupNow, 350);
+            }
+            function fcPersistDraftBackupNow() {
+                const draft = flashcardCreateDraft;
+                if (!draft || !draft.subjectId) return;
+                try {
+                    if (!draft._backupId) draft._backupId = String(draft.subjectId) + ':' + Date.now() + ':' + Math.random().toString(36).slice(2);
+                    const snapshot = JSON.parse(JSON.stringify(draft));
+                    snapshot._backupSavedAt = Date.now();
+                    fcOpenDraftBackupDb().then(db => new Promise((resolve, reject) => {
+                        const tx = db.transaction('drafts', 'readwrite');
+                        tx.objectStore('drafts').put(snapshot);
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error || new Error('Could not save draft backup'));
+                        tx.onabort = () => reject(tx.error || new Error('Draft backup was interrupted'));
+                    })).catch(() => {
+                        try { localStorage.setItem('fc-draft-backup:' + snapshot._backupId, JSON.stringify(snapshot)); }
+                        catch (err) { console.warn('Flashcard draft backup could not be saved.', err); }
+                    });
+                } catch (err) { console.warn('Flashcard draft backup could not be prepared.', err); }
+            }
+            function fcReadLocalDraftBackups(subjectId) {
+                try {
+                    const prefix = 'fc-draft-backup:', found = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (!key || !key.startsWith(prefix)) continue;
+                        const item = JSON.parse(localStorage.getItem(key) || 'null');
+                        if (item && String(item.subjectId) === String(subjectId)) found.push(item);
+                    }
+                    return found;
+                } catch (err) { return []; }
+            }
+            function fcLoadDraftBackup(subjectId) {
+                return fcOpenDraftBackupDb().then(db => new Promise((resolve, reject) => {
+                    const tx = db.transaction('drafts', 'readonly');
+                    const req = tx.objectStore('drafts').index('subjectId').getAll(String(subjectId));
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error || new Error('Could not read draft backup'));
+                })).catch(() => []).then(drafts => {
+                    const all = [...drafts, ...fcReadLocalDraftBackups(subjectId)];
+                    all.sort((a, b) => (b._backupSavedAt || 0) - (a._backupSavedAt || 0));
+                    return all[0] || null;
+                });
+            }
+            function fcClearDraftBackups(subjectId) {
+                if (!subjectId) return;
+                try {
+                    fcOpenDraftBackupDb().then(db => new Promise(resolve => {
+                        const tx = db.transaction('drafts', 'readwrite');
+                        const store = tx.objectStore('drafts');
+                        const req = store.index('subjectId').getAllKeys(String(subjectId));
+                        req.onsuccess = () => (req.result || []).forEach(key => store.delete(key));
+                        tx.oncomplete = resolve;
+                        tx.onerror = resolve;
+                    })).catch(() => {});
+                } catch (err) {}
+                fcReadLocalDraftBackups(subjectId).forEach(item => {
+                    try { localStorage.removeItem('fc-draft-backup:' + item._backupId); } catch (err) {}
+                });
+            }
+            document.addEventListener('input', fcScheduleDraftBackup, true);
+            document.addEventListener('change', fcScheduleDraftBackup, true);
+            document.addEventListener('click', fcScheduleDraftBackup, true);
+            document.addEventListener('pointerup', fcScheduleDraftBackup, true);
+            document.addEventListener('dragend', fcScheduleDraftBackup, true);
+            window.addEventListener('pagehide', fcPersistDraftBackupNow);
+            // -------------------------------------------------------------------------------------------
+
 
             // ---- Flashcard draft autosave and recovery -----------------------------------------------
             const FC_DRAFT_BACKUP_DB = 'studyWebsiteFlashcardDrafts';
@@ -16518,324 +16610,6 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
                     } else startFresh();
                 }).catch(startFresh);
             }
-
-            // Flashcards is a subpage of a subject's own page (like Word Bank/Essay Marking), not a
-            // top-level nav item -- so subject comes from the subject page's own context, never a
-            // separate flashcards-level "which subject" state. Deck ids are global (not namespaced by
-            // subject), so a stale deck/session left over from switching subjects via the tab bar --
-            // without hitting Exit/back first -- is explicitly dropped here rather than leaking another
-            // subject's deck into view.
-            function renderSubjectFlashcards(s) { if (flashcardStudySession) {
-                    const sessDeck = flashcardDeck(flashcardStudySession.deckId);
-                    if (sessDeck && sessDeck.subjectId === s.id) return renderFlashcardSession();
-                    flashcardStudySession = null; }
-                if (flashcardsSelectedDeckId) { const deck = flashcardDeck(flashcardsSelectedDeckId);
-                    if (deck && deck.subjectId === s.id) return renderFlashcardDeckDetail();
-                    flashcardsSelectedDeckId = null; }
-                return renderFlashcardTopicsFor(s); }
-
-            function renderFlashcardTopicsFor(s) { const decks = flashcardDecksFor(s.id), folders = foldersFor(s.id);
-                const tile = (d) => `<button type="button" class="class-tile" data-action="open-flashcard-deck" data-deck="${d.id}" style="--subject:${s.color}"><strong>${escape(d.topic)}</strong><span class="class-tile-count">${d.cards.length} card${d.cards.length===1?'':'s'}</span></button>`;
-                const grouped = new Set(folders.flatMap(f => f.deckIds));
-                const ungrouped = decks.filter(d => !grouped.has(d.id));
-                const folderSection = (f) => { const fDecks = decks.filter(d => f.deckIds.includes(d.id));
-                    return `<div class="card section" style="margin-bottom:12px"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px"><strong>📁 ${escape(f.name)}</strong><button type="button" class="button ghost danger" data-action="delete-flashcard-folder" data-folder="${f.id}">Delete folder</button></div><div class="class-grid">${fDecks.length?fDecks.map(tile).join(''):'<p class="empty">No decks in this folder yet — assign one from its Test/Click Through page.</p>'}</div></div>`; };
-                return `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:14px;flex-wrap:wrap"><button type="button" class="button ghost" data-action="create-flashcard-folder" data-subject="${s.id}">📁 New folder</button><button type="button" class="button ghost" data-action="import-shared-set">🔗 Import shared set</button><button type="button" class="button primary" data-action="open-flashcard-create" data-subject="${s.id}">+ Create Flashcards</button></div>
-        ${folders.map(folderSection).join('')}
-        ${folders.length?'<p class="small" style="margin:10px 0">Ungrouped</p>':''}
-        <div class="class-grid">${ungrouped.length?ungrouped.map(tile).join(''):(decks.length?'':`<p class="empty">No flashcards yet for ${escape(s.name)} — create some above.</p>`)}</div>`; }
-
-function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
-                if (!deck) { flashcardsSelectedDeckId = null; return renderFlashcardLibrary(); }
-                const s = subject(deck.subjectId), n = deck.cards.length;
-                const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck), weakCount = weakCardsForDeck(deck).length, knownCount = deck.cards.filter(c => c.known).length;
-                const stat = (label, value) => `<div class="card stat"><span class="label">${label}</span><span class="value">${value}</span></div>`;
-                const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext">${c.type && FC_TYPES[c.type] && c.type !== 'term' ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : ''}<strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${c.id}" aria-label="Toggle known" title="Mark known">${c.known ? '⭐' : '☆'}</button><button type="button" class="button ghost icon" data-action="flashcard-edit-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Edit card" title="Edit">✏️</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
-                const folders = foldersFor(deck.subjectId), current = folders.find(f => f.deckIds.includes(deck.id));
-                const secs = fcSecs(deck), scoped = fcScopeCards(deck), scopeLabel = fcScopeLabel(deck);
-                const secSelect = (c) => secs.length ? `<select class="fc-mini-select" data-action="fc-card-section" data-deck="${deck.id}" data-card="${c.id}" aria-label="Section">${fcSecOptions(deck).map(o => `<option value="${o.key}" ${o.key === fcCardKey(c) ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
-                let rowNo = 0; const rows = (cs) => cs.length ? `<div class="fc-listgrid">${cs.map(c => cardRow(c, rowNo++).replace('<button type="button" class="button ghost icon" data-action="flashcard-edit-card"', secSelect(c) + '<button type="button" class="button ghost icon" data-action="flashcard-edit-card"')).join('')}</div>` : '';
-                const secTools = (s, u) => `<span class="fc-secbar" style="margin:0"><button type="button" class="button ghost" data-action="fc-sec-study" data-deck="${deck.id}" data-sec="${s.id}" data-sub="${u ? u.id : ''}">Study this</button><button type="button" class="button ghost icon" title="Rename" data-action="fc-sec-rename" data-deck="${deck.id}" data-sec="${s.id}" data-sub="${u ? u.id : ''}">✎</button>${u ? '' : `<button type="button" class="button ghost" data-action="fc-sub-add" data-deck="${deck.id}" data-sec="${s.id}">+ Sub-section</button>`}<button type="button" class="button ghost danger icon" title="Delete" data-action="fc-sec-delete" data-deck="${deck.id}" data-sec="${s.id}" data-sub="${u ? u.id : ''}">🗑</button></span>`;
-                let cardsHtml;
-                if (!n) cardsHtml = '<p class="empty">No cards yet — add some above.</p>';
-                else if (!secs.length) cardsHtml = rows(deck.cards);
-                else { const loose = deck.cards.filter(c => !fcCardPlace(deck, c).sec);
-                    cardsHtml = (loose.length ? `<div class="fc-sec-h"><h3>Unsorted</h3><span class="small">${loose.length}</span></div>${rows(loose)}` : '') + secs.map(s => {
-                        const own = deck.cards.filter(c => { const p = fcCardPlace(deck, c); return p.sec === s && !p.sub; }), total = deck.cards.filter(c => c.secId === s.id).length;
-                        return `<div class="fc-sec-block"><div class="fc-sec-h"><h3>📂 ${escape(s.name)}</h3><span class="small">${total} card${total === 1 ? '' : 's'}</span>${secTools(s, null)}</div>${rows(own)}${(s.subs || []).map(u => { const uc = deck.cards.filter(c => c.secId === s.id && c.subId === u.id);
-                            return `<div class="fc-sec-block sub"><div class="fc-sec-h sub"><h3>${escape(u.name)}</h3><span class="small">${uc.length}</span>${secTools(s, u)}</div>${uc.length ? rows(uc) : '<p class="small" style="margin:4px 0 8px">No cards here yet.</p>'}</div>`; }).join('')}</div>`; }).join(''); }
-                const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep cards in order (don't shuffle)</label><label class="fc-check" title="Private decks are never shown in the Community"><input type="checkbox" data-action="fc-deck-private" data-deck="${deck.id}" ${deck.isPrivate ? 'checked' : ''}> 🔒 Private ${deck.isPrivate ? '' : '<span class="small">(shared in the Community)</span>'}</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
-                return `<div class="fc-wrap">
-          <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
-          <div style="border-top:5px solid ${s ? s.color : 'var(--primary)'};padding-top:12px;margin-bottom:16px">
-            <h1 style="margin:0">${escape(deck.topic)}</h1>
-            <p class="muted" style="margin:4px 0 0">${escape(s ? s.name : 'No subject')}</p>
-          </div>
-          <div class="stats" style="margin-bottom:16px">${stat('Cards', n)}${stat('Memory score', score + '%')}${stat('To review', dueCount)}${stat('Marked known', knownCount)}</div>
-          <section class="card section">
-            <div class="row" style="gap:10px;flex-wrap:wrap">
-              <button type="button" class="button primary" style="padding:12px 20px" data-action="flashcard-start-clickthrough" data-deck="${deck.id}" ${n ? '' : 'disabled'}>👀 Flip through</button>
-              <button type="button" class="button primary" style="padding:12px 20px" data-action="open-flashcard-test-choice" data-deck="${deck.id}" ${n ? '' : 'disabled'}>🧠 Test yourself</button>
-              ${dueCount && n ? `<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>` : ''}
-              ${weakCount ? `<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>` : ''}
-            </div>
-            ${scopeBar}
-            <details class="fc-more-actions"><summary>Deck options</summary><div class="fc-more-actions-inner">
-              <button type="button" class="button ghost" data-action="flashcard-edit-deck" data-deck="${deck.id}">✏️ Edit deck</button>
-              <button type="button" class="button ghost" data-action="open-flashcard-create-for-deck" data-deck="${deck.id}">+ Add cards</button>
-              <button type="button" class="button ghost" data-action="open-diagram-editor" data-deck="${deck.id}">${deck.diagram && deck.diagram.points.length ? '🖼 Edit diagram' : '🖼 Add diagram'}</button>
-              <button type="button" class="button ghost" data-action="share-flashcard-deck" data-deck="${deck.id}">🔗 Share</button>
-              <button type="button" class="button ghost" data-action="open-sparky-set-chat" data-deck="${deck.id}">💬 Ask Sparky</button>
-              <button type="button" class="button ghost danger" data-action="flashcard-delete-deck" data-deck="${deck.id}">Delete deck</button>
-            </div></details>
-            ${folders.length ? `<div class="row" style="margin-top:12px;align-items:center;gap:8px"><span class="small">Folder:</span><select data-action="flashcard-assign-folder" data-deck="${deck.id}" style="max-width:220px"><option value="">No folder</option>${folders.map(f => `<option value="${f.id}" ${current && current.id === f.id ? 'selected' : ''}>${escape(f.name)}</option>`).join('')}</select></div>` : ''}
-          </section>
-          ${cardsHtml}
-        </div>`; }
-
-            // ---- Whiteboard: a small Miro-style drawing board used by Graph cards ----------------------------------
-            // A board is { shapes: [...] } on a fixed 1000 x 640 canvas. wbBoardSvg() is the single renderer: it draws the
-            // editor, the read-only card faces, and the PNG that is sent to the AI for marking.
-            const WB_W = 1000, WB_H = 640;
-            const WB_COLORS = ['#1f2937', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#6b7280'];
-            const WB_BOX = ['rect', 'oval', 'rhombus', 'triangle', 'blockarrow', 'image'], WB_LINE = ['line', 'elbow', 'curve'];
-            const WB_FONT = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-            let wbActive = null;
-            function wbClone(o) { return JSON.parse(JSON.stringify(o)); }
-            function wbId() { return 'w' + Math.random().toString(36).slice(2, 9); }
-            function wbLabels(board) { return ((board && board.shapes) || []).filter(s => s.text && String(s.text).trim()).map(s => String(s.text).replace(/\n/g, ' ')); }
-            function wbTextSize(s) { const fs = s.fs || 20, ls = String(s.text || '').split('\n'); return { w: Math.max(30, Math.max(...ls.map(l => l.length)) * fs * 0.58 + 14), h: ls.length * fs * 1.3 + 8 }; }
-            function wbCurveCtl(s) { return { x: s.cx != null ? s.cx : (s.x1 + s.x2) / 2 - (s.y2 - s.y1) * 0.25, y: s.cy != null ? s.cy : (s.y1 + s.y2) / 2 + (s.x2 - s.x1) * 0.25 }; }
-            function wbBBox(s) { if (WB_BOX.includes(s.t)) return { x: s.x, y: s.y, w: s.w, h: s.h };
-                if (s.t === 'text') { const z = wbTextSize(s); return { x: s.x, y: s.y, w: z.w, h: z.h }; }
-                const xs = s.t === 'pen' ? s.pts.map(p => p[0]) : [s.x1, s.x2], ys = s.t === 'pen' ? s.pts.map(p => p[1]) : [s.y1, s.y2];
-                const x = Math.min(...xs), y = Math.min(...ys); return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }; }
-            function wbDescribe(board) { return JSON.stringify(((board && board.shapes) || []).map(s => { const o = { type: s.t === 'line' && s.h2 ? 'arrow' : s.t };
-                if (s.text) o.text = String(s.text).replace(/\n/g, ' ');
-                if (WB_BOX.includes(s.t)) Object.assign(o, { x: Math.round(s.x), y: Math.round(s.y), w: Math.round(s.w), h: Math.round(s.h) });
-                else if (s.t === 'text') Object.assign(o, { x: Math.round(s.x), y: Math.round(s.y) });
-                else if (WB_LINE.includes(s.t)) Object.assign(o, { from: [Math.round(s.x1), Math.round(s.y1)], to: [Math.round(s.x2), Math.round(s.y2)], dashed: s.dash && s.dash !== 'solid' ? s.dash : undefined });
-                else if (s.t === 'pen') { const b = wbBBox(s); Object.assign(o, { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h), start: s.pts[0], end: s.pts[s.pts.length - 1] }); }
-                return o; })).slice(0, 6000); }
-            function wbLineGeom(s) { const { x1, y1, x2, y2 } = s; let d, a1, a2;
-                if (s.t === 'elbow') { const m = s.v ? [x1, y2] : [x2, y1]; d = `M${x1} ${y1} L${m[0]} ${m[1]} L${x2} ${y2}`;
-                    a2 = Math.atan2(y2 - m[1], x2 - m[0]); a1 = Math.atan2(y1 - m[1], x1 - m[0]); if (m[0] === x2 && m[1] === y2) { a2 = Math.atan2(y2 - y1, x2 - x1); } if (m[0] === x1 && m[1] === y1) { a1 = Math.atan2(y1 - y2, x1 - x2); } }
-                else if (s.t === 'curve') { const c = wbCurveCtl(s); d = `M${x1} ${y1} Q${c.x} ${c.y} ${x2} ${y2}`; a2 = Math.atan2(y2 - c.y, x2 - c.x); a1 = Math.atan2(y1 - c.y, x1 - c.x); }
-                else { d = `M${x1} ${y1} L${x2} ${y2}`; a2 = Math.atan2(y2 - y1, x2 - x1); a1 = Math.atan2(y1 - y2, x1 - x2); }
-                return { d, a1, a2 }; }
-            function wbHead(x, y, ang, sw, col) { const L = 10 + sw * 2.6, p = (da) => `${(x - L * Math.cos(ang + da)).toFixed(1)},${(y - L * Math.sin(ang + da)).toFixed(1)}`;
-                return `<polygon points="${x},${y} ${p(0.42)} ${p(-0.42)}" fill="${col}"/>`; }
-            function wbTextSvg(s, x, y, anchor) { const fs = s.fs || 20, ls = String(s.text || '').split('\n'), y0 = y - (ls.length - 1) * fs * 0.65;
-                return `<text x="${x}" y="${y0}" font-size="${fs}" text-anchor="${anchor}" dominant-baseline="central" font-family="${WB_FONT}" fill="${s.color || '#1f2937'}" pointer-events="none">${ls.map((l, i) => `<tspan x="${x}" dy="${i ? fs * 1.3 : 0}">${escape(l)}</tspan>`).join('')}</text>`; }
-            function wbShapeSvg(s) { const col = s.color || '#1f2937', sw = s.sw || 3, id = `data-wb-id="${s.id}" pointer-events="all"`;
-                const dash = s.dash === 'dashed' ? `stroke-dasharray="${sw * 3.5} ${sw * 2.5}"` : s.dash === 'dotted' ? `stroke-dasharray="0.1 ${sw * 2.4}" stroke-linecap="round"` : '';
-                const stroke = `stroke="${col}" stroke-width="${sw}" stroke-linejoin="round" ${dash}`;
-                if (WB_BOX.includes(s.t)) { const { x, y, w, h } = s, fill = s.fill === 2 ? `fill="${col}"` : s.fill === 1 ? `fill="${col}" fill-opacity="0.2"` : 'fill="#ffffff" fill-opacity="0.01"';
-                    const shape = s.t === 'image' ? `<image href="${escape(s.src || '')}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/>`
-                        : s.t === 'rect' ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" ${fill} ${stroke}/>`
-                        : s.t === 'oval' ? `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" ${fill} ${stroke}/>`
-                        : s.t === 'rhombus' ? `<polygon points="${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}" ${fill} ${stroke}/>`
-                        : s.t === 'triangle' ? `<polygon points="${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}" ${fill} ${stroke}/>`
-                        : `<polygon points="${x},${y + h * .25} ${x + w * .6},${y + h * .25} ${x + w * .6},${y} ${x + w},${y + h / 2} ${x + w * .6},${y + h} ${x + w * .6},${y + h * .75} ${x},${y + h * .75}" ${fill} ${stroke}/>`;
-                    return `<g ${id}>${shape}${s.text ? wbTextSvg(Object.assign({}, s, { color: s.fill === 2 ? '#ffffff' : col }), x + w / 2, y + h / 2, 'middle') : ''}</g>`; }
-                if (s.t === 'text') { const z = wbTextSize(s); return `<g ${id}><rect x="${s.x}" y="${s.y}" width="${z.w}" height="${z.h}" fill="#ffffff" fill-opacity="0.01"/>${wbTextSvg(s, s.x + 7, s.y + z.h / 2, 'start')}</g>`; }
-                if (s.t === 'pen') { const d = 'M' + s.pts.map(p => p.join(' ')).join(' L'); return `<g ${id}><path d="${d}" fill="none" stroke="transparent" stroke-width="16"/><path d="${d}" fill="none" ${stroke} stroke-linecap="round"/></g>`; }
-                const g = wbLineGeom(s);
-                return `<g ${id}><path d="${g.d}" fill="none" stroke="transparent" stroke-width="18"/><path d="${g.d}" fill="none" ${stroke} ${dash ? '' : 'stroke-linecap="round"'}/>${s.h2 ? wbHead(s.x2, s.y2, g.a2, sw, col) : ''}${s.h1 ? wbHead(s.x1, s.y1, g.a1, sw, col) : ''}</g>`; }
-            function wbBoardSvg(board, o) { o = o || {}; const shapes = (board && board.shapes) || [];
-                return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WB_W} ${WB_H}" ${o.attrs || ''}><rect width="${WB_W}" height="${WB_H}" fill="#ffffff"/>${shapes.map(wbShapeSvg).join('')}</svg>`; }
-            function wbToPng(board) { return new Promise((resolve, reject) => {
-                const svg = wbBoardSvg(board, { attrs: `width="${WB_W}" height="${WB_H}"` }), url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })), img = new Image();
-                img.onload = () => { try { const c = document.createElement('canvas'); c.width = WB_W; c.height = WB_H; c.getContext('2d').drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(c.toDataURL('image/png').split(',')[1]); } catch (e) { reject(e); } };
-                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not render the drawing.')); }; img.src = url; }); }
-            function closeWhiteboard() { if (!wbActive) return; document.removeEventListener('keydown', wbActive.onKey); wbActive.root.remove(); wbActive = null; }
-
-            // opts: { title, hint, board, onDone(board) }
-            function openWhiteboard(opts) { closeWhiteboard();
-                opts = opts || {};
-                const canvasW = Math.max(100, Number(opts.canvasWidth) || WB_W), canvasH = Math.max(100, Number(opts.canvasHeight) || WB_H);
-                const st = { board: wbClone(opts.board && Array.isArray(opts.board.shapes) ? opts.board : { shapes: [] }), tool: 'select', sel: null, undo: [], redo: [], drag: null, editing: null, snap: true, lastClick: null, swPending: false,
-                    panMode: false, view: { x: 0, y: 0, w: canvasW, h: canvasH }, style: { color: WB_COLORS[0], fill: 0, sw: 3, dash: 'solid', fs: 20 } };
-                const root = document.createElement('div'); root.className = 'wb-overlay'; root.id = 'wb-overlay'; if (opts.graphMode) root.classList.add('wb-graph-mode'); if (opts.embedded) root.classList.add('wb-notes-embedded'); if (opts.mathMode) root.classList.add('wb-notes-math');
-                const tools = [['select', '↖', 'Select / move (V)'], ['rect', '▭', 'Rectangle (R)'], ['oval', '◯', 'Oval (O)'], ['rhombus', '◇', 'Rhombus (D)'], ['triangle', '△', 'Triangle (G)'], ['blockarrow', '⇨', 'Block arrow (B)'],
-                    ['line', '╱', 'Line (L)'], ['arrow', '↗', 'Arrow (A)'], ['elbow', '↱', 'Elbow arrow (E)'], ['curve', '⌒', 'Curved line (C)'], ['pen', '✎', 'Freehand (P)'], ['text', 'T', 'Text box (T)'], ['erase', '⌫', 'Erase a shape (X)']];
-                root.innerHTML = `<div class="wb-top"><strong>${escape(opts.title || 'Whiteboard')}</strong><span class="wb-hint">${escape(opts.hint || 'Double-click a shape to type · Delete removes · Ctrl+Z undoes · Use the zoom controls or scroll to zoom')}</span><span class="wb-spacer"></span>
-                    <button type="button" class="wb-mini" data-wb="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button type="button" class="wb-mini" data-wb="redo" title="Redo">↷ Redo</button><button type="button" class="wb-mini" data-wb="clear">Clear</button>
-                    <span class="wb-zoom-group"><button type="button" class="wb-mini" data-wb="zoom-out" title="Zoom out">−</button><span class="wb-zoom-label" data-wb-zoom-label>100%</span><button type="button" class="wb-mini" data-wb="zoom-in" title="Zoom in">＋</button><button type="button" class="wb-mini" data-wb="fit" title="Fit drawing to screen">Fit</button><button type="button" class="wb-mini" data-wb="reset-zoom" title="Reset zoom">Reset</button><button type="button" class="wb-mini" data-wb="pan" title="Toggle pan mode">Pan</button></span>
-                    ${opts.onAskAI ? `<button type="button" class="wb-mini" data-wb="ask-ai" title="Select part of the screen and ask the Maths Helper">▣ Ask AI about area</button>` : ''}<button type="button" class="button ghost" data-wb="cancel">Cancel</button><button type="button" class="button primary" data-wb="done">Done</button></div>
-                  <div class="wb-main"><div class="wb-tools">${tools.map(t => `<button type="button" class="wb-tool" data-wb-tool="${t[0]}" title="${t[2]}" aria-label="${t[2]}">${t[1]}</button>`).join('')}</div>
-                    <div class="wb-stage"><svg class="wb-svg" viewBox="0 0 ${canvasW} ${canvasH}" xmlns="http://www.w3.org/2000/svg"></svg><textarea class="wb-text" rows="1" aria-label="Shape text" placeholder="Type here…"></textarea></div>
-                    ${opts.allowDescription ? `<aside class="wb-description-panel"><label class="wb-description-toggle"><input type="checkbox" data-wb-description-toggle ${opts.descriptionEnabled ? 'checked' : ''}> <span>Add explanation beside the graph</span></label><p class="small">This explanation appears beside the model diagram when the flashcard answer is shown.</p><textarea class="wb-description-input" data-wb-description ${opts.descriptionEnabled ? '' : 'hidden'} placeholder="Explain what the diagram shows, how to read it and the key points the student should mention…">${escape(opts.descriptionText || '')}</textarea></aside>` : ''}</div>
-                  <div class="wb-style">
-                    <div class="group" title="Colour">${WB_COLORS.map(c => `<button type="button" class="wb-swatch" data-wb-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
-                    <div class="group"><button type="button" class="wb-mini" data-wb="fill" title="Cycle outline / tint / solid">Fill: none</button></div>
-                    <div class="group"><span class="small">Width</span><input type="range" min="1" max="10" value="3" data-wb-sw style="width:80px"></div>
-                    <div class="group"><button type="button" class="wb-mini" data-wb-dash="solid">Solid</button><button type="button" class="wb-mini" data-wb-dash="dashed">Dashed</button><button type="button" class="wb-mini" data-wb-dash="dotted">Dotted</button></div>
-                    <div class="group"><button type="button" class="wb-mini" data-wb="h1" title="Arrowhead at the start">◀ start</button><button type="button" class="wb-mini" data-wb="h2" title="Arrowhead at the end">end ▶</button><button type="button" class="wb-mini" data-wb="bend" title="Flip which way the elbow bends">⤾ bend</button></div>
-                    <div class="group"><span class="small">Text</span>${[['S', 14], ['M', 20], ['L', 30], ['XL', 44]].map(f => `<button type="button" class="wb-mini" data-wb-fs="${f[1]}">${f[0]}</button>`).join('')}</div>
-                    <div class="group"><button type="button" class="wb-mini" data-wb="axes" title="Add x and y axes">＋ Axes</button><button type="button" class="wb-mini" data-wb="snap" title="Snap to grid">Snap: on</button></div>
-                    <div class="group"><button type="button" class="wb-mini" data-wb="dup">Duplicate</button><button type="button" class="wb-mini" data-wb="front">To front</button><button type="button" class="wb-mini" data-wb="back">To back</button><button type="button" class="wb-mini" data-wb="del">🗑 Delete</button></div>
-                  </div>`;
-                if (opts.mount && opts.mount.appendChild) opts.mount.appendChild(root); else document.body.appendChild(root);
-                const svg = root.querySelector('.wb-svg'), ta = root.querySelector('.wb-text'), stage = root.querySelector('.wb-stage');
-                const cur = () => st.board.shapes.find(s => s.id === st.sel) || null;
-                const addImage = (src) => { const img = new Image(); img.onload = () => { if (!root.isConnected) return; const maxW = Math.min(760, canvasW * .42), maxH = Math.min(560, canvasH * .42), scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight), w = Math.max(50, img.naturalWidth * scale), h = Math.max(50, img.naturalHeight * scale), id = wbId(); pushUndo(); st.board.shapes.push({ id, t: 'image', src, x: st.view.x + (st.view.w - w) / 2, y: st.view.y + (st.view.h - h) / 2, w, h, color: '#ffffff', fill: 0 }); st.sel = id; draw(); }; img.onerror = () => toast('Could not insert that image.'); img.src = src; };
-                const snapV = (v) => st.snap ? Math.round(v / 10) * 10 : v, snapP = (p) => ({ x: snapV(p.x), y: snapV(p.y) });
-                const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-                const pt = (e) => { try { const matrix = svg.getScreenCTM(); if (matrix) { const point = svg.createSVGPoint(); point.x = e.clientX; point.y = e.clientY; const local = point.matrixTransform(matrix.inverse()); return { x: local.x, y: local.y }; } } catch {} const r = svg.getBoundingClientRect(); return { x: st.view.x + (e.clientX - r.left) / (r.width || canvasW) * st.view.w, y: st.view.y + (e.clientY - r.top) / (r.height || canvasH) * st.view.h }; };
-                const setView = (v) => { st.view = v; st.view.h = st.view.w * canvasH / canvasW; };
-                const zoomAt = (factor, clientX, clientY) => { const r = svg.getBoundingClientRect(), cx = clientX == null ? r.left + r.width / 2 : clientX, cy = clientY == null ? r.top + r.height / 2 : clientY, anchor = pt({ clientX: cx, clientY: cy });
-                    const ax = anchor.x, ay = anchor.y;
-                    const nw = clamp(st.view.w * factor, canvasW / 4, canvasW * 2), nh = nw * canvasH / canvasW, rx = (ax - st.view.x) / st.view.w, ry = (ay - st.view.y) / st.view.h;
-                    setView({ x: ax - rx * nw, y: ay - ry * nh, w: nw, h: nh }); draw(); };
-                const resetView = () => { setView({ x: 0, y: 0, w: canvasW, h: canvasH }); draw(); };
-                const fitView = () => { if (!st.board.shapes.length) { resetView(); return; } const boxes = st.board.shapes.map(wbBBox), minX = Math.min(...boxes.map(b => b.x)), minY = Math.min(...boxes.map(b => b.y)), maxX = Math.max(...boxes.map(b => b.x + b.w)), maxY = Math.max(...boxes.map(b => b.y + b.h));
-                    const w = Math.max(100, maxX - minX + 100), h = Math.max(100, maxY - minY + 100), vw = clamp(Math.max(w, h * canvasW / canvasH), canvasW / 4, canvasW * 2), vh = vw * canvasH / canvasW;
-                    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2; setView({ x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh }); draw(); };
-                const pushUndo = () => { st.undo.push(JSON.stringify(st.board.shapes)); if (st.undo.length > 60) st.undo.shift(); st.redo = []; };
-                const selUi = () => { const s = cur(); if (!s) return '';
-                    const hdl = (k, x, y) => `<circle data-wb-h="${k}" cx="${x}" cy="${y}" r="8" fill="#fff" stroke="#2563eb" stroke-width="2.5" style="cursor:pointer"/>`;
-                    if (WB_BOX.includes(s.t)) return `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="none" stroke="#2563eb" stroke-dasharray="6 4" pointer-events="none"/>${hdl('nw', s.x, s.y)}${hdl('ne', s.x + s.w, s.y)}${hdl('sw', s.x, s.y + s.h)}${hdl('se', s.x + s.w, s.y + s.h)}`;
-                    if (WB_LINE.includes(s.t)) { let h = hdl('p1', s.x1, s.y1) + hdl('p2', s.x2, s.y2); if (s.t === 'curve') { const c = wbCurveCtl(s); h += hdl('c', c.x, c.y); } return h; }
-                    const b = wbBBox(s); return `<rect x="${b.x - 4}" y="${b.y - 4}" width="${b.w + 8}" height="${b.h + 8}" fill="none" stroke="#2563eb" stroke-dasharray="6 4" pointer-events="none"/>`; };
-                const sync = () => { const s = cur(), st0 = st.style;
-                    root.querySelectorAll('[data-wb-tool]').forEach(b => b.classList.toggle('active', b.dataset.wbTool === st.tool));
-                    root.querySelectorAll('[data-wb-color]').forEach(b => b.classList.toggle('active', b.dataset.wbColor === (s ? s.color : st0.color)));
-                    root.querySelectorAll('[data-wb-dash]').forEach(b => b.classList.toggle('active', b.dataset.wbDash === ((s && s.dash) || st0.dash)));
-                    root.querySelectorAll('[data-wb-fs]').forEach(b => b.classList.toggle('active', Number(b.dataset.wbFs) === ((s && s.fs) || st0.fs)));
-                    const fillV = s && WB_BOX.includes(s.t) ? s.fill : st0.fill; root.querySelector('[data-wb="fill"]').textContent = 'Fill: ' + ['none', 'tint', 'solid'][fillV || 0];
-                    root.querySelector('[data-wb="snap"]').textContent = 'Snap: ' + (st.snap ? 'on' : 'off');
-                    const sw = root.querySelector('[data-wb-sw]'); sw.value = (s && s.sw) || st0.sw;
-                    root.querySelector('[data-wb="h1"]').classList.toggle('active', !!(s && s.h1)); root.querySelector('[data-wb="h2"]').classList.toggle('active', !!(s && s.h2));
-                    const zoomLabel = root.querySelector('[data-wb-zoom-label]'); if (zoomLabel) zoomLabel.textContent = Math.round(canvasW / st.view.w * 100) + '%';
-                    const panBtn = root.querySelector('[data-wb="pan"]'); if (panBtn) panBtn.classList.toggle('active', st.panMode); stage.classList.toggle('pan-mode', st.panMode); };
-                const draw = () => { const grid = opts.mathMode
-                        ? `<defs><pattern id="wb-math-grid" width="${Number(opts.gridSize) || 28}" height="${Number(opts.gridSize) || 28}" patternUnits="userSpaceOnUse"><path d="M ${Number(opts.gridSize) || 28} 0 L 0 0 0 ${Number(opts.gridSize) || 28}" fill="none" stroke="#d7e2f0" stroke-width="1"/></pattern><pattern id="wb-math-major" width="${(Number(opts.gridSize) || 28) * 5}" height="${(Number(opts.gridSize) || 28) * 5}" patternUnits="userSpaceOnUse"><path d="M ${(Number(opts.gridSize) || 28) * 5} 0 L 0 0 0 ${(Number(opts.gridSize) || 28) * 5}" fill="none" stroke="#b8cce4" stroke-width="1.3"/></pattern></defs><rect width="${canvasW}" height="${canvasH}" fill="#fff"/><rect width="${canvasW}" height="${canvasH}" fill="url(#wb-math-grid)"/><rect width="${canvasW}" height="${canvasH}" fill="url(#wb-math-major)" pointer-events="none"/>`
-                        : (st.snap ? `<defs><pattern id="wbg" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#d1d5db"/></pattern></defs><rect width="${canvasW}" height="${canvasH}" fill="url(#wbg)" pointer-events="none"/>` : '');
-                    svg.setAttribute('viewBox', `${st.view.x} ${st.view.y} ${st.view.w} ${st.view.h}`);
-                    svg.innerHTML = `${opts.mathMode ? '' : `<rect width="${canvasW}" height="${canvasH}" fill="#ffffff"/>`}${grid}${st.board.shapes.map(wbShapeSvg).join('')}${selUi()}`; sync();
-                    if (typeof opts.onChange === 'function') { try { opts.onChange(wbClone(st.board)); } catch (err) { console.warn('Notes board change callback failed', err); } }
-                };
-                const startTextEdit = (id) => { const s = st.board.shapes.find(x => x.id === id); if (!s || !(WB_BOX.includes(s.t) || s.t === 'text')) return;
-                    st.editing = id; const r = svg.getBoundingClientRect(), kx = (r.width || canvasW) / st.view.w, ky = (r.height || canvasH) / st.view.h, stageR = stage.getBoundingClientRect(); let x, y, w;
-                    if (s.t === 'text') { const z = wbTextSize(s); x = s.x; y = s.y; w = Math.max(180, z.w); } else { w = Math.max(s.w, 180); x = s.x + s.w / 2 - w / 2; y = s.y + s.h / 2 - 18; }
-                    const left = r.left - stageR.left + (x - st.view.x) * kx, top = r.top - stageR.top + (y - st.view.y) * ky;
-                    ta.value = s.text || ''; ta.style.display = 'block'; ta.style.left = left + 'px'; ta.style.top = top + 'px'; ta.style.width = Math.max(120, Math.min(w * kx, stageR.width - left - 12)) + 'px';
-                    ta.style.fontSize = Math.max(13, (s.fs || 20) * kx) + 'px'; ta.rows = Math.max(1, ta.value.split('\n').length); ta.style.height = 'auto'; ta.style.height = Math.max(38, ta.scrollHeight + 4) + 'px';
-                    // Defer focus: synchronous SVG pointer handlers can otherwise lose focus to the SVG's default action.
-                    requestAnimationFrame(() => { if (st.editing === id && ta.isConnected) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }); };
-                const commitText = (cancel) => { if (!st.editing) return; const s = st.board.shapes.find(x => x.id === st.editing); st.editing = null; const v = cancel ? (s ? s.text || '' : '') : ta.value; ta.style.display = 'none';
-                    if (s) { if (s.t === 'text' && !v.trim()) { st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); if (st.sel === s.id) st.sel = null; }
-                        else if ((s.text || '') !== v) { pushUndo(); s.text = v; } }
-                    draw(); };
-                ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); } else if (e.key === 'Escape') { e.preventDefault(); commitText(true); } e.stopPropagation(); });
-                ta.addEventListener('input', () => { ta.rows = Math.max(1, ta.value.split('\n').length); ta.style.height = 'auto'; ta.style.height = Math.max(38, ta.scrollHeight + 4) + 'px'; });
-                ta.addEventListener('blur', () => commitText());
-                const applyMove = (s, o, dx, dy) => { if (WB_BOX.includes(s.t) || s.t === 'text') { s.x = o.x + dx; s.y = o.y + dy; }
-                    else if (WB_LINE.includes(s.t)) { s.x1 = o.x1 + dx; s.y1 = o.y1 + dy; s.x2 = o.x2 + dx; s.y2 = o.y2 + dy; if (o.cx != null) { s.cx = o.cx + dx; s.cy = o.cy + dy; } }
-                    else if (s.t === 'pen') s.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]); };
-                svg.addEventListener('pointerdown', e => { if (e.button !== 0 && e.button !== 1) return; if (st.editing) commitText();
-                    try { svg.setPointerCapture && svg.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events have no active pointer */ }
-                    if (st.panMode || e.button === 1) { let unitX = st.view.w / (svg.getBoundingClientRect().width || 1), unitY = st.view.h / (svg.getBoundingClientRect().height || 1); try { const inverse = svg.getScreenCTM()?.inverse(); if (inverse) { unitX = Math.hypot(inverse.a, inverse.b); unitY = Math.hypot(inverse.c, inverse.d); } } catch {} st.drag = { kind: 'pan', startClient: { x: e.clientX, y: e.clientY }, origView: { ...st.view }, unitX, unitY }; e.preventDefault(); return; }
-                    const p = pt(e), hnd = e.target.closest && e.target.closest('[data-wb-h]'), hit = e.target.closest && e.target.closest('[data-wb-id]');
-                    if (hnd && cur()) { pushUndo(); st.drag = { kind: 'handle', h: hnd.dataset.wbH, orig: wbClone(cur()), start: p }; return; }
-                    if (st.tool === 'erase') { if (hit) { pushUndo(); st.board.shapes = st.board.shapes.filter(x => x.id !== hit.dataset.wbId); if (st.sel === hit.dataset.wbId) st.sel = null; draw(); } return; }
-                    if (st.tool === 'select') {
-                        if (hit) { const id = hit.dataset.wbId, now = Date.now();
-                            if (st.lastClick && st.lastClick.id === id && now - st.lastClick.t < 380) { st.lastClick = null; st.sel = id; draw(); startTextEdit(id); return; }
-                            st.lastClick = { id, t: now }; st.sel = id; st.drag = { kind: 'move', orig: wbClone(cur()), start: p, moved: false }; draw();
-                        } else { st.sel = null; draw(); }
-                        return; }
-                    pushUndo(); const sty = st.style, id = wbId(), sp = snapP(p), base = { id, color: sty.color, sw: sty.sw, dash: sty.dash }; let s;
-                    if (st.tool === 'text') { s = { id, t: 'text', x: sp.x, y: sp.y, text: '', color: sty.color, fs: sty.fs }; st.board.shapes.push(s); st.sel = id; st.tool = 'select'; draw(); startTextEdit(id); return; }
-                    if (WB_BOX.includes(st.tool)) s = Object.assign(base, { t: st.tool, x: sp.x, y: sp.y, w: 0, h: 0, fill: sty.fill, text: '', fs: sty.fs });
-                    else if (st.tool === 'pen') s = Object.assign(base, { t: 'pen', pts: [[Math.round(p.x), Math.round(p.y)]] });
-                    else s = Object.assign(base, { t: st.tool === 'arrow' ? 'line' : st.tool, x1: sp.x, y1: sp.y, x2: sp.x, y2: sp.y, h1: false, h2: st.tool === 'arrow' || st.tool === 'elbow' });
-                    st.board.shapes.push(s); st.sel = id; st.drag = { kind: 'create', id, start: sp }; draw(); });
-                svg.addEventListener('pointermove', e => { const d = st.drag; if (!d) return;
-                    if (d.kind === 'pan') { const dx = (e.clientX - d.startClient.x) * d.unitX, dy = (e.clientY - d.startClient.y) * d.unitY;
-                        setView({ x: d.origView.x - dx, y: d.origView.y - dy, w: d.origView.w, h: d.origView.h }); draw(); return; }
-                    const p = pt(e), s = cur(); if (!s) return;
-                    if (d.kind === 'create') { const q = snapP(p);
-                        if (WB_BOX.includes(s.t)) { s.x = Math.min(d.start.x, q.x); s.y = Math.min(d.start.y, q.y); s.w = Math.abs(q.x - d.start.x); s.h = Math.abs(q.y - d.start.y); }
-                        else if (s.t === 'pen') { const l = s.pts[s.pts.length - 1]; if (Math.hypot(p.x - l[0], p.y - l[1]) > 3) s.pts.push([Math.round(p.x), Math.round(p.y)]); }
-                        else { s.x2 = q.x; s.y2 = q.y; } }
-                    else if (d.kind === 'move') { let dx = p.x - d.start.x, dy = p.y - d.start.y; if (!d.moved && Math.hypot(dx, dy) < 3) return; if (!d.moved) { d.moved = true; pushUndo(); }
-                        applyMove(s, d.orig, snapV(dx), snapV(dy)); }
-                    else if (d.kind === 'handle') { const q = snapP(p), o = d.orig;
-                        if (WB_BOX.includes(s.t)) { const fx = d.h.includes('w') ? o.x + o.w : o.x, fy = d.h.includes('n') ? o.y + o.h : o.y; s.x = Math.min(q.x, fx); s.y = Math.min(q.y, fy); s.w = Math.max(8, Math.abs(q.x - fx)); s.h = Math.max(8, Math.abs(q.y - fy)); }
-                        else if (d.h === 'p1') { s.x1 = q.x; s.y1 = q.y; } else if (d.h === 'p2') { s.x2 = q.x; s.y2 = q.y; } else if (d.h === 'c') { s.cx = p.x; s.cy = p.y; } }
-                    draw(); });
-                const endDrag = () => { const d = st.drag; st.drag = null; if (!d) return; if (d.kind === 'pan') { draw(); return; } const s = cur();
-                    if (d.kind === 'create' && s) {
-                        if (WB_BOX.includes(s.t) && s.w < 6 && s.h < 6) { s.w = 150; s.h = 100; }
-                        else if (WB_LINE.includes(s.t) && Math.hypot(s.x2 - s.x1, s.y2 - s.y1) < 6) { s.x2 = s.x1 + (s.t === 'elbow' ? 140 : 170); s.y2 = s.y1 + (s.t === 'elbow' ? 90 : 0); }
-                        else if (s.t === 'pen' && s.pts.length < 2) { st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); st.sel = null; st.undo.pop(); }
-                        if (st.tool !== 'pen') st.tool = 'select'; }
-                    draw(); };
-                svg.addEventListener('pointerup', endDrag); svg.addEventListener('pointercancel', endDrag);
-                // ---- toolbar actions
-                const style = (patch) => { Object.assign(st.style, patch); const s = cur(); if (s) { pushUndo(); Object.assign(s, patch); } draw(); };
-                const del = () => { const s = cur(); if (!s) return; pushUndo(); st.board.shapes = st.board.shapes.filter(x => x.id !== s.id); st.sel = null; draw(); };
-                const dup = () => { const s = cur(); if (!s) return; pushUndo(); const c = wbClone(s); c.id = wbId(); applyMove(c, s, 20, 20); st.board.shapes.push(c); st.sel = c.id; draw(); };
-                const undo = () => { if (!st.undo.length) return; st.redo.push(JSON.stringify(st.board.shapes)); st.board.shapes = JSON.parse(st.undo.pop()); if (!cur()) st.sel = null; draw(); };
-                const redo = () => { if (!st.redo.length) return; st.undo.push(JSON.stringify(st.board.shapes)); st.board.shapes = JSON.parse(st.redo.pop()); if (!cur()) st.sel = null; draw(); };
-                const finish = (save) => { if (st.editing) commitText(); if (save && opts.onDone) {
-                    const desc = root.querySelector('[data-wb-description]'), toggle = root.querySelector('[data-wb-description-toggle]');
-                    opts.onDone(wbClone(st.board), { enabled: !!(toggle && toggle.checked), text: desc ? desc.value : '' });
-                } closeWhiteboard(); };
-                root.addEventListener('click', e => { const b = e.target.closest('[data-wb],[data-wb-tool],[data-wb-color],[data-wb-dash],[data-wb-fs]'); if (!b) return;
-                    if (b.dataset.wbTool) { st.tool = b.dataset.wbTool; if (st.tool !== 'select') st.sel = null; draw(); return; }
-                    if (b.dataset.wbColor) { style({ color: b.dataset.wbColor }); return; }
-                    if (b.dataset.wbDash) { style({ dash: b.dataset.wbDash }); return; }
-                    if (b.dataset.wbFs) { style({ fs: Number(b.dataset.wbFs) }); return; }
-                    const a = b.dataset.wb, s = cur();
-                    if (a === 'undo') undo(); else if (a === 'redo') redo();
-                    else if (a === 'zoom-in') zoomAt(0.8); else if (a === 'zoom-out') zoomAt(1.25); else if (a === 'fit') fitView(); else if (a === 'reset-zoom') resetView();
-                    else if (a === 'pan') { st.panMode = !st.panMode; draw(); }
-                    else if (a === 'clear') { if (st.board.shapes.length && (typeof confirm !== 'function' || confirm('Clear the whole board?'))) { pushUndo(); st.board.shapes = []; st.sel = null; draw(); } }
-                    else if (a === 'cancel') { if (st.undo.length && typeof confirm === 'function' && !confirm('Discard your changes to this drawing?')) return; finish(false); }
-                    else if (a === 'done') finish(true);
-                    else if (a === 'fill') { const next = (((s && WB_BOX.includes(s.t)) ? s.fill : st.style.fill) + 1) % 3; st.style.fill = next; if (s && WB_BOX.includes(s.t)) { pushUndo(); s.fill = next; } draw(); }
-                    else if (a === 'h1' || a === 'h2') { if (s && WB_LINE.includes(s.t)) { pushUndo(); s[a] = !s[a]; draw(); } }
-                    else if (a === 'bend') { if (s && s.t === 'elbow') { pushUndo(); s.v = !s.v; draw(); } }
-                    else if (a === 'snap') { st.snap = !st.snap; draw(); }
-                    else if (a === 'dup') dup(); else if (a === 'del') del();
-                    else if (a === 'front' && s) { pushUndo(); st.board.shapes = st.board.shapes.filter(x => x.id !== s.id).concat(s); draw(); }
-                    else if (a === 'back' && s) { pushUndo(); st.board.shapes = [s].concat(st.board.shapes.filter(x => x.id !== s.id)); draw(); }
-                    else if (a === 'axes') { pushUndo(); const base = { color: st.style.color, sw: Math.max(3, st.style.sw), dash: 'solid', h1: false, h2: true };
-                        const ox = Math.round(canvasW * .12), oy = Math.round(canvasH * .84); st.board.shapes.push(Object.assign({ id: wbId(), t: 'line', x1: ox, y1: oy, x2: ox, y2: Math.round(canvasH * .12) }, base), Object.assign({ id: wbId(), t: 'line', x1: ox, y1: oy, x2: Math.round(canvasW * .9), y2: oy }, base)); draw(); }
-                    else if (a === 'ask-ai' && typeof opts.onAskAI === 'function') opts.onAskAI(); });
-                root.addEventListener('input', e => { const r = e.target.closest('[data-wb-sw]'); if (!r) return; const v = Number(r.value); st.style.sw = v; const s = cur();
-                    if (s) { if (!st.swPending) { pushUndo(); st.swPending = true; } s.sw = v; } draw(); });
-                root.addEventListener('change', e => { if (e.target.closest('[data-wb-sw]')) st.swPending = false; const toggle = e.target.closest('[data-wb-description-toggle]'); if (toggle) { const field = root.querySelector('[data-wb-description]'); if (field) { field.hidden = !toggle.checked; if (toggle.checked) field.focus(); } } });
-                svg.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 0.88 : 1.14, e.clientX, e.clientY); }, { passive: false });
-                const onKey = (e) => { if (!wbActive || wbActive.root !== root || st.editing) return; const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'textarea' || tag === 'input') return; const k = e.key.toLowerCase();
-                    if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
-                    if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
-                    if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault(); dup(); return; }
-                    if (e.ctrlKey || e.metaKey || e.altKey) return;
-                    if (k === 'delete' || k === 'backspace') { e.preventDefault(); del(); return; }
-                    if (k === 'enter' && cur() && (WB_BOX.includes(cur().t) || cur().t === 'text')) { e.preventDefault(); startTextEdit(st.sel); return; }
-                    if (k === '+' || k === '=') { e.preventDefault(); zoomAt(0.8); return; } if (k === '-') { e.preventDefault(); zoomAt(1.25); return; }
-                    if (k === 'escape') { e.preventDefault(); st.tool = 'select'; st.panMode = false; st.sel = null; draw(); return; }
-                    if (k.startsWith('arrow') && cur()) { e.preventDefault(); pushUndo(); const n = e.shiftKey ? 10 : 1, s = cur(); applyMove(s, wbClone(s), k === 'arrowleft' ? -n : k === 'arrowright' ? n : 0, k === 'arrowup' ? -n : k === 'arrowdown' ? n : 0); draw(); return; }
-                    const map = { v: 'select', r: 'rect', o: 'oval', d: 'rhombus', g: 'triangle', b: 'blockarrow', l: 'line', a: 'arrow', e: 'elbow', c: 'curve', p: 'pen', t: 'text', x: 'erase' };
-                    if (map[k]) { st.tool = map[k]; if (st.tool !== 'select') st.sel = null; draw(); } };
-                document.addEventListener('keydown', onKey);
-                wbActive = { root, st, onKey, api: { draw, finish, startTextEdit, undo, redo, del, dup, addImage } };
-                draw(); return wbActive; }
-
-            function fcRowFromCard(card) { const row = { id: card.id, type: card.type && FC_TYPES[card.type] ? card.type : 'term', front: card.front, back: card.back, text: '', ordered: false, board: null, secKey: fcCardKey(card) }, d = card.data;
-                if (row.type === 'list' && d) { row.text = d.items.join('\n'); row.ordered = !!d.ordered; }
-                else if (row.type === 'timeline' && d) row.text = d.events.map(e => (e.when ? e.when + ' - ' : '') + e.label).join('\n');
-                else if (row.type === 'info' && d) row.text = fcInfoToText(d.sections);
-                else if (row.type === 'graph' && d) { row.board = wbClone(d.board); row.text = d.notes || ''; row.descriptionEnabled = !!(d.notes && String(d.notes).trim()); }
-                return row; }
-            function openFlashcardDeckEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
-                flashcardCreateDraft = { mode: 'deck-edit', editing: { deckId }, subjectId: deck.subjectId, topic: deck.topic, sections: fcSecs(deck).map(x => ({ id: x.id, name: x.name, subs: (x.subs || []).map(u => ({ id: u.id, name: u.name })) })), cards: fcOrderedCards(deck).map(fcRowFromCard), images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
-                if (!flashcardCreateDraft.cards.length) flashcardCreateDraft.cards.push({ type: 'term', front: '', back: '', text: '', secKey: '' });
-                openModal('flashcard-create'); }
             function saveDeckEdits() { const d = flashcardCreateDraft; if (!d || d.mode !== 'deck-edit') return; const deck = flashcardDeck(d.editing.deckId); if (!deck) { closeModal(); return; }
                 const topic = (d.topic || '').trim(); if (!topic) { toast('Give the deck a name.'); return; }
                 if (state.flashcardDecks.some(x => x.id !== deck.id && x.subjectId === d.subjectId && x.topic.trim().toLowerCase() === topic.toLowerCase())) { toast(`"${topic}" already exists in that subject — pick a different name.`); return; }
@@ -16851,7 +16625,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 deck.cards = out; deck.topic = topic; if (Array.isArray(d.sections)) deck.cards.forEach(c => { if (c.secId && !deck.sections.some(x => x.id === c.secId)) { delete c.secId; delete c.subId; } });
                 if (deck.subjectId !== d.subjectId) { deck.subjectId = d.subjectId; (state.flashcardFolders || []).forEach(f => { f.deckIds = f.deckIds.filter(id => id !== deck.id); }); if (flashcardsFilterSubject !== 'all') flashcardsFilterSubject = d.subjectId; }
                 if (fcScope && fcScope.deckId === deck.id && !fcScopeCards(deck).length) fcScope = null;
-                save(); toast('Deck updated.'); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
+                save(); toast('Deck updated.'); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
 
             function openFlashcardEditModal(deckId, cardId) { const deck = flashcardDeck(deckId), card = deck && deck.cards.find(c => c.id === cardId); if (!card) return;
                 flashcardCreateDraft = { mode: 'edit', editing: { deckId, cardId }, subjectId: deck.subjectId, topic: deck.topic, cards: [fcRowFromCard(card)], images: [], reviewCards: null, pasteText: '', notesText: '', magicResult: null };
@@ -16861,7 +16635,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 card.front = r.card.front; card.back = r.card.back;
                 if (r.card.type === 'term') { delete card.type; delete card.data; } else { card.type = r.card.type; card.data = r.card.data; }
                 fcApplyPlace(deck, card, d.cards[0].secKey);
-                save(); toast('Card updated.'); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
+                save(); toast('Card updated.'); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
 
             // ---- Flashcards: card types ------------------------------------------------------------------------
             // Every card keeps plain `front` / `back` text (so Click Through, spaced repetition, search, Sparky and the
@@ -17339,7 +17113,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const topic = d.topic.trim();
                 addFlashcardsToDeck(d.subjectId, topic, chosen);
                 toast(`Added ${chosen.length} flashcard${chosen.length===1?'':'s'} to "${topic}".`);
-                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
+                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
                 closeModal(); render(); }
             function cancelMagicNotes() { if (flashcardCreateDraft) flashcardCreateDraft.magicResult = null; renderModal(); }
 
@@ -17363,7 +17137,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (!cards.length) { toast('No cards detected — check the format.'); return; }
                 addFlashcardsToDeck(d.subjectId, topic, cards);
                 toast(`Imported ${cards.length} flashcard${cards.length===1?'':'s'} into "${topic}".`);
-                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
+                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
                 closeModal(); render(); }
 
             function saveManualFlashcards() { const d = flashcardCreateDraft; if (!d) return;
@@ -17375,7 +17149,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (!cards.length) { toast('Add at least one complete card.'); return; }
                 addFlashcardsToDeck(d.subjectId, topic, cards, d.sections || []);
                 toast(`Added ${cards.length} flashcard${cards.length === 1 ? '' : 's'} to "${topic}".`);
-                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
+                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
                 closeModal(); render(); }
 
             async function runInfoCardExtract() { const d = flashcardCreateDraft; if (!d) return;
@@ -17395,7 +17169,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const cards = []; d.infoReview.filter(x => x.include).forEach(x => { const r = fcBuildCard({ type: 'info', front: x.title, text: x.text }); if (r && r.card) cards.push(r.card); });
                 if (!cards.length) { toast('Nothing ticked (or the text had no points).'); return; }
                 const topic = (d.topic || '').trim(); addFlashcardsToDeck(d.subjectId, topic, cards);
-                toast(`Added ${cards.length} info card${cards.length === 1 ? '' : 's'} to "${topic}".`); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
+                toast(`Added ${cards.length} info card${cards.length === 1 ? '' : 's'} to "${topic}".`); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null; closeModal(); render(); }
 
             async function runFlashcardExtract() { const d = flashcardCreateDraft; if (!d) return;
                 const topic = (d.topic || '').trim();
@@ -17474,7 +17248,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 const topic = d.topic.trim();
                 addFlashcardsToDeck(d.subjectId, topic, chosen);
                 toast(`Added ${chosen.length} flashcard${chosen.length===1?'':'s'} to "${topic}".`);
-                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
+                fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); fcClearDraftBackups(flashcardCreateDraft && flashcardCreateDraft.subjectId); flashcardCreateDraft = null;
                 closeModal(); render(); }
             function cancelFlashcardReview() { if (flashcardCreateDraft) flashcardCreateDraft.reviewCards = null; renderModal(); }
 
@@ -19666,6 +19440,7 @@ function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId),
                 if (mascotTour) positionMascotWidget(currentMascotStep()); }
 
             function renderModal() {
+                if (modal && modal.kind === 'flashcard-create') fcScheduleDraftBackup();
                 if (modal && modal.kind === 'flashcard-create') fcScheduleDraftBackup();
                 const layer = document.getElementById('modal-layer');
                 const preserveFlashcardScroll = !!(modal && modal.kind === 'flashcard-create');
