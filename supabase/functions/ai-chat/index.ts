@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     if (geminiKey) {
       // Reserve the higher-quality model for whole question batches; keep single-answer marking cheap.
       if (!usesVision && modelTier === "quality") {
-        geminiAttempts.push(() => callGemini(GEMINI_MODEL_QUALITY, contents, systemInstruction, tools, geminiKey));
+        geminiAttempts.push(() => callGemini(GEMINI_MODEL_QUALITY, contents, systemInstruction, tools, geminiKey, "HIGH"));
       }
       geminiAttempts.push(() =>
         callGemini(usesVision ? GEMINI_MODEL_VISION : GEMINI_MODEL_TEXT, contents, systemInstruction, tools, geminiKey));
@@ -133,13 +133,13 @@ function hasImage(contents: any[]): boolean {
 }
 
 // ---- Gemini ----
-async function callGemini(model: string, contents: any[], systemInstruction: any, tools: any, apiKey: string) {
+async function callGemini(model: string, contents: any[], systemInstruction: any, tools: any, apiKey: string, thinkingLevel?: string) {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents, systemInstruction, tools }),
+      body: JSON.stringify({ contents, systemInstruction, tools, ...(thinkingLevel ? { generationConfig: { thinkingConfig: { thinkingLevel } } } : {}) }),
     },
   );
   if (res.status === 429) throw new Error("Gemini rate-limited");
