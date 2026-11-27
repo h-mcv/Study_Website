@@ -17960,7 +17960,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                         (q.rationale?'<div class="fc-adaptive-model-answer"><strong>Why this is right</strong><p>'+escape(q.rationale)+'</p></div>':'')+
                         '<button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-next">Next question <span aria-hidden="true">→</span></button></section>';
                 }
-                return shell('<div class="fc-adaptive-progress-wrap"><div class="fc-adaptive-progress-label"><span>Continuous practice</span><span>Question '+(Number(sess.totalAnswered||0)+1)+'</span></div></div>'+
+                return shell('<div class="fc-adaptive-progress-wrap"><div class="fc-adaptive-progress-label"><span>Continuous practice</span><span>Question '+Math.max(1,Number(sess.totalAnswered||0)+(result?0:1))+'</span></div></div>'+
                     '<main class="fc-adaptive-panel"><div class="fc-adaptive-meta"><span class="fc-adaptive-pill">'+escape(q.type==='mcq'?'MULTIPLE CHOICE':'SHORT ANSWER')+
                     '</span><span class="fc-adaptive-dimension">'+escape(dimensionLabel)+'</span><span class="fc-adaptive-source">'+escape(sourceLabel)+'</span></div>'+
                     '<h1 class="fc-adaptive-question">'+escape(q.question)+'</h1>'+choices+answerArea+feedback+
