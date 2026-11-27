@@ -34,6 +34,7 @@ const CORS_HEADERS = {
 };
 
 const GEMINI_MODEL_TEXT = "gemini-3.5-flash-lite";
+const GEMINI_MODEL_QUALITY = "gemini-3.8-flash";
 const GEMINI_MODEL_TEXT_FALLBACK = "gemini-3.1-flash-lite";
 const GEMINI_MODEL_VISION = "gemini-3.5-flash";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
@@ -62,7 +63,7 @@ Deno.serve(async (req) => {
     // real per-user throttling (e.g. a request-count table) to stop.
     const rawBody = await req.text();
     if (rawBody.length > 200_000) return jsonResponse({ error: "Request too large." }, 413);
-    const { contents, systemInstruction, tools, preferProvider } = JSON.parse(rawBody || "{}");
+    const { contents, systemInstruction, tools, preferProvider, modelTier } = JSON.parse(rawBody || "{}");
     if (!Array.isArray(contents) || !contents.length) {
       return jsonResponse({ error: "Missing 'contents'." }, 400);
     }
@@ -74,6 +75,10 @@ Deno.serve(async (req) => {
 
     const geminiAttempts: Array<() => Promise<unknown>> = [];
     if (geminiKey) {
+      // Reserve the higher-quality model for whole question batches; keep single-answer marking cheap.
+      if (!usesVision && modelTier === "quality") {
+        geminiAttempts.push(() => callGemini(GEMINI_MODEL_QUALITY, contents, systemInstruction, tools, geminiKey));
+      }
       geminiAttempts.push(() =>
         callGemini(usesVision ? GEMINI_MODEL_VISION : GEMINI_MODEL_TEXT, contents, systemInstruction, tools, geminiKey));
       if (!usesVision) {

@@ -4930,6 +4930,123 @@
       src="https://js-de.sentry-cdn.com/5d4d5302008597df5d3980e7def47956.min.js"
       crossorigin="anonymous"
     ></script>
+<style id="flashcard-learning-refresh">
+.fc-deck-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.fc-resume-section{margin:0 0 18px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.fc-insight-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 12px}
+.fc-insight-heading h2,.fc-insight-heading h3{margin:0 0 3px}
+.fc-insight-heading p{margin:0;color:var(--muted);font-size:12px}
+.fc-resume-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.fc-resume-card{padding:14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);display:flex;flex-direction:column;gap:7px;min-width:0}
+.fc-resume-meta,.fc-insight-label{font-size:11px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.fc-resume-card>strong{font-size:16px;overflow-wrap:anywhere}
+.fc-resume-actions{display:flex;gap:8px;margin-top:5px;flex-wrap:wrap}
+.fc-insights{display:grid;gap:14px}
+.fc-insights-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.fc-insights-intro h2{margin:0 0 4px}
+.fc-insights-intro p{margin:0;color:var(--muted);font-size:13px}
+.fc-insight-updated{font-size:11px;color:var(--muted)}
+.fc-insights-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.fc-insight-card,.fc-insight-panel{min-width:0;padding:16px;border:1px solid var(--line);border-radius:15px;background:var(--surface)}
+.fc-insight-card{display:flex;flex-direction:column;gap:6px}
+.fc-insight-card>strong{font-size:26px;line-height:1.15;font-variant-numeric:tabular-nums}
+.fc-insight-card>strong small{font-size:14px;color:var(--muted);font-weight:600}
+.fc-insight-card .small{color:var(--muted);font-size:11px;line-height:1.4}
+.fc-insights-lower{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fc-insight-wide{grid-column:1/-1}
+.fc-insight-bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:end;min-height:130px;padding-top:8px}
+.fc-insight-day{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--muted);min-width:0}
+.fc-insight-day strong{font-size:11px;color:var(--text)}
+.fc-insight-bar-track{height:78px;width:min(28px,70%);display:flex;align-items:flex-end;border-radius:8px;background:var(--surface-2);overflow:hidden}
+.fc-insight-bar-track i{display:block;width:100%;min-height:3px;border-radius:8px;background:var(--primary)}
+.fc-dimension-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.fc-dimension-grid .fc-insight-card{padding:11px}
+.fc-dimension-grid .fc-insight-card>strong{font-size:21px}
+.fc-insight-list-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
+.fc-insight-list-row:last-child{border-bottom:0}
+.fc-insight-list-row>div{min-width:0;display:grid;gap:3px}
+.fc-insight-list-row strong{font-size:13px;overflow-wrap:anywhere}
+.fc-insight-list-row span{font-size:11px;color:var(--muted)}
+.fc-insight-list-row em{font-size:13px;font-weight:750;font-style:normal;white-space:nowrap}
+.fc-insight-context{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;background:var(--surface-2)}
+.fc-insight-context>span{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:750}
+.fc-insight-context>strong{font-size:14px}
+.fc-adaptive-shell{max-width:820px;margin:0 auto;padding:4px 8px 26px}
+.fc-adaptive-topbar{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0 16px}
+.fc-adaptive-topbar>div{min-width:0;display:grid;gap:3px}
+.fc-adaptive-topbar>div>strong{font-size:15px;overflow-wrap:anywhere}
+.fc-adaptive-eyebrow,.fc-adaptive-kicker{font-size:10px;letter-spacing:.12em;font-weight:800;color:var(--muted)}
+.fc-adaptive-pause{flex-shrink:0;white-space:nowrap}
+.fc-adaptive-progress-wrap{display:grid;gap:7px;margin:0 0 12px}
+.fc-adaptive-progress-label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);font-weight:650}
+.fc-adaptive-progress{height:5px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.fc-adaptive-progress i{height:100%;display:block;border-radius:999px;background:var(--primary);transition:width .2s ease}
+.fc-adaptive-panel{padding:clamp(18px,3vw,30px);border:1px solid var(--line);border-radius:20px;background:var(--surface);box-shadow:var(--shadow)}
+.fc-adaptive-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.fc-adaptive-pill{padding:5px 8px;border-radius:7px;background:var(--surface-2);color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.05em}
+.fc-adaptive-dimension{padding:5px 9px;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:750}
+.fc-adaptive-source{font-size:11px;color:var(--muted);margin-left:auto;text-align:right}
+.fc-adaptive-question{font-size:clamp(21px,3vw,30px);line-height:1.35;letter-spacing:-.02em;margin:0 0 22px;overflow-wrap:anywhere}
+.fc-adaptive-choices{display:grid;gap:9px}
+.fc-adaptive-choice{display:flex;align-items:flex-start;gap:12px;white-space:normal;min-height:54px;padding:13px 15px;border-radius:13px;line-height:1.4;font-size:15px}
+.fc-adaptive-letter{flex:0 0 27px;height:27px;border-radius:8px;display:grid;place-items:center;background:var(--surface-2);font-size:12px;font-weight:800}
+.fc-adaptive-answer-wrap{display:grid;gap:9px}
+.fc-adaptive-answer-wrap label{font-size:13px;font-weight:750}
+.fc-adaptive-answer-wrap textarea{width:100%;min-height:130px;font-size:16px;line-height:1.5;padding:14px;border-radius:13px;resize:vertical}
+.fc-adaptive-submit{margin-top:4px;min-height:46px}
+.fc-adaptive-feedback{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+.fc-adaptive-feedback.is-correct{border-color:var(--success)}
+.fc-adaptive-feedback.is-review{border-color:var(--warning,var(--line))}
+.fc-adaptive-feedback-title{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:800}
+.fc-adaptive-feedback-title strong{font-size:13px}
+.fc-adaptive-feedback>p{margin:9px 0;font-size:14px;line-height:1.5}
+.fc-adaptive-model-answer{margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
+.fc-adaptive-model-answer strong{font-size:12px}
+.fc-adaptive-model-answer p{margin:4px 0 0;font-size:13px;line-height:1.5}
+.fc-adaptive-footer{display:flex;justify-content:space-between;gap:12px;margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+.fc-adaptive-guidance{font-size:11px;line-height:1.5;color:var(--muted);text-align:center;margin:12px 6px}
+.fc-adaptive-loading{min-height:260px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+.fc-adaptive-loading h2{font-size:19px;margin:10px 0}
+.fc-adaptive-loading p{max-width:420px;color:var(--muted);font-size:13px}
+.fc-adaptive-spinner{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:fc-adaptive-spin .8s linear infinite}
+.fc-adaptive-save-note{font-size:11px;color:var(--muted);margin-top:10px}
+@keyframes fc-adaptive-spin{to{transform:rotate(360deg)}}
+@media(max-width:700px){
+ .fc-library-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .fc-library-tabs .fc-chip{justify-content:center;padding:10px 5px;font-size:12px;min-width:0}
+ .fc-resume-section{padding:12px;margin-bottom:14px}
+ .fc-resume-grid{grid-template-columns:1fr}
+ .fc-resume-card{padding:12px}
+ .fc-resume-actions{display:grid;grid-template-columns:1fr 1fr}
+ .fc-insights{gap:10px}
+ .fc-insights-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .fc-insight-card,.fc-insight-panel{padding:12px;border-radius:13px}
+ .fc-insight-card>strong{font-size:24px}
+ .fc-insights-lower{grid-template-columns:1fr}
+ .fc-insight-wide{grid-column:1}
+ .fc-insight-heading{gap:8px}
+ .fc-insight-heading h2,.fc-insight-heading h3{font-size:16px}
+ .fc-insight-context{align-items:flex-start;flex-direction:column;gap:6px}
+ .fc-adaptive-shell{width:100%;max-width:100%;padding:0 0 calc(18px + env(safe-area-inset-bottom))}
+ .fc-adaptive-topbar{position:sticky;top:0;z-index:5;margin:0 -4px;padding:10px 4px 12px;background:var(--bg);border-bottom:1px solid var(--line)}
+ .fc-adaptive-topbar>div>strong{font-size:13px}
+ .fc-adaptive-pause{padding:9px 10px;font-size:12px;min-height:40px}
+ .fc-adaptive-pause span{display:inline}
+ .fc-adaptive-progress-wrap{margin:10px 0}
+ .fc-adaptive-panel{padding:17px 14px;border-radius:16px;box-shadow:none}
+ .fc-adaptive-meta{margin-bottom:14px;gap:6px}
+ .fc-adaptive-source{width:100%;margin-left:0;text-align:left}
+ .fc-adaptive-question{font-size:23px;margin-bottom:18px}
+ .fc-adaptive-choice{min-height:55px;padding:12px 11px;font-size:14px;gap:9px}
+ .fc-adaptive-letter{flex-basis:25px;height:25px}
+ .fc-adaptive-answer-wrap textarea{font-size:16px;min-height:155px}
+ .fc-adaptive-submit{width:100%;min-height:48px}
+ .fc-adaptive-feedback{padding:13px}
+ .fc-adaptive-footer{font-size:10px;flex-wrap:wrap}
+ .fc-deck-toolbar{justify-content:space-between}
+}
+@media(prefers-reduced-motion:reduce){.fc-adaptive-spinner{animation:none}.fc-adaptive-progress i{transition:none}}
+</style>
 </head>
 <body>
     <div id="app"></div>
@@ -8744,6 +8861,9 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch {} }
                 } else if (e.target.id === 'topic-search-input') {
                     topicSearchQuery = e.target.value;
+                } else if (e.target.id === 'flashcard-adaptive-answer' && flashcardStudySession?.mode === 'adaptive-ai') {
+                    flashcardStudySession.pendingAnswer = e.target.value;
+                    adaptivePersistSession(flashcardStudySession, 'active', false);
                 }
             });
 
@@ -8861,6 +8981,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                 wordbankSynonyms: [], // { id, subjectId, word, synonyms: [string], addedDate } — language subjects' synonym bank
                 essayMarks: [], // { id, subjectId, topicIds: [], date, inputMode, text, overallComment, rating: 'good'|'ok'|'bad', spelling: [], grammar: [], suggestions: [] }
                 flashcardDecks: [], // { id, subjectId, topic, cards: [{id, front, back}], createdAt } — one deck per subject+topic
+                flashcardLearning: { version: 1, activeSession: null, savedSessions: [], reviewHistory: [], sessions: [] },
                 gameHighScores: {}, // { [gameId]: number } — best score so far for score-based games in the Games section
                 gameWins: {}, // { [gameId]: number } — running win / completion count for the games with no score (what their leaderboard ranks)
                 gameSettings: {}, // { [gameId]: {...} } — per-game user preferences (e.g. Snake's speed/board size/walls)
@@ -9192,6 +9313,11 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     wordbankSynonyms: Array.isArray(saved.wordbankSynonyms) ? saved.wordbankSynonyms : [],
                     essayMarks: Array.isArray(saved.essayMarks) ? saved.essayMarks : [],
                     flashcardDecks: Array.isArray(saved.flashcardDecks) ? saved.flashcardDecks : [],
+                    flashcardLearning: (() => { const raw = saved.flashcardLearning && typeof saved.flashcardLearning === 'object' ? saved.flashcardLearning : {};
+                        return { version: 1, activeSession: raw.activeSession || null,
+                            savedSessions: Array.isArray(raw.savedSessions) ? raw.savedSessions.slice(-20) : [],
+                            reviewHistory: Array.isArray(raw.reviewHistory) ? raw.reviewHistory.slice(-2500) : [],
+                            sessions: Array.isArray(raw.sessions) ? raw.sessions.slice(-100) : [] }; })(),
                     gameHighScores: saved.gameHighScores && typeof saved.gameHighScores === 'object' ? saved.gameHighScores : {},
                     gameWins: saved.gameWins && typeof saved.gameWins === 'object' ? saved.gameWins : {},
                     gameSettings: saved.gameSettings && typeof saved.gameSettings === 'object' ? saved.gameSettings : {} };
@@ -15787,9 +15913,11 @@ ${pointsSvg}
                             if (i === 0 && attempt === 0) await new Promise(r => setTimeout(r, 1200)); } } }
                 throw busy(); }
 
-                        async function aiTextOnce(systemPrompt, parts, preferProvider) {
+                        async function aiTextOnce(systemPrompt, parts, preferProvider, modelTier) {
                 if (!currentUser) throw new Error('Sign in with Google to use this AI feature.');
-                const data = await aiInvoke({ contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: systemPrompt }] }, preferProvider });
+                const body = { contents: [{ role: 'user', parts }], systemInstruction: { parts: [{ text: systemPrompt }] }, preferProvider };
+                if (modelTier) body.modelTier = modelTier;
+                const data = await aiInvoke(body);
                 const candidate = data?.candidates?.[0];
                 const text = candidate?.content?.parts?.map(p => p.text || '').join('') || '';
                 if (!text.trim()) throw new Error("The AI didn't return a usable response — try again.");
@@ -15804,7 +15932,7 @@ ${pointsSvg}
                 if (first !== -1 && last > first) { try { return JSON.parse(cleaned.slice(first, last + 1)); } catch {} }
                 throw new Error("Couldn't understand the AI's response — try again.");
             }
-            async function aiJsonOnce(systemPrompt, parts, preferProvider) { return parseAiJson(await aiTextOnce(systemPrompt, parts, preferProvider)); }
+            async function aiJsonOnce(systemPrompt, parts, preferProvider, modelTier) { return parseAiJson(await aiTextOnce(systemPrompt, parts, preferProvider, modelTier)); }
 
             function fileToDataUrl(file) { return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -16556,7 +16684,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                             return `<div class="fc-sec-block sub"><div class="fc-sec-h sub"><h3>${escape(u.name)}</h3><span class="small">${uc.length}</span>${secTools(s, u)}</div>${uc.length ? rows(uc) : '<p class="small" style="margin:4px 0 8px">No cards here yet.</p>'}</div>`; }).join('')}</div>`; }).join(''); }
                 const scopeBar = `<div class="fc-secbar">${secs.length ? `<span class="small">Study:</span><select data-action="fc-scope" data-deck="${deck.id}" style="max-width:260px"><option value="">Whole deck</option>${fcSecOptions(deck).filter(o => o.key).map(o => `<option value="${o.key}" ${scopeLabel && o.label === scopeLabel ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>${scopeLabel ? `<span class="pill neutral">${scoped.length} card${scoped.length === 1 ? '' : 's'} in scope</span>` : ''}` : ''}<label class="fc-check"><input type="checkbox" data-action="fc-keep-order" data-deck="${deck.id}" ${deck.keepOrder ? 'checked' : ''}> Keep cards in order (don't shuffle)</label><label class="fc-check" title="Private decks are never shown in the Community"><input type="checkbox" data-action="fc-deck-private" data-deck="${deck.id}" ${deck.isPrivate ? 'checked' : ''}> 🔒 Private ${deck.isPrivate ? '' : '<span class="small">(shared in the Community)</span>'}</label><button type="button" class="button ghost" data-action="fc-sec-add" data-deck="${deck.id}">+ Add section</button></div>`;
                 return `<div class="fc-wrap">
-          <button type="button" class="button ghost" style="margin-bottom:14px" data-action="flashcards-back-to-topics">← All decks</button>
+          <div class="fc-deck-toolbar"><button type="button" class="button ghost" data-action="flashcards-back-to-topics">← All decks</button><button type="button" class="button ghost" data-action="flashcard-insights-deck" data-deck="${deck.id}">📊 Deck insights</button></div>
           <div style="border-top:5px solid ${s ? s.color : 'var(--primary)'};padding-top:12px;margin-bottom:16px">
             <h1 style="margin:0">${escape(deck.topic)}</h1>
             <p class="muted" style="margin:4px 0 0">${escape(s ? s.name : 'No subject')}</p>
@@ -17119,7 +17247,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             // (see supabase/migrations/0020_community_decks.sql), shown under the owner's NAME, never their email. A background
             // reconcile (debounced after any save) publishes new/changed public decks, and removes rows for decks that became private
             // or were deleted. Copies you take from other people start PRIVATE so nothing you didn't write is re-published by you.
-            let flashcardsTab = 'mine', communityRows = null, communityLoading = false, communityError = '', communityQuery = '', communitySort = 'new', communityDisabled = false, communityShowMine = false;
+            let flashcardsTab = 'mine', flashcardsInsightDeckId = null, communityRows = null, communityLoading = false, communityError = '', communityQuery = '', communitySort = 'new', communityDisabled = false, communityShowMine = false;
             let communityTimer = null, communityBusy = false, communityPreview = null, communitySearchTimer = null, communityTooBigWarned = {};
             function fcHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
             function fcDeckSnapshot(d) { return { cards: d.cards.map(c => Object.assign({ front: c.front, back: c.back }, c.type && c.type !== 'term' && c.data ? { type: c.type, data: c.data } : {}, c.secId ? { secId: c.secId } : {}, c.subId ? { subId: c.subId } : {})), sections: d.sections || [] }; }
@@ -17216,8 +17344,9 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
           ${shownFolders.map(folderSection).join('')}
           ${shownFolders.length && ungrouped.length ? '<p class="small" style="margin:10px 0">Ungrouped</p>' : ''}
           ${ungrouped.length ? `<div class="fc-deck-grid">${ungrouped.map(tile).join('')}</div>` : (decks.length ? '' : `<p class="empty">${q ? 'No decks or cards match that search.' : 'No decks for this subject yet — create one above.'}</p>`)}`;
-                const tabs = `<div class="fc-chips" style="margin-bottom:14px"><button type="button" class="fc-chip ${flashcardsTab === 'mine' ? 'active' : ''}" data-action="fc-tab" data-tab="mine">My decks</button><button type="button" class="fc-chip ${flashcardsTab === 'community' ? 'active' : ''}" data-action="fc-tab" data-tab="community">🌐 Community</button></div>`;
-                return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${tabs}${flashcardsTab === 'community' ? renderCommunityBody() : body + renderWordBankShelf(filterId)}</div>`; }
+                const tabs = `<div class="fc-chips fc-library-tabs" style="margin-bottom:14px"><button type="button" class="fc-chip ${flashcardsTab === 'mine' ? 'active' : ''}" data-action="fc-tab" data-tab="mine">My decks</button><button type="button" class="fc-chip ${flashcardsTab === 'insights' ? 'active' : ''}" data-action="fc-tab" data-tab="insights">📊 Insights</button><button type="button" class="fc-chip ${flashcardsTab === 'community' ? 'active' : ''}" data-action="fc-tab" data-tab="community">🌐 Community</button></div>`;
+                const pageBody = flashcardsTab === 'community' ? renderCommunityBody() : flashcardsTab === 'insights' ? chips + renderFlashcardInsights(filterId) : renderAdaptiveResumeSessions(filterId) + body + renderWordBankShelf(filterId);
+                return `<div class="fc-wrap">${header('Flashcards', 'Create, flip through and test decks for every subject.', tools)}${tabs}${pageBody}</div>`; }
 
 
             // ---- Flashcards: create modal (manual entry, or photo -> AI extraction -> review) --------
@@ -17474,6 +17603,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
             // ---- Flashcards: study/test sessions --------------------------------------------------
             function exitFlashcardSession() { if (gravityTimeoutId) { clearTimeout(gravityTimeoutId); gravityTimeoutId = null; }
                 if (examSimTimeoutId) { clearTimeout(examSimTimeoutId); examSimTimeoutId = null; }
+                if (flashcardStudySession && flashcardStudySession.mode === 'adaptive-ai') { adaptivePersistSession(flashcardStudySession, 'paused', true); toast('Session paused and saved. You can resume it from Flashcards.'); }
                 flashcardStudySession = null; render(); }
 
             function startFlashcardClickThrough(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
@@ -17568,42 +17698,266 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                     if (q.lastReviewed && q.dueAt && q.dueAt <= now) x.due++;
                     x.last = Math.max(x.last, q.lastReviewed || 0); seen.set(key, x);
                 }));
-                return adaptiveCardsForSession(sess).map(x => {
+                const ranked = adaptiveCardsForSession(sess).map(x => {
                     const stats = seen.get(x.deck.id + ':' + x.card.id);
                     let priority = stats ? Math.max(8, 55 - stats.count * 5) : 100;
                     if (stats) priority += stats.weak * 65 + stats.due * 35;
                     if (stats && stats.last) priority += Math.min(20, Math.floor((now - stats.last) / 86400000));
                     return { deck: x.deck, card: x.card, priority };
-                }).sort((a, b) => b.priority - a.priority || Math.random() - 0.5).slice(0, 28);
+                });
+                // Balance across subjects first, then rotate decks within each subject.
+                const bySubject = new Map();
+                ranked.forEach(item => {
+                    const subjectId = item.deck.subjectId || item.deck.id;
+                    if (!bySubject.has(subjectId)) bySubject.set(subjectId, new Map());
+                    const decks = bySubject.get(subjectId);
+                    if (!decks.has(item.deck.id)) decks.set(item.deck.id, []);
+                    decks.get(item.deck.id).push(item);
+                });
+                const groups = Array.from(bySubject.values()).map(deckMap => ({
+                    decks: Array.from(deckMap.values()).map(items => items.sort((a,b) => b.priority-a.priority || Math.random()-0.5))
+                        .sort((a,b) => (b[0]?.priority || 0)-(a[0]?.priority || 0) || Math.random()-0.5),
+                    cursor: 0
+                })).sort(() => Math.random()-0.5);
+                const nextFromSubject = group => {
+                    if (!group.decks.length) return null;
+                    for (let i=0;i<group.decks.length;i++) {
+                        const at=group.cursor++ % group.decks.length;
+                        if (group.decks[at].length) return group.decks[at].shift();
+                    }
+                    return null;
+                };
+                const out=[];
+                while(out.length<32){
+                    let added=false;
+                    for(const group of groups){
+                        const item=nextFromSubject(group);
+                        if(item){out.push(item);added=true;if(out.length>=32)break;}
+                    }
+                    if(!added)break;
+                }
+                return out;
             }
             function adaptiveQuestionModeLabel(mode) {
                 return mode === 'mcq' ? 'Multiple choice' : mode === 'short' ? 'Short answer' : 'Mixed questions';
             }
             function adaptiveQuestionTypeLabel(type) { return type === 'mcq' ? 'MULTIPLE CHOICE' : 'SHORT ANSWER'; }
-            async function startAdaptiveAiPractice(scopeDeckIds, scopeLabel, scopeKind, typeMode) {
-                const ids = Array.from(new Set((scopeDeckIds || []).filter(id => flashcardDeck(id))));
-                if (!ids.length) { toast('There are no flashcards in that selection yet.'); return; }
-                const decks = ids.map(flashcardDeck);
-                if (!decks.some(d => d.cards && d.cards.length)) { toast('Add some flashcards before starting a test.'); return; }
-                const mode = ['mixed', 'mcq', 'short'].includes(typeMode) ? typeMode : 'mixed';
-                closeModal();
-                const sess = {
-                    mode: 'adaptive-ai', deckId: ids[0], scopeDeckIds: ids, scopeKind: scopeKind || 'all',
-                    scopeLabel: scopeLabel || (ids.length === 1 ? decks[0].topic : 'All subjects'),
-                    typeMode: mode, phase: 'generating', queue: [], index: 0, retryQueue: [],
-                    nextBatch: null, nextBatchPromise: null, prefetching: false, stage: 'first-pass',
-                    round: 1, totalAnswered: 0, currentResult: null
+            function adaptiveLearningState() {
+                if (!state.flashcardLearning || typeof state.flashcardLearning !== 'object') {
+                    state.flashcardLearning = { version: 1, activeSession: null, savedSessions: [], reviewHistory: [], sessions: [] };
+                }
+                const learning = state.flashcardLearning;
+                if (!Array.isArray(learning.savedSessions)) learning.savedSessions = [];
+                if (!Array.isArray(learning.reviewHistory)) learning.reviewHistory = [];
+                if (!Array.isArray(learning.sessions)) learning.sessions = [];
+                return learning;
+            }
+            function adaptiveQuestionDimension(q) {
+                if (q && ['recall', 'understanding', 'application'].includes(q.dimension)) return q.dimension;
+                if (q && q.difficulty === 'application') return 'application';
+                if (q && q.difficulty === 'analysis') return 'understanding';
+                return 'recall';
+            }
+            function adaptiveIsMastered(q) {
+                return !!q && Number(q.successfulSessionStreak || 0) >= 3 && Number(q.intervalDays || 0) >= 7;
+            }
+            function adaptiveDueQuestions(scopeDeckIds) {
+                const now = Date.now(), ids = Array.from(new Set(scopeDeckIds || []));
+                return adaptiveBankRecords(ids).filter(q => q.dueAt && q.dueAt <= now && adaptiveResolveSourceRefs(q).length);
+            }
+            function adaptiveKnowledgeScore(scopeDeckIds) {
+                const bank = adaptiveBankRecords(scopeDeckIds || []);
+                return bank.length ? Math.round(bank.filter(adaptiveIsMastered).length / bank.length * 100) : 0;
+            }
+            function adaptivePersistSession(sess, status, immediate) {
+                if (!sess || !sess.id) return;
+                const learning = adaptiveLearningState(), now = Date.now();
+                const snapshot = {
+                    id: sess.id, scopeDeckIds: (sess.scopeDeckIds || []).slice(), scopeKind: sess.scopeKind || 'all',
+                    scopeLabel: sess.scopeLabel || 'Flashcards', typeMode: sess.typeMode || 'mixed',
+                    queueIds: (sess.queue || []).map(q => q.id), index: Number(sess.index) || 0,
+                    retryQueueIds: (sess.retryQueue || []).map(q => q.id),
+                    stage: sess.stage || 'first-pass', round: Number(sess.round) || 1,
+                    totalAnswered: Number(sess.totalAnswered) || 0, currentResult: sess.currentResult || null,
+                    pendingAnswer: String(sess.pendingAnswer || ''), startedAt: sess.startedAt || now,
+                    updatedAt: now, status: status || 'active'
                 };
-                flashcardStudySession = sess; render();
+                if (status === 'paused') {
+                    learning.savedSessions = learning.savedSessions.filter(x => x && x.id !== sess.id);
+                    learning.savedSessions.push(snapshot);
+                    learning.savedSessions = learning.savedSessions.slice(-20);
+                    if (learning.activeSession && learning.activeSession.id === sess.id) learning.activeSession = null;
+                } else if (status === 'active') {
+                    learning.activeSession = snapshot;
+                    learning.savedSessions = learning.savedSessions.filter(x => x && x.id !== sess.id);
+                } else if (status === 'discarded') {
+                    if (learning.activeSession && learning.activeSession.id === sess.id) learning.activeSession = null;
+                    learning.savedSessions = learning.savedSessions.filter(x => x && x.id !== sess.id);
+                }
+                const summary = {
+                    id: sess.id, scopeDeckIds: (sess.scopeDeckIds || []).slice(), scopeKind: sess.scopeKind || 'all',
+                    scopeLabel: sess.scopeLabel || 'Flashcards', typeMode: sess.typeMode || 'mixed',
+                    startedAt: sess.startedAt || now, lastActivityAt: now,
+                    totalAnswered: Number(sess.totalAnswered) || 0,
+                    status: status === 'discarded' ? 'discarded' : status || 'active'
+                };
+                const index = learning.sessions.findIndex(x => x && x.id === sess.id);
+                if (index >= 0) learning.sessions[index] = Object.assign({}, learning.sessions[index], summary);
+                else learning.sessions.push(summary);
+                learning.sessions = learning.sessions.slice(-100);
+                save(!!immediate);
+            }
+            async function adaptiveLoadBatch(sess) {
+                if (!sess || flashcardStudySession !== sess) return;
+                sess.phase = 'generating'; adaptivePersistSession(sess, 'active', false); render();
                 try {
-                    const batch = await generateAdaptiveQuestionBatch(sess, 10);
+                    const batch = await generateAdaptiveQuestionBatch(sess, 12);
                     if (flashcardStudySession !== sess) return;
-                    sess.queue = batch; sess.index = 0; sess.phase = 'active';
+                    if (!Array.isArray(batch) || !batch.length) throw new Error('No questions were ready. Please try again.');
+                    sess.queue = batch; sess.index = 0; sess.retryQueue = sess.retryQueue || [];
+                    sess.stage = 'first-pass'; sess.phase = 'active'; sess.currentResult = null;
+                    adaptivePersistSession(sess, 'active', false);
                     render(); adaptiveMaybePrefetch(sess);
                 } catch (err) {
                     if (flashcardStudySession !== sess) return;
-                    sess.phase = 'error'; sess.loadError = err.message || 'Could not generate questions.'; render();
+                    sess.phase = 'error'; sess.loadError = err.message || 'Could not generate questions.';
+                    adaptivePersistSession(sess, 'active', false); render();
                 }
+            }
+            function adaptiveResumeSession(sessionId) {
+                const learning = adaptiveLearningState();
+                const snapshot = [learning.activeSession].concat(learning.savedSessions || []).find(x => x && x.id === sessionId);
+                if (!snapshot) { toast('That saved session could not be found.'); render(); return; }
+                const ids = (snapshot.scopeDeckIds || []).filter(id => flashcardDeck(id));
+                if (!ids.length) { toast('The decks for this saved session are no longer available.'); return; }
+                const queue = (snapshot.queueIds || []).map(adaptiveFindQuestion).filter(Boolean);
+                const retryQueue = (snapshot.retryQueueIds || []).map(adaptiveFindQuestion).filter(Boolean);
+                const sess = {
+                    mode: 'adaptive-ai', id: snapshot.id, deckId: ids[0], scopeDeckIds: ids,
+                    scopeKind: snapshot.scopeKind || 'all', scopeLabel: snapshot.scopeLabel || 'Flashcards',
+                    typeMode: snapshot.typeMode || 'mixed', phase: queue.length ? 'active' : 'generating',
+                    queue, index: Math.min(Number(snapshot.index) || 0, Math.max(0, queue.length - 1)),
+                    retryQueue, nextBatch: null, nextBatchPromise: null, prefetching: false,
+                    stage: snapshot.stage || 'first-pass', round: Number(snapshot.round) || 1,
+                    totalAnswered: Number(snapshot.totalAnswered) || 0, currentResult: snapshot.currentResult || null,
+                    pendingAnswer: String(snapshot.pendingAnswer || ''), startedAt: snapshot.startedAt || Date.now()
+                };
+                flashcardStudySession = sess; view = 'flashcards'; flashcardsTab = 'mine';
+                flashcardsSelectedDeckId = null; flashcardsInsightDeckId = null;
+                adaptivePersistSession(sess, 'active', true);
+                render();
+                if (queue.length) adaptiveMaybePrefetch(sess);
+                else adaptiveLoadBatch(sess);
+            }
+            function adaptiveDiscardSession(sessionId) {
+                if (!window.confirm('Discard this saved flashcard session? Your question and review history will be kept.')) return;
+                const learning = adaptiveLearningState();
+                if (learning.activeSession && learning.activeSession.id === sessionId) learning.activeSession = null;
+                learning.savedSessions = learning.savedSessions.filter(x => x && x.id !== sessionId);
+                const row = learning.sessions.find(x => x && x.id === sessionId);
+                if (row) { row.status = 'discarded'; row.lastActivityAt = Date.now(); }
+                save(true); render();
+            }
+            function renderAdaptiveResumeSessions(filterId) {
+                const learning = adaptiveLearningState(), snapshots = [];
+                if (learning.activeSession) snapshots.push(learning.activeSession);
+                (learning.savedSessions || []).forEach(x => snapshots.push(x));
+                const seen = new Set(), filtered = snapshots.filter(x => {
+                    if (!x || seen.has(x.id)) return false;
+                    seen.add(x.id);
+                    const ids = (x.scopeDeckIds || []).filter(id => flashcardDeck(id));
+                    return ids.length && (filterId === 'all' || !filterId || ids.some(id => (flashcardDeck(id) || {}).subjectId === filterId));
+                }).sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                if (!filtered.length) return '';
+                return '<section class="fc-resume-section"><div class="fc-insight-heading"><div><h2>Continue studying</h2><p>Saved automatically and available on your other signed-in devices</p></div></div><div class="fc-resume-grid">' +
+                    filtered.map(x => '<article class="fc-resume-card"><div class="fc-resume-meta">' +
+                        (x.status === 'active' ? 'In progress' : 'Paused and saved') + ' · ' + Number(x.totalAnswered || 0) + ' answered</div>' +
+                        '<strong>' + escape(x.scopeLabel || 'Flashcards') + '</strong><div class="small">' +
+                        escape(x.scopeKind === 'deck' ? 'Deck practice' : x.scopeKind === 'subject' ? 'Subject practice' : 'All-subject practice') +
+                        ' · Updated ' + escape(new Date(x.updatedAt || x.startedAt || Date.now()).toLocaleString()) +
+                        '</div><div class="fc-resume-actions"><button type="button" class="button primary" data-action="flashcard-resume-adaptive" data-session-id="' + escape(x.id) + '">Resume</button>' +
+                        '<button type="button" class="button ghost danger" data-action="flashcard-discard-adaptive" data-session-id="' + escape(x.id) + '">Discard</button></div></article>').join('') +
+                    '</div></section>';
+            }
+            function renderFlashcardInsights(filterId) {
+                const learning = adaptiveLearningState();
+                if (flashcardsInsightDeckId && !flashcardDeck(flashcardsInsightDeckId)) flashcardsInsightDeckId = null;
+                const decks = flashcardsInsightDeckId ? [flashcardDeck(flashcardsInsightDeckId)] :
+                    state.flashcardDecks.filter(d => filterId === 'all' || !filterId || d.subjectId === filterId);
+                const ids = decks.filter(Boolean).map(d => d.id), scopeSet = new Set(ids);
+                const bank = adaptiveBankRecords(ids);
+                const history = (learning.reviewHistory || []).filter(e => Array.isArray(e.sourceRefs) && e.sourceRefs.some(r => scopeSet.has(r.deckId)));
+                const now = Date.now(), weekAgo = now - 7 * 86400000, recent = history.filter(e => Number(e.at || 0) >= weekAgo);
+                const avg = arr => arr.length ? Math.round(arr.reduce((sum,x)=>sum+Number(x.score||0),0)/arr.length*100) : null;
+                const accuracy = avg(recent), allAccuracy = avg(history), due = bank.filter(q=>q.dueAt&&q.dueAt<=now);
+                const mastered = bank.filter(adaptiveIsMastered);
+                const days=[];
+                for(let i=6;i>=0;i--){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);
+                    days.push({label:d.toLocaleDateString('en-GB',{weekday:'short'}),count:history.filter(e=>new Date(e.at||0).toDateString()===d.toDateString()).length});}
+                const maxDay=Math.max(1,...days.map(x=>x.count));
+                const bars=days.map(x=>'<div class="fc-insight-day"><div class="fc-insight-bar-track"><i style="height:'+Math.max(4,Math.round(x.count/maxDay*100))+'%"></i></div><strong>'+x.count+'</strong><span>'+x.label+'</span></div>').join('');
+                const dimensions=['recall','understanding','application'].map(dim=>{
+                    const events=recent.filter(e=>e.dimension===dim),value=avg(events);
+                    const title=dim==='recall'?'Recall':dim==='understanding'?'Understanding':'Application';
+                    return '<article class="fc-insight-card"><span class="fc-insight-label">'+title+'</span><strong>'+(value==null?'—':value+'%')+'</strong><span class="small">'+events.length+' attempts in 7 days</span></article>';
+                }).join('');
+                const weak=bank.filter(q=>Number(q.attempts||0)&&(q.struggling||Number(q.lastScore||0)<0.85))
+                    .sort((a,b)=>(b.lastReviewed||0)-(a.lastReviewed||0)).slice(0,6);
+                const weakHtml=weak.length?weak.map(q=>{
+                    const ref=adaptiveResolveSourceRefs(q)[0],deck=ref&&ref.deck;
+                    return '<div class="fc-insight-list-row"><div><strong>'+escape(q.objective||q.question)+'</strong><span>'+
+                        escape(deck?((subject(deck.subjectId)||{}).name||'')+' · '+deck.topic:'Flashcard objective')+'</span></div><em>'+
+                        Math.round(Number(q.lastScore||0)*100)+'%</em></div>';
+                }).join(''):'<p class="small">No recent weak objectives in this selection. Keep checking mastered material after longer gaps.</p>';
+                const subjectMap=new Map();
+                bank.forEach(q=>{
+                    const refs=adaptiveResolveSourceRefs(q),subjectIds=Array.from(new Set(refs.map(x=>x.deck.subjectId).filter(Boolean)));
+                    subjectIds.forEach(sid=>{
+                        if(!subjectMap.has(sid))subjectMap.set(sid,{name:(subject(sid)||{}).name||'Subject',total:0,secure:0,due:0});
+                        const x=subjectMap.get(sid);x.total++;if(adaptiveIsMastered(q))x.secure++;if(q.dueAt&&q.dueAt<=now)x.due++;
+                    });
+                });
+                const subjectRows=Array.from(subjectMap.values()).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>
+                    '<div class="fc-insight-list-row"><div><strong>'+escape(x.name)+'</strong><span>'+x.secure+' of '+x.total+' objectives secure · '+x.due+' due</span></div><em>'+
+                    (x.total?Math.round(x.secure/x.total*100):0)+'%</em></div>').join('');
+                const sessionCount=(learning.sessions||[]).filter(x=>(x.scopeDeckIds||[]).some(id=>scopeSet.has(id))).length;
+                const header=flashcardsInsightDeckId?'<div class="fc-insight-context"><span>Deck insights</span><strong>'+escape(flashcardDeck(flashcardsInsightDeckId).topic)+'</strong><button type="button" class="button ghost" data-action="flashcard-insights-clear-deck">View selected subject / all subjects</button></div>':'';
+                const empty=!bank.length&&!history.length?'<div class="fc-empty"><div class="fc-empty-emoji">📊</div><h2>Your learning insights will appear here</h2><p>Start an adaptive test to build a record of recall, understanding, application and long-term retention.</p></div>':'';
+                return '<div class="fc-insights">'+header+
+                    '<div class="fc-insights-intro"><div><h2>Learning insights</h2><p>Based on your saved AI questions and actual attempts—not just cards marked as known.</p></div><span class="fc-insight-updated">'+bank.length+' generated objectives · '+history.length+' recorded attempts</span></div>'+
+                    '<div class="fc-insights-grid">'+
+                    '<article class="fc-insight-card"><span class="fc-insight-label">Secure objectives</span><strong>'+mastered.length+'<small> / '+bank.length+'</small></strong><span class="small">Correct across separate sessions, with a 7+ day interval</span></article>'+
+                    '<article class="fc-insight-card"><span class="fc-insight-label">Due for review</span><strong>'+due.length+'</strong><span class="small">Questions currently scheduled</span></article>'+
+                    '<article class="fc-insight-card"><span class="fc-insight-label">7-day accuracy</span><strong>'+(accuracy==null?'—':accuracy+'%')+'</strong><span class="small">'+recent.length+' attempts in the last 7 days</span></article>'+
+                    '<article class="fc-insight-card"><span class="fc-insight-label">All-time accuracy</span><strong>'+(allAccuracy==null?'—':allAccuracy+'%')+'</strong><span class="small">'+sessionCount+' study sessions recorded</span></article>'+
+                    '</div><div class="fc-insights-grid fc-insights-lower">'+
+                    '<section class="fc-insight-panel fc-insight-wide"><div class="fc-insight-heading"><div><h3>Study activity</h3><p>Questions answered each day</p></div><strong>'+recent.length+' this week</strong></div><div class="fc-insight-bars">'+bars+'</div></section>'+
+                    '<section class="fc-insight-panel"><div class="fc-insight-heading"><div><h3>Learning dimensions</h3><p>7-day performance by skill</p></div></div><div class="fc-insights-grid fc-dimension-grid">'+dimensions+'</div></section>'+
+                    '<section class="fc-insight-panel"><div class="fc-insight-heading"><div><h3>Topics to strengthen</h3><p>Recent misses and recurring difficulties</p></div></div>'+weakHtml+'</section>'+
+                    (subjectRows?'<section class="fc-insight-panel fc-insight-wide"><div class="fc-insight-heading"><div><h3>Subject breakdown</h3><p>Secure objectives are independently recalled in at least three spaced sessions</p></div></div>'+subjectRows+'</section>':'')+
+                    '</div>'+empty+'</div>';
+            }
+                        async function startAdaptiveAiPractice(scopeDeckIds, scopeLabel, scopeKind, typeMode) {
+                const ids=Array.from(new Set((scopeDeckIds||[]).filter(id=>flashcardDeck(id))));
+                if(!ids.length){toast('There are no flashcards in that selection yet.');return;}
+                const decks=ids.map(flashcardDeck);
+                if(!decks.some(d=>d.cards&&d.cards.length)){toast('Add some flashcards before starting a test.');return;}
+                const mode=['mixed','mcq','short'].includes(typeMode)?typeMode:'mixed';
+                const learning=adaptiveLearningState();
+                if(flashcardStudySession&&flashcardStudySession.mode==='adaptive-ai')adaptivePersistSession(flashcardStudySession,'paused',true);
+                else if(learning.activeSession){
+                    learning.savedSessions=learning.savedSessions.filter(x=>x&&x.id!==learning.activeSession.id);
+                    learning.savedSessions.push(learning.activeSession);learning.savedSessions=learning.savedSessions.slice(-20);
+                    learning.activeSession=null;
+                }
+                closeModal();
+                const now=Date.now();
+                const sess={mode:'adaptive-ai',id:'fcs_'+uid(),deckId:ids[0],scopeDeckIds:ids,scopeKind:scopeKind||'all',
+                    scopeLabel:scopeLabel||(ids.length===1?decks[0].topic:'All subjects'),typeMode:mode,
+                    phase:'generating',queue:[],index:0,retryQueue:[],nextBatch:null,nextBatchPromise:null,
+                    prefetching:false,stage:'first-pass',round:1,totalAnswered:0,currentResult:null,pendingAnswer:'',startedAt:now};
+                flashcardStudySession=sess;adaptivePersistSession(sess,'active',true);render();
+                await adaptiveLoadBatch(sess);
             }
             async function generateAdaptiveQuestionBatch(sess, batchSize) {
                 const ids = sess.scopeDeckIds || [], now = Date.now(), bank = adaptiveBankRecords(ids);
@@ -17627,13 +17981,15 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                     'SOURCE RULE: the supplied flashcards are the ONLY source of truth. Do not add outside facts, dates, examples, terminology or assumptions. Every answer and marking point must be directly supported by the supplied cards. If a detail is ambiguous, do not test it.',
                     'COVERAGE: generate the requested number of useful, distinct questions. Do NOT create one question per flashcard. A long info card, list, timeline or definition card can contain many separately testable facts: split these into separate questions (definition, cause, effect, example, sub-point, relationship or ordered step). You may also combine related facts from multiple cards where that tests understanding. Prefer material not tested before, then areas linked to weak or due review history. Avoid repeating any already-asked objective in the input; test a different fact or angle.',
                     'DEPTH: vary direct recall with explanation, comparison, cause-and-effect reasoning, choosing the correct consequence, interpreting a relationship, or applying a stated rule to a new but fully self-contained situation. Application questions must not require knowledge absent from the cards. Avoid trivia, vague wording and ambiguity.',
+                    'SKILL BALANCE: label every item with dimension = recall, understanding, or application. Across a batch, aim for a mix (roughly 40% recall, 35% understanding, 25% application) when the cards genuinely support it. If the source only supports recall, do not invent depth. Understanding asks why/how or compares related concepts; application transfers a stated rule to a new self-contained scenario.',
+                    'INTERLEAVING: when cards come from multiple decks or subjects, distribute questions across them rather than exhausting one deck first. Compare related concepts and distinguish similar methods where the source supports it. Do not mix unrelated facts merely for variety.',
                     'MULTIPLE CHOICE: every MCQ must have exactly four distinct options and exactly one defensibly correct answer. Make all three distractors credible and educational: adjacent concepts, common misconceptions, a swapped detail, reversed relationship, wrong stage/order, or a plausible but incorrect interpretation of the supplied material. Keep all four options similar in length, specificity, grammar and technical detail. Never use silly throwaways, an obviously longer correct answer, "all/none of the above", or options that can be eliminated without knowing the content. The correct answer must appear verbatim as one of the four choices.',
                     'SHORT ANSWER: ask for a focused answer that can be marked consistently. Supply a model answer, accepted alternative phrasings where useful, and a concise rubric of essential marking points. Do not demand unnecessary wording or award full marks for a vague answer.',
                     'MIXED MODE: create a balanced mixture of MCQ and short-answer questions (roughly half each). For a single-type mode, use only that type. The input field allowedQuestionType specifies which type to use.',
                     'Each question must target one clear learning objective, not simply copy a card front. Use sourceCardIds from the supplied source card IDs; include every card needed to support the answer and no unrelated cards. A single source card ID may appear in several questions.',
-                    'Return ONLY valid JSON with this shape: {"questions":[{"objective":"short unique description of the exact fact/skill tested","type":"mcq"|"short","question":"...","choices":["...","...","...","..."],"answer":"model answer or exact correct MCQ choice","acceptedAnswers":["..."],"rubric":["essential point 1","essential point 2"],"rationale":"brief explanation grounded in the cards","sourceCardIds":["existing card id"],"difficulty":"recall"|"application"|"analysis"}]}. For short questions, choices may be an empty array. Include no markdown or text outside the JSON.'
+                    'Return ONLY valid JSON with this shape: {"questions":[{"objective":"short unique description of the exact fact/skill tested","type":"mcq"|"short","question":"...","choices":["...","...","...","..."],"answer":"model answer or exact correct MCQ choice","acceptedAnswers":["..."],"rubric":["essential point 1","essential point 2"],"rationale":"brief explanation grounded in the cards","sourceCardIds":["existing card id"],"dimension":"recall"|"understanding"|"application","difficulty":"recall"|"application"|"analysis"}]}. For short questions, choices may be an empty array. Include no markdown or text outside the JSON.'
                 ].join('\n');
-                const result = await aiJsonOnce(prompt, [{ text: JSON.stringify(payload) }]);
+                const result = await aiJsonOnce(prompt, [{ text: JSON.stringify(payload) }], undefined, 'quality');
                 const existing = new Set(bank.map(q => q.objectiveKey).filter(Boolean)), generated = [];
                 (Array.isArray(result.questions) ? result.questions : []).forEach(raw => {
                     const type = raw && (raw.type === 'mcq' || raw.type === 'short') ? raw.type : '';
@@ -17666,8 +18022,10 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                         rubric: Array.isArray(raw.rubric) ? raw.rubric.map(x => String(x).trim()).filter(Boolean).slice(0, 8) : [],
                         rationale: String(raw.rationale || '').trim(),
                         difficulty: ['recall', 'application', 'analysis'].includes(raw.difficulty) ? raw.difficulty : 'recall',
+                        dimension: ['recall', 'understanding', 'application'].includes(raw.dimension) ? raw.dimension : (raw.difficulty === 'application' ? 'application' : raw.difficulty === 'analysis' ? 'understanding' : 'recall'),
                         sourceRefs: refs, createdAt: now, dueAt: null, intervalDays: 0, ease: 2.5,
-                        reps: 0, streak: 0, attempts: 0, lapses: 0, struggling: false, lastReviewed: null
+                        reps: 0, streak: 0, attempts: 0, lapses: 0, successfulSessionStreak: 0, correctSessionCount: 0,
+                        lastSessionId: null, failedThisSession: false, correctThisSession: false, mastered: false, struggling: false, lastReviewed: null
                     };
                     if (!record.rubric.length && type === 'short') record.rubric = [answer];
                     adaptiveEnsureBank(owner).push(record); generated.push(record);
@@ -17688,7 +18046,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 if (flashcardStudySession !== sess || sess.phase !== 'active' || sess.nextBatch || sess.nextBatchPromise) return;
                 if (sess.queue.length - sess.index - 1 > 5) return;
                 sess.prefetching = true;
-                sess.nextBatchPromise = generateAdaptiveQuestionBatch(sess, 10).then(batch => {
+                sess.nextBatchPromise = generateAdaptiveQuestionBatch(sess, 12).then(batch => {
                     if (flashcardStudySession === sess) { sess.nextBatch = batch; sess.prefetching = false; }
                     return batch;
                 }).catch(err => {
@@ -17697,27 +18055,49 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 });
             }
             function adaptiveRecordOutcome(sess, question, score, feedback, missing) {
-                const q = adaptiveFindQuestion(question.id) || question, now = Date.now();
-                const value = Math.max(0, Math.min(1, Number(score) || 0)), correct = value >= 0.85;
-                q.attempts = (q.attempts || 0) + 1; q.lastReviewed = now; q.lastScore = value;
-                q.lastFeedback = String(feedback || '').slice(0, 500);
-                if (correct) {
-                    q.reps = (q.reps || 0) + 1; q.streak = (q.streak || 0) + 1;
-                    q.ease = Math.min(3.2, (q.ease || 2.5) + (value >= 0.97 ? 0.12 : 0.04));
-                    const previous = q.intervalDays || 0;
-                    q.intervalDays = q.reps === 1 ? 1 : q.reps === 2 ? 3 : Math.min(120, Math.max(7, Math.round((previous || 3) * q.ease * 1.55)));
-                    q.dueAt = now + q.intervalDays * 86400000;
-                } else {
-                    q.lapses = (q.lapses || 0) + 1; q.streak = 0; q.reps = 0;
-                    q.ease = Math.max(1.3, (q.ease || 2.5) - (value < 0.5 ? 0.2 : 0.12));
-                    q.intervalDays = 0; q.dueAt = now + (value < 0.5 ? 5 : 15) * 60000;
+                const q=adaptiveFindQuestion(question.id)||question,now=Date.now();
+                const value=Math.max(0,Math.min(1,Number(score)||0)),correct=value>=0.85;
+                const newSession=q.lastSessionId!==sess.id;
+                if(newSession){q.lastSessionId=sess.id;q.failedThisSession=false;q.correctThisSession=false;}
+                const firstAttemptThisSession=!q.failedThisSession&&!q.correctThisSession;
+                q.attempts=(q.attempts||0)+1;q.lastReviewed=now;q.lastScore=value;
+                q.lastFeedback=String(feedback||'').slice(0,500);
+                if(correct){
+                    if(firstAttemptThisSession){
+                        q.successfulSessionStreak=(q.successfulSessionStreak||0)+1;
+                        q.correctSessionCount=(q.correctSessionCount||0)+1;q.correctThisSession=true;
+                        q.streak=q.successfulSessionStreak;
+                        const intervals=[1,3,7,14,30,60,90,120];
+                        q.intervalDays=intervals[Math.min(q.successfulSessionStreak-1,intervals.length-1)];
+                        q.dueAt=now+q.intervalDays*86400000;q.lastSuccessfulSession=now;
+                    }else{
+                        q.correctThisSession=true;q.intervalDays=Math.max(1,q.intervalDays||1);
+                        q.dueAt=now+q.intervalDays*86400000;
+                    }
+                    q.reps=q.successfulSessionStreak||0;
+                }else{
+                    q.failedThisSession=true;q.successfulSessionStreak=0;q.streak=0;q.reps=0;
+                    q.ease=Math.max(1.3,(q.ease||2.5)-(value<0.5?0.2:0.12));
+                    q.intervalDays=0;q.dueAt=now+(value<0.5?5:15)*60000;
                 }
-                q.struggling = (q.lapses || 0) >= 2 || ((q.attempts || 0) >= 2 && (q.streak || 0) === 0);
-                adaptiveResolveSourceRefs(q).forEach(ref => scheduleCardReview(ref.card, correct ? (value >= 0.97 ? 'easy' : 'good') : (value >= 0.55 ? 'hard' : 'again')));
-                sess.totalAnswered = (sess.totalAnswered || 0) + 1;
-                if (!correct) sess.retryQueue.push(q);
-                sess.currentResult = { correct, score: value, feedback: feedback || (correct ? 'Correct.' : 'Review this one again.'), missing: Array.isArray(missing) ? missing : [] };
-                save();
+                if(!correct)q.lapses=(q.lapses||0)+1;
+                q.mastered=adaptiveIsMastered(q);
+                q.struggling=(q.lapses||0)>=2||((q.attempts||0)>=2&&(q.successfulSessionStreak||0)===0);
+                if(newSession&&firstAttemptThisSession){
+                    adaptiveResolveSourceRefs(q).forEach(ref=>scheduleCardReview(ref.card,correct?(value>=0.97?'easy':'good'):(value>=0.55?'hard':'again')));
+                }
+                sess.totalAnswered=(sess.totalAnswered||0)+1;
+                if(!correct)sess.retryQueue.push(q);
+                sess.currentResult={correct,score:value,feedback:feedback||(correct?'Correct.':'Review this one again.'),missing:Array.isArray(missing)?missing:[]};
+                const learning=adaptiveLearningState();
+                learning.reviewHistory.push({
+                    id:uid(),questionId:q.id,sessionId:sess.id,at:now,score:value,correct,
+                    type:q.type||'short',dimension:adaptiveQuestionDimension(q),
+                    sourceRefs:(q.sourceRefs||[]).map(r=>({deckId:r.deckId,cardId:r.cardId})),
+                    scopeKind:sess.scopeKind||'all',scopeLabel:sess.scopeLabel||'Flashcards'
+                });
+                if(learning.reviewHistory.length>2500)learning.reviewHistory=learning.reviewHistory.slice(-2500);
+                adaptivePersistSession(sess,'active',false);
             }
             async function gradeAdaptiveShortAnswer(question, studentAnswer) {
                 const sources = adaptiveResolveSourceRefs(question).map(ref => adaptiveCardSource(ref.deck, ref.card));
@@ -17733,7 +18113,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                     markingRubric: question.rubric || [], explanation: question.rationale || '',
                     sourceMaterial: sources, studentAnswer: String(studentAnswer || '').trim()
                 };
-                const result = await aiJsonOnce(prompt, [{ text: JSON.stringify(payload) }]);
+                const result = await aiJsonOnce(prompt, [{ text: JSON.stringify(payload) }], 'groq');
                 let score = Number(result.score);
                 if (!Number.isFinite(score)) throw new Error('The AI returned an invalid mark. Please submit the answer again.');
                 if (score > 1 && score <= 100) score /= 100;
@@ -17769,77 +18149,86 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 sess.currentResult.selected = selected; render(); adaptiveMaybePrefetch(sess);
             }
             async function advanceAdaptiveAiPractice() {
-                const sess = flashcardStudySession;
-                if (!sess || sess.mode !== 'adaptive-ai' || !sess.currentResult) return;
-                sess.currentResult = null; sess.pendingAnswer = '';
-                if (sess.index < sess.queue.length - 1) {
-                    sess.index++; render(); adaptiveMaybePrefetch(sess); return;
+                const sess=flashcardStudySession;
+                if(!sess||sess.mode!=='adaptive-ai'||!sess.currentResult)return;
+                sess.currentResult=null;sess.pendingAnswer='';
+                if(sess.index<sess.queue.length-1){
+                    sess.index++;adaptivePersistSession(sess,'active',false);
+                    render();adaptiveMaybePrefetch(sess);return;
                 }
-                if (sess.retryQueue.length) {
-                    sess.queue = sess.retryQueue; sess.retryQueue = []; sess.index = 0;
-                    sess.stage = 'retry'; sess.round++; render(); adaptiveMaybePrefetch(sess); return;
+                if(sess.retryQueue.length){
+                    sess.queue=sess.retryQueue;sess.retryQueue=[];sess.index=0;
+                    sess.stage='retry';sess.round++;adaptivePersistSession(sess,'active',false);
+                    render();adaptiveMaybePrefetch(sess);return;
                 }
-                sess.phase = 'generating'; render();
-                try {
-                    let batch = sess.nextBatch;
-                    if (!batch && sess.nextBatchPromise) batch = await sess.nextBatchPromise;
-                    sess.nextBatch = null; sess.nextBatchPromise = null; sess.prefetching = false; sess.prefetchError = '';
-                    if (!batch || !batch.length) batch = await generateAdaptiveQuestionBatch(sess, 10);
-                    if (flashcardStudySession !== sess) return;
-                    sess.queue = batch; sess.index = 0; sess.stage = 'first-pass'; sess.round++;
-                    sess.phase = 'active'; render(); adaptiveMaybePrefetch(sess);
-                } catch (err) {
-                    if (flashcardStudySession !== sess) return;
-                    sess.phase = 'error'; sess.loadError = err.message || 'Could not prepare more questions.'; render();
+                sess.phase='generating';adaptivePersistSession(sess,'active',false);render();
+                try{
+                    let batch=sess.nextBatch;
+                    if(!batch&&sess.nextBatchPromise)batch=await sess.nextBatchPromise;
+                    sess.nextBatch=null;sess.nextBatchPromise=null;sess.prefetching=false;sess.prefetchError='';
+                    if(!batch||!batch.length)batch=await generateAdaptiveQuestionBatch(sess,12);
+                    if(flashcardStudySession!==sess)return;
+                    sess.queue=batch;sess.index=0;sess.stage='first-pass';sess.round++;
+                    sess.phase='active';adaptivePersistSession(sess,'active',false);
+                    render();adaptiveMaybePrefetch(sess);
+                }catch(err){
+                    if(flashcardStudySession!==sess)return;
+                    sess.phase='error';sess.loadError=err.message||'Could not prepare more questions.';
+                    adaptivePersistSession(sess,'active',false);render();
                 }
             }
             function renderAdaptiveAiSession(sess) {
-                if (sess.phase === 'generating' || sess.phase === 'grading') {
-                    const message = sess.phase === 'grading' ? 'Marking your answer against the flashcards…' : 'Building your next set of questions from your flashcards…';
-                    return '<div class="fc-wrap narrow">' + fcTopbar('Adaptive AI practice', escape(sess.scopeLabel || ''), null) +
-                        '<div class="fc-panel"><p class="empty">' + message + '</p></div></div>';
+                const status=currentUser?'Progress syncs across your signed-in devices':'Progress is saved on this device';
+                const topbar='<div class="fc-adaptive-topbar"><div><div class="fc-adaptive-eyebrow">FLASHCARD PRACTICE</div><strong>'+
+                    escape(sess.scopeLabel||'Selected flashcards')+'</strong></div><button type="button" class="button ghost fc-adaptive-pause" data-action="flashcard-exit-session" aria-label="Pause and save session">Ⅱ <span>Pause &amp; save</span></button></div>';
+                const shell=inner=>'<div class="fc-wrap fc-adaptive-shell">'+topbar+inner+'</div>';
+                if(sess.phase==='generating'||sess.phase==='grading'){
+                    const message=sess.phase==='grading'?'Marking your answer against the flashcards…':'Preparing your next questions…';
+                    return shell('<div class="fc-adaptive-panel fc-adaptive-loading" aria-live="polite"><div class="fc-adaptive-spinner"></div><h2>'+
+                        escape(message)+'</h2><p>Each batch is generated from your selected decks. Your answers are being saved as you go.</p><div class="fc-adaptive-save-note">'+
+                        escape(status)+'</div></div>');
                 }
-                if (sess.phase === 'error') {
-                    return '<div class="fc-wrap narrow">' + fcTopbar('Adaptive AI practice', escape(sess.scopeLabel || ''), null) +
-                        '<div class="fc-panel"><p class="empty">' + escape(sess.loadError || 'Could not load questions.') + '</p>' +
-                        '<button type="button" class="button primary" data-action="flashcard-adaptive-reload">Try again</button></div></div>';
+                if(sess.phase==='error'){
+                    return shell('<div class="fc-adaptive-panel"><div class="fc-adaptive-kicker">Could not continue</div><h2>'+
+                        escape(sess.loadError||'Could not load questions.')+'</h2><p>Your session is saved. You can try again or pause and return later.</p>'+
+                        '<button type="button" class="button primary" data-action="flashcard-adaptive-reload">Try again</button></div>');
                 }
-                const q = sess.queue[sess.index], result = sess.currentResult, letters = ['A', 'B', 'C', 'D'];
-                if (!q) return '<div class="fc-wrap narrow">' + fcTopbar('Adaptive AI practice', escape(sess.scopeLabel || ''), null) +
-                    '<div class="fc-panel"><p class="empty">Preparing questions…</p></div></div>';
-                const stageLabel = sess.stage === 'retry' ? 'Reviewing missed questions' : (sess.typeMode === 'mixed' ? 'Mixed practice' : adaptiveQuestionModeLabel(sess.typeMode));
-                const sub = (sess.scopeLabel || 'Flashcards') + ' · ' + stageLabel + ' · ' + (sess.stage === 'retry' ? 'Retry round ' + sess.round : 'Set ' + sess.round);
-                const choices = q.type === 'mcq' ? '<div class="list" style="margin-top:16px">' + q.choices.map((choice, i) => {
-                    const selected = result && result.selected === choice;
-                    const cls = result ? (choice === q.answer ? 'correct' : selected ? 'wrong' : '') : '';
-                    return '<button type="button" class="flashcard-mcq-choice ' + cls + '" data-action="flashcard-adaptive-select" data-choice-index="' + i + '"' +
-                        (result ? ' disabled' : '') + '><strong>' + letters[i] + '.</strong> ' + escape(choice) + '</button>';
-                }).join('') + '</div>' : '';
-                let answerArea = '';
-                if (q.type === 'short' && !result) {
-                    answerArea = '<textarea id="flashcard-adaptive-answer" placeholder="Write your answer from memory…" style="margin-top:14px;min-height:120px">' +
-                        escape(sess.pendingAnswer || '') + '</textarea><button type="button" class="button primary" style="margin-top:10px" data-action="flashcard-adaptive-submit">Submit answer</button>';
+                const q=sess.queue[sess.index],result=sess.currentResult,letters=['A','B','C','D'];
+                if(!q)return shell('<div class="fc-adaptive-panel"><h2>Preparing questions…</h2></div>');
+                const dimension=adaptiveQuestionDimension(q);
+                const dimensionLabel=dimension==='application'?'Application':dimension==='understanding'?'Understanding':'Recall';
+                const source=adaptiveResolveSourceRefs(q)[0],sourceDeck=source&&source.deck;
+                const sourceSubject=sourceDeck?((subject(sourceDeck.subjectId)||{}).name||''):'';
+                const sourceLabel=sourceDeck?sourceSubject+(sourceSubject?' · ':'')+sourceDeck.topic:(sess.scopeLabel||'Selected flashcards');
+                const stageLabel=sess.stage==='retry'?'Relearning missed questions':'Mixed practice';
+                const choices=q.type==='mcq'?'<div class="fc-adaptive-choices">'+q.choices.map((choice,i)=>{
+                    const selected=result&&result.selected===choice,cls=result?(choice===q.answer?'correct':selected?'wrong':''):'';
+                    return '<button type="button" class="flashcard-mcq-choice fc-adaptive-choice '+cls+'" data-action="flashcard-adaptive-select" data-choice-index="'+i+'"'+
+                        (result?' disabled':'')+'><span class="fc-adaptive-letter">'+letters[i]+'</span><span>'+escape(choice)+'</span></button>';
+                }).join('')+'</div>':'';
+                const answerArea=q.type==='short'&&!result?
+                    '<div class="fc-adaptive-answer-wrap"><label for="flashcard-adaptive-answer">Your answer</label><textarea id="flashcard-adaptive-answer" rows="5" autocomplete="off" placeholder="Write what you remember, in your own words…">'+
+                    escape(sess.pendingAnswer||'')+'</textarea><button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-submit">Check answer</button></div>':'';
+                let feedback='';
+                if(result){
+                    feedback='<section class="fc-adaptive-feedback '+(result.correct?'is-correct':'is-review')+'" aria-live="polite"><div class="fc-adaptive-feedback-title">'+
+                        (result.correct?'✓ Correct':'↻ Review this objective')+'<strong>'+Math.round(result.score*100)+'%</strong></div>'+
+                        '<p>'+escape(result.feedback||'')+'</p>'+
+                        ((!result.correct||q.type==='short')?'<div class="fc-adaptive-model-answer"><strong>Model answer</strong><p>'+escape(q.answer)+'</p></div>':'')+
+                        (result.missing&&result.missing.length?'<div class="fc-adaptive-model-answer"><strong>Important points to include</strong><p>'+escape(result.missing.join(' · '))+'</p></div>':'')+
+                        (q.rationale?'<div class="fc-adaptive-model-answer"><strong>Why this is right</strong><p>'+escape(q.rationale)+'</p></div>':'')+
+                        '<button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-next">Next question <span aria-hidden="true">→</span></button></section>';
                 }
-                let feedback = '';
-                if (result) {
-                    feedback = '<div class="fc-answerkey" style="margin-top:16px"><strong>' +
-                        (result.correct ? '✅ Correct' : '↻ Add this to your review') + ' · ' + Math.round(result.score * 100) + '%</strong>' +
-                        '<p style="margin:7px 0">' + escape(result.feedback || '') + '</p>' +
-                        (!result.correct || q.type === 'short' ? '<div class="small"><strong>Answer:</strong> ' + escape(q.answer) + '</div>' : '') +
-                        (result.missing && result.missing.length ? '<div class="small" style="margin-top:6px"><strong>Still to include:</strong> ' + escape(result.missing.join(' · ')) + '</div>' : '') +
-                        (q.rationale ? '<div class="small" style="margin-top:6px">' + escape(q.rationale) + '</div>' : '') +
-                        '</div><button type="button" class="button primary" style="margin-top:14px" data-action="flashcard-adaptive-next">Next question →</button>';
-                }
-                return '<div class="fc-wrap narrow">' + fcTopbar('Adaptive AI practice', escape(sub), (sess.index + 1) / sess.queue.length * 100) +
-                    '<div class="fc-panel"><div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">' +
-                    '<span class="pill neutral">' + adaptiveQuestionTypeLabel(q.type) + '</span><span class="small">' +
-                    (sess.index + 1) + ' / ' + sess.queue.length + ' · ' + (sess.totalAnswered || 0) + ' answered</span></div>' +
-                    '<h2 style="margin:18px 0 8px;line-height:1.35">' + escape(q.question) + '</h2>' +
-                    (q.difficulty && q.difficulty !== 'recall' ? '<p class="small">Tests ' + escape(q.difficulty) + '</p>' : '') +
-                    choices + answerArea + feedback +
-                    '<p class="small" style="margin-top:16px">Missed questions return automatically after this set. Correctly learned questions come back later using spaced repetition.</p></div></div>';
+                const pct=Math.max(0,Math.min(100,(sess.index+(result?1:0))/Math.max(1,sess.queue.length)*100));
+                return shell('<div class="fc-adaptive-progress-wrap"><div class="fc-adaptive-progress-label"><span>'+escape(stageLabel)+
+                    (sess.stage==='retry'?' · Round '+(sess.round||1):' · Set '+(sess.round||1))+'</span><span>'+(sess.index+1)+' of '+sess.queue.length+
+                    '</span></div><div class="fc-adaptive-progress"><i style="width:'+pct+'%"></i></div></div>'+
+                    '<main class="fc-adaptive-panel"><div class="fc-adaptive-meta"><span class="fc-adaptive-pill">'+escape(q.type==='mcq'?'MULTIPLE CHOICE':'SHORT ANSWER')+
+                    '</span><span class="fc-adaptive-dimension">'+escape(dimensionLabel)+'</span><span class="fc-adaptive-source">'+escape(sourceLabel)+'</span></div>'+
+                    '<h1 class="fc-adaptive-question">'+escape(q.question)+'</h1>'+choices+answerArea+feedback+
+                    '<div class="fc-adaptive-footer"><span>'+Number(sess.totalAnswered||0)+' answers recorded</span><span>'+escape(status)+'</span></div></main>'+
+                    '<p class="fc-adaptive-guidance">Missed questions return after this set. A correct answer only counts as secure after successful retrieval in separate study sessions.</p>');
             }
-
             async function runSmartTestGradeRound() {
                 const s = flashcardStudySession;
                 if (!s) return;
@@ -18205,7 +18594,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                 const deck = flashcardDeck(deckId);
                 if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
                 const termCount = fcTermCards(deck).length;
-                const opt = (action, emoji, title, desc) => `<button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="${action}" data-deck="${deck.id}"><div style="text-align:left"><strong>${emoji} ${title}</strong><div class="small" style="margin-top:2px;font-weight:400">${desc}</div></div></button>`;
+                const opt = (action, emoji, title, desc) => `<button type="button" class="${action === 'open-flashcard-adaptive-choice' ? 'button primary' : 'button'}" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="${action}" data-deck="${deck.id}"><div style="text-align:left"><strong>${emoji} ${title}</strong><div class="small" style="margin-top:2px;font-weight:400">${desc}</div></div></button>`;
                 const termOptions = termCount ? `
             <button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-mcq-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🔤 Multiple Choice</strong><div class="small" style="margin-top:2px;font-weight:400">Pick the right definition from 4 close, tricky options. Term cards only.</div></div></button>
             ${termCount>=2?opt('flashcard-start-tf', '✅', 'True / False', 'Quick-fire definition questions. Term cards only.'):''}
@@ -18216,8 +18605,8 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                 return modalShell(`Test: ${escape(deck.topic)}`,
                     `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test covers every card type.</strong> Type your answers from memory and AI grades them against each card's own answer format. Lists, timelines, info cards and graph prompts are all included.</div>
           <div class="list">
-            <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🧠 Smart Test (recommended)</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Test every card in this deck, with AI grading tailored to its type. Retry yellow/red answers until you've learned them.</div></div></button>
-            ${opt('open-flashcard-adaptive-choice', '🧠', 'Adaptive AI Practice', 'AI-generated questions across separate facts, with automatic retries and long-term spaced repetition.')}
+            <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>✍️ Smart Test</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Test every card in this deck, with AI grading tailored to its type. Retry yellow/red answers until you've learned them.</div></div></button>
+            ${opt('open-flashcard-adaptive-choice', '🧠', 'Adaptive AI Practice (recommended)', 'Endless mixed questions, meaningful retries, spaced relearning and progress insights.')}
             ${termOptions}
             ${deck.diagram&&deck.diagram.points.length?opt('flashcard-start-diagram','🖼','Diagram Labeling', 'Identify what each numbered point on your diagram is.'):''}
             ${termCount>=3?opt('flashcard-start-examsim','⏱','Exam Simulation', `Timed mixed round (~${Math.round(Math.max(120,termCount*25)/60)} min) using term cards.`):''}
@@ -24349,7 +24738,7 @@ If the user asks about how to study or study methods generally, answer from your
                 const a = b.dataset.action;
                 if (a === 'open-flashcard-deck') openFlashcardDeck(b.dataset.deck);
                 else if (a === 'open-flashcards-for-subject') flashcardsOpenForSubject(b.dataset.subject);
-                else if (a === 'fc-tab') { flashcardsTab = b.dataset.tab === 'community' ? 'community' : 'mine'; if (flashcardsTab === 'community' && communityRows == null) communityLoad(); else render(); }
+                else if (a === 'fc-tab') { flashcardsTab = b.dataset.tab === 'community' ? 'community' : b.dataset.tab === 'insights' ? 'insights' : 'mine'; if (flashcardsTab !== 'insights') flashcardsInsightDeckId = null; if (flashcardsTab === 'community' && communityRows == null) communityLoad(); else render(); }
                 else if (a === 'comm-sort') { communitySort = b.dataset.sort; communityLoad(); }
                 else if (a === 'comm-preview') communityOpenPreview(b.dataset.id, !!b.dataset.add);
                 else if (a === 'comm-add') communityAddCopy();
@@ -24438,6 +24827,10 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcard-start-smart-test') startFlashcardSmartTest(b.dataset.deck);
                 else if (a === 'flashcard-start-mcq-test') startFlashcardMcqTest(b.dataset.deck);
                 else if (a === 'flashcard-exit-session') exitFlashcardSession();
+                else if (a === 'flashcard-resume-adaptive') adaptiveResumeSession(b.dataset.sessionId);
+                else if (a === 'flashcard-discard-adaptive') adaptiveDiscardSession(b.dataset.sessionId);
+                else if (a === 'flashcard-insights-deck') { flashcardsInsightDeckId = b.dataset.deck; flashcardsTab = 'insights'; flashcardsSelectedDeckId = null; render(); }
+                else if (a === 'flashcard-insights-clear-deck') { flashcardsInsightDeckId = null; render(); }
                 else if (a === 'flashcard-flip') { const s0 = flashcardStudySession; if (!s0) return; s0.flipped = !s0.flipped; const el = document.getElementById('fc-card'); if (el) { el.classList.toggle('flipped', s0.flipped); document.querySelectorAll('.fc-grades').forEach(g => { g.hidden = !s0.flipped; }); } else render(); }
                 else if (a === 'flashcard-prev') fcStep(-1);
                 else if (a === 'flashcard-next') fcStep(1);
