@@ -17780,7 +17780,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                     stage: sess.stage || 'first-pass', round: Number(sess.round) || 1,
                     totalAnswered: Number(sess.totalAnswered) || 0, currentResult: sess.currentResult || null,
                     pendingAnswer: String(sess.pendingAnswer || ''), startedAt: sess.startedAt || now,
-                    updatedAt: now, status: status || 'active'
+                    reviewSessionId: sess.reviewSessionId || sess.id, updatedAt: now, status: status || 'active'
                 };
                 if (status === 'paused') {
                     learning.savedSessions = learning.savedSessions.filter(x => x && x.id !== sess.id);
@@ -17836,6 +17836,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                     mode: 'adaptive-ai', id: snapshot.id, deckId: ids[0], scopeDeckIds: ids,
                     scopeKind: snapshot.scopeKind || 'all', scopeLabel: snapshot.scopeLabel || 'Flashcards',
                     typeMode: snapshot.typeMode || 'mixed', phase: queue.length ? 'active' : 'generating',
+                    reviewSessionId: Date.now() - Number(snapshot.updatedAt || snapshot.startedAt || Date.now()) > 6 * 60 * 60 * 1000 ? 'rev_' + uid() : (snapshot.reviewSessionId || snapshot.id),
                     queue, index: Math.min(Number(snapshot.index) || 0, Math.max(0, queue.length - 1)),
                     retryQueue, nextBatch: null, nextBatchPromise: null, prefetching: false,
                     stage: snapshot.stage || 'first-pass', round: Number(snapshot.round) || 1,
@@ -17953,7 +17954,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 closeModal();
                 const now=Date.now();
                 const sess={mode:'adaptive-ai',id:'fcs_'+uid(),deckId:ids[0],scopeDeckIds:ids,scopeKind:scopeKind||'all',
-                    scopeLabel:scopeLabel||(ids.length===1?decks[0].topic:'All subjects'),typeMode:mode,
+                    scopeLabel:scopeLabel||(ids.length===1?decks[0].topic:'All subjects'),typeMode:mode,reviewSessionId:'rev_'+uid(),
                     phase:'generating',queue:[],index:0,retryQueue:[],nextBatch:null,nextBatchPromise:null,
                     prefetching:false,stage:'first-pass',round:1,totalAnswered:0,currentResult:null,pendingAnswer:'',startedAt:now};
                 flashcardStudySession=sess;adaptivePersistSession(sess,'active',true);render();
@@ -18057,8 +18058,9 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
             function adaptiveRecordOutcome(sess, question, score, feedback, missing) {
                 const q=adaptiveFindQuestion(question.id)||question,now=Date.now();
                 const value=Math.max(0,Math.min(1,Number(score)||0)),correct=value>=0.85;
-                const newSession=q.lastSessionId!==sess.id;
-                if(newSession){q.lastSessionId=sess.id;q.failedThisSession=false;q.correctThisSession=false;}
+                const reviewSessionId=sess.reviewSessionId||sess.id;
+                const newSession=q.lastSessionId!==reviewSessionId;
+                if(newSession){q.lastSessionId=reviewSessionId;q.failedThisSession=false;q.correctThisSession=false;}
                 const firstAttemptThisSession=!q.failedThisSession&&!q.correctThisSession;
                 q.attempts=(q.attempts||0)+1;q.lastReviewed=now;q.lastScore=value;
                 q.lastFeedback=String(feedback||'').slice(0,500);
@@ -18146,7 +18148,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 const correct = selected === q.answer;
                 adaptiveRecordOutcome(sess, q, correct ? 1 : 0,
                     correct ? 'Correct — you identified the right concept.' : 'Not quite. Review the distinction in the explanation.', []);
-                sess.currentResult.selected = selected; render(); adaptiveMaybePrefetch(sess);
+                sess.currentResult.selected = selected; adaptivePersistSession(sess, 'active', false); render(); adaptiveMaybePrefetch(sess);
             }
             async function advanceAdaptiveAiPractice() {
                 const sess=flashcardStudySession;
