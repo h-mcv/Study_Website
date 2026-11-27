@@ -17699,9 +17699,10 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
             async function generateAdaptiveQuestionBatch(sess, batchSize) {
                 const ids = sess.scopeDeckIds || [], now = Date.now(), bank = adaptiveBankRecords(ids);
                 const allowed = q => sess.typeMode === 'mixed' || q.type === sess.typeMode;
-                const due = bank.filter(q => q.lastReviewed && q.dueAt && q.dueAt <= now && allowed(q) && adaptiveResolveSourceRefs(q).length)
+                const queuedIds = new Set([...(sess.queue || []).map(q => q.id), ...(sess.nextBatch || []).map(q => q.id)]);
+                const due = bank.filter(q => q.lastReviewed && q.dueAt && q.dueAt <= now && allowed(q) && !queuedIds.has(q.id) && adaptiveResolveSourceRefs(q).length)
                     .sort((a, b) => Number(!!b.struggling) - Number(!!a.struggling) || (a.dueAt || 0) - (b.dueAt || 0))
-                    .slice(0, Math.min(3, Math.floor(batchSize / 3)));
+                    .slice(0, Math.min(6, Math.floor(batchSize / 2)));
                 const sourceCards = adaptiveSelectSourceCards(sess, bank);
                 if (!sourceCards.length) {
                     if (due.length) return due;
@@ -17833,7 +17834,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                     adaptiveResolveSourceRefs(q).forEach(ref=>scheduleCardReview(ref.card,correct?(value>=0.97?'easy':'good'):(value>=0.55?'hard':'again')));
                 }
                 sess.totalAnswered=(sess.totalAnswered||0)+1;
-                if(!correct)sess.retryQueue.push(q);
+                
                 sess.currentResult={correct,score:value,feedback:feedback||(correct?'Correct.':'Review this one again.'),missing:Array.isArray(missing)?missing:[]};
                 const learning=adaptiveLearningState();
                 learning.reviewHistory.push({
@@ -17902,11 +17903,6 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                     sess.index++;adaptivePersistSession(sess,'active',false);
                     render();adaptiveMaybePrefetch(sess);return;
                 }
-                if(sess.retryQueue.length){
-                    sess.queue=sess.retryQueue;sess.retryQueue=[];sess.index=0;
-                    sess.stage='retry';sess.round++;adaptivePersistSession(sess,'active',false);
-                    render();adaptiveMaybePrefetch(sess);return;
-                }
                 sess.phase='generating';adaptivePersistSession(sess,'active',false);render();
                 try{
                     let batch=sess.nextBatch;
@@ -17931,7 +17927,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 if(sess.phase==='generating'||sess.phase==='grading'){
                     const message=sess.phase==='grading'?'Marking your answer against the flashcards…':'Preparing your next questions…';
                     return shell('<div class="fc-adaptive-panel fc-adaptive-loading" aria-live="polite"><div class="fc-adaptive-spinner"></div><h2>'+
-                        escape(message)+'</h2><p>Each batch is generated from your selected decks. Your answers are being saved as you go.</p><div class="fc-adaptive-save-note">'+
+                        escape(message)+'</h2><p>New questions and due reviews are mixed into one continuous feed. Your answers are saved as you go.</p><div class="fc-adaptive-save-note">'+
                         escape(status)+'</div></div>');
                 }
                 if(sess.phase==='error'){
@@ -17946,7 +17942,6 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 const source=adaptiveResolveSourceRefs(q)[0],sourceDeck=source&&source.deck;
                 const sourceSubject=sourceDeck?((subject(sourceDeck.subjectId)||{}).name||''):'';
                 const sourceLabel=sourceDeck?sourceSubject+(sourceSubject?' · ':'')+sourceDeck.topic:(sess.scopeLabel||'Selected flashcards');
-                const stageLabel=sess.stage==='retry'?'Relearning missed questions':'Mixed practice';
                 const choices=q.type==='mcq'?'<div class="fc-adaptive-choices">'+q.choices.map((choice,i)=>{
                     const selected=result&&result.selected===choice,cls=result?(choice===q.answer?'correct':selected?'wrong':''):'';
                     return '<button type="button" class="flashcard-mcq-choice fc-adaptive-choice '+cls+'" data-action="flashcard-adaptive-select" data-choice-index="'+i+'"'+
@@ -17965,15 +17960,12 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                         (q.rationale?'<div class="fc-adaptive-model-answer"><strong>Why this is right</strong><p>'+escape(q.rationale)+'</p></div>':'')+
                         '<button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-next">Next question <span aria-hidden="true">→</span></button></section>';
                 }
-                const pct=Math.max(0,Math.min(100,(sess.index+(result?1:0))/Math.max(1,sess.queue.length)*100));
-                return shell('<div class="fc-adaptive-progress-wrap"><div class="fc-adaptive-progress-label"><span>'+escape(stageLabel)+
-                    (sess.stage==='retry'?' · Round '+(sess.round||1):' · Set '+(sess.round||1))+'</span><span>'+(sess.index+1)+' of '+sess.queue.length+
-                    '</span></div><div class="fc-adaptive-progress"><i style="width:'+pct+'%"></i></div></div>'+
+                return shell('<div class="fc-adaptive-progress-wrap"><div class="fc-adaptive-progress-label"><span>Continuous practice</span><span>Question '+(Number(sess.totalAnswered||0)+1)+'</span></div></div>'+
                     '<main class="fc-adaptive-panel"><div class="fc-adaptive-meta"><span class="fc-adaptive-pill">'+escape(q.type==='mcq'?'MULTIPLE CHOICE':'SHORT ANSWER')+
                     '</span><span class="fc-adaptive-dimension">'+escape(dimensionLabel)+'</span><span class="fc-adaptive-source">'+escape(sourceLabel)+'</span></div>'+
                     '<h1 class="fc-adaptive-question">'+escape(q.question)+'</h1>'+choices+answerArea+feedback+
                     '<div class="fc-adaptive-footer"><span>'+Number(sess.totalAnswered||0)+' answers recorded</span><span>'+escape(status)+'</span></div></main>'+
-                    '<p class="fc-adaptive-guidance">Missed questions return after this set. A correct answer only counts as secure after successful retrieval in separate study sessions.</p>');
+                    '<p class="fc-adaptive-guidance">Missed questions are scheduled to return sooner through spaced repetition. Questions you know well return after longer intervals. Pause and save whenever you like.</p>');
             }
             async function runSmartTestGradeRound() {
                 const s = flashcardStudySession;
@@ -18327,7 +18319,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                 const progress = saved.length ? '<p class="small">Saved AI questions: <strong>' + saved.length +
                     '</strong> · Difficult objectives: <strong>' + weak + '</strong>. Progress is saved across devices.</p>' : '';
                 return modalShell('AI practice — ' + escape(label),
-                    '<p class="small">Questions are generated from your actual flashcards, not a generic topic summary. Dense cards can produce several independent questions. Anything you miss is automatically repeated until it is right.</p>' +
+                    '<p class="small">Questions are generated from your actual flashcards, not a generic topic summary. Dense cards can produce several independent questions. Every objective has its own review schedule: missed questions return sooner, while consistently correct answers are spaced further apart.</p>' +
                     progress + '<div class="list">' +
                     option('mixed', '🧠', 'Mixed practice', 'A mixture of AI-written multiple choice and short-answer questions, including explanation and application.') +
                     option('mcq', '🔤', 'Multiple choice', 'Four carefully matched options. Distractors target related concepts and common misunderstandings.') +
