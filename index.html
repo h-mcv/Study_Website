@@ -17603,7 +17603,7 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
             // ---- Flashcards: study/test sessions --------------------------------------------------
             function exitFlashcardSession() { if (gravityTimeoutId) { clearTimeout(gravityTimeoutId); gravityTimeoutId = null; }
                 if (examSimTimeoutId) { clearTimeout(examSimTimeoutId); examSimTimeoutId = null; }
-                if (flashcardStudySession && flashcardStudySession.mode === 'adaptive-ai') { adaptivePersistSession(flashcardStudySession, 'paused', true); toast('Session paused and saved. You can resume it from Flashcards.'); }
+                if (flashcardStudySession && flashcardStudySession.mode === 'adaptive-ai') { adaptivePersistSession(flashcardStudySession, 'paused', true); toast('Session paused and saved. You can resume it from Flashcards.'); flashcardsSelectedDeckId = null; }
                 flashcardStudySession = null; render(); }
 
             function startFlashcardClickThrough(deckId) { const deck = flashcardDeck(deckId); if (!deck || !deck.cards.length) return;
