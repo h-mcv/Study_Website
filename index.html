@@ -4886,7 +4886,22 @@
         @media (max-width:700px) { .notes-workspace-top { gap:6px; padding:8px; flex-wrap:wrap; } .notes-workspace-title-wrap { order:1; flex-basis:100%; } .notes-workspace-body { grid-template-columns:190px minmax(0,1fr); } .notes-workspace-top select { max-width:125px; } .notes-editor-scroll { padding:12px; } .notes-paper { padding:42px 28px; } .notes-paper.margin-on { padding-left:110px; } .notes-paper.margin-on:before { left:88px; } .notes-red-margin { width:58px; left:15px; } }
 
 
-    </style>
+    
+        .fc-adaptive-diagram-image { margin: 18px 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+        .fc-adaptive-diagram-image img { display: block; width: 100%; max-height: 430px; object-fit: contain; border-radius: 10px; background: #fff; }
+        .fc-adaptive-timeline { display: grid; gap: 8px; margin: 18px 0 12px; }
+        .fc-adaptive-timeline-row { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; }
+        .fc-adaptive-timeline-number { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 99px; background: var(--surface-2); color: var(--muted); font-weight: 700; }
+        .fc-adaptive-timeline-buttons { display: flex; gap: 4px; }
+        .fc-adaptive-timeline-buttons .button { min-width: 34px; padding: 6px; }
+        .fc-adaptive-label-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 10px; margin: 16px 0; }
+        .fc-adaptive-label-grid label { display: flex; align-items: center; gap: 9px; }
+        .fc-adaptive-label-grid label span { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font-weight: 800; }
+        .fc-adaptive-label-grid input { min-width: 0; width: 100%; }
+        .fc-adaptive-drawing-panel { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 16px 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+        .fc-adaptive-drawing-panel p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+        @media (max-width: 560px) { .fc-adaptive-timeline-row { grid-template-columns: 28px minmax(0,1fr); } .fc-adaptive-timeline-buttons { grid-column: 2; justify-content:flex-end; } .fc-adaptive-drawing-panel { align-items: stretch; } }
+</style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script>
@@ -8865,6 +8880,12 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
                     flashcardStudySession.pendingAnswer = e.target.value;
                     adaptivePersistSession(flashcardStudySession, 'active', false);
                 }
+                else if (e.target.matches('[data-adaptive-label]') && flashcardStudySession?.mode === 'adaptive-ai') {
+                    const i = Number(e.target.dataset.adaptiveLabel); flashcardStudySession.diagramLabelAnswers = flashcardStudySession.diagramLabelAnswers || [];
+                    flashcardStudySession.diagramLabelAnswers[i] = e.target.value; adaptivePersistSession(flashcardStudySession, 'active', false);
+                } else if (e.target.id === 'flashcard-adaptive-diagram-description' && flashcardStudySession?.mode === 'adaptive-ai') {
+                    flashcardStudySession.diagramDescription = e.target.value; adaptivePersistSession(flashcardStudySession, 'active', false);
+                }
             });
 
             document.addEventListener('keydown', e => {
@@ -9151,7 +9172,7 @@ ${isBlank ? `<button type="button" class="exam-remove-blank-page" data-action="e
             // -------------------------------------------------------------------------------------------
             let flashcardCreateLoading = false; // true while the image-extraction AI call is in flight
             let flashcardCreateLoadingStage = null; // 'extracting' | 'checking' | null -- which AI pass is in flight, for the loading message
-            let flashcardStudySession = null; // active click-through/smart-test/mcq-test/match/gravity/cloze/tf/listening/srs-review session — see startFlashcard*
+            let flashcardStudySession = null; // active click-through/smart-test/mcq-test/match/gravity/cloze/tf/listening/ session — see startFlashcard*
             let gravityTimeoutId = null; // single in-flight per-word timer for the Gravity typing game (cleared on submit/exit)
             let sparkySetChatDeckId = null; // which deck the "Ask Sparky about this set" modal is scoped to
             let sparkySetChatHistory = []; // [{role:'user'|'assistant', text}] for the open modal, reset each time it opens
@@ -16666,9 +16687,9 @@ Reply with ONLY compact JSON in this exact shape: {"transcript": "the essay text
 function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSelectedDeckId);
                 if (!deck) { flashcardsSelectedDeckId = null; return renderFlashcardLibrary(); }
                 const s = subject(deck.subjectId), n = deck.cards.length;
-                const dueCount = dueCardsForDeck(deck).length, score = deckMemoryScore(deck), weakCount = weakCardsForDeck(deck).length, knownCount = deck.cards.filter(c => c.known).length;
+                const bank = adaptiveBankRecords([deck.id]), dueCount = bank.filter(q => q.dueAt && q.dueAt <= Date.now()).length, score = bank.length ? Math.round(bank.filter(adaptiveIsMastered).length / bank.length * 100) : 0, masteredCount = bank.filter(adaptiveIsMastered).length;
                 const stat = (label, value) => `<div class="card stat"><span class="label">${label}</span><span class="value">${value}</span></div>`;
-                const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext">${c.type && FC_TYPES[c.type] && c.type !== 'term' ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : ''}<strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${c.id}" aria-label="Toggle known" title="Mark known">${c.known ? '⭐' : '☆'}</button><button type="button" class="button ghost icon" data-action="flashcard-edit-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Edit card" title="Edit">✏️</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
+                const cardRow = (c, i) => `<div class="fc-listcard"><span class="fc-idx">${i + 1}</span><div class="fc-listtext">${c.type && FC_TYPES[c.type] && c.type !== 'term' ? `<span class="pill neutral" style="margin-right:6px">${FC_TYPES[c.type].icon} ${FC_TYPES[c.type].short}</span>` : ''}<strong>${escape(c.front)}</strong><div class="small">${escape(c.back)}</div></div><button type="button" class="button ghost icon" data-action="flashcard-edit-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Edit card" title="Edit">✏️</button><button type="button" class="button ghost danger icon" data-action="flashcard-delete-card" data-deck="${deck.id}" data-card="${c.id}" aria-label="Delete card">🗑</button></div>`;
                 const folders = foldersFor(deck.subjectId), current = folders.find(f => f.deckIds.includes(deck.id));
                 const secs = fcSecs(deck), scoped = fcScopeCards(deck), scopeLabel = fcScopeLabel(deck);
                 const secSelect = (c) => secs.length ? `<select class="fc-mini-select" data-action="fc-card-section" data-deck="${deck.id}" data-card="${c.id}" aria-label="Section">${fcSecOptions(deck).map(o => `<option value="${o.key}" ${o.key === fcCardKey(c) ? 'selected' : ''}>${escape(o.label)}</option>`).join('')}</select>` : '';
@@ -16689,13 +16710,13 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
             <h1 style="margin:0">${escape(deck.topic)}</h1>
             <p class="muted" style="margin:4px 0 0">${escape(s ? s.name : 'No subject')}</p>
           </div>
-          <div class="stats" style="margin-bottom:16px">${stat('Cards', n)}${stat('Memory score', score + '%')}${stat('To review', dueCount)}${stat('Marked known', knownCount)}</div>
+          <div class="stats" style="margin-bottom:16px">${stat('Cards', n)}${stat('AI questions', bank.length)}${stat('Secure', masteredCount)}${stat('Due', dueCount)}</div>
           <section class="card section">
             <div class="row" style="gap:10px;flex-wrap:wrap">
               <button type="button" class="button primary" style="padding:12px 20px" data-action="flashcard-start-clickthrough" data-deck="${deck.id}" ${n ? '' : 'disabled'}>👀 Flip through</button>
-              <button type="button" class="button primary" style="padding:12px 20px" data-action="open-flashcard-test-choice" data-deck="${deck.id}" ${n ? '' : 'disabled'}>🧠 Test yourself</button>
-              ${dueCount && n ? `<button type="button" class="button" data-action="flashcard-start-srs-review" data-deck="${deck.id}">🔁 Review due (${dueCount})</button>` : ''}
-              ${weakCount ? `<button type="button" class="button ghost" data-action="flashcard-start-weak-review" data-deck="${deck.id}">⚠️ Practice weak cards (${weakCount})</button>` : ''}
+              <button type="button" class="button primary" style="padding:12px 20px" data-action="open-flashcard-adaptive-choice" data-deck="${deck.id}" ${n ? '' : 'disabled'}>🧠 Test yourself</button>
+              
+              
             </div>
             ${scopeBar}
             <details class="fc-more-actions"><summary>Deck options</summary><div class="fc-more-actions-inner">
@@ -17323,7 +17344,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 const inScope = (d) => (filterId === 'all' || d.subjectId === filterId) && (!q || d.topic.toLowerCase().includes(q) ||
                     d.cards.some(c => String(c.front || '').toLowerCase().includes(q) || String(c.back || '').toLowerCase().includes(q)));
                 const decks = state.flashcardDecks.filter(inScope).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                const tile = (d) => { const s = subject(d.subjectId), due = dueCardsForDeck(d).length, score = deckMemoryScore(d);
+                const tile = (d) => { const s = subject(d.subjectId), bank = adaptiveBankRecords([d.id]), due = bank.filter(q => q.dueAt && q.dueAt <= Date.now()).length, score = bank.length ? Math.round(bank.filter(adaptiveIsMastered).length / bank.length * 100) : 0;
                     return `<button type="button" class="fc-deck" data-action="open-flashcard-deck" data-deck="${d.id}" style="--subject:${s ? s.color : 'var(--primary)'}"><strong>${escape(d.topic)}</strong><span class="meta">${escape(s ? s.name : 'No subject')} · ${d.cards.length} card${d.cards.length === 1 ? '' : 's'}</span><span class="fc-deck-foot"><span class="fc-mini"><i style="width:${score}%"></i></span><span class="meta">${score}%${due && d.cards.length ? ` · ${due} to review` : ''}</span></span></button>`; };
                 const subjectsWithDecks = state.subjects.filter(s => s.active !== false && (state.flashcardDecks.some(d => d.subjectId === s.id) || s.id === filterId));
                 const chips = `<div class="fc-chips"><button type="button" class="fc-chip ${filterId === 'all' ? 'active' : ''}" data-action="fc-filter-subject" data-subject="all">All</button>${subjectsWithDecks.map(s => `<button type="button" class="fc-chip ${filterId === s.id ? 'active' : ''}" data-action="fc-filter-subject" data-subject="${s.id}">${escape(s.name)}</button>`).join('')}</div>`;
@@ -17660,15 +17681,18 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 return null;
             }
             function adaptiveCardSource(deck, card) {
-                const type = card.type || 'term', source = {
-                    id: card.id, deckId: deck.id, subject: (subject(deck.subjectId) || {}).name || '',
-                    topic: deck.topic, type, front: card.front, back: card.back
-                };
+                const type = card.type || 'term', source = { id: card.id, deckId: deck.id, subject: (subject(deck.subjectId) || {}).name || '', topic: deck.topic, type, front: card.front, back: card.back };
                 if (card.data && ['list', 'timeline', 'info'].includes(type)) source.structured = card.data;
                 if (type === 'graph' && card.data) {
-                    source.graphNotes = card.data.notes || '';
-                    source.graphLabels = card.data.board ? wbLabels(card.data.board) : [];
+                    source.graphNotes = card.data.notes || ''; source.graphLabels = card.data.board ? wbLabels(card.data.board) : [];
                     source.graphStructure = card.data.board ? wbDescribe(card.data.board) : '';
+                    source.graphElements = card.data.board && Array.isArray(card.data.board.shapes) ? card.data.board.shapes.map(shape => {
+                        const bounds = wbBBox(shape);
+                        return { id: String(shape.id), type: shape.t, text: String(shape.text || '').replace(/\n/g, ' '),
+                            bounds: { x: Math.round(bounds.x), y: Math.round(bounds.y), w: Math.round(bounds.w), h: Math.round(bounds.h) },
+                            from: shape.x1 == null ? null : [Math.round(shape.x1), Math.round(shape.y1)],
+                            to: shape.x2 == null ? null : [Math.round(shape.x2), Math.round(shape.y2)] };
+                    }).slice(0, 100) : [];
                 }
                 const place = fcCardPlace(deck, card);
                 if (place && place.sec) source.section = place.sec.name + (place.sub ? ' / ' + place.sub.name : '');
@@ -17741,15 +17765,20 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
             function adaptiveQuestionModeLabel(mode) {
                 return mode === 'mcq' ? 'Multiple choice' : mode === 'short' ? 'Short answer' : 'Mixed questions';
             }
-            function adaptiveQuestionTypeLabel(type) { return type === 'mcq' ? 'MULTIPLE CHOICE' : 'SHORT ANSWER'; }
+            function adaptiveQuestionTypeLabel(type) {
+                const labels={mcq:'MULTIPLE CHOICE',short:'SHORT ANSWER',definition:'EXACT DEFINITION',list:'LIST RECALL',timeline:'PUT IN ORDER',diagram_identify:'IDENTIFY DIAGRAM',diagram_label:'DIAGRAM LABELS',diagram_describe:'DESCRIBE DIAGRAM',diagram_complete:'COMPLETE DIAGRAM',diagram_draw:'DRAW DIAGRAM'};
+                return labels[type]||'SHORT ANSWER';
+            }
             function adaptiveLearningState() {
-                if (!state.flashcardLearning || typeof state.flashcardLearning !== 'object') {
-                    state.flashcardLearning = { version: 1, activeSession: null, savedSessions: [], reviewHistory: [], sessions: [] };
-                }
+                if (!state.flashcardLearning || typeof state.flashcardLearning !== 'object') state.flashcardLearning = { version: 2, activeSession: null, savedSessions: [], reviewHistory: [], sessions: [] };
                 const learning = state.flashcardLearning;
                 if (!Array.isArray(learning.savedSessions)) learning.savedSessions = [];
                 if (!Array.isArray(learning.reviewHistory)) learning.reviewHistory = [];
                 if (!Array.isArray(learning.sessions)) learning.sessions = [];
+                if (!learning.legacyCardSrsRemoved) {
+                    (state.flashcardDecks || []).forEach(deck => (deck.cards || []).forEach(card => { delete card.srs; delete card.known; }));
+                    learning.legacyCardSrsRemoved = true; learning.version = 2;
+                }
                 return learning;
             }
             function adaptiveQuestionDimension(q) {
@@ -17769,85 +17798,46 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 const bank = adaptiveBankRecords(scopeDeckIds || []);
                 return bank.length ? Math.round(bank.filter(adaptiveIsMastered).length / bank.length * 100) : 0;
             }
-            function adaptivePersistSession(sess, status, immediate) {
-                if (!sess || !sess.id) return;
-                const learning = adaptiveLearningState(), now = Date.now();
-                const snapshot = {
-                    id: sess.id, scopeDeckIds: (sess.scopeDeckIds || []).slice(), scopeKind: sess.scopeKind || 'all',
-                    scopeLabel: sess.scopeLabel || 'Flashcards', typeMode: sess.typeMode || 'mixed',
-                    queueIds: (sess.queue || []).map(q => q.id), index: Number(sess.index) || 0,
-                    retryQueueIds: (sess.retryQueue || []).map(q => q.id),
-                    stage: sess.stage || 'first-pass', round: Number(sess.round) || 1,
-                    totalAnswered: Number(sess.totalAnswered) || 0, currentResult: sess.currentResult || null,
-                    pendingAnswer: String(sess.pendingAnswer || ''), startedAt: sess.startedAt || now,
-                    reviewSessionId: sess.reviewSessionId || sess.id, updatedAt: now, status: status || 'active'
-                };
-                if (status === 'paused') {
-                    learning.savedSessions = learning.savedSessions.filter(x => x && x.id !== sess.id);
-                    learning.savedSessions.push(snapshot);
-                    learning.savedSessions = learning.savedSessions.slice(-20);
-                    if (learning.activeSession && learning.activeSession.id === sess.id) learning.activeSession = null;
-                } else if (status === 'active') {
-                    learning.activeSession = snapshot;
-                    learning.savedSessions = learning.savedSessions.filter(x => x && x.id !== sess.id);
-                } else if (status === 'discarded') {
-                    if (learning.activeSession && learning.activeSession.id === sess.id) learning.activeSession = null;
-                    learning.savedSessions = learning.savedSessions.filter(x => x && x.id !== sess.id);
-                }
-                const summary = {
-                    id: sess.id, scopeDeckIds: (sess.scopeDeckIds || []).slice(), scopeKind: sess.scopeKind || 'all',
-                    scopeLabel: sess.scopeLabel || 'Flashcards', typeMode: sess.typeMode || 'mixed',
-                    startedAt: sess.startedAt || now, lastActivityAt: now,
-                    totalAnswered: Number(sess.totalAnswered) || 0,
-                    status: status === 'discarded' ? 'discarded' : status || 'active'
-                };
-                const index = learning.sessions.findIndex(x => x && x.id === sess.id);
-                if (index >= 0) learning.sessions[index] = Object.assign({}, learning.sessions[index], summary);
-                else learning.sessions.push(summary);
-                learning.sessions = learning.sessions.slice(-100);
-                save(!!immediate);
+            function adaptivePersistSession(sess,status,immediate) {
+                if(!sess||!sess.id)return;const learning=adaptiveLearningState(),now=Date.now();
+                const snapshot={id:sess.id,scopeDeckIds:(sess.scopeDeckIds||[]).slice(),scopeKind:sess.scopeKind||'all',scopeLabel:sess.scopeLabel||'Flashcards',typeMode:sess.typeMode||'mixed',
+                    queueIds:(sess.queue||[]).map(q=>q.id),index:Number(sess.index)||0,retryQueueIds:(sess.retryQueue||[]).map(q=>q.id),stage:sess.stage||'first-pass',
+                    round:Number(sess.round)||1,totalAnswered:Number(sess.totalAnswered)||0,currentResult:sess.currentResult||null,pendingAnswer:String(sess.pendingAnswer||''),
+                    startedAt:sess.startedAt||now,reviewSessionId:sess.reviewSessionId||sess.id,updatedAt:now,status:status||'active',
+                    timelineOrder:Array.isArray(sess.timelineOrder)?sess.timelineOrder.slice():[],timelineQuestionId:sess.timelineQuestionId||null,
+                    diagramAnswerBoard:sess.diagramAnswerBoard||null,diagramAnswerBoardQuestionId:sess.diagramAnswerBoardQuestionId||null,
+                    diagramLabelAnswers:Array.isArray(sess.diagramLabelAnswers)?sess.diagramLabelAnswers.slice():[],diagramDescription:String(sess.diagramDescription||'')};
+                if(status==='paused'){learning.savedSessions=learning.savedSessions.filter(x=>x&&x.id!==sess.id);learning.savedSessions.push(snapshot);learning.savedSessions=learning.savedSessions.slice(-20);if(learning.activeSession&&learning.activeSession.id===sess.id)learning.activeSession=null;}
+                else if(status==='active'){learning.activeSession=snapshot;learning.savedSessions=learning.savedSessions.filter(x=>x&&x.id!==sess.id);}
+                else if(status==='discarded'){if(learning.activeSession&&learning.activeSession.id===sess.id)learning.activeSession=null;learning.savedSessions=learning.savedSessions.filter(x=>x&&x.id!==sess.id);}
+                const summary={id:sess.id,scopeDeckIds:(sess.scopeDeckIds||[]).slice(),scopeKind:sess.scopeKind||'all',scopeLabel:sess.scopeLabel||'Flashcards',typeMode:sess.typeMode||'mixed',startedAt:sess.startedAt||now,lastActivityAt:now,totalAnswered:Number(sess.totalAnswered)||0,status:status==='discarded'?'discarded':status||'active'};
+                const index=learning.sessions.findIndex(x=>x&&x.id===sess.id);if(index>=0)learning.sessions[index]=Object.assign({},learning.sessions[index],summary);else learning.sessions.push(summary);
+                learning.sessions=learning.sessions.slice(-100);save(!!immediate);
             }
             async function adaptiveLoadBatch(sess) {
-                if (!sess || flashcardStudySession !== sess) return;
-                sess.phase = 'generating'; adaptivePersistSession(sess, 'active', false); render();
-                try {
-                    const batch = await generateAdaptiveQuestionBatch(sess, 12);
-                    if (flashcardStudySession !== sess) return;
-                    if (!Array.isArray(batch) || !batch.length) throw new Error('No questions were ready. Please try again.');
-                    sess.queue = batch; sess.index = 0; sess.retryQueue = sess.retryQueue || [];
-                    sess.stage = 'first-pass'; sess.phase = 'active'; sess.currentResult = null;
-                    adaptivePersistSession(sess, 'active', false);
-                    render(); adaptiveMaybePrefetch(sess);
-                } catch (err) {
-                    if (flashcardStudySession !== sess) return;
-                    sess.phase = 'error'; sess.loadError = err.message || 'Could not generate questions.';
-                    adaptivePersistSession(sess, 'active', false); render();
-                }
+                if(!sess||flashcardStudySession!==sess)return;sess.phase='generating';adaptivePersistSession(sess,'active',false);render();
+                try{const batch=await generateAdaptiveQuestionBatch(sess,12);if(flashcardStudySession!==sess)return;
+                    if(!Array.isArray(batch)||!batch.length)throw new Error('No questions were ready. Please try again.');
+                    sess.queue=batch;sess.index=0;sess.retryQueue=sess.retryQueue||[];sess.stage='first-pass';sess.currentResult=null;
+                    sess.timelineQuestionId=null;sess.diagramAnswerBoard=null;sess.diagramAnswerBoardQuestionId=null;sess.diagramLabelAnswers=[];sess.diagramDescription='';sess.modelVisualPng='';
+                    await adaptivePrepareCurrentQuestion(sess);if(flashcardStudySession!==sess)return;sess.phase='active';adaptivePersistSession(sess,'active',false);render();adaptiveMaybePrefetch(sess);
+                }catch(err){if(flashcardStudySession!==sess)return;sess.phase='error';sess.loadError=err.message||'Could not generate questions.';adaptivePersistSession(sess,'active',false);render();}
             }
-            function adaptiveResumeSession(sessionId) {
-                const learning = adaptiveLearningState();
-                const snapshot = [learning.activeSession].concat(learning.savedSessions || []).find(x => x && x.id === sessionId);
-                if (!snapshot) { toast('That saved session could not be found.'); render(); return; }
-                const ids = (snapshot.scopeDeckIds || []).filter(id => flashcardDeck(id));
-                if (!ids.length) { toast('The decks for this saved session are no longer available.'); return; }
-                const queue = (snapshot.queueIds || []).map(adaptiveFindQuestion).filter(Boolean);
-                const retryQueue = (snapshot.retryQueueIds || []).map(adaptiveFindQuestion).filter(Boolean);
-                const sess = {
-                    mode: 'adaptive-ai', id: snapshot.id, deckId: ids[0], scopeDeckIds: ids,
-                    scopeKind: snapshot.scopeKind || 'all', scopeLabel: snapshot.scopeLabel || 'Flashcards',
-                    typeMode: snapshot.typeMode || 'mixed', phase: queue.length ? 'active' : 'generating',
-                    reviewSessionId: Date.now() - Number(snapshot.updatedAt || snapshot.startedAt || Date.now()) > 6 * 60 * 60 * 1000 ? 'rev_' + uid() : (snapshot.reviewSessionId || snapshot.id),
-                    queue, index: Math.min(Number(snapshot.index) || 0, Math.max(0, queue.length - 1)),
-                    retryQueue, nextBatch: null, nextBatchPromise: null, prefetching: false,
-                    stage: snapshot.stage || 'first-pass', round: Number(snapshot.round) || 1,
-                    totalAnswered: Number(snapshot.totalAnswered) || 0, currentResult: snapshot.currentResult || null,
-                    pendingAnswer: String(snapshot.pendingAnswer || ''), startedAt: snapshot.startedAt || Date.now()
-                };
-                flashcardStudySession = sess; view = 'flashcards'; flashcardsTab = 'mine';
-                flashcardsSelectedDeckId = null; flashcardsInsightDeckId = null;
-                adaptivePersistSession(sess, 'active', true);
-                render();
-                if (queue.length) adaptiveMaybePrefetch(sess);
+            async function adaptiveResumeSession(sessionId) {
+                const learning=adaptiveLearningState(),snapshot=[learning.activeSession].concat(learning.savedSessions||[]).find(x=>x&&x.id===sessionId);
+                if(!snapshot){toast('That saved session could not be found.');render();return;}
+                const ids=(snapshot.scopeDeckIds||[]).filter(id=>flashcardDeck(id));if(!ids.length){toast('The decks for this saved session are no longer available.');return;}
+                const queue=(snapshot.queueIds||[]).map(adaptiveFindQuestion).filter(Boolean),retryQueue=(snapshot.retryQueueIds||[]).map(adaptiveFindQuestion).filter(Boolean);
+                const sess={mode:'adaptive-ai',id:snapshot.id,deckId:ids[0],scopeDeckIds:ids,scopeKind:snapshot.scopeKind||'all',scopeLabel:snapshot.scopeLabel||'Flashcards',
+                    typeMode:snapshot.typeMode||'mixed',phase:'generating',reviewSessionId:Date.now()-Number(snapshot.updatedAt||snapshot.startedAt||Date.now())>6*60*60*1000?'rev_'+uid():(snapshot.reviewSessionId||snapshot.id),
+                    queue,index:Math.min(Number(snapshot.index)||0,Math.max(0,queue.length-1)),retryQueue,nextBatch:null,nextBatchPromise:null,prefetching:false,stage:snapshot.stage||'first-pass',
+                    round:Number(snapshot.round)||1,totalAnswered:Number(snapshot.totalAnswered)||0,currentResult:snapshot.currentResult||null,pendingAnswer:String(snapshot.pendingAnswer||''),
+                    startedAt:snapshot.startedAt||Date.now(),timelineOrder:Array.isArray(snapshot.timelineOrder)?snapshot.timelineOrder.slice():[],timelineQuestionId:snapshot.timelineQuestionId||null,
+                    diagramAnswerBoard:snapshot.diagramAnswerBoard||null,diagramAnswerBoardQuestionId:snapshot.diagramAnswerBoardQuestionId||null,
+                    diagramLabelAnswers:Array.isArray(snapshot.diagramLabelAnswers)?snapshot.diagramLabelAnswers.slice():[],diagramDescription:String(snapshot.diagramDescription||''),
+                    visualPng:'',visualQuestionId:null,modelVisualPng:''};
+                flashcardStudySession=sess;view='flashcards';flashcardsTab='mine';flashcardsSelectedDeckId=null;flashcardsInsightDeckId=null;adaptivePersistSession(sess,'active',true);render();
+                if(queue.length){try{await adaptivePrepareCurrentQuestion(sess);if(flashcardStudySession!==sess)return;sess.phase='active';adaptivePersistSession(sess,'active',false);render();adaptiveMaybePrefetch(sess);}catch(err){sess.phase='active';render();}}
                 else adaptiveLoadBatch(sess);
             }
             function adaptiveDiscardSession(sessionId) {
@@ -17938,111 +17928,158 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                     (subjectRows?'<section class="fc-insight-panel fc-insight-wide"><div class="fc-insight-heading"><div><h3>Subject breakdown</h3><p>Secure objectives are independently recalled in at least three spaced sessions</p></div></div>'+subjectRows+'</section>':'')+
                     '</div>'+empty+'</div>';
             }
-                        async function startAdaptiveAiPractice(scopeDeckIds, scopeLabel, scopeKind, typeMode) {
-                const ids=Array.from(new Set((scopeDeckIds||[]).filter(id=>flashcardDeck(id))));
-                if(!ids.length){toast('There are no flashcards in that selection yet.');return;}
-                const decks=ids.map(flashcardDeck);
-                if(!decks.some(d=>d.cards&&d.cards.length)){toast('Add some flashcards before starting a test.');return;}
-                const mode=['mixed','mcq','short'].includes(typeMode)?typeMode:'mixed';
-                const learning=adaptiveLearningState();
+                        async function startAdaptiveAiPractice(scopeDeckIds,scopeLabel,scopeKind,typeMode) {
+                const ids=Array.from(new Set((scopeDeckIds||[]).filter(id=>flashcardDeck(id))));if(!ids.length){toast('There are no flashcards in that selection yet.');return;}
+                const decks=ids.map(flashcardDeck);if(!decks.some(d=>d.cards&&d.cards.length)){toast('Add some flashcards before starting.');return;}
+                const modes=['mixed','mcq','short','definitions','diagrams','structured'],mode=modes.includes(typeMode)?typeMode:'mixed',learning=adaptiveLearningState();
                 if(flashcardStudySession&&flashcardStudySession.mode==='adaptive-ai')adaptivePersistSession(flashcardStudySession,'paused',true);
-                else if(learning.activeSession){
-                    learning.savedSessions=learning.savedSessions.filter(x=>x&&x.id!==learning.activeSession.id);
-                    learning.savedSessions.push(learning.activeSession);learning.savedSessions=learning.savedSessions.slice(-20);
-                    learning.activeSession=null;
-                }
-                closeModal();
-                const now=Date.now();
-                const sess={mode:'adaptive-ai',id:'fcs_'+uid(),deckId:ids[0],scopeDeckIds:ids,scopeKind:scopeKind||'all',
-                    scopeLabel:scopeLabel||(ids.length===1?decks[0].topic:'All subjects'),typeMode:mode,reviewSessionId:'rev_'+uid(),
-                    phase:'generating',queue:[],index:0,retryQueue:[],nextBatch:null,nextBatchPromise:null,
-                    prefetching:false,stage:'first-pass',round:1,totalAnswered:0,currentResult:null,pendingAnswer:'',startedAt:now};
-                flashcardStudySession=sess;adaptivePersistSession(sess,'active',true);render();
-                await adaptiveLoadBatch(sess);
+                else if(learning.activeSession){learning.savedSessions=learning.savedSessions.filter(x=>x&&x.id!==learning.activeSession.id);learning.savedSessions.push(learning.activeSession);learning.savedSessions=learning.savedSessions.slice(-20);learning.activeSession=null;}
+                closeModal();const now=Date.now();
+                const sess={mode:'adaptive-ai',id:'fcs_'+uid(),deckId:ids[0],scopeDeckIds:ids,scopeKind:scopeKind||'all',scopeLabel:scopeLabel||(ids.length===1?decks[0].topic:'All subjects'),
+                    typeMode:mode,reviewSessionId:'rev_'+uid(),phase:'generating',queue:[],index:0,retryQueue:[],nextBatch:null,nextBatchPromise:null,prefetching:false,
+                    stage:'first-pass',round:1,totalAnswered:0,currentResult:null,pendingAnswer:'',timelineOrder:[],timelineQuestionId:null,diagramAnswerBoard:null,diagramAnswerBoardQuestionId:null,
+                    diagramLabelAnswers:[],diagramDescription:'',visualPng:'',visualQuestionId:null,modelVisualPng:'',startedAt:now};
+                flashcardStudySession=sess;adaptivePersistSession(sess,'active',true);render();await adaptiveLoadBatch(sess);
             }
-            async function generateAdaptiveQuestionBatch(sess, batchSize) {
-                const ids = sess.scopeDeckIds || [], now = Date.now(), bank = adaptiveBankRecords(ids);
-                const allowed = q => sess.typeMode === 'mixed' || q.type === sess.typeMode;
-                const queuedIds = new Set([...(sess.queue || []).map(q => q.id), ...(sess.nextBatch || []).map(q => q.id)]);
-                const due = bank.filter(q => q.lastReviewed && q.dueAt && q.dueAt <= now && allowed(q) && !queuedIds.has(q.id) && adaptiveResolveSourceRefs(q).length)
-                    .sort((a, b) => Number(!!b.struggling) - Number(!!a.struggling) || (a.dueAt || 0) - (b.dueAt || 0))
-                    .slice(0, Math.min(6, Math.floor(batchSize / 2)));
-                const sourceCards = adaptiveSelectSourceCards(sess, bank);
-                if (!sourceCards.length) {
-                    if (due.length) return due;
-                    throw new Error('No flashcards were found in this selection.');
+            function adaptiveQuestionModeAllows(mode, type) {
+                if (!mode || mode === 'mixed') return true;
+                if (mode === 'mcq') return type === 'mcq';
+                if (mode === 'short') return ['short', 'definition', 'list', 'timeline', 'diagram_identify', 'diagram_describe', 'diagram_label'].includes(type);
+                if (mode === 'definitions') return type === 'definition';
+                if (mode === 'diagrams') return String(type || '').startsWith('diagram_');
+                if (mode === 'structured') return type === 'list' || type === 'timeline';
+                return type === mode;
+            }
+            function adaptiveQuestionTypeLabel(type) {
+                const labels = { mcq: 'MULTIPLE CHOICE', short: 'SHORT ANSWER', definition: 'EXACT DEFINITION', list: 'LIST RECALL', timeline: 'PUT IN ORDER', diagram_identify: 'IDENTIFY DIAGRAM', diagram_label: 'DIAGRAM LABELS', diagram_describe: 'DESCRIBE DIAGRAM', diagram_complete: 'COMPLETE DIAGRAM', diagram_draw: 'DRAW DIAGRAM' };
+                return labels[type] || 'SHORT ANSWER';
+            }
+            function adaptiveQuestionDisplayAnswer(q) {
+                if (!q) return '';
+                if (q.type === 'timeline') { try { return JSON.parse(q.answer).join(' → '); } catch (err) {} }
+                if (q.type === 'diagram_label' && q.taskData && Array.isArray(q.taskData.labelTargets)) return q.taskData.labelTargets.map((x,i)=>(i+1)+'. '+x.label).join('\n');
+                return String(q.answer || '');
+            }
+            function adaptiveQuestionBoard(q) {
+                const ref = adaptiveResolveSourceRefs(q).find(x => x.card && x.card.type === 'graph' && x.card.data && x.card.data.board);
+                return ref ? { deck: ref.deck, card: ref.card, board: ref.card.data.board } : null;
+            }
+            function adaptiveDiagramPreviewBoard(q) {
+                const source = adaptiveQuestionBoard(q); if (!source) return null;
+                const board = wbClone(source.board), task = q.taskData || {};
+                if (q.type === 'diagram_complete') {
+                    const remove = new Set((task.removeShapeIds || []).map(String)); board.shapes = board.shapes.filter(x => !remove.has(String(x.id)));
+                } else if (q.type === 'diagram_draw') board.shapes = [];
+                else if (q.type === 'diagram_label') {
+                    const targets = Array.isArray(task.labelTargets) ? task.labelTargets : [], original = new Map(board.shapes.map(x => [String(x.id),x]));
+                    targets.forEach((target,i) => { const shape=original.get(String(target.shapeId)); if(!shape)return;
+                        const b=wbBBox(shape),cx=b.x+b.w/2,cy=b.y+b.h/2; shape.text='';
+                        board.shapes.push({id:'adaptive_label_'+i,t:'text',x:Math.max(12,Math.min(WB_W-45,cx-10)),y:Math.max(24,Math.min(WB_H-20,cy)),text:String(i+1),color:'#dc2626',fs:28,sw:2});
+                    });
                 }
-                const sourceMap = new Map(sourceCards.map(x => [x.card.id, x]));
-                const payload = {
-                    requestedNewQuestions: Math.max(4, batchSize - due.length), allowedQuestionType: sess.typeMode,
-                    sourceCards: sourceCards.map(x => adaptiveCardSource(x.deck, x.card)),
-                    alreadyAskedObjectives: bank.map(q => q.objective).filter(Boolean).slice(-100)
-                };
-                const prompt = [
-                    'You are an expert exam-question writer creating a rigorous revision quiz from provided flashcards.',
-                    'SOURCE RULE: the supplied flashcards are the ONLY source of truth. Do not add outside facts, dates, examples, terminology or assumptions. Every answer and marking point must be directly supported by the supplied cards. If a detail is ambiguous, do not test it.',
-                    'COVERAGE: generate the requested number of useful, distinct questions. Do NOT create one question per flashcard. A long info card, list, timeline or definition card can contain many separately testable facts: split these into separate questions (definition, cause, effect, example, sub-point, relationship or ordered step). You may also combine related facts from multiple cards where that tests understanding. Prefer material not tested before, then areas linked to weak or due review history. Avoid repeating any already-asked objective in the input; test a different fact or angle.',
-                    'DEPTH: vary direct recall with explanation, comparison, cause-and-effect reasoning, choosing the correct consequence, interpreting a relationship, or applying a stated rule to a new but fully self-contained situation. Application questions must not require knowledge absent from the cards. Avoid trivia, vague wording and ambiguity.',
-                    'SKILL BALANCE: label every item with dimension = recall, understanding, or application. Across a batch, aim for a mix (roughly 40% recall, 35% understanding, 25% application) when the cards genuinely support it. If the source only supports recall, do not invent depth. Understanding asks why/how or compares related concepts; application transfers a stated rule to a new self-contained scenario.',
-                    'INTERLEAVING: when cards come from multiple decks or subjects, distribute questions across them rather than exhausting one deck first. Compare related concepts and distinguish similar methods where the source supports it. Do not mix unrelated facts merely for variety.',
-                    'MULTIPLE CHOICE: every MCQ must have exactly four distinct options and exactly one defensibly correct answer. Make all three distractors credible and educational: adjacent concepts, common misconceptions, a swapped detail, reversed relationship, wrong stage/order, or a plausible but incorrect interpretation of the supplied material. Keep all four options similar in length, specificity, grammar and technical detail. Never use silly throwaways, an obviously longer correct answer, "all/none of the above", or options that can be eliminated without knowing the content. The correct answer must appear verbatim as one of the four choices.',
-                    'SHORT ANSWER: ask for a focused answer that can be marked consistently. Supply a model answer, accepted alternative phrasings where useful, and a concise rubric of essential marking points. Do not demand unnecessary wording or award full marks for a vague answer.',
-                    'MIXED MODE: create a balanced mixture of MCQ and short-answer questions (roughly half each). For a single-type mode, use only that type. The input field allowedQuestionType specifies which type to use.',
-                    'Each question must target one clear learning objective, not simply copy a card front. Use sourceCardIds from the supplied source card IDs; include every card needed to support the answer and no unrelated cards. A single source card ID may appear in several questions.',
-                    'Return ONLY valid JSON with this shape: {"questions":[{"objective":"short unique description of the exact fact/skill tested","type":"mcq"|"short","question":"...","choices":["...","...","...","..."],"answer":"model answer or exact correct MCQ choice","acceptedAnswers":["..."],"rubric":["essential point 1","essential point 2"],"rationale":"brief explanation grounded in the cards","sourceCardIds":["existing card id"],"dimension":"recall"|"understanding"|"application","difficulty":"recall"|"application"|"analysis"}]}. For short questions, choices may be an empty array. Include no markdown or text outside the JSON.'
+                return board;
+            }
+            async function adaptivePrepareCurrentQuestion(sess) {
+                if(!sess||!Array.isArray(sess.queue))return;
+                const q=sess.queue[sess.index];if(!q)return;
+                if(q.type==='timeline'&&sess.timelineQuestionId!==q.id){sess.timelineQuestionId=q.id;sess.timelineOrder=shuffle((q.taskData&&q.taskData.timelineItems)||[]);}
+                const imageTypes=['diagram_identify','diagram_label','diagram_describe','diagram_complete'];
+                if(!imageTypes.includes(q.type)){sess.visualPng='';sess.visualQuestionId=q.id;return;}
+                if(sess.visualQuestionId===q.id&&sess.visualPng)return;
+                sess.visualQuestionId=q.id;sess.visualPng='';
+                const board=adaptiveDiagramPreviewBoard(q);if(!board)return;
+                try{sess.visualPng=await wbToPng(board);}catch(err){sess.visualPng='';}
+            }
+            function adaptiveOpenDiagramBoard() {
+                const sess=flashcardStudySession,q=sess&&sess.queue&&sess.queue[sess.index];
+                if(!sess||sess.mode!=='adaptive-ai'||!q||!['diagram_complete','diagram_draw'].includes(q.type))return;
+                const source=adaptiveQuestionBoard(q);if(!source){toast('The source diagram is no longer available.');return;}
+                const initial=q.type==='diagram_complete'?adaptiveDiagramPreviewBoard(q):{shapes:[]};
+                openWhiteboard({title:q.question,hint:q.type==='diagram_complete'?'Complete the missing part of the diagram. Keep the existing parts and add the missing curve, label or feature.':'Draw the diagram from memory. Add the important axes, curves, labels and relationships.',
+                    graphMode:true,mathMode:true,board:initial,onDone:board=>{sess.diagramAnswerBoard=board;sess.diagramAnswerBoardQuestionId=q.id;adaptivePersistSession(sess,'active',true);render();}});
+            }
+            function adaptiveMoveTimelineItem(index,direction) {
+                const sess=flashcardStudySession;if(!sess||sess.mode!=='adaptive-ai'||!Array.isArray(sess.timelineOrder)||sess.currentResult)return;
+                const from=Number(index),to=from+Number(direction);if(from<0||from>=sess.timelineOrder.length||to<0||to>=sess.timelineOrder.length)return;
+                const copy=sess.timelineOrder.slice(),item=copy.splice(from,1)[0];copy.splice(to,0,item);sess.timelineOrder=copy;
+                adaptivePersistSession(sess,'active',false);render();
+            }
+            async function generateAdaptiveQuestionBatch(sess,batchSize) {
+                const ids=sess.scopeDeckIds||[],now=Date.now(),bank=adaptiveBankRecords(ids),allowed=q=>adaptiveQuestionModeAllows(sess.typeMode,q.type);
+                const queuedIds=new Set([...(sess.queue||[]).map(q=>q.id),...(sess.nextBatch||[]).map(q=>q.id)]);
+                const due=bank.filter(q=>q.lastReviewed&&q.dueAt&&q.dueAt<=now&&allowed(q)&&!queuedIds.has(q.id)&&adaptiveResolveSourceRefs(q).length)
+                    .sort((a,b)=>Number(!!b.struggling)-Number(!!a.struggling)||(a.dueAt||0)-(b.dueAt||0)).slice(0,Math.min(6,Math.floor(batchSize/2)));
+                const sourceCards=adaptiveSelectSourceCards(sess,bank);
+                if(!sourceCards.length){if(due.length)return due;throw new Error('No flashcards were found in this selection.');}
+                const sourceMap=new Map(sourceCards.map(x=>[x.card.id,x]));
+                const weakObjectives=bank.filter(q=>Number(q.attempts||0)>0&&(q.struggling||Number(q.lastScore||0)<0.85))
+                    .sort((a,b)=>Number(!!b.struggling)-Number(!!a.struggling)||Number(a.lastScore||0)-Number(b.lastScore||0)).slice(0,20)
+                    .map(q=>({objective:q.objective,question:q.question,type:q.type,lastScore:q.lastScore,lastFeedback:q.lastFeedback||'',missing:q.lastMissing||[],sourceCardIds:(q.sourceRefs||[]).map(r=>r.cardId)}));
+                const payload={requestedNewQuestions:Math.max(4,batchSize-due.length),allowedQuestionType:sess.typeMode||'mixed',
+                    sourceCards:sourceCards.map(x=>adaptiveCardSource(x.deck,x.card)),alreadyAskedObjectives:bank.map(q=>q.objective).filter(Boolean).slice(-100),weakObjectives};
+                const prompt=[
+                    'You are an expert Leaving Certificate and Junior Cycle exam-question writer creating a rigorous, varied revision feed from the supplied flashcards.',
+                    'SOURCE RULE: the supplied flashcards are the ONLY source of truth. Do not invent outside facts, dates, examples, terminology, diagram conventions or assumptions. Every answer and marking point must be directly supported by the supplied cards. If a detail is ambiguous, do not test it.',
+                    'COVERAGE: generate useful, distinct learning objectives. Do NOT create one question per flashcard. A long information card, list, timeline or definition card can contain many separately testable facts. Split it into separate questions and combine related cards only when that genuinely tests a relationship.',
+                    'NOVELTY AND WEAKNESS: avoid repeating objectives in alreadyAskedObjectives. Prefer not-yet-tested material. Use weakObjectives to target the exact details the student previously missed. When a weak objective identifies one curve, label, definition phrase, intersection or sequence step, ask a focused new question about that exact feature rather than repeatedly testing the whole topic.',
+                    'DEFINITION PRIORITY: exact definitions are a major part of school examinations. Where the source supports a definition, frequently create type="definition" questions. Ask directly to define or state the meaning of a named term. The model answer must be precise, exam-ready and use the essential source wording and key terms. The rubric must identify required key phrases/ideas. Accept valid rephrasing only when it preserves every essential part. Do not turn every definition into a vague explanation question. Aim for roughly one third of a mixed batch to be definition questions whenever the source contains enough definitions.',
+                    'DEPTH: balance pure recall with understanding and application. Use recall for definitions, names, facts and sequences; understanding for explaining why/how, comparisons and cause/effect; application for applying a rule to a new but fully self-contained situation. Application must not require facts absent from the cards. Do not force application when the source only supports recall.',
+                    'QUESTION TYPES: use suitable types: "mcq" (four options); "short" (focused written response); "definition" (precise definition with required keywords); "list" (recall a set of items); "timeline" (put events or stages into correct order); "diagram_identify" (show a complete source diagram and ask the student to identify/name it or its central relationship); "diagram_label" (show a source diagram with selected text labels hidden and ask the student to supply them); "diagram_describe" (show a complete diagram and ask the student to describe what it shows and explain key relationships); "diagram_complete" (show a partly completed source diagram and ask the student to add one or more missing components); "diagram_draw" (ask the student to construct the whole diagram from memory).',
+                    'DIAGRAM TASKS: create diagram questions only from source cards that include graphElements. Use exact shape IDs provided in graphElements. For diagram_label, return taskData.labelShapeIds containing 2–6 IDs of shapes with existing text labels. For diagram_complete, return taskData.removeShapeIds containing 1–3 important shape IDs to hide. Prefer removing a specific curve, line, arrow or labelled component rather than axes/background. Use weakObjectives to target the exact component the student misses (for example one curve intersection) and leave the rest visible. For identify/describe show the complete original. For draw provide a blank board. Include taskData.focusArea. Set taskData.requireDescription=true only when an explanation is genuinely needed in addition to drawing.',
+                    'DIAGRAM VARIETY: do not ask for a full redraw every time. Prefer targeted identify, label, describe or complete-one-part tasks where these adequately test the objective. Still ask for full draw-and-label tasks periodically when the entire construction matters.',
+                    'SKILL BALANCE: use dimension="recall", "understanding" or "application". Mixed practice should contain definitions/recall, understanding and application, with more direct definition recall than the previous system.',
+                    'INTERLEAVING: distribute across subjects and decks. Compare related concepts only when the source supports the comparison.',
+                    'MULTIPLE CHOICE: exactly four distinct options and exactly one defensibly correct answer. Make all distractors credible and educational. Keep options similar in length, specificity, grammar and technical detail. Never use silly throwaways, an obviously longer correct answer, "all/none of the above", or options that can be eliminated without knowing the content.',
+                    'SHORT / DEFINITION MARKING: supply a model answer, accepted alternatives and a concise rubric. Definition rubrics must explicitly list the key terms or meaning-components that must appear. Do not award full marks for vague definitions.',
+                    'LISTS: taskData.items must contain the complete correct list. Provide a rubric naming every required item. Set taskData.ordered=true only when sequence is essential.',
+                    'TIMELINES: taskData.timelineItems must contain at least three distinct events/stages in correct order. The app shuffles them for the student.',
+                    'MIXED MODE: when allowedQuestionType is "mixed", use a meaningful mixture. When it names a focused mode, use only "definitions", "diagrams", "structured", "mcq" or "short".',
+                    'Each question must target one clear learning objective, not simply copy a card front. Use sourceCardIds from supplied source card IDs; include every card needed and no unrelated cards. Diagram tasks should normally use one graph source card.',
+                    'Return ONLY JSON: {"questions":[{"objective":"unique tested fact/skill","type":"mcq|short|definition|list|timeline|diagram_identify|diagram_label|diagram_describe|diagram_complete|diagram_draw","question":"...","choices":["...","...","...","..."],"answer":"model answer or correct MCQ choice","acceptedAnswers":["..."],"rubric":["essential point 1","essential point 2"],"rationale":"brief explanation","sourceCardIds":["existing card id"],"dimension":"recall|understanding|application","difficulty":"recall|application|analysis","taskData":{"items":["..."],"timelineItems":["..."],"labelShapeIds":["shape id"],"removeShapeIds":["shape id"],"focusArea":"specific target","requireDescription":false,"ordered":false}}]}. Omit irrelevant taskData fields. Return no markdown outside JSON.'
                 ].join('\n');
-                const result = await aiJsonOnce(prompt, [{ text: JSON.stringify(payload) }], undefined, 'quality');
-                const existing = new Set(bank.map(q => q.objectiveKey).filter(Boolean)), generated = [];
-                (Array.isArray(result.questions) ? result.questions : []).forEach(raw => {
-                    const type = raw && (raw.type === 'mcq' || raw.type === 'short') ? raw.type : '';
-                    if (!type || (sess.typeMode !== 'mixed' && type !== sess.typeMode)) return;
-                    const question = String(raw.question || '').trim();
-                    let answer = String(raw.answer || '').trim();
-                    const objective = String(raw.objective || question).trim();
-                    if (!question || !answer || !objective) return;
-                    const sourceIds = Array.isArray(raw.sourceCardIds) ? raw.sourceCardIds.map(String) : [];
-                    const refs = Array.from(new Set(sourceIds)).map(id => sourceMap.get(id)).filter(Boolean)
-                        .map(x => ({ deckId: x.deck.id, cardId: x.card.id }));
-                    if (!refs.length) return;
-                    let choices = [];
-                    if (type === 'mcq') {
-                        const rawChoices = Array.isArray(raw.choices) ? raw.choices.map(x => String(x).trim()).filter(Boolean) : [];
-                        choices = [];
-                        rawChoices.forEach(x => { if (!choices.some(y => y.toLowerCase() === x.toLowerCase())) choices.push(x); });
-                        const correctChoice = choices.find(x => x.toLowerCase() === answer.toLowerCase());
-                        if (choices.length !== 4 || !correctChoice) return;
-                        answer = correctChoice; choices = shuffle(choices);
+                const result=await aiJsonOnce(prompt,[{text:JSON.stringify(payload)}],undefined,'quality');
+                const existing=new Set(bank.map(q=>q.objectiveKey).filter(Boolean)),generated=[];
+                const validTypes=['mcq','short','definition','list','timeline','diagram_identify','diagram_label','diagram_describe','diagram_complete','diagram_draw'];
+                (Array.isArray(result.questions)?result.questions:[]).forEach(raw=>{
+                    const type=raw&&validTypes.includes(raw.type)?raw.type:'';if(!type||!adaptiveQuestionModeAllows(sess.typeMode,type))return;
+                    const question=String(raw.question||'').trim(),objective=String(raw.objective||question).trim();let answer=String(raw.answer||'').trim();
+                    if(!question||!objective||!answer)return;
+                    const sourceIds=Array.isArray(raw.sourceCardIds)?raw.sourceCardIds.map(String):[];
+                    const refs=Array.from(new Set(sourceIds)).map(id=>sourceMap.get(id)).filter(Boolean).map(x=>({deckId:x.deck.id,cardId:x.card.id}));if(!refs.length)return;
+                    const rawTask=raw.taskData&&typeof raw.taskData==='object'?raw.taskData:{},taskData={focusArea:String(rawTask.focusArea||objective).trim(),requireDescription:rawTask.requireDescription===true};
+                    let choices=[];
+                    if(type==='mcq'){const rawChoices=Array.isArray(raw.choices)?raw.choices.map(x=>String(x).trim()).filter(Boolean):[];
+                        rawChoices.forEach(x=>{if(!choices.some(y=>y.toLowerCase()===x.toLowerCase()))choices.push(x);});
+                        const correct=choices.find(x=>x.toLowerCase()===answer.toLowerCase());if(choices.length!==4||!correct)return;answer=correct;choices=shuffle(choices);}
+                    if(type==='timeline'){const items=Array.isArray(rawTask.timelineItems)?rawTask.timelineItems.map(x=>String(x).trim()).filter(Boolean):[];
+                        if(items.length<3||new Set(items.map(x=>x.toLowerCase())).size!==items.length)return;taskData.timelineItems=items;taskData.ordered=rawTask.ordered!==false;answer=JSON.stringify(items);}
+                    if(type==='list'){taskData.items=Array.isArray(rawTask.items)?rawTask.items.map(x=>String(x).trim()).filter(Boolean):[];taskData.ordered=rawTask.ordered===true;
+                        if(!taskData.items.length||!Array.isArray(raw.rubric)||!raw.rubric.length)return;}
+                    if(String(type).startsWith('diagram_')){
+                        const graphRef=refs.map(ref=>{const deck=flashcardDeck(ref.deckId),card=deck&&deck.cards.find(c=>c.id===ref.cardId);return deck&&card&&card.type==='graph'&&card.data&&card.data.board?{deck,card}:null;}).find(Boolean);if(!graphRef)return;
+                        if(type==='diagram_label'){const labelled=graphRef.card.data.board.shapes.filter(shape=>String(shape.text||'').trim()),ids=Array.isArray(rawTask.labelShapeIds)?rawTask.labelShapeIds.map(String):[];
+                            const selected=(ids.length?ids:labelled.slice(0,5).map(x=>String(x.id))).map(id=>labelled.find(shape=>String(shape.id)===id)).filter(Boolean).slice(0,6);
+                            if(new Set(selected.map(x=>String(x.id))).size<2)return;taskData.labelTargets=selected.map(shape=>({shapeId:String(shape.id),label:String(shape.text||'').trim()}));answer=taskData.labelTargets.map((x,i)=>(i+1)+'. '+x.label).join('\n');
+                        }else if(type==='diagram_complete'){const shapes=graphRef.card.data.board.shapes,ids=Array.isArray(rawTask.removeShapeIds)?rawTask.removeShapeIds.map(String):[];
+                            const selected=ids.map(id=>shapes.find(shape=>String(shape.id)===id)).filter(Boolean).filter(shape=>shape.t!=='image'&&shape.t!=='text').slice(0,3);
+                            if(!selected.length)return;taskData.removeShapeIds=selected.map(shape=>String(shape.id));}
                     }
-                    const key = fcHash(fcNorm(objective) + '|' + refs.map(r => r.deckId + ':' + r.cardId).sort().join('|'));
-                    if (existing.has(key)) return;
-                    existing.add(key);
-                    const owner = flashcardDeck(refs[0].deckId);
-                    if (!owner) return;
-                    const record = {
-                        id: 'aq_' + key, objectiveKey: key, objective, type, question, choices, answer,
-                        acceptedAnswers: Array.isArray(raw.acceptedAnswers) ? raw.acceptedAnswers.map(x => String(x).trim()).filter(Boolean).slice(0, 8) : [],
-                        rubric: Array.isArray(raw.rubric) ? raw.rubric.map(x => String(x).trim()).filter(Boolean).slice(0, 8) : [],
-                        rationale: String(raw.rationale || '').trim(),
-                        difficulty: ['recall', 'application', 'analysis'].includes(raw.difficulty) ? raw.difficulty : 'recall',
-                        dimension: ['recall', 'understanding', 'application'].includes(raw.dimension) ? raw.dimension : (raw.difficulty === 'application' ? 'application' : raw.difficulty === 'analysis' ? 'understanding' : 'recall'),
-                        sourceRefs: refs, createdAt: now, dueAt: null, intervalDays: 0, ease: 2.5,
-                        reps: 0, streak: 0, attempts: 0, lapses: 0, successfulSessionStreak: 0, correctSessionCount: 0,
-                        lastSessionId: null, failedThisSession: false, correctThisSession: false, mastered: false, struggling: false, lastReviewed: null
-                    };
-                    if (!record.rubric.length && type === 'short') record.rubric = [answer];
-                    adaptiveEnsureBank(owner).push(record); generated.push(record);
+                    const key=fcHash(fcNorm(objective)+'|'+refs.map(r=>r.deckId+':'+r.cardId).sort().join('|'));if(existing.has(key))return;existing.add(key);
+                    const owner=flashcardDeck(refs[0].deckId);if(!owner)return;
+                    const record={id:'aq_'+key,objectiveKey:key,objective,type,question,choices,answer,
+                        acceptedAnswers:Array.isArray(raw.acceptedAnswers)?raw.acceptedAnswers.map(x=>String(x).trim()).filter(Boolean).slice(0,8):[],
+                        rubric:Array.isArray(raw.rubric)?raw.rubric.map(x=>String(x).trim()).filter(Boolean).slice(0,12):[],rationale:String(raw.rationale||'').trim(),
+                        difficulty:['recall','application','analysis'].includes(raw.difficulty)?raw.difficulty:'recall',
+                        dimension:['recall','understanding','application'].includes(raw.dimension)?raw.dimension:(raw.difficulty==='application'?'application':raw.difficulty==='analysis'?'understanding':'recall'),
+                        taskData:Object.keys(taskData).length?taskData:null,sourceRefs:refs,createdAt:now,dueAt:null,intervalDays:0,ease:2.5,
+                        reps:0,streak:0,attempts:0,lapses:0,successfulSessionStreak:0,correctSessionCount:0,lastSessionId:null,failedThisSession:false,correctThisSession:false,
+                        mastered:false,struggling:false,lastReviewed:null,lastMissing:[],weaknessTags:[]};
+                    if(!record.rubric.length&&['short','definition','list','diagram_identify','diagram_describe','diagram_label'].includes(type))record.rubric=[answer];
+                    adaptiveEnsureBank(owner).push(record);generated.push(record);
                 });
-                if (generated.length) save();
-                const batch = due.concat(generated).slice(0, batchSize);
-                if (batch.length) return batch;
-                // When a small deck has no unseen objectives left, keep the session endless by revisiting
-                // the saved question bank in SRS priority order rather than failing to generate "new" content.
-                const revisit = bank.filter(q => allowed(q) && adaptiveResolveSourceRefs(q).length)
-                    .sort((a, b) => Number(!!b.struggling) - Number(!!a.struggling) ||
-                        (a.dueAt || 0) - (b.dueAt || 0) || (a.lastReviewed || 0) - (b.lastReviewed || 0))
-                    .slice(0, batchSize);
-                if (revisit.length) return revisit;
-                throw new Error('The AI could not create enough source-grounded questions. Try again to generate a fresh set.');
+                if(generated.length)save();const batch=due.concat(generated).slice(0,batchSize);if(batch.length)return batch;
+                const revisit=bank.filter(q=>allowed(q)&&adaptiveResolveSourceRefs(q).length).sort((a,b)=>Number(!!b.struggling)-Number(!!a.struggling)||(a.dueAt||0)-(b.dueAt||0)||(a.lastReviewed||0)-(b.lastReviewed||0)).slice(0,batchSize);
+                if(revisit.length)return revisit;throw new Error('The AI could not create enough source-grounded questions. Try again to generate a fresh set.');
             }
             function adaptiveMaybePrefetch(sess) {
                 if (flashcardStudySession !== sess || sess.phase !== 'active' || sess.nextBatch || sess.nextBatchPromise) return;
@@ -18057,179 +18094,173 @@ Reply with ONLY compact JSON: {"results": [{"index": 0, "verdict": "keep"|"fix"|
                 });
             }
             function adaptiveRecordOutcome(sess, question, score, feedback, missing) {
-                const q=adaptiveFindQuestion(question.id)||question,now=Date.now();
-                const value=Math.max(0,Math.min(1,Number(score)||0)),correct=value>=0.85;
-                const reviewSessionId=sess.reviewSessionId||sess.id;
-                const newSession=q.lastSessionId!==reviewSessionId;
+                const q=adaptiveFindQuestion(question.id)||question,now=Date.now(),value=Math.max(0,Math.min(1,Number(score)||0)),correct=value>=0.85;
+                const reviewSessionId=sess.reviewSessionId||sess.id,newSession=q.lastSessionId!==reviewSessionId;
                 if(newSession){q.lastSessionId=reviewSessionId;q.failedThisSession=false;q.correctThisSession=false;}
                 const firstAttemptThisSession=!q.failedThisSession&&!q.correctThisSession;
-                q.attempts=(q.attempts||0)+1;q.lastReviewed=now;q.lastScore=value;
-                q.lastFeedback=String(feedback||'').slice(0,500);
+                q.attempts=(q.attempts||0)+1;q.lastReviewed=now;q.lastScore=value;q.lastFeedback=String(feedback||'').slice(0,500);
+                q.lastMissing=Array.isArray(missing)?missing.map(x=>String(x)).filter(Boolean).slice(0,10):[];q.weaknessTags=correct?[]:q.lastMissing.slice();
                 if(correct){
                     if(firstAttemptThisSession){
-                        q.successfulSessionStreak=(q.successfulSessionStreak||0)+1;
-                        q.correctSessionCount=(q.correctSessionCount||0)+1;q.correctThisSession=true;
-                        q.streak=q.successfulSessionStreak;
-                        if(q.successfulSessionStreak===1)q.intervalDays=1;
-                        else if(q.successfulSessionStreak===2)q.intervalDays=3;
-                        else {
-                            const ease=Math.max(1.3,Math.min(3.2,Number(q.ease)||2.5));
-                            const qualityFactor=value>=0.97?1.1:value>=0.92?1:0.9;
-                            const intervalFactor=Math.max(1.7,Math.min(2.6,ease*0.85))*qualityFactor;
-                            q.intervalDays=Math.min(180,Math.max(7,Math.round((q.intervalDays||3)*intervalFactor)));
-                        }
-                        if(value>=0.97)q.ease=Math.min(3.2,(q.ease||2.5)+0.08);
-                        else if(value<0.92)q.ease=Math.max(1.3,(q.ease||2.5)-0.03);
+                        q.successfulSessionStreak=(q.successfulSessionStreak||0)+1;q.correctSessionCount=(q.correctSessionCount||0)+1;q.correctThisSession=true;q.streak=q.successfulSessionStreak;
+                        if(q.successfulSessionStreak===1)q.intervalDays=1;else if(q.successfulSessionStreak===2)q.intervalDays=3;
+                        else{const ease=Math.max(1.3,Math.min(3.2,Number(q.ease)||2.5)),qualityFactor=value>=0.97?1.1:value>=0.92?1:0.9,intervalFactor=Math.max(1.7,Math.min(2.6,ease*0.85))*qualityFactor;
+                            q.intervalDays=Math.min(180,Math.max(7,Math.round((q.intervalDays||3)*intervalFactor)));}
+                        if(value>=0.97)q.ease=Math.min(3.2,(q.ease||2.5)+0.08);else if(value<0.92)q.ease=Math.max(1.3,(q.ease||2.5)-0.03);
                         q.dueAt=now+q.intervalDays*86400000;q.lastSuccessfulSession=now;
-                    }else{
-                        q.correctThisSession=true;q.intervalDays=Math.max(1,q.intervalDays||1);
-                        q.dueAt=now+q.intervalDays*86400000;
-                    }
+                    }else{q.correctThisSession=true;q.intervalDays=Math.max(1,q.intervalDays||1);q.dueAt=now+q.intervalDays*86400000;}
                     q.reps=q.successfulSessionStreak||0;
-                }else{
-                    q.failedThisSession=true;q.successfulSessionStreak=0;q.streak=0;q.reps=0;
-                    q.ease=Math.max(1.3,(q.ease||2.5)-(value<0.5?0.2:0.12));
-                    q.intervalDays=0;q.dueAt=now+(value<0.5?5:15)*60000;
-                }
-                if(!correct)q.lapses=(q.lapses||0)+1;
-                q.mastered=adaptiveIsMastered(q);
-                q.struggling=(q.lapses||0)>=2||((q.attempts||0)>=2&&(q.successfulSessionStreak||0)===0);
-                if(newSession&&firstAttemptThisSession){
-                    adaptiveResolveSourceRefs(q).forEach(ref=>scheduleCardReview(ref.card,correct?(value>=0.97?'easy':'good'):(value>=0.55?'hard':'again')));
-                }
-                sess.totalAnswered=(sess.totalAnswered||0)+1;
-                
-                sess.currentResult={correct,score:value,feedback:feedback||(correct?'Correct.':'Review this one again.'),missing:Array.isArray(missing)?missing:[]};
-                const learning=adaptiveLearningState();
-                learning.reviewHistory.push({
-                    id:uid(),questionId:q.id,sessionId:sess.id,at:now,score:value,correct,
-                    type:q.type||'short',dimension:adaptiveQuestionDimension(q),
-                    sourceRefs:(q.sourceRefs||[]).map(r=>({deckId:r.deckId,cardId:r.cardId})),
-                    scopeKind:sess.scopeKind||'all',scopeLabel:sess.scopeLabel||'Flashcards'
-                });
+                }else{q.failedThisSession=true;q.successfulSessionStreak=0;q.streak=0;q.reps=0;q.ease=Math.max(1.3,(q.ease||2.5)-(value<0.5?0.2:0.12));q.intervalDays=0;q.dueAt=now+(value<0.5?5:15)*60000;}
+                if(!correct)q.lapses=(q.lapses||0)+1;q.mastered=adaptiveIsMastered(q);q.struggling=(q.lapses||0)>=2||((q.attempts||0)>=2&&(q.successfulSessionStreak||0)===0);
+                sess.totalAnswered=(sess.totalAnswered||0)+1;sess.currentResult={correct,score:value,feedback:feedback||(correct?'Correct.':'Review this one again.'),missing:q.lastMissing};
+                const learning=adaptiveLearningState();learning.reviewHistory.push({id:uid(),questionId:q.id,sessionId:sess.id,at:now,score:value,correct,type:q.type||'short',dimension:adaptiveQuestionDimension(q),
+                    sourceRefs:(q.sourceRefs||[]).map(r=>({deckId:r.deckId,cardId:r.cardId})),scopeKind:sess.scopeKind||'all',scopeLabel:sess.scopeLabel||'Flashcards',missing:q.lastMissing});
                 if(learning.reviewHistory.length>2500)learning.reviewHistory=learning.reviewHistory.slice(-2500);
-                adaptivePersistSession(sess,'active',false);
+                adaptivePersistSession(sess,'active',false);schedulePublicStatsSync();
             }
             async function gradeAdaptiveShortAnswer(question, studentAnswer) {
-                const sources = adaptiveResolveSourceRefs(question).map(ref => adaptiveCardSource(ref.deck, ref.card));
-                const prompt = [
-                    'You are marking one short-answer revision response against an answer key built ONLY from the supplied flashcards.',
-                    'Do not use outside knowledge. Accept equivalent wording, sensible paraphrases and correct examples supported by the cards. Do not require the exact model wording. Be fair about minor spelling mistakes unless they change the meaning.',
-                    'Award a score from 0 to 1 based on the essential facts in the rubric. A complete answer with all key points should score at least 0.85. Partly correct or incomplete answers should score below 0.85 so the student practises the missing learning objective again. Do not give full marks for a vague answer that misses the actual point.',
+                const sources=adaptiveResolveSourceRefs(question).map(ref=>adaptiveCardSource(ref.deck,ref.card)),type=question.type||'short';
+                const typeRules=type==='definition'
+                    ? 'DEFINITION MARKING: this is a precise definition question. Identify the essential key terms and meaning-components in the rubric. A valid paraphrase is acceptable only if it preserves every essential component. Do not require identical sentence structure, but do not award full marks for a vague description, an example instead of a definition, or an answer that omits a defining feature. Be stricter about missing technical terms than for a general explanation.'
+                    : type==='list'
+                    ? 'LIST MARKING: award credit for each distinct required item in the rubric. Do not count duplicates. Respect order only if the task explicitly says order matters. Clearly identify omitted or incorrect items.'
+                    : type==='diagram_label'
+                    ? 'DIAGRAM LABEL MARKING: the student answer is a numbered list of labels for selected parts of a diagram. Mark each number against the corresponding expected label. Accept standard equivalent terminology, but do not swap labels between positions.'
+                    : type==='diagram_identify'
+                    ? 'DIAGRAM IDENTIFICATION: assess whether the student correctly names the diagram and identifies the relationship or concept it represents. Accept equivalent standard names.'
+                    : type==='diagram_describe'
+                    ? 'DIAGRAM DESCRIPTION: assess the essential relationships shown by the diagram, including the direction/shape of curves, labels, intersections and what they mean where those details are in the source. Do not award full marks for merely naming the diagram.'
+                    : 'GENERAL MARKING: assess the essential facts in the rubric. Accept equivalent wording, sensible paraphrases and correct examples supported by the cards.';
+                const prompt=[
+                    'You are marking one student revision response against an answer key built ONLY from the supplied flashcards.',
+                    'Do not use outside knowledge. Accept equivalent wording where it preserves the actual meaning. Be fair about minor spelling mistakes unless they change the meaning.',
+                    typeRules,
+                    'Award a score from 0 to 1 based on the essential facts in the rubric. A complete answer with all key points should score at least 0.85. Partly correct or incomplete answers should score below 0.85 so the student practises the missing learning objective again. Do not give full marks for vague answers.',
                     'Give concise, specific feedback. List important missing points, if any. If blank or irrelevant, score 0.',
                     'Return ONLY JSON: {"score":0.0,"feedback":"one or two specific sentences","missing":["key point not included"]}. The score must be a decimal between 0 and 1.'
                 ].join('\n');
-                const payload = {
-                    question: question.question, modelAnswer: question.answer, acceptedAnswers: question.acceptedAnswers || [],
-                    markingRubric: question.rubric || [], explanation: question.rationale || '',
-                    sourceMaterial: sources, studentAnswer: String(studentAnswer || '').trim()
-                };
-                const result = await aiJsonOnce(prompt, [{ text: JSON.stringify(payload) }], 'groq');
-                let score = Number(result.score);
-                if (!Number.isFinite(score)) throw new Error('The AI returned an invalid mark. Please submit the answer again.');
-                if (score > 1 && score <= 100) score /= 100;
-                score = Math.max(0, Math.min(1, score));
-                return { score, feedback: String(result.feedback || '').trim(),
-                    missing: Array.isArray(result.missing) ? result.missing.map(String).slice(0, 8) : [] };
+                const payload={question:question.question,questionType:type,objective:question.objective,modelAnswer:question.answer,acceptedAnswers:question.acceptedAnswers||[],
+                    markingRubric:question.rubric||[],taskData:question.taskData||null,explanation:question.rationale||'',sourceMaterial:sources,studentAnswer:String(studentAnswer||'').trim()};
+                const result=await aiJsonOnce(prompt,[{text:JSON.stringify(payload)}],'groq');
+                let score=Number(result.score);if(!Number.isFinite(score))throw new Error('The AI returned an invalid mark. Please submit the answer again.');
+                if(score>1&&score<=100)score/=100;score=Math.max(0,Math.min(1,score));
+                return{score,feedback:String(result.feedback||'').trim(),missing:Array.isArray(result.missing)?result.missing.map(String).slice(0,8):[]};
+            }
+            async function gradeAdaptiveDiagramAnswer(question, studentBoard, description) {
+                const source=adaptiveQuestionBoard(question);if(!source)throw new Error('The source diagram is no longer available.');
+                if(!studentBoard||!Array.isArray(studentBoard.shapes)||!studentBoard.shapes.length)throw new Error('Draw or complete the diagram before submitting.');
+                const images=await Promise.all([wbToPng(source.board),wbToPng(studentBoard)]);
+                const prompt=[
+                    'You are marking a student-created economics/science diagram against the supplied source diagram, like a careful exam marker.',
+                    'The FIRST image is the complete MODEL answer. The SECOND image is the STUDENT answer. The student may have been asked to complete a partially drawn diagram or draw the whole diagram from memory.',
+                    'For a completion task, the student was shown a partial version and should add the missing component(s); assess whether the correct missing curve/line/label/relationship has been added and whether the rest remains sound.',
+                    'Check the essential axes, labels, curve identities, shapes, directions, intersections, turning points and relevant annotations that are required by the source. For a targeted task, pay special attention to the named missing component or relationship. Do not penalise different positions, sizes, colours, neatness or harmless extra detail. Do penalise incorrect or missing key content.',
+                    'If a written explanation is supplied and the task asks for one, mark it against the rubric as well. A good explanation must not conceal an incorrect diagram, and a good diagram must not receive full marks if an explicitly required explanation is missing.',
+                    'Use only the supplied model diagram and flashcard source material. Do not import outside exam conventions or facts.',
+                    'Return ONLY JSON: {"score":0.0,"feedback":"specific concise feedback","missing":["specific missing or incorrect component"]}. Score from 0 to 1; complete work should score at least 0.85.'
+                ].join('\n');
+                const details={question:question.question,objective:question.objective,taskType:question.type,focusArea:question.taskData&&question.taskData.focusArea||question.objective,
+                    modelAnswer:question.answer,rubric:question.rubric||[],sourceMaterial:adaptiveResolveSourceRefs(question).map(ref=>adaptiveCardSource(ref.deck,ref.card)),
+                    modelLabels:wbLabels(source.board),modelStructure:wbDescribe(source.board),studentLabels:wbLabels(studentBoard),studentStructure:wbDescribe(studentBoard),studentDescription:String(description||'').trim()};
+                const result=await aiJsonOnce(prompt,[{inlineData:{mimeType:'image/png',data:images[0]}},{inlineData:{mimeType:'image/png',data:images[1]}},{text:JSON.stringify(details)}]);
+                let score=Number(result.score);if(!Number.isFinite(score))throw new Error('The AI returned an invalid diagram mark. Please try again.');
+                if(score>1&&score<=100)score/=100;
+                return{score:Math.max(0,Math.min(1,score)),feedback:String(result.feedback||'').trim(),missing:Array.isArray(result.missing)?result.missing.map(String).slice(0,8):[],modelPng:images[0]};
+            }
+            async function submitAdaptiveDiagramAnswer() {
+                const sess=flashcardStudySession;if(!sess||sess.mode!=='adaptive-ai'||sess.phase!=='active'||sess.currentResult)return;
+                const question=sess.queue[sess.index],board=sess.diagramAnswerBoardQuestionId===question.id?sess.diagramAnswerBoard:null;
+                if(!board||!board.shapes||!board.shapes.length){toast('Open the drawing board and complete your answer first.');return;}
+                const description=document.getElementById('flashcard-adaptive-diagram-description')?.value||sess.diagramDescription||'';
+                if(question.taskData&&question.taskData.requireDescription&&!String(description).trim()){toast('Add the short explanation requested with this diagram.');return;}
+                sess.diagramDescription=description;sess.phase='grading';adaptivePersistSession(sess,'active',false);render();
+                try{const result=await gradeAdaptiveDiagramAnswer(question,board,description);if(flashcardStudySession!==sess)return;
+                    sess.phase='active';sess.modelVisualPng=result.modelPng;adaptiveRecordOutcome(sess,question,result.score,result.feedback,result.missing);render();adaptiveMaybePrefetch(sess);}
+                catch(err){if(flashcardStudySession!==sess)return;sess.phase='active';toast(err.message||'Could not mark the diagram. Please try again.');render();}
+            }
+            async function submitAdaptiveLabelAnswer() {
+                const sess=flashcardStudySession;if(!sess||sess.mode!=='adaptive-ai'||sess.phase!=='active'||sess.currentResult)return;
+                const q=sess.queue[sess.index],values=Array.from(document.querySelectorAll('[data-adaptive-label]')).map((el,i)=>({number:i+1,answer:String(el.value||'').trim()}));
+                if(!values.some(x=>x.answer)){toast('Enter at least one diagram label.');return;}
+                sess.diagramLabelAnswers=values.map(x=>x.answer);sess.phase='grading';adaptivePersistSession(sess,'active',false);render();
+                try{const result=await gradeAdaptiveShortAnswer(q,JSON.stringify(values));if(flashcardStudySession!==sess)return;
+                    sess.phase='active';adaptiveRecordOutcome(sess,q,result.score,result.feedback,result.missing);render();adaptiveMaybePrefetch(sess);}
+                catch(err){if(flashcardStudySession!==sess)return;sess.phase='active';toast(err.message||'Could not mark those labels. Please try again.');render();}
+            }
+            function submitAdaptiveTimeline() {
+                const sess=flashcardStudySession;if(!sess||sess.mode!=='adaptive-ai'||sess.phase!=='active'||sess.currentResult)return;
+                const q=sess.queue[sess.index],expected=q.taskData&&q.taskData.timelineItems||[],actual=sess.timelineOrder||[];
+                if(!expected.length||!actual.length){toast('The timeline is not ready yet.');return;}
+                const right=actual.reduce((n,item,i)=>n+(item===expected[i]?1:0),0),score=right/expected.length,missing=expected.filter((item,i)=>actual[i]!==item);
+                const feedback=score>=0.999?'Correct — every event or stage is in the right order.':right+' of '+expected.length+' positions are correct. Check the sequence and the stages that are out of place.';
+                adaptiveRecordOutcome(sess,q,score,feedback,missing);render();adaptiveMaybePrefetch(sess);
             }
             async function submitAdaptiveShortAnswer() {
-                const sess = flashcardStudySession;
-                if (!sess || sess.mode !== 'adaptive-ai' || sess.phase !== 'active' || sess.currentResult) return;
-                const question = sess.queue[sess.index], answer = document.getElementById('flashcard-adaptive-answer')?.value || '';
-                if (!String(answer).trim()) { toast('Write an answer first.'); return; }
-                sess.phase = 'grading'; sess.pendingAnswer = answer; render();
-                try {
-                    const result = await gradeAdaptiveShortAnswer(question, answer);
-                    if (flashcardStudySession !== sess) return;
-                    sess.phase = 'active'; adaptiveRecordOutcome(sess, question, result.score, result.feedback, result.missing);
-                    render(); adaptiveMaybePrefetch(sess);
-                } catch (err) {
-                    if (flashcardStudySession !== sess) return;
-                    sess.phase = 'active'; sess.pendingAnswer = answer;
-                    toast(err.message || 'Could not mark that answer — please try again.'); render();
-                }
+                const sess=flashcardStudySession;if(!sess||sess.mode!=='adaptive-ai'||sess.phase!=='active'||sess.currentResult)return;
+                const question=sess.queue[sess.index],answer=document.getElementById('flashcard-adaptive-answer')?.value||'';
+                if(!String(answer).trim()){toast('Write an answer first.');return;}sess.phase='grading';sess.pendingAnswer=answer;render();
+                try{const result=await gradeAdaptiveShortAnswer(question,answer);if(flashcardStudySession!==sess)return;sess.phase='active';adaptiveRecordOutcome(sess,question,result.score,result.feedback,result.missing);render();adaptiveMaybePrefetch(sess);}
+                catch(err){if(flashcardStudySession!==sess)return;sess.phase='active';sess.pendingAnswer=answer;toast(err.message||'Could not mark that answer — please try again.');render();}
             }
             function answerAdaptiveMcq(choiceIndex) {
-                const sess = flashcardStudySession;
-                if (!sess || sess.mode !== 'adaptive-ai' || sess.phase !== 'active' || sess.currentResult) return;
-                const q = sess.queue[sess.index], selected = q.choices[Number(choiceIndex)];
-                if (selected == null) return;
-                const correct = selected === q.answer;
-                adaptiveRecordOutcome(sess, q, correct ? 1 : 0,
-                    correct ? 'Correct — you identified the right concept.' : 'Not quite. Review the distinction in the explanation.', []);
-                sess.currentResult.selected = selected; adaptivePersistSession(sess, 'active', false); render(); adaptiveMaybePrefetch(sess);
+                const sess=flashcardStudySession;if(!sess||sess.mode!=='adaptive-ai'||sess.phase!=='active'||sess.currentResult)return;
+                const q=sess.queue[sess.index],selected=q.choices[Number(choiceIndex)];if(selected==null)return;
+                const correct=selected===q.answer;adaptiveRecordOutcome(sess,q,correct?1:0,correct?'Correct — you identified the right concept.':'Not quite. Review the distinction in the explanation.',[]);
+                sess.currentResult.selected=selected;adaptivePersistSession(sess,'active',false);render();adaptiveMaybePrefetch(sess);
             }
             async function advanceAdaptiveAiPractice() {
-                const sess=flashcardStudySession;
-                if(!sess||sess.mode!=='adaptive-ai'||!sess.currentResult)return;
-                sess.currentResult=null;sess.pendingAnswer='';
-                if(sess.index<sess.queue.length-1){
-                    sess.index++;adaptivePersistSession(sess,'active',false);
-                    render();adaptiveMaybePrefetch(sess);return;
-                }
+                const sess=flashcardStudySession;if(!sess||sess.mode!=='adaptive-ai'||!sess.currentResult)return;
+                sess.currentResult=null;sess.pendingAnswer='';sess.diagramLabelAnswers=[];sess.diagramDescription='';sess.diagramAnswerBoard=null;sess.diagramAnswerBoardQuestionId=null;sess.modelVisualPng='';
+                if(sess.index<sess.queue.length-1){sess.index++;sess.phase='generating';sess.visualPng='';adaptivePersistSession(sess,'active',false);render();
+                    try{await adaptivePrepareCurrentQuestion(sess);if(flashcardStudySession!==sess)return;sess.phase='active';adaptivePersistSession(sess,'active',false);render();adaptiveMaybePrefetch(sess);}catch(err){sess.phase='active';render();}return;}
                 sess.phase='generating';adaptivePersistSession(sess,'active',false);render();
-                try{
-                    let batch=sess.nextBatch;
-                    if(!batch&&sess.nextBatchPromise)batch=await sess.nextBatchPromise;
-                    sess.nextBatch=null;sess.nextBatchPromise=null;sess.prefetching=false;sess.prefetchError='';
-                    if(!batch||!batch.length)batch=await generateAdaptiveQuestionBatch(sess,12);
-                    if(flashcardStudySession!==sess)return;
-                    sess.queue=batch;sess.index=0;sess.stage='first-pass';sess.round++;
-                    sess.phase='active';adaptivePersistSession(sess,'active',false);
-                    render();adaptiveMaybePrefetch(sess);
-                }catch(err){
-                    if(flashcardStudySession!==sess)return;
-                    sess.phase='error';sess.loadError=err.message||'Could not prepare more questions.';
-                    adaptivePersistSession(sess,'active',false);render();
-                }
+                try{let batch=sess.nextBatch;if(!batch&&sess.nextBatchPromise)batch=await sess.nextBatchPromise;sess.nextBatch=null;sess.nextBatchPromise=null;sess.prefetching=false;sess.prefetchError='';
+                    if(!batch||!batch.length)batch=await generateAdaptiveQuestionBatch(sess,12);if(flashcardStudySession!==sess)return;
+                    sess.queue=batch;sess.index=0;sess.stage='first-pass';sess.round++;sess.timelineQuestionId=null;sess.diagramAnswerBoard=null;sess.diagramAnswerBoardQuestionId=null;
+                    await adaptivePrepareCurrentQuestion(sess);if(flashcardStudySession!==sess)return;sess.phase='active';adaptivePersistSession(sess,'active',false);render();adaptiveMaybePrefetch(sess);
+                }catch(err){if(flashcardStudySession!==sess)return;sess.phase='error';sess.loadError=err.message||'Could not prepare more questions.';adaptivePersistSession(sess,'active',false);render();}
             }
             function renderAdaptiveAiSession(sess) {
                 const status=currentUser?'Progress syncs across your signed-in devices':'Progress is saved on this device';
-                const topbar='<div class="fc-adaptive-topbar"><div><div class="fc-adaptive-eyebrow">FLASHCARD PRACTICE</div><strong>'+
-                    escape(sess.scopeLabel||'Selected flashcards')+'</strong></div><button type="button" class="button ghost fc-adaptive-pause" data-action="flashcard-exit-session" aria-label="Pause and save session">Ⅱ <span>Pause &amp; save</span></button></div>';
+                const topbar='<div class="fc-adaptive-topbar"><div><div class="fc-adaptive-eyebrow">FLASHCARD PRACTICE</div><strong>'+escape(sess.scopeLabel||'Selected flashcards')+'</strong></div><button type="button" class="button ghost fc-adaptive-pause" data-action="flashcard-exit-session" aria-label="Pause and save session">Ⅱ <span>Pause &amp; save</span></button></div>';
                 const shell=inner=>'<div class="fc-wrap fc-adaptive-shell">'+topbar+inner+'</div>';
-                if(sess.phase==='generating'||sess.phase==='grading'){
-                    const message=sess.phase==='grading'?'Marking your answer against the flashcards…':'Preparing your next questions…';
-                    return shell('<div class="fc-adaptive-panel fc-adaptive-loading" aria-live="polite"><div class="fc-adaptive-spinner"></div><h2>'+
-                        escape(message)+'</h2><p>New questions and due reviews are mixed into one continuous feed. Your answers are saved as you go.</p><div class="fc-adaptive-save-note">'+
-                        escape(status)+'</div></div>');
-                }
-                if(sess.phase==='error'){
-                    return shell('<div class="fc-adaptive-panel"><div class="fc-adaptive-kicker">Could not continue</div><h2>'+
-                        escape(sess.loadError||'Could not load questions.')+'</h2><p>Your session is saved. You can try again or pause and return later.</p>'+
-                        '<button type="button" class="button primary" data-action="flashcard-adaptive-reload">Try again</button></div>');
-                }
-                const q=sess.queue[sess.index],result=sess.currentResult,letters=['A','B','C','D'];
-                if(!q)return shell('<div class="fc-adaptive-panel"><h2>Preparing questions…</h2></div>');
-                const dimension=adaptiveQuestionDimension(q);
-                const dimensionLabel=dimension==='application'?'Application':dimension==='understanding'?'Understanding':'Recall';
-                const source=adaptiveResolveSourceRefs(q)[0],sourceDeck=source&&source.deck;
-                const sourceSubject=sourceDeck?((subject(sourceDeck.subjectId)||{}).name||''):'';
-                const sourceLabel=sourceDeck?sourceSubject+(sourceSubject?' · ':'')+sourceDeck.topic:(sess.scopeLabel||'Selected flashcards');
-                const choices=q.type==='mcq'?'<div class="fc-adaptive-choices">'+q.choices.map((choice,i)=>{
-                    const selected=result&&result.selected===choice,cls=result?(choice===q.answer?'correct':selected?'wrong':''):'';
-                    return '<button type="button" class="flashcard-mcq-choice fc-adaptive-choice '+cls+'" data-action="flashcard-adaptive-select" data-choice-index="'+i+'"'+
-                        (result?' disabled':'')+'><span class="fc-adaptive-letter">'+letters[i]+'</span><span>'+escape(choice)+'</span></button>';
-                }).join('')+'</div>':'';
-                const answerArea=q.type==='short'&&!result?
-                    '<div class="fc-adaptive-answer-wrap"><label for="flashcard-adaptive-answer">Your answer</label><textarea id="flashcard-adaptive-answer" rows="5" autocomplete="off" placeholder="Write what you remember, in your own words…">'+
-                    escape(sess.pendingAnswer||'')+'</textarea><button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-submit">Check answer</button></div>':'';
+                if(sess.phase==='generating'||sess.phase==='grading'){const message=sess.phase==='grading'?'Marking your answer against the flashcards…':'Preparing your next questions…';
+                    return shell('<div class="fc-adaptive-panel fc-adaptive-loading" aria-live="polite"><div class="fc-adaptive-spinner"></div><h2>'+escape(message)+'</h2><p>New questions and due reviews are mixed into one continuous feed. Your answers are saved as you go.</p><div class="fc-adaptive-save-note">'+escape(status)+'</div></div>');}
+                if(sess.phase==='error')return shell('<div class="fc-adaptive-panel"><div class="fc-adaptive-kicker">Could not continue</div><h2>'+escape(sess.loadError||'Could not load questions.')+'</h2><p>Your session is saved. You can try again or pause and return later.</p><button type="button" class="button primary" data-action="flashcard-adaptive-reload">Try again</button></div>');
+                const q=sess.queue[sess.index],result=sess.currentResult,letters=['A','B','C','D'];if(!q)return shell('<div class="fc-adaptive-panel"><h2>Preparing questions…</h2></div>');
+                const dimension=adaptiveQuestionDimension(q),dimensionLabel=dimension==='application'?'Application':dimension==='understanding'?'Understanding':'Recall';
+                const source=adaptiveResolveSourceRefs(q)[0],sourceDeck=source&&source.deck,sourceSubject=sourceDeck?((subject(sourceDeck.subjectId)||{}).name||''):'';
+                const sourceLabel=sourceDeck?sourceSubject+(sourceSubject?' · ':'')+sourceDeck.topic:(sess.scopeLabel||'Selected flashcards'),typeLabel=adaptiveQuestionTypeLabel(q.type);
+                const choices=q.type==='mcq'?'<div class="fc-adaptive-choices">'+q.choices.map((choice,i)=>{const selected=result&&result.selected===choice,cls=result?(choice===q.answer?'correct':selected?'wrong':''):'';
+                    return '<button type="button" class="flashcard-mcq-choice fc-adaptive-choice '+cls+'" data-action="flashcard-adaptive-select" data-choice-index="'+i+'"'+(result?' disabled':'')+'><span class="fc-adaptive-letter">'+letters[i]+'</span><span>'+escape(choice)+'</span></button>';}).join('')+'</div>':'';
+                const imageTypes=['diagram_identify','diagram_label','diagram_describe','diagram_complete'],imageHtml=imageTypes.includes(q.type)&&sess.visualPng?'<div class="fc-adaptive-diagram-image"><img src="data:image/png;base64,'+sess.visualPng+'" alt="Diagram for this question"></div>':'';
+                const textTypes=['short','definition','list','diagram_identify','diagram_describe'];let textArea='';
+                if(textTypes.includes(q.type)&&!result){const label=q.type==='definition'?'Your definition':q.type==='list'?'Your list':'Your answer';
+                    const placeholder=q.type==='definition'?'Write a precise definition using the essential key terms…':q.type==='list'?'Write one required item per line…':q.type==='diagram_identify'?'Name the diagram and what it represents…':q.type==='diagram_describe'?'Describe the important features and relationships shown…':'Write what you remember, in your own words…';
+                    textArea='<div class="fc-adaptive-answer-wrap"><label for="flashcard-adaptive-answer">'+label+'</label><textarea id="flashcard-adaptive-answer" rows="5" autocomplete="off" placeholder="'+placeholder+'">'+escape(sess.pendingAnswer||'')+'</textarea><button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-submit">Check answer</button></div>';}
+                let timelineHtml='';
+                if(q.type==='timeline'&&!result){const items=Array.isArray(sess.timelineOrder)?sess.timelineOrder:[];timelineHtml='<div class="fc-adaptive-timeline">'+items.map((item,i)=>'<div class="fc-adaptive-timeline-row"><span class="fc-adaptive-timeline-number">'+(i+1)+'</span><strong>'+escape(item)+'</strong><span class="fc-adaptive-timeline-buttons"><button type="button" class="button ghost" data-action="flashcard-adaptive-timeline-move" data-index="'+i+'" data-direction="-1" aria-label="Move up" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="button ghost" data-action="flashcard-adaptive-timeline-move" data-index="'+i+'" data-direction="1" aria-label="Move down" '+(i===items.length-1?'disabled':'')+'>↓</button></span></div>').join('')+'</div><button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-submit-timeline">Check order</button>';}
+                let labelHtml='';
+                if(q.type==='diagram_label'&&q.taskData&&Array.isArray(q.taskData.labelTargets)&&!result){const values=Array.isArray(sess.diagramLabelAnswers)?sess.diagramLabelAnswers:[];
+                    labelHtml='<div class="fc-adaptive-label-grid">'+q.taskData.labelTargets.map((target,i)=>'<label><span>'+(i+1)+'</span><input type="text" data-adaptive-label="'+i+'" value="'+escape(values[i]||'')+'" placeholder="Label '+(i+1)+'"></label>').join('')+'</div><button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-submit-labels">Check labels</button>';}
+                let drawingHtml='';
+                if(['diagram_complete','diagram_draw'].includes(q.type)&&!result){const ready=sess.diagramAnswerBoardQuestionId===q.id&&sess.diagramAnswerBoard&&sess.diagramAnswerBoard.shapes&&sess.diagramAnswerBoard.shapes.length,taskLabel=q.type==='diagram_complete'?'Complete the diagram':'Draw the diagram';
+                    drawingHtml='<div class="fc-adaptive-drawing-panel"><div><strong>'+taskLabel+'</strong><p>'+(ready?'Your drawing is saved for this question. You can reopen it to make changes.':(q.type==='diagram_complete'?'The diagram is missing one or more important components. Add them on the drawing board.':'Construct the diagram from memory, including the important labels and relationships.'))+'</p></div><button type="button" class="button" data-action="flashcard-adaptive-open-board">✎ '+(ready?'Edit drawing':'Open drawing board')+'</button></div>';
+                    if(q.taskData&&q.taskData.requireDescription)drawingHtml+='<div class="fc-adaptive-answer-wrap"><label for="flashcard-adaptive-diagram-description">Brief explanation</label><textarea id="flashcard-adaptive-diagram-description" rows="3" placeholder="Explain the relationship the diagram shows…">'+escape(sess.diagramDescription||'')+'</textarea></div>';
+                    drawingHtml+='<button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-submit-diagram">Check diagram</button>';}
                 let feedback='';
-                if(result){
-                    feedback='<section class="fc-adaptive-feedback '+(result.correct?'is-correct':'is-review')+'" aria-live="polite"><div class="fc-adaptive-feedback-title">'+
-                        (result.correct?'✓ Correct':'↻ Review this objective')+'<strong>'+Math.round(result.score*100)+'%</strong></div>'+
-                        '<p>'+escape(result.feedback||'')+'</p>'+
-                        ((!result.correct||q.type==='short')?'<div class="fc-adaptive-model-answer"><strong>Model answer</strong><p>'+escape(q.answer)+'</p></div>':'')+
-                        (result.missing&&result.missing.length?'<div class="fc-adaptive-model-answer"><strong>Important points to include</strong><p>'+escape(result.missing.join(' · '))+'</p></div>':'')+
-                        (q.rationale?'<div class="fc-adaptive-model-answer"><strong>Why this is right</strong><p>'+escape(q.rationale)+'</p></div>':'')+
-                        '<button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-next">Next question <span aria-hidden="true">→</span></button></section>';
-                }
+                if(result){const displayAnswer=adaptiveQuestionDisplayAnswer(q),showModel=!result.correct||['short','definition','list','timeline','diagram_identify','diagram_describe','diagram_label','diagram_complete','diagram_draw'].includes(q.type);
+                    feedback='<section class="fc-adaptive-feedback '+(result.correct?'is-correct':'is-review')+'" aria-live="polite"><div class="fc-adaptive-feedback-title">'+(result.correct?'✓ Correct':'↻ Review this objective')+'<strong>'+Math.round(result.score*100)+'%</strong></div><p>'+escape(result.feedback||'')+'</p>'+
+                    (showModel?'<div class="fc-adaptive-model-answer"><strong>Model answer / marking points</strong><p>'+escape(displayAnswer)+'</p></div>':'')+
+                    (result.missing&&result.missing.length?'<div class="fc-adaptive-model-answer"><strong>Important points to improve</strong><p>'+escape(result.missing.join(' · '))+'</p></div>':'')+
+                    (q.rationale?'<div class="fc-adaptive-model-answer"><strong>Why this is right</strong><p>'+escape(q.rationale)+'</p></div>':'')+
+                    (sess.modelVisualPng?'<div class="fc-adaptive-diagram-image"><strong>Model diagram</strong><img src="data:image/png;base64,'+sess.modelVisualPng+'" alt="Model diagram"></div>':'')+
+                    '<button type="button" class="button primary fc-adaptive-submit" data-action="flashcard-adaptive-next">Next question <span aria-hidden="true">→</span></button></section>';}
                 return shell('<div class="fc-adaptive-progress-wrap"><div class="fc-adaptive-progress-label"><span>Continuous practice</span><span>Question '+Math.max(1,Number(sess.totalAnswered||0)+(result?0:1))+'</span></div></div>'+
-                    '<main class="fc-adaptive-panel"><div class="fc-adaptive-meta"><span class="fc-adaptive-pill">'+escape(q.type==='mcq'?'MULTIPLE CHOICE':'SHORT ANSWER')+
-                    '</span><span class="fc-adaptive-dimension">'+escape(dimensionLabel)+'</span><span class="fc-adaptive-source">'+escape(sourceLabel)+'</span></div>'+
-                    '<h1 class="fc-adaptive-question">'+escape(q.question)+'</h1>'+choices+answerArea+feedback+
+                    '<main class="fc-adaptive-panel"><div class="fc-adaptive-meta"><span class="fc-adaptive-pill">'+escape(typeLabel)+'</span><span class="fc-adaptive-dimension">'+escape(dimensionLabel)+'</span><span class="fc-adaptive-source">'+escape(sourceLabel)+'</span></div>'+
+                    '<h1 class="fc-adaptive-question">'+escape(q.question)+'</h1>'+imageHtml+choices+textArea+timelineHtml+labelHtml+drawingHtml+feedback+
                     '<div class="fc-adaptive-footer"><span>'+Number(sess.totalAnswered||0)+' answers recorded</span><span>'+escape(status)+'</span></div></main>'+
-                    '<p class="fc-adaptive-guidance">Missed questions are scheduled to return sooner through spaced repetition. Questions you know well return after longer intervals. Pause and save whenever you like.</p>');
+                    '<p class="fc-adaptive-guidance">Each learning objective has its own review schedule. Definitions, structured recall and targeted diagram skills are tracked separately. Pause and save whenever you like.</p>');
             }
             async function runSmartTestGradeRound() {
                 const s = flashcardStudySession;
@@ -18367,8 +18398,7 @@ Return ONLY compact JSON: {"results":[{"id":"...","verdict":"green"|"yellow"|"re
             function startFlashcardStructTest(deckId) { const deck = flashcardDeck(deckId); if (!deck) return; const cards = fcOrd(deck, fcStructCards(deck));
                 if (!cards.length) { toast('This deck has no list, timeline or info cards yet.'); return; }
                 closeModal(); flashcardStudySession = { mode: 'struct-test', deckId, queue: cards.map(c => c.id), index: 0, results: [] }; fcStructPrepare(); render(); }
-            function fcStructRecord(card, frac) { const s = flashcardStudySession; s.results.push({ id: card.id, front: card.front, type: card.type, frac });
-                scheduleCardReview(card, frac >= 0.9 ? 'good' : frac >= 0.5 ? 'hard' : 'again'); save(); }
+            function fcStructRecord(card,frac) { const sess=flashcardStudySession;if(sess)sess.results.push({id:card.id,front:card.front,type:card.type,frac});save(); }
             function fcStructCheck() { const s = flashcardStudySession; if (!s || s.mode !== 'struct-test' || s.checked) return; const card = fcStructCard(); if (!card) return; let frac = 0;
                 if (card.type === 'list') { s.detail = fcCheckList(card, Object.fromEntries(card.data.items.map((_, i) => [i, s.answers['b' + i]]))); frac = s.detail.ok.filter(Boolean).length / s.detail.ok.length; }
                 else if (card.type === 'timeline') { const ok = s.order.map((v, i) => v === i); s.detail = { ok }; frac = ok.filter(Boolean).length / ok.length; }
@@ -18429,7 +18459,6 @@ Return ONLY compact JSON: {"results":[{"id":"...","verdict":"green"|"yellow"|"re
                 if (sess.mode === 'match') return renderMatchSession(sess);
                 if (sess.mode === 'gravity') return renderGravitySession(sess);
                 if (sess.mode === 'listening') return renderListeningSession(sess);
-                if (sess.mode === 'srs-review') return renderSrsReviewSession(sess);
                 if (sess.mode === 'struct-test') return renderStructTestSession(sess);
                 if (sess.mode === 'wb-test') return renderWbTestSession(sess);
                 if (sess.mode === 'diagram') return renderDiagramSession(sess);
@@ -18451,7 +18480,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                 if (scene && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) { s.busy = true; scene.classList.add(delta > 0 ? 'fc-exit-next' : 'fc-exit-prev'); setTimeout(go, 130); } else go(); }
 
             function renderClickThroughSession(sess) { const deck = flashcardDeck(sess.deckId), total = sess.cards.length, sub = deck ? escape(deck.topic) : (sess.wb ? escape(sess.wb.title) : '');
-                if (sess.done) return `<div class="fc-wrap narrow">${fcTopbar('Deck complete', sub, 100)}<div class="fc-done"><div class="fc-done-emoji">🎉</div><h2>You went through all ${total} cards</h2><p class="muted">Lock it in by testing yourself next.</p><div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:18px"><button type="button" class="button" data-action="flashcard-restart-clickthrough">↺ Go again</button>${sess.wb ? `<button type="button" class="button primary" data-action="wb-open" data-subject="${sess.wb.subjectId}" data-kind="${sess.wb.kind}" data-act="test">🧠 Test me</button>` : `<button type="button" class="button primary" data-action="open-flashcard-test-choice" data-deck="${sess.deckId}">🧠 Test yourself</button>`}<button type="button" class="button ghost" data-action="flashcard-exit-session">Back to deck</button></div></div></div>`;
+                if (sess.done) return `<div class="fc-wrap narrow">${fcTopbar('Deck complete', sub, 100)}<div class="fc-done"><div class="fc-done-emoji">🎉</div><h2>You went through all ${total} cards</h2><p class="muted">Lock it in by testing yourself next.</p><div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:18px"><button type="button" class="button" data-action="flashcard-restart-clickthrough">↺ Go again</button>${sess.wb ? `<button type="button" class="button primary" data-action="wb-open" data-subject="${sess.wb.subjectId}" data-kind="${sess.wb.kind}" data-act="test">🧠 Test me</button>` : `<button type="button" class="button primary" data-action="open-flashcard-adaptive-choice" data-deck="${sess.deckId}">🧠 Test yourself</button>`}<button type="button" class="button ghost" data-action="flashcard-exit-session">Back to deck</button></div></div></div>`;
                 const card = sess.cards[sess.index];
                 return `<div class="fc-wrap">${fcTopbar('Flip through', sub, (sess.index + 1) / total * 100)}
           ${fcFacesHtml(card, sess.flipped)}
@@ -18462,7 +18491,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
           </div>
           <div class="fc-tools">
             <button type="button" class="button ghost" data-action="flashcard-speak">🔊 Listen</button>
-            ${deck ? `<button type="button" class="button ghost ${card.known ? 'primary' : ''}" data-action="flashcard-toggle-known" data-deck="${deck.id}" data-card="${card.id}">${card.known ? '⭐ Known' : '☆ Mark known'}</button>` : ''}
+            
             ${(deck ? deck.keepOrder : (sess.wb && sess.wb.keepOrder)) ? '' : '<button type="button" class="button ghost" data-action="flashcard-reshuffle">🔀 Shuffle</button>'}
           </div>
           <p class="fc-kbd">Space flips · ← → move through the deck</p>
@@ -18572,98 +18601,40 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             }
 
             function flashcardAdaptiveChoiceModal() {
-                const ids = Array.isArray(modal.scopeDeckIds) ? modal.scopeDeckIds : [];
-                const label = modal.scopeLabel || 'Selected flashcards';
-                const attrs = ' data-scope-decks="' + escape(ids.join(',')) + '" data-scope-label="' + escape(label) +
-                    '" data-scope-kind="' + escape(modal.scopeKind || 'all') + '"';
-                const option = (mode, icon, title, desc) => '<button type="button" class="button" style="justify-content:flex-start;padding:15px;height:auto;white-space:normal" data-action="flashcard-start-adaptive" data-mode="' +
-                    mode + '"' + attrs + '><div style="text-align:left"><strong>' + icon + ' ' + title +
-                    '</strong><div class="small" style="margin-top:3px;font-weight:400">' + desc + '</div></div></button>';
-                const saved = adaptiveBankRecords(ids), weak = saved.filter(q => q.struggling).length;
-                const progress = saved.length ? '<p class="small">Saved AI questions: <strong>' + saved.length +
-                    '</strong> · Difficult objectives: <strong>' + weak + '</strong>. Progress is saved across devices.</p>' : '';
-                return modalShell('AI practice — ' + escape(label),
-                    '<p class="small">Questions are generated from your actual flashcards, not a generic topic summary. Dense cards can produce several independent questions. Every objective has its own review schedule: missed questions return sooner, while consistently correct answers are spaced further apart.</p>' +
-                    progress + '<div class="list">' +
-                    option('mixed', '🧠', 'Mixed practice', 'A mixture of AI-written multiple choice and short-answer questions, including explanation and application.') +
-                    option('mcq', '🔤', 'Multiple choice', 'Four carefully matched options. Distractors target related concepts and common misunderstandings.') +
-                    option('short', '✍️', 'Short answer', 'Write answers from memory. AI marks against the flashcards and accepts equivalent wording.') +
-                    '</div>',
-                    '<button type="button" class="button ghost" data-action="close-modal">Cancel</button>', true);
+                const ids=Array.isArray(modal.scopeDeckIds)?modal.scopeDeckIds:[],label=modal.scopeLabel||'Selected flashcards';
+                const attrs=' data-scope-decks="'+escape(ids.join(','))+'" data-scope-label="'+escape(label)+'" data-scope-kind="'+escape(modal.scopeKind||'all')+'"';
+                const option=(mode,icon,title,desc,primary)=>'<button type="button" class="button '+(primary?'primary':'ghost')+'" style="justify-content:flex-start;padding:15px;height:auto;white-space:normal" data-action="flashcard-start-adaptive" data-mode="'+mode+'"'+attrs+'><div style="text-align:left"><strong>'+icon+' '+title+'</strong><div class="small" style="margin-top:3px;font-weight:400">'+desc+'</div></div></button>';
+                const saved=adaptiveBankRecords(ids),weak=saved.filter(q=>q.struggling).length,progress=saved.length?'<p class="small">Saved learning objectives: <strong>'+saved.length+'</strong> · Difficult objectives: <strong>'+weak+'</strong>. All question types share one spaced-repetition history.</p>':'';
+                return modalShell('AI practice — '+escape(label),'<p class="small">One continuous adaptive feed, not separate mini-decks. It mixes precise definitions, multiple choice, written explanations, lists, timelines and diagram tasks. Diagram questions can ask you to identify, label, describe, complete or draw. Weak points are used to make more targeted follow-up questions.</p>'+progress+'<div class="list">'+
+                    option('mixed','🧠','Mixed adaptive practice','All supported question types, chosen from your flashcards and review history.',true)+
+                    option('definitions','📖','Definitions focus','Practise exact exam-ready definitions and the key terms they must contain.')+
+                    option('diagrams','📈','Diagram focus','Identify, label, describe, complete missing parts or draw whole diagrams.')+
+                    option('structured','🧾','Lists and timelines','Recall complete lists and put processes, stages or events in the correct order.')+
+                    option('mcq','🔤','Multiple choice only','Four carefully matched options and credible distractors.')+
+                    option('short','✍️','Written answers','Short answers, definitions, lists and written diagram questions.')+
+                    '</div>','<button type="button" class="button ghost" data-action="close-modal">Cancel</button>',true);
             }
-
             function flashcardTestChoiceModal(deckId) {
-                const deck = flashcardDeck(deckId);
-                if (!deck) return modalShell('Test', '<p class="empty">This deck no longer exists.</p>', `<button class="button" data-action="close-modal">Close</button>`);
-                const termCount = fcTermCards(deck).length;
-                const opt = (action, emoji, title, desc) => `<button type="button" class="${action === 'open-flashcard-adaptive-choice' ? 'button primary' : 'button'}" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="${action}" data-deck="${deck.id}"><div style="text-align:left"><strong>${emoji} ${title}</strong><div class="small" style="margin-top:2px;font-weight:400">${desc}</div></div></button>`;
-                const termOptions = termCount ? `
-            <button type="button" class="button" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-mcq-test" data-deck="${deck.id}"><div style="text-align:left"><strong>🔤 Multiple Choice</strong><div class="small" style="margin-top:2px;font-weight:400">Pick the right definition from 4 close, tricky options. Term cards only.</div></div></button>
-            ${termCount>=2?opt('flashcard-start-tf', '✅', 'True / False', 'Quick-fire definition questions. Term cards only.'):''}
-            ${opt('flashcard-start-cloze', '✏️', 'Fill in the Blank', 'A key word is blanked out of each definition. Term cards only.')}
-            ${termCount>=4?opt('flashcard-start-match','🧩','Match', 'Pair terms to their definitions against the clock.'):''}
-            ${termCount>=4?opt('flashcard-start-gravity','☄️','Gravity', "Type the term before its definition lands. Limited lives."):''}
-            ${opt('flashcard-start-listening', '🔊', 'Listening', 'Hear each term read aloud, then answer. Term cards only.')}` : '';
-                return modalShell(`Test: ${escape(deck.topic)}`,
-                    `<div class="alert" style="background:var(--primary-soft);color:var(--primary)"><strong>Smart Test covers every card type.</strong> Type your answers from memory and AI grades them against each card's own answer format. Lists, timelines, info cards and graph prompts are all included.</div>
-          <div class="list">
-            <button type="button" class="button primary" style="justify-content:flex-start;padding:16px;height:auto;white-space:normal" data-action="flashcard-start-smart-test" data-deck="${deck.id}"><div style="text-align:left"><strong>✍️ Smart Test</strong><div style="margin-top:2px;font-weight:400;font-size:12px;color:inherit;opacity:.9">Test every card in this deck, with AI grading tailored to its type. Retry yellow/red answers until you've learned them.</div></div></button>
-            ${opt('open-flashcard-adaptive-choice', '🧠', 'Adaptive AI Practice (recommended)', 'Endless mixed questions, meaningful retries, spaced relearning and progress insights.')}
-            ${termOptions}
-            ${deck.diagram&&deck.diagram.points.length?opt('flashcard-start-diagram','🖼','Diagram Labeling', 'Identify what each numbered point on your diagram is.'):''}
-            ${termCount>=3?opt('flashcard-start-examsim','⏱','Exam Simulation', `Timed mixed round (~${Math.round(Math.max(120,termCount*25)/60)} min) using term cards.`):''}
-          </div>`,
-                    `<button type="button" class="button ghost" data-action="close-modal">Cancel</button>`, true);
+                const deck=flashcardDeck(deckId);if(!deck)return modalShell('Test','<p class="empty">This deck no longer exists.</p>','<button class="button" data-action="close-modal">Close</button>');
+                const ids=[deck.id],saved=adaptiveBankRecords(ids),attrs=' data-scope-decks="'+escape(ids.join(','))+'" data-scope-label="'+escape(deck.topic)+'" data-scope-kind="deck"';
+                const option=(mode,icon,title,desc)=>'<button type="button" class="button ghost" style="justify-content:flex-start;padding:15px;height:auto;white-space:normal" data-action="flashcard-start-adaptive" data-mode="'+mode+'"'+attrs+'><div style="text-align:left"><strong>'+icon+' '+title+'</strong><div class="small">'+desc+'</div></div></button>';
+                return modalShell('Adaptive practice — '+escape(deck.topic),'<p class="small">The deck is tested through one continuous feed. All question types share the same objective-level spaced-repetition history; there is no separate card-level review schedule.</p>'+
+                    (saved.length?'<p class="small">Saved objectives: <strong>'+saved.length+'</strong> · Secure: <strong>'+saved.filter(adaptiveIsMastered).length+'</strong></p>':'')+
+                    '<div class="list">'+option('mixed','🧠','Mixed adaptive practice','Definitions, MCQs, written answers, lists, timelines and targeted diagram practice.')+
+                    option('definitions','📖','Definitions focus','Memorise precise definitions and essential exam terminology.')+
+                    option('diagrams','📈','Diagram focus','Label, identify, describe, complete missing parts or draw diagrams.')+
+                    option('structured','🧾','Lists and timelines','Recall required points and put processes into order.')+
+                    '</div>','<button type="button" class="button ghost" data-action="close-modal">Cancel</button>',true);
             }
-
-
-
-            // ---- Flashcards: per-card SRS (SM-2-lite) + Memory Score --------------------------------
-            // Additive fields on card objects (card.srs, card.known) — rides the existing whole-blob
-            // study_state sync, no schema change, and never read by classTopicReviewInterval/isClassTopicDue
-            // (those only ever touch state.classTopics, a separate array) so this can't regress the
-            // existing topic-level review scheduling.
-            function srsDefaultForCard() { return { dueDate: null, interval: 0, ease: 2.5, reps: 0, lastReviewed: null }; }
-            function ensureCardSrs(card) { if (!card.srs) card.srs = srsDefaultForCard(); return card.srs; }
-            function isCardDue(card) { return !card.srs || !card.srs.dueDate || Date.now() >= card.srs.dueDate; }
-            function dueCardsForDeck(deck) { return fcScopeCards(deck).filter(isCardDue); }
-            function scheduleCardReview(card, grade) { const srs = ensureCardSrs(card);
-                if (grade === 'again') { srs.reps = 0; srs.interval = 0; srs.ease = Math.max(1.3, srs.ease - 0.2);
-                    srs.lapses = (srs.lapses || 0) + 1; // survives the reps reset above, so weakCardsForDeck can still tell "keeps failing" from "just started"
-                    srs.dueDate = Date.now() + 10 * 60 * 1000; }
-                else { srs.reps = (srs.reps || 0) + 1;
-                    if (grade === 'hard') { srs.ease = Math.max(1.3, srs.ease - 0.15); srs.interval = Math.max(1, Math.round((srs.interval || 1) * 1.2)); }
-                    else if (grade === 'good') srs.interval = srs.reps <= 1 ? 1 : Math.round((srs.interval || 1) * srs.ease);
-                    else { srs.ease += 0.15; srs.interval = Math.max(1, Math.round((srs.interval || 1) * srs.ease * 1.3)); }
-                    srs.dueDate = Date.now() + srs.interval * 24 * 60 * 60 * 1000; }
-                srs.lastReviewed = Date.now(); schedulePublicStatsSync(); }
-            function deckMemoryScore(deck) { if (!deck.cards.length) return 0;
-                const per = deck.cards.map(c => { if (!c.srs || !c.srs.reps) return c.known ? 40 : 0;
-                    return Math.round(Math.min(60, c.srs.interval * 4) + Math.min(25, (c.srs.ease - 1.3) * 20) + Math.min(15, c.srs.reps * 3)); });
-                return Math.round(per.reduce((a, b) => a + b, 0) / per.length); }
-            function toggleCardKnown(deckId, cardId) { const deck = flashcardDeck(deckId); if (!deck) return;
-                const card = deck.cards.find(c => c.id === cardId); if (!card) return;
-                card.known = !card.known; save(); render(); schedulePublicStatsSync(); }
-
-            // ---- Chat rooms: push this user's own stats to user_public_stats, debounced so a burst of
-            // card reviews (a whole Match/Gravity/Cloze session) doesn't fire one request per review —
-            // no AI involved, just a plain table upsert, and it's the only network call anywhere in the
-            // new flashcard features that isn't gated behind an explicit user action.
             let publicStatsSyncTimer = null;
             function schedulePublicStatsSync() { if (!currentUser) return;
                 if (publicStatsSyncTimer) clearTimeout(publicStatsSyncTimer);
                 publicStatsSyncTimer = setTimeout(syncPublicStats, 4000); }
-            async function syncPublicStats() { if (!currentUser) return;
-                const streak = computeStudyStreak();
-                if (streak > state.longestStudyStreak) { state.longestStudyStreak = streak; save(); }
-                let cardsReviewed = 0, memoryPoints = 0;
-                state.flashcardDecks.forEach(d => { d.cards.forEach(c => { if (c.srs && c.srs.reps) cardsReviewed += c.srs.reps; });
-                    memoryPoints += Math.round(deckMemoryScore(d) * d.cards.length / 100); });
-                try { await supabaseClient.from('user_public_stats').upsert({ user_id: currentUser.id,
-                    streak_days: streak, longest_streak: state.longestStudyStreak,
-                    cards_reviewed_total: cardsReviewed, memory_points: memoryPoints }); } catch (err) {} }
-
-            // ---- Flashcards: audio pronunciation (Web Speech API — free, no backend/API cost) --------
+            async function syncPublicStats() {
+                if(!currentUser)return;const streak=computeStudyStreak();if(streak>state.longestStudyStreak){state.longestStudyStreak=streak;save();}
+                const bank=(state.flashcardDecks||[]).flatMap(deck=>adaptiveBankForDeck(deck)),questionsReviewed=bank.reduce((total,q)=>total+Number(q.attempts||0),0),masteredObjectives=bank.filter(adaptiveIsMastered).length;
+                try{await supabaseClient.from('user_public_stats').upsert({user_id:currentUser.id,streak_days:streak,longest_streak:state.longestStudyStreak,cards_reviewed_total:questionsReviewed,memory_points:masteredObjectives});}catch(err){}
+            }
             function speakText(text) { if (!state.settings.flashcardTtsEnabled || !('speechSynthesis' in window) || !text) return;
                 try { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; window.speechSynthesis.speak(u); } catch {} }
 
@@ -18762,7 +18733,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             function endGravityWord(correct) { const s = flashcardStudySession; if (!s) return;
                 if (gravityTimeoutId) { clearTimeout(gravityTimeoutId); gravityTimeoutId = null; }
                 const q = s.queue[s.index], card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id);
-                if (card) scheduleCardReview(card, correct ? 'good' : 'again');
+                
                 save();
                 if (correct) s.score++; else s.lives--;
                 if (s.lives <= 0 || s.index >= s.queue.length - 1) { s.phase = 'results'; render(); return; }
@@ -18809,39 +18780,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
         <div class="flashcard-nav"><span class="flashcard-progress">${sess.index+1} / ${sess.queue.length}</span></div>
         </div>`; }
 
-            // ---- Flashcards: per-card SRS review session (Review due cards) -------------------------
-            function startFlashcardSrsReview(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
-                const due = dueCardsForDeck(deck); if (!due.length) { toast('No cards due for review right now — nice work.'); return; }
-                flashcardStudySession = { mode: 'srs-review', deckId, label: 'Review Due Cards', queue: fcOrd(deck, due).map(c => ({ id: c.id })), index: 0, flipped: false };
-                render(); }
-
-            // ---- Flashcards: weak-topic detector — entirely derived from existing per-card SRS data
-            // (2+ lapses, or a low ease surviving even after a pass, is a direct proxy for "keeps getting
-            // this wrong" — interval/reps alone aren't enough, since a card fails 'again' resets reps to 0,
-            // and a single correct review always starts at interval 1 regardless of how easy it was), so
-            // this costs zero AI calls. Reuses the srs-review session/UI verbatim — "weak cards" is just a
-            // different queue (and label) into the same review flow.
-            function weakCardsForDeck(deck) { return fcScopeCards(deck).filter(c => c.srs && ((c.srs.lapses || 0) >= 2 || (c.srs.reps > 0 && c.srs.ease <= 1.5))); }
-            function startFlashcardWeakReview(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
-                const weak = weakCardsForDeck(deck); if (!weak.length) { toast('No weak cards right now — nice work.'); return; }
-                flashcardStudySession = { mode: 'srs-review', deckId, label: 'Practice Weak Cards', queue: fcOrd(deck, weak).map(c => ({ id: c.id })), index: 0, flipped: false };
-                render(); }
-function renderSrsReviewSession(sess) { const deck = flashcardDeck(sess.deckId), label = sess.label || 'Review Due Cards';
-                while (sess.index < sess.queue.length && !deck.cards.find(c => c.id === sess.queue[sess.index].id)) sess.index++;
-                if (sess.index >= sess.queue.length) return `<div class="fc-wrap narrow">${fcTopbar(`${label} — done`, deck ? escape(deck.topic) : '', 100)}<div class="fc-done"><div class="fc-done-emoji">✅</div><h2>All done for now</h2><p class="muted">Your cards have been rescheduled based on how you rated them.</p><button type="button" class="button primary" style="margin-top:16px" data-action="flashcard-exit-session">Back to deck</button></div></div>`;
-                const card = deck.cards.find(c => c.id === sess.queue[sess.index].id);
-                return `<div class="fc-wrap">${fcTopbar(label, deck ? escape(deck.topic) : '', sess.index / sess.queue.length * 100)}
-          ${fcFacesHtml(card, sess.flipped)}
-          <div class="fc-grades" ${sess.flipped ? '' : 'hidden'}>
-            <button type="button" class="button ghost danger" data-action="flashcard-srs-grade" data-grade="again">Again <span class="small">1</span></button>
-            <button type="button" class="button ghost" data-action="flashcard-srs-grade" data-grade="hard">Hard <span class="small">2</span></button>
-            <button type="button" class="button" data-action="flashcard-srs-grade" data-grade="good">Good <span class="small">3</span></button>
-            <button type="button" class="button primary" data-action="flashcard-srs-grade" data-grade="easy">Easy <span class="small">4</span></button>
-          </div>
-          <p class="fc-kbd">${sess.index + 1} / ${sess.queue.length} · Space flips, then 1–4 to rate</p>
-        </div>`; }
-
-                        // ---- Flashcards: Diagram labelling (one image + labelled points, per deck) --------------
+            // ---- Flashcards: Diagram labelling (one image + labelled points, per deck) --------------
             function openDiagramEditor(deckId) { const deck = flashcardDeck(deckId); if (!deck) return;
                 if (!deck.diagram) deck.diagram = { imageDataUrl: null, points: [] };
                 openModal('flashcard-diagram-editor', { deckId }); }
@@ -24819,12 +24758,17 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcard-delete-card') { deleteFlashcardCard(b.dataset.deck, b.dataset.card); render(); }
                 else if (a === 'flashcard-delete-deck') { if (confirm('Delete this whole topic and all its flashcards?')) { deleteFlashcardDeck(b.dataset.deck); flashcardsSelectedDeckId = null; render(); } }
                 else if (a === 'flashcard-start-clickthrough') startFlashcardClickThrough(b.dataset.deck);
-                else if (a === 'open-flashcard-test-choice') openModal('flashcard-test-choice', { deckId: b.dataset.deck });
+                else if (a === 'open-flashcard-test-choice') openFlashcardAdaptiveChoice(b.dataset.deck);
                 else if (a === 'open-flashcard-adaptive-choice') openFlashcardAdaptiveChoice(b.dataset.deck, b.dataset.subject, b.dataset.scope);
                 else if (a === 'flashcard-start-adaptive') startAdaptiveAiPractice(String(b.dataset.scopeDecks || '').split(',').filter(Boolean), b.dataset.scopeLabel, b.dataset.scopeKind, b.dataset.mode);
                 else if (a === 'flashcard-adaptive-select') answerAdaptiveMcq(b.dataset.choiceIndex);
                 else if (a === 'flashcard-adaptive-submit') submitAdaptiveShortAnswer();
                 else if (a === 'flashcard-adaptive-next') advanceAdaptiveAiPractice();
+                else if (a === 'flashcard-adaptive-open-board') adaptiveOpenDiagramBoard();
+                else if (a === 'flashcard-adaptive-submit-diagram') submitAdaptiveDiagramAnswer();
+                else if (a === 'flashcard-adaptive-submit-labels') submitAdaptiveLabelAnswer();
+                else if (a === 'flashcard-adaptive-submit-timeline') submitAdaptiveTimeline();
+                else if (a === 'flashcard-adaptive-timeline-move') adaptiveMoveTimelineItem(b.dataset.index, b.dataset.direction);
                 else if (a === 'flashcard-adaptive-reload') startAdaptiveAiPractice(flashcardStudySession?.scopeDeckIds || [], flashcardStudySession?.scopeLabel || '', flashcardStudySession?.scopeKind || 'all', flashcardStudySession?.typeMode || 'mixed');
                 else if (a === 'flashcard-start-smart-test') startFlashcardSmartTest(b.dataset.deck);
                 else if (a === 'flashcard-start-mcq-test') startFlashcardMcqTest(b.dataset.deck);
@@ -24903,26 +24847,19 @@ If the user asks about how to study or study methods generally, answer from your
                     if (s.index < s.questions.length - 1) { s.index++; render(); } else { recordMcqRun(s); s.phase = 'results'; render(); } }
                 else if (a === 'flashcard-speak') { const s = flashcardStudySession; const card = s?.cards ? s.cards[s.index] : null;
                     if (card) speakText(s.flipped ? card.back : card.front); }
-                else if (a === 'flashcard-toggle-known') toggleCardKnown(b.dataset.deck, b.dataset.card);
-                else if (a === 'flashcard-start-srs-review') startFlashcardSrsReview(b.dataset.deck);
-                else if (a === 'flashcard-start-weak-review') startFlashcardWeakReview(b.dataset.deck);
-                else if (a === 'flashcard-srs-grade') { const s = flashcardStudySession; if (!s || s.mode !== 'srs-review') return;
-                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === s.queue[s.index].id);
-                    if (card) scheduleCardReview(card, b.dataset.grade);
-                    s.index++; s.flipped = false; fcSlideDir = 'next'; save(); render(); }
                 else if (a === 'flashcard-start-tf') startFlashcardTf(b.dataset.deck);
                 else if (a === 'flashcard-tf-answer') { const s = flashcardStudySession; if (!s || s.mode !== 'tf') return;
                     const q = s.questions[s.index]; if (q.answered != null) return;
                     const val = b.dataset.value === 'true'; q.answered = val;
                     const correct = val === q.isTrue; if (correct) s.score = (s.score || 0) + 1;
-                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id); if (card) scheduleCardReview(card, correct ? 'good' : 'again');
+                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id); 
                     save(); render(); }
                 else if (a === 'flashcard-tf-next') { const s = flashcardStudySession; if (!s) return; s.index++; render(); }
                 else if (a === 'flashcard-start-cloze') startFlashcardCloze(b.dataset.deck);
                 else if (a === 'flashcard-cloze-check') { const s = flashcardStudySession; if (!s || s.mode !== 'cloze') return;
                     const q = s.queue[s.index], val = (document.getElementById('flashcard-cloze-answer')?.value || '').trim().toLowerCase();
                     s.lastCorrect = val === q.answer.toLowerCase(); s.revealed = true; if (s.lastCorrect) s.score++;
-                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id); if (card) scheduleCardReview(card, s.lastCorrect ? 'good' : 'again');
+                    const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id); 
                     save(); render(); }
                 else if (a === 'flashcard-cloze-next') { const s = flashcardStudySession; if (!s) return; s.index++; s.revealed = false; render(); }
                 else if (a === 'flashcard-start-match') startFlashcardMatch(b.dataset.deck);
@@ -24943,7 +24880,7 @@ If the user asks about how to study or study methods generally, answer from your
                 else if (a === 'flashcard-listening-mark') { const s = flashcardStudySession; if (!s) return;
                     const q = s.queue[s.index], knew = b.dataset.value === 'yes';
                     const card = flashcardDeck(s.deckId)?.cards.find(c => c.id === q.id);
-                    if (card) { card.known = knew; scheduleCardReview(card, knew ? 'good' : 'again'); }
+                    
                     s.index++; s.revealed = false; save(); render();
                     const next = flashcardStudySession; if (next?.mode === 'listening' && next.index < next.queue.length) setTimeout(() => speakText(next.queue[next.index].front), 200); }
                 else if (a === 'open-diagram-editor') openDiagramEditor(b.dataset.deck);
@@ -25104,9 +25041,6 @@ If the user asks about how to study or study methods generally, answer from your
                     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); flip(); }
                     else if (e.key === 'ArrowRight') { e.preventDefault(); fcStep(1); }
                     else if (e.key === 'ArrowLeft') { e.preventDefault(); fcStep(-1); }
-                } else if (s.mode === 'srs-review') {
-                    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
-                    else if (s.flipped && /^[1-4]$/.test(e.key)) document.querySelector(`[data-action="flashcard-srs-grade"][data-grade="${['again', 'hard', 'good', 'easy'][Number(e.key) - 1]}"]`)?.click();
                 } });
             document.addEventListener('keydown', e => { if (e.key !== 'Enter' || !e.target.dataset || e.target.dataset.fcBox === undefined) return; e.preventDefault();
                 const next = document.querySelector(`[data-fc-box="${Number(e.target.dataset.fcBox) + 1}"]`); if (next) next.focus(); else document.querySelector('[data-action="fc-struct-check"]')?.click(); });
