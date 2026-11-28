@@ -21874,7 +21874,7 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
             // ----------------------------------------------------------------------
             const AI_TOOLS = {
                 read_app_state: {
-                    description: "Read the user's full current app data: settings, subjects, timetable events, tasks, exams/tests (with recorded results), class topics (what's currently/previously been covered in each class — see classTopics), spaced-repetition topics, reminders, holidays/days-off, past papers and their results, language word/verb banks, flashcard decks, essay marking history, CAO course shortlist, exam-linked tasks/milestones, game high scores, coins/closet unlocks, today's date, and the currently viewed week. Call this first whenever you need real ids, existing schedule details, or anything you are not already certain of from earlier in the conversation — this always reflects the app's current feature set, so re-check it rather than assuming from earlier in the conversation what data shapes or features exist.",
+                    description: "Read the user's current planner data needed for timetable and study planning: settings, subjects, timetable events, tasks, exams/tests and results, class topics, spaced-repetition topics, reminders, holidays/days-off, past papers, CAO shortlist, exam-linked tasks, recent study sessions, and game summary. Large learning libraries (full flashcards, vocabulary, verbs, synonyms, and essay-marking records) are deliberately not included here; use read_learning_resources when the user asks about those. Call this first whenever you need real ids or current schedule details.",
                     parameters: { type: "OBJECT", properties: {} },
                     handler: () => ({
                         today: localDate(),
@@ -21890,16 +21890,23 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                         reminders: state.reminders,
                         holidays: state.holidays,
                         pastPapers: state.pastPapers,
-                        wordbankVocab: state.wordbankVocab,
-                        wordbankVerbs: state.wordbankVerbs,
-                        wordbankLearnedTenses: state.wordbankLearnedTenses,
-                        wordbankSynonyms: state.wordbankSynonyms,
-                        essayMarks: state.essayMarks,
-                        flashcardDecks: state.flashcardDecks,
+                        wordbankSummary: state.subjects.map(s => ({
+                            subjectId: s.id, subject: s.name,
+                            vocabulary: state.wordbankVocab.filter(x => x.subjectId === s.id).length,
+                            verbs: state.wordbankVerbs.filter(x => x.subjectId === s.id).length,
+                            synonyms: state.wordbankSynonyms.filter(x => x.subjectId === s.id).length,
+                            learnedTenses: (state.wordbankLearnedTenses[s.id] || []).length
+                        })).filter(x => x.vocabulary || x.verbs || x.synonyms || x.learnedTenses),
+                        flashcardDecks: state.flashcardDecks.slice(0, 150).map(d => ({
+                            id: d.id, subjectId: d.subjectId, topic: d.topic,
+                            cardCount: (d.cards || []).length
+                        })),
+                        flashcardDeckCount: state.flashcardDecks.length,
                         flashcardFolders: state.flashcardFolders,
+                        essayMarkCount: state.essayMarks.length,
                         caoCourses: state.caoCourses,
                         examTasks: state.examTasks,
-                        studySessionLog: state.studySessionLog,
+                        studySessionLog: state.studySessionLog.slice(-30),
                         longestStudyStreak: state.longestStudyStreak,
                         coins: state.coins,
                         equippedColor: state.equippedColor,
@@ -21908,6 +21915,70 @@ function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null;
                         gameHighScores: state.gameHighScores,
                         gameWins: state.gameWins
                     })
+                },
+
+                read_learning_resources: {
+                    description: "Read a specific part of the user's learning libraries without loading every card or word into the chat. Use kind 'flashcards' to list deck summaries, or pass deckId to read that deck's cards in pages. Use 'vocabulary', 'verbs', 'synonyms', or 'essayMarks' to read those records, optionally filtered by subjectId and query. Results are paginated; use offset to request the next page. Call only when the user asks about that material.",
+                    parameters: {
+                        type: "OBJECT",
+                        properties: {
+                            kind: { type: "STRING", enum: ["flashcards", "vocabulary", "verbs", "synonyms", "essayMarks"] },
+                            subjectId: { type: "STRING", description: "Optional subject id to restrict results." },
+                            deckId: { type: "STRING", description: "For kind flashcards, the id of one deck whose cards should be returned. Omit to list deck summaries." },
+                            topic: { type: "STRING", description: "Optional deck topic filter for flashcards." },
+                            query: { type: "STRING", description: "Optional text filter (case-insensitive) for the selected records." },
+                            offset: { type: "INTEGER", description: "Zero-based result offset; defaults to 0." },
+                            limit: { type: "INTEGER", description: "Number of records to return (maximum 40; defaults to 20)." }
+                        },
+                        required: ["kind"]
+                    },
+                    handler: (args) => {
+                        const kind = args.kind;
+                        if (!["flashcards", "vocabulary", "verbs", "synonyms", "essayMarks"].includes(kind))
+                            return { error: "Choose flashcards, vocabulary, verbs, synonyms, or essayMarks." };
+                        const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
+                        const limit = Math.min(40, Math.max(1, Math.floor(Number(args.limit) || 20)));
+                        const subjectId = String(args.subjectId || "");
+                        const query = String(args.query || args.topic || "").trim().toLowerCase();
+                        const matches = (value) => !query || String(value || "").toLowerCase().includes(query);
+                        if (subjectId && !subject(subjectId)) return { error: "No subject found with that id." };
+
+                        if (kind === "flashcards") {
+                            let decks = state.flashcardDecks.filter(d =>
+                                (!subjectId || d.subjectId === subjectId) && matches(d.topic));
+                            if (args.deckId) {
+                                const deck = decks.find(d => d.id === args.deckId);
+                                if (!deck) return { error: "No matching flashcard deck found." };
+                                const cards = deck.cards || [];
+                                const items = cards.slice(offset, offset + limit).map(c => ({
+                                    id: c.id, front: c.front, back: c.back,
+                                    ...(c.type ? { type: c.type, data: c.data } : {})
+                                }));
+                                return { kind, deck: { id: deck.id, subjectId: deck.subjectId, topic: deck.topic },
+                                    total: cards.length, offset, limit, hasMore: offset + items.length < cards.length, items };
+                            }
+                            const items = decks.slice(offset, offset + limit).map(d => ({
+                                id: d.id, subjectId: d.subjectId, topic: d.topic, cardCount: (d.cards || []).length
+                            }));
+                            return { kind, total: decks.length, offset, limit,
+                                hasMore: offset + items.length < decks.length, items };
+                        }
+
+                        const source = kind === "vocabulary" ? state.wordbankVocab :
+                            kind === "verbs" ? state.wordbankVerbs :
+                            kind === "synonyms" ? state.wordbankSynonyms : state.essayMarks;
+                        const filtered = source.filter(x => (!subjectId || x.subjectId === subjectId) &&
+                            (kind === "vocabulary" ? matches(x.phrase) || matches(x.english) :
+                             kind === "verbs" ? matches(x.infinitive) || matches(x.english) :
+                             kind === "synonyms" ? matches(x.word) || (x.synonyms || []).some(matches) :
+                             matches(x.text) || matches(x.overallComment)));
+                        const items = filtered.slice(offset, offset + limit).map(x => {
+                            if (kind === "essayMarks") return { ...x, text: String(x.text || "").slice(0, 1800) };
+                            return x;
+                        });
+                        return { kind, total: filtered.length, offset, limit,
+                            hasMore: offset + items.length < filtered.length, items };
+                    }
                 },
 
                 add_class_topic: {
@@ -22603,7 +22674,7 @@ The [CONFIRM] marker is only for these photo-identification/action-proposal mome
 
 For everything else you can take real action in the app using the tools available to you — adding, editing, or deleting timetable events, tasks, holidays, exams, and settings; finding free time; switching views; and changing which week is shown. Always prefer the specific tool for a job (e.g. add_event) over the generic apply_state_patch escape hatch, which exists only for things the other tools don't cover.
 
-Call read_app_state whenever you need real ids or the actual current schedule before making a change — never guess an id or assume what's already on the timetable. When a request is ambiguous about timing, use find_free_slot or find_replacement_options rather than guessing a time that might clash. After taking action, briefly confirm in plain, friendly language what you did — you don't need to narrate which tool you called.
+Call read_app_state whenever you need real ids or the actual current schedule before making a change — never guess an id or assume what's already on the timetable. It intentionally returns only summaries for large learning libraries. If the user asks about actual flashcards, vocabulary, verbs, synonyms, or essay-marking records, use read_learning_resources to fetch only the relevant subject/deck and request additional pages with offset only when needed. Never try to load every deck or every word-bank entry at once. When a request is ambiguous about timing, use find_free_slot or find_replacement_options rather than guessing a time that might clash. After taking action, briefly confirm in plain, friendly language what you did — you don't need to narrate which tool you called.
 
 If the user asks about how to study or study methods generally, answer from your own knowledge, briefly and adapted to their actual question — the app's Study page plans the specifics automatically now, so you don't need to (and there's no embedded personal study guide to draw from any more).`;
 
@@ -22764,7 +22835,44 @@ If the user asks about how to study or study methods generally, answer from your
                 });
             }
 
+            // Keep the chat context useful without resending an unbounded transcript on every turn.
+            // Large learning libraries are fetched on demand via read_learning_resources, so old
+            // tool results should never be allowed to accumulate indefinitely here.
+            function compactAiConversationForNextTurn() {
+                const userTurnIndexes = () => aiConversation
+                    .map((m, i) => m.role === 'user' && !m._toolResult ? i : -1)
+                    .filter(i => i >= 0);
+                let starts = userTurnIndexes();
+                if (starts.length > 8) aiConversation = aiConversation.slice(starts[starts.length - 8]);
+
+                starts = userTurnIndexes();
+                const latestUserTurn = starts.length ? starts[starts.length - 1] : -1;
+                aiConversation = aiConversation.map((message, index) => {
+                    if (index === latestUserTurn || !Array.isArray(message.parts)) return message;
+                    const hadImage = message.parts.some(p => p.inlineData);
+                    if (!hadImage) return message;
+                    return { ...message, parts: message.parts
+                        .filter(p => !p.inlineData)
+                        .concat([{ text: '[An earlier attached image was omitted from the retained chat history.]' }]) };
+                });
+
+                // Enforce a conservative client-side context budget. Remove complete oldest
+                // user turns (including their model/tool replies), never the turn currently
+                // being handled. This is separate from the server's HTTP body-size limit.
+                while (starts.length > 1 && JSON.stringify(aiConversation).length > 140000) {
+                    aiConversation = aiConversation.slice(starts[1]);
+                    starts = userTurnIndexes();
+                }
+                if (JSON.stringify(aiConversation).length > 180000 && starts.length) {
+                    const lastStart = starts[starts.length - 1];
+                    aiConversation = aiConversation.map((message, index) => index === lastStart && Array.isArray(message.parts)
+                        ? { ...message, parts: message.parts.filter(p => !p.inlineData).concat([{ text: '[Earlier image omitted to keep the request within size limits.]' }]) }
+                        : message);
+                }
+            }
+
             async function processUserPrompt(userInput, loadingElement, image) {
+                compactAiConversationForNextTurn();
                 // Doesn't go through the data-action click dispatcher (the send button has its own
                 // direct listener), so it needs its own explicit log -- see the capture-phase
                 // listener near the end of this file for every action-driven feature.
