@@ -2797,6 +2797,10 @@
         .fc-listcard .fc-idx { color: var(--muted); font-size: 12px; font-weight: 700; min-width: 20px; padding-top: 2px; }
         .fc-listcard .fc-listtext { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
         .fc-face.back.rich { align-items: flex-start; justify-content: flex-start; text-align: left; white-space: normal; font-weight: 500; font-size: clamp(16px, 1.9vw, 22px); padding-top: 52px; }
+        /* Synonym word-bank cards use the normal definition-style centred layout, not rich-list formatting. */
+        .fc-face.back.rich.synonym { align-items: center; justify-content: center; text-align: center; font-size: clamp(24px, 3vw, 34px); font-weight: 600; padding: 56px 40px 40px; }
+        .fc-synonym-answer { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: 100%; }
+        .fc-synonym-answer span { display: block; }
         .fc-face.back.rich ul, .fc-face.back.rich ol { margin: 4px 0 10px; padding-left: 24px; }
         .fc-face.back.rich li { margin: 3px 0; }
         .fc-face.back.rich h4 { margin: 10px 0 2px; font-size: 1em; color: var(--primary); }
@@ -17154,7 +17158,7 @@ function renderFlashcardDeckDetail() { const deck = flashcardDeck(flashcardsSele
                 if (o.kind === 'vocab') cards = wbOrder(vocabFor(s.id), keep).map(v => o.frontSide === 'english' ? { id: v.id, front: v.english, back: v.phrase, labels: ['English', s.name] } : { id: v.id, front: v.phrase, back: v.english, labels: [s.name, 'English'] });
                 else if (o.kind === 'verbs') cards = wbOrder(verbsFor(s.id), keep).map(v => { const head = `<p style="margin:0 0 8px"><strong>${escape(v.infinitive)}</strong> — ${escape(v.english)}</p>`, table = wbConjTableHtml(v, s, o.tenses);
                     return o.frontSide === 'target' ? { id: v.id, front: v.infinitive, back: v.english, backHtml: head + table, labels: [`${s.name} infinitive`, 'English & conjugations'] } : { id: v.id, front: v.english, back: v.infinitive, backHtml: head + table, labels: ['English', 'Infinitive & conjugations'] }; });
-                else cards = wbOrder(synonymsFor(s.id), keep).map(x => ({ id: x.id, front: x.word, back: x.synonyms.join(', '), backHtml: `<ul>${x.synonyms.map(y => `<li>${escape(y)}</li>`).join('')}</ul>`, labels: [`${s.name} word`, 'Other ways of saying it'] }));
+                else cards = wbOrder(synonymsFor(s.id), keep).map(x => ({ id: x.id, front: x.word, back: x.synonyms.join(', '), backHtml: `<div class="fc-synonym-answer">${x.synonyms.map(y => `<span>${escape(y)}</span>`).join('')}</div>`, backClass: 'synonym', labels: [`${s.name} word`, 'Other ways of saying it'] }));
                 return cards; }
             function wbBuildQuestions(o) { const s = subject(o.subjectId), keep = !!o.keepOrder, lim = (a) => o.count === 'all' ? a : a.slice(0, Number(o.count)); let qs = [], skipped = 0;
                 const wordQ = (id, tgt, eng, kindLabel) => o.testSide === 'target' ? { kind: 'word', id, prompt: eng, expected: wbAlts(tgt), show: tgt, english: false, hint: `Type it in ${s.name}` }
@@ -18468,7 +18472,7 @@ Return ONLY compact JSON: {"results":[{"id":"...","verdict":"green"|"yellow"|"re
 function fcTopbar(title, sub, pct) { return `<div class="fc-topbar"><button type="button" class="button ghost" data-action="flashcard-exit-session" aria-label="Exit">✕</button><div class="fc-title"><strong>${title}</strong><span>${sub}</span></div></div>${pct != null ? `<div class="fc-progressbar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>` : ''}`; }
 
 function fcFacesHtml(card, flipped) { const dir = fcSlideDir; fcSlideDir = null; const t = FC_LABELS[card.type] ? card.type : 'term', lab = card.labels || FC_LABELS[t];
-                return `<div class="fc-scene ${dir ? 'fc-enter-' + dir : ''}"><div class="fc-card ${flipped ? 'flipped' : ''}" id="fc-card" data-action="flashcard-flip" role="button" tabindex="0" aria-label="Flip card"><div class="fc-face front"><span class="fc-label">${lab[0]}</span>${escape(card.front)}<span class="fc-hint">Click or press space to flip</span></div><div class="fc-face back ${t !== 'term' || card.backHtml ? 'rich' : ''}"><span class="fc-label">${lab[1]}</span>${fcBackHtml(card)}</div></div></div>`; }
+                return `<div class="fc-scene ${dir ? 'fc-enter-' + dir : ''}"><div class="fc-card ${flipped ? 'flipped' : ''}" id="fc-card" data-action="flashcard-flip" role="button" tabindex="0" aria-label="Flip card"><div class="fc-face front"><span class="fc-label">${lab[0]}</span>${escape(card.front)}<span class="fc-hint">Click or press space to flip</span></div><div class="fc-face back ${t !== 'term' || card.backHtml ? 'rich' : ''} ${card.backClass || ''}"><span class="fc-label">${lab[1]}</span>${fcBackHtml(card)}</div></div></div>`; }
 
                         // Moves one card forward/back with a quick slide-out, then a fresh render that slides the next card in.
             // (The flip itself never re-renders -- it just toggles a class -- so the 3D turn can animate.)
